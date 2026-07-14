@@ -596,7 +596,7 @@ function renderLog(){
     if(tb.rows.length>1){ tb.deleteRow(tb.rows.length-1); }
   });
   document.getElementById("exForm").querySelectorAll(".ex").forEach(card=>{
-    const ex=sess.exercises.find(e=>e.name===card.dataset.name);
+    const ex=sess.exercises[+card.dataset.ei];
     if(ex) wireExCard(card, ex);
   });
   document.getElementById("saveSession").onclick=saveSession;
@@ -611,7 +611,7 @@ function setRowHtml(n,ex,prevCell){
     + '<td><input data-c="0"'+im0+' value="" placeholder="'+esc(ex.cols[0])+'"></td>'
     + '<td><input data-c="1"'+im1+' value="" placeholder="'+esc(ex.cols[1])+'"></td>'
     + '<td class="prev">'+prevCell+'</td>'
-    + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#127942;</span></td></tr>';
+    + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
 function renderExForm(ex,ei,last,prevDate,plan){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
@@ -634,42 +634,50 @@ function addSetRow(btn){
   const card=btn.closest(".ex"); const ei=+card.dataset.ei;
   const ex=state.program.sessions[curSession].exercises[ei];
   const tb=card.querySelector("tbody");
-  const tr=tb.insertRow();
-  tr.outerHTML=setRowHtml(tb.rows.length, ex, "-");
-  wireSetRow(tb.rows[tb.rows.length-1], ex);
+  tb.insertAdjacentHTML("beforeend", setRowHtml(tb.rows.length+1, ex, "-"));
+  const tr=tb.rows[tb.rows.length-1];
+  wireSetRow(tr, ex, cardBestWeight(ex));
+  if(isLifting(ex)){
+    const firstWeight=tb.rows[0].querySelector('[data-c="0"]');
+    const w=tr.querySelector('[data-c="0"]');
+    if(firstWeight && firstWeight.value && w && !w.value) w.value=firstWeight.value;
+  }
 }
 
-function updateSetMedal(tr, ex){
+// Best saved weight is only recomputed once per card render/added row, not
+// per keystroke — it can't change until the session is saved.
+function cardBestWeight(ex){
+  return isLifting(ex) ? bestWeightSoFar(state.people[state.activePerson], ex.name) : -Infinity;
+}
+function updateSetMedal(tr, ex, best){
   const medal=tr.querySelector("[data-medal]");
   if(!medal) return;
-  if(!isLifting(ex)){ medal.hidden=true; return; }
   const w=parseFloat(tr.querySelector('[data-c="0"]').value);
-  const person=state.people[state.activePerson];
-  const best=bestWeightSoFar(person, ex.name);
-  medal.hidden = !(!isNaN(w) && best>-Infinity && w>best);
+  medal.hidden = !(isLifting(ex) && !isNaN(w) && best>-Infinity && w>best);
 }
-function wireSetRow(tr, ex){
+function wireSetRow(tr, ex, best){
   const cb=tr.querySelector("[data-done]");
   const weightInput=tr.querySelector('[data-c="0"]');
   const repsInput=tr.querySelector('[data-c="1"]');
   if(!cb) return;
-  cb.onchange=()=>{
+  cb.addEventListener("change", ()=>{
     tr.classList.toggle("done", cb.checked);
     if(cb.checked){
-      if(repsInput && !repsInput.value.trim()){
+      if(isLifting(ex) && repsInput && !repsInput.value.trim()){
         const range=parseRange(ex.target);
         if(range) repsInput.value=range.high;
       }
-      updateSetMedal(tr, ex);
+      updateSetMedal(tr, ex, best);
     } else {
       tr.querySelector("[data-medal]").hidden=true;
     }
-  };
-  if(weightInput) weightInput.oninput=()=>{ if(cb.checked) updateSetMedal(tr, ex); };
+  });
+  if(weightInput) weightInput.addEventListener("input", ()=>{ if(cb.checked) updateSetMedal(tr, ex, best); });
 }
 function wireExCard(card, ex){
   const tbody=card.querySelector("tbody");
-  Array.from(tbody.rows).forEach(tr=>wireSetRow(tr, ex));
+  const best=cardBestWeight(ex);
+  Array.from(tbody.rows).forEach(tr=>wireSetRow(tr, ex, best));
   const firstWeight = tbody.rows[0] && tbody.rows[0].querySelector('[data-c="0"]');
   if(firstWeight && isLifting(ex)){
     firstWeight.addEventListener("input", ()=>{
@@ -714,6 +722,7 @@ function saveSession(){
   volume=Math.round(volume);
   var prs=[];
   entries.forEach(function(en){
+    if(!isLifting(en)) return; // col-0 is only a weight (kg) for lifting entries
     var ws=en.rows.map(function(r){return parseFloat(r[0]);}).filter(function(v){return !isNaN(v);});
     if(!ws.length) return;
     var thisMax=Math.max.apply(null,ws);
