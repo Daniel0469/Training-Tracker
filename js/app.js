@@ -435,7 +435,7 @@ let state = load();
 if(!state.namesSet){ if(state.people[0]==="Me") state.people[0]="Daniel"; if(state.people[1]==="Partner") state.people[1]="Cerys"; state.namesSet=true; try{save();}catch(e){} }
 let activeTab = "log";
 let curSession = state.program.order[0];
-let curDate = new Date().toISOString().slice(0,10);
+let curDate = trainingDateStr();
 let justSavedId = null;
 // In-memory, per person+session drafts of the in-progress log form, so
 // switching person (or session) mid-entry doesn't wipe unsaved sets. Lets
@@ -465,6 +465,16 @@ function toast(msg){
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const possessive = n => /s$/i.test(n) ? n+"'" : n+"'s";
 const todayStr = ()=> new Date().toISOString().slice(0,10);
+// The training day rolls over at ~5am, not midnight: a session logged at 1am
+// Friday still belongs to Thursday's workout. Subtract the cutoff (in local
+// time) before reading the date, so the default log date + auto-selected
+// session both land on the right training day. `now` is injectable for tests.
+function trainingDateStr(now){
+  var d = now ? new Date(now) : new Date();
+  d.setHours(d.getHours()-5);
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+}
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
 function orderedKeys(){
   return state.program.order.slice().sort(function(a,b){
