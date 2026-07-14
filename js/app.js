@@ -804,6 +804,7 @@ function renderExForm(ex,ei,last,prevDate,plan,recent){
   return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'">'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + (ex.warmup?'<div class="warmup">Warm-up: '+esc(ex.warmup)+'</div>':"")
+    + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
     + '<table class="sets"><thead><tr><th></th><th>'+esc(ex.cols[0])+'</th><th>'+esc(ex.cols[1])+'</th>'
@@ -1019,7 +1020,7 @@ function renderEdit(){
       + '<button class="mini" data-addex="'+k+'">+ exercise</button></div>';
     s.exercises.forEach((ex,ei)=>{
       html+='<div class="ex"><div class="ex-head"><div><div class="ex-name">'+esc(ex.name)+'</div>'
-        + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+'</div></div>'
+        + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div>'
         + '<div class="row"><button class="mini" data-editex="'+k+':'+ei+'">Edit</button>'
         + '<button class="mini" data-upex="'+k+':'+ei+'">&uarr;</button>'
         + '<button class="mini" data-downex="'+k+':'+ei+'">&darr;</button>'
@@ -1056,6 +1057,7 @@ function openExDlg(sessionKey,ei){
   document.getElementById("exDlgTitle").textContent= editing?"Edit exercise":"Add exercise";
   document.getElementById("exName").value=ex.name;
   document.getElementById("exWarmup").value=ex.warmup||"";
+  document.getElementById("exNotes").value=ex.notes||"";
   document.getElementById("exTarget").value=ex.target||"";
   document.getElementById("exSets").value=ex.sets||3;
   document.getElementById("exCol0").value=ex.cols[0];
@@ -1067,6 +1069,7 @@ document.getElementById("exSave").onclick=()=>{
   const name=document.getElementById("exName").value.trim();
   if(!name){ toast("Name required"); return; }
   const ex={ name, warmup:document.getElementById("exWarmup").value.trim(),
+    notes:document.getElementById("exNotes").value.trim(),
     target:document.getElementById("exTarget").value.trim()||"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols:[document.getElementById("exCol0").value.trim()||"Weight (kg)",
