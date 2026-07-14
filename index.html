@@ -134,9 +134,15 @@
     <label class="fld grow">Target<input id="exTarget" type="text" placeholder="4x8-12"></label>
     <label class="fld" style="width:90px">Set rows<input id="exSets" type="number" min="1" max="12" value="3"></label>
   </div>
-  <div class="row" style="margin-bottom:14px">
-    <label class="fld grow">Column 1 label<input id="exCol0" type="text" value="Weight (kg)"></label>
-    <label class="fld grow">Column 2 label<input id="exCol1" type="text" value="Reps"></label>
+  <div class="row" style="margin-bottom:6px">
+    <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
+    <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
+    <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="—"></label>
+  </div>
+  <div class="row" style="margin-bottom:14px;gap:6px">
+    <span class="hint" style="margin:0">Presets:</span>
+    <button type="button" class="mini" id="exPresetLift">Lifting</button>
+    <button type="button" class="mini" id="exPresetRun">Running</button>
   </div>
   <div class="row" style="justify-content:flex-end">
     <button class="btn btn-ghost" id="exCancel">Cancel</button>

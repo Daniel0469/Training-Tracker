@@ -388,11 +388,12 @@ const DEFAULT_PROGRAM = {
         {
           "name": "Easy run (Zone 2)",
           "warmup": "",
-          "target": "20-25 min",
+          "target": "5 km",
           "sets": 1,
           "cols": [
-            "Pace",
-            "Time"
+            "Distance (km)",
+            "Time (mm:ss)",
+            "Pace"
           ]
         },
         {
@@ -491,6 +492,30 @@ function sessionForDate(dstr){
   return state.program.order.filter(function(k){return String(state.program.sessions[k].day||"").toLowerCase()===target;})[0];
 }
 function isLifting(ex){ return /kg|assist/i.test(ex.cols[0]) && /rep/i.test(ex.cols[1]); }
+// A running exercise carries both a distance and a time column (any order),
+// which lets us auto-compute pace. Rows are splits.
+function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(c=>/time/i.test(c)); }
+function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
+function parseTimeToMin(s){
+  s=String(s).trim(); if(!s) return NaN;
+  if(s.indexOf(":")>=0){ var p=s.split(":"); return (parseFloat(p[0])||0) + (parseFloat(p[1])||0)/60; }
+  return parseFloat(s); // bare number = decimal minutes
+}
+function fmtPace(minPerKm){
+  if(!isFinite(minPerKm)||minPerKm<=0) return "";
+  var m=Math.floor(minPerKm), s=Math.round((minPerKm-m)*60);
+  if(s===60){ m++; s=0; }
+  return m+":"+(s<10?"0":"")+s;
+}
+// Fill a running row's pace column (min/km) from its distance + time.
+function updatePace(tr, ex){
+  var di=colIndex(ex,/dist/i), ti=colIndex(ex,/time/i), pi=colIndex(ex,/pace/i);
+  if(di<0||ti<0||pi<0) return;
+  var dInp=tr.querySelector('[data-c="'+di+'"]'), tInp=tr.querySelector('[data-c="'+ti+'"]'), pInp=tr.querySelector('[data-c="'+pi+'"]');
+  if(!dInp||!tInp||!pInp) return;
+  var dist=parseFloat(dInp.value), tmin=parseTimeToMin(tInp.value);
+  pInp.value = (!isNaN(dist)&&dist>0&&!isNaN(tmin)&&tmin>0) ? fmtPace(tmin/dist) : "";
+}
 function parseRange(target){
   const m=String(target).match(/(\d+)\s*[-]\s*(\d+)/);
   return m? {low:+m[1],high:+m[2]} : null;
@@ -575,6 +600,17 @@ function latestEntryAnywhere(person, exName){
   });
   return bestLog ? {log:bestLog, entry:bestEntry} : null;
 }
+// Escaped display of one logged row across its columns. Lifting reads
+// "weight x reps"; anything else (cardio/running) joins its filled cells.
+function fmtRow(cols, r){
+  cols = cols||[];
+  const lift = /kg|assist/i.test(cols[0]||"") && /rep/i.test(cols[1]||"");
+  const n = Math.max(cols.length, r.length);
+  const vals=[]; for(let i=0;i<n;i++){ vals.push(r[i]==null?"":String(r[i]).trim()); }
+  if(lift) return esc(vals[0])+(vals[1]!==""?" x "+esc(vals[1]):"");
+  const ne=vals.filter(v=>v!=="");
+  return ne.length ? ne.map(esc).join(" / ") : "-";
+}
 function daysAgo(dateStr){
   return Math.round((new Date() - new Date(dateStr+"T12:00:00"))/86400000);
 }
@@ -604,11 +640,11 @@ function captureDraft(){
     const ei=+card.dataset.ei;
     const rows=[], done=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
-      const w=tr.querySelector('[data-c="0"]').value;
-      const r=tr.querySelector('[data-c="1"]').value;
+      const vals=[]; let rowHas=false;
+      tr.querySelectorAll('[data-c]').forEach(inp=>{ vals.push(inp.value); if(inp.value!=="") rowHas=true; });
       const dn=tr.querySelector('[data-done]').checked;
-      rows.push([w,r]); done.push(dn);
-      if(w!==""||r!==""||dn) any=true;
+      rows.push(vals); done.push(dn);
+      if(rowHas||dn) any=true;
     });
     entries[ei]={rows,done};
   });
@@ -638,8 +674,9 @@ function restoreDraft(){
     }
     d.rows.forEach((r,i)=>{
       const tr=tb.rows[i]; if(!tr) return;
-      tr.querySelector('[data-c="0"]').value=r[0];
-      tr.querySelector('[data-c="1"]').value=r[1];
+      const inputs=tr.querySelectorAll('[data-c]');
+      (r||[]).forEach((v,ci)=>{ if(inputs[ci]) inputs[ci].value=v; });
+      if(isRunning(ex)) updatePace(tr, ex);
       if(d.done[i]){
         const cb=tr.querySelector('[data-done]');
         cb.checked=true; tr.classList.add("done");
@@ -777,11 +814,15 @@ function renderLog(){
 
 function setRowHtml(n,ex,prevCell){
   const lifting = isLifting(ex);
-  const im0 = lifting ? ' inputmode="decimal"' : '';
-  const im1 = lifting ? ' inputmode="numeric"' : '';
-  return '<tr><td class="setno">'+n+'</td>'
-    + '<td><input data-c="0"'+im0+' value="" placeholder="'+esc(ex.cols[0])+'"></td>'
-    + '<td><input data-c="1"'+im1+' value="" placeholder="'+esc(ex.cols[1])+'"></td>'
+  const paceIdx = isRunning(ex) ? colIndex(ex,/pace/i) : -1;
+  let cells="";
+  ex.cols.forEach((c,ci)=>{
+    let attr="";
+    if(lifting) attr = (ci===0 ? ' inputmode="decimal"' : ' inputmode="numeric"');
+    if(ci===paceIdx) attr += ' readonly';
+    cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(c)+'"></td>';
+  });
+  return '<tr><td class="setno">'+n+'</td>'+cells
     + '<td class="prev">'+prevCell+'</td>'
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
@@ -819,7 +860,7 @@ function updateWarmup(card, ex){
 }
 function renderExForm(ex,ei,last,prevDate,plan,recent){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
-  const fmt = r => esc(r[0])+(r[1]!==""&&r[1]!=null?" x "+esc(r[1]):"");
+  const fmt = r => fmtRow(ex.cols, r);
   let body="";
   for(let i=0;i<rows;i++){
     const r = last && last.rows[i] ? last.rows[i] : null;
@@ -837,8 +878,8 @@ function renderExForm(ex,ei,last,prevDate,plan,recent){
     + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
-    + '<table class="sets"><thead><tr><th></th><th>'+esc(ex.cols[0])+'</th><th>'+esc(ex.cols[1])+'</th>'
-    + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table>'
+    + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
+    + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button></div></div>';
 }
@@ -885,6 +926,10 @@ function wireSetRow(tr, ex, best){
     }
   });
   if(weightInput) weightInput.addEventListener("input", ()=>{ if(cb.checked) updateSetMedal(tr, ex, best); });
+  if(isRunning(ex)){
+    const upd=()=>updatePace(tr, ex);
+    tr.querySelectorAll('[data-c]').forEach(inp=>inp.addEventListener("input", upd));
+  }
 }
 function wireExCard(card, ex){
   const tbody=card.querySelector("tbody");
@@ -917,13 +962,13 @@ function saveSession(){
   const feedback=document.getElementById("feedback").value.trim();
   const entries=[];
   document.querySelectorAll("#exForm .ex").forEach(card=>{
-    const name=card.dataset.name;
-    const ex=sess.exercises.find(e=>e.name===name) || {cols:["Weight (kg)","Reps"]};
+    const ex=sess.exercises[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
+    const name=ex.name || card.dataset.name;
     const rows=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
-      const a=tr.querySelector('[data-c="0"]').value.trim();
-      const b=tr.querySelector('[data-c="1"]').value.trim();
-      if(a!==""||b!=="") rows.push([a,b]);
+      const vals=[]; let has=false;
+      tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
+      if(has) rows.push(vals);
     });
     if(rows.length) entries.push({name,cols:ex.cols.slice(),rows});
   });
@@ -982,7 +1027,7 @@ function drawHist(who){
   document.getElementById("histList").innerHTML = logs.map(l=>{
     const open = l.id===justSavedId;
     const rows=l.entries.map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
-      + e.rows.map(r=>esc(r[0])+(r[1]!==""?" x "+esc(r[1]):"")).join(" · ")+'</td></tr>').join("");
+      + e.rows.map(r=>fmtRow(e.cols||[], r)).join(" · ")+'</td></tr>').join("");
     const plan=(l.suggestions&&l.suggestions.length)
       ? '<div class="planbox"><div class="sec-title" style="margin:0 0 5px">Plan for next '+esc(l.sessionName)+'</div>'
         + l.suggestions.map(s=>'<div class="planrow"><b>'+esc(s.name)+':</b> '+esc(s.text)+'</div>').join("")+'</div>'
@@ -1109,18 +1154,32 @@ function openExDlg(sessionKey,ei){
   document.getElementById("exSets").value=ex.sets||3;
   document.getElementById("exCol0").value=ex.cols[0];
   document.getElementById("exCol1").value=ex.cols[1];
+  document.getElementById("exCol2").value=ex.cols[2]||"";
   exDlg.showModal();
 }
 document.getElementById("exCancel").onclick=()=>exDlg.close();
+document.getElementById("exPresetLift").onclick=()=>{
+  document.getElementById("exCol0").value="Weight (kg)";
+  document.getElementById("exCol1").value="Reps";
+  document.getElementById("exCol2").value="";
+};
+document.getElementById("exPresetRun").onclick=()=>{
+  document.getElementById("exCol0").value="Distance (km)";
+  document.getElementById("exCol1").value="Time (mm:ss)";
+  document.getElementById("exCol2").value="Pace";
+};
 document.getElementById("exSave").onclick=()=>{
   const name=document.getElementById("exName").value.trim();
   if(!name){ toast("Name required"); return; }
+  const cols=[document.getElementById("exCol0").value.trim()||"Weight (kg)",
+              document.getElementById("exCol1").value.trim()||"Reps"];
+  const c2=document.getElementById("exCol2").value.trim();
+  if(c2) cols.push(c2);
   const ex={ name, warmup:document.getElementById("exWarmup").value.trim(),
     notes:document.getElementById("exNotes").value.trim(),
     target:document.getElementById("exTarget").value.trim()||"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
-    cols:[document.getElementById("exCol0").value.trim()||"Weight (kg)",
-          document.getElementById("exCol1").value.trim()||"Reps"] };
+    cols };
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null) arr[exDlgCtx.ei]=ex; else arr.push(ex);
   save(); exDlg.close(); renderEdit(); toast("Saved");
