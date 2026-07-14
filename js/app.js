@@ -1053,3 +1053,7 @@ function renderView(){
 curSession = sessionForDate(curDate) || curSession;
 renderPeople();
 renderView();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js"); });
+}
