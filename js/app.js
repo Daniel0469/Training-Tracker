@@ -441,6 +441,10 @@ let justSavedId = null;
 // switching person (or session) mid-entry doesn't wipe unsaved sets. Lets
 // both people log from one phone. Not persisted: a page reload clears them.
 let formDrafts = {};
+// Per person+session workout timers (same keying as formDrafts). Also
+// in-memory: a page reload clears them.
+let sessionTimers = {};
+let timerInterval = null;
 
 function load(){
   try{
@@ -641,6 +645,49 @@ function restoreDraft(){
   return true;
 }
 
+function getTimer(){ return sessionTimers[draftKey()] || {elapsedSec:0, running:false, lastStart:0}; }
+function timerElapsed(t){ return Math.floor(t.elapsedSec + (t.running ? (Date.now()-t.lastStart)/1000 : 0)); }
+function fmtDuration(sec){
+  sec=Math.max(0,Math.floor(sec));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  const two=n=>(n<10?"0":"")+n;
+  return h>0 ? h+":"+two(m)+":"+two(s) : m+":"+two(s);
+}
+function startTimer(){
+  const key=draftKey();
+  const t=sessionTimers[key] || {elapsedSec:0, running:false, lastStart:0};
+  if(!t.running){ t.running=true; t.lastStart=Date.now(); sessionTimers[key]=t; }
+  ensureTimerTick(); updateTimerUI();
+}
+function pauseTimer(){
+  const t=sessionTimers[draftKey()]; if(!t||!t.running) return;
+  t.elapsedSec += (Date.now()-t.lastStart)/1000; t.running=false;
+  updateTimerUI();
+}
+function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) pauseTimer(); else startTimer(); }
+function resetTimer(){ delete sessionTimers[draftKey()]; updateTimerUI(); }
+// Auto-start on the first bit of data entered, but never fight a deliberate
+// pause: only starts when no timer has ever been created for this key.
+function startTimerIfIdle(){ if(!sessionTimers[draftKey()]) startTimer(); }
+function ensureTimerTick(){
+  if(timerInterval) return;
+  timerInterval=setInterval(()=>{
+    const t=sessionTimers[draftKey()];
+    if(!document.getElementById("timerDisplay") || !t || !t.running){
+      clearInterval(timerInterval); timerInterval=null; return;
+    }
+    updateTimerUI();
+  },1000);
+}
+function updateTimerUI(){
+  const el=document.getElementById("timerDisplay"); if(!el) return;
+  const t=getTimer();
+  el.textContent=fmtDuration(timerElapsed(t));
+  el.classList.toggle("running", t.running);
+  const btn=document.getElementById("timerToggle");
+  if(btn) btn.textContent = t.running ? "Pause" : (t.elapsedSec>0 ? "Resume" : "Start");
+}
+
 function renderLog(){
   const p = state.people[state.activePerson];
   const opts = orderedKeys().map(k=>{
@@ -658,7 +705,13 @@ function renderLog(){
     + '<div class="flex-between" style="margin-bottom:12px">'
     + '<label class="fld grow" style="max-width:340px">Session<select id="sessionSel">'+opts+'</select></label>'
     + '<label class="fld" style="width:160px">Date<input id="logDate" type="date" value="'+curDate+'"></label>'
-    + '</div><div class="hint" style="margin-top:-4px">Logging for <b>'+esc(p)+'</b>. '+prevNote+'</div></div>';
+    + '</div><div class="hint" style="margin-top:-4px">Logging for <b>'+esc(p)+'</b>. '+prevNote+'</div>'
+    + '<div class="row" style="margin-top:11px;gap:8px;align-items:center">'
+    + '<span class="timer" id="timerDisplay">0:00</span>'
+    + '<button class="mini" id="timerToggle">Start</button>'
+    + '<button class="mini" id="timerReset">Reset</button>'
+    + '<span class="hint" style="margin:0">Workout time &mdash; saved with the session.</span>'
+    + '</div></div>';
 
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
@@ -697,7 +750,15 @@ function renderLog(){
   });
   document.getElementById("saveSession").onclick=saveSession;
   document.getElementById("clearForm").onclick=()=>{ delete formDrafts[draftKey()]; renderView(); };
+  document.getElementById("timerToggle").onclick=toggleTimer;
+  document.getElementById("timerReset").onclick=resetTimer;
+  const startOnEntry=()=>startTimerIfIdle();
+  const form=document.getElementById("exForm");
+  form.addEventListener("input", startOnEntry);
+  form.addEventListener("change", startOnEntry);
   restoreDraft();
+  updateTimerUI();
+  if(getTimer().running) ensureTimerTick();
 }
 
 function setRowHtml(n,ex,prevCell){
@@ -839,10 +900,12 @@ function saveSession(){
     var prevBest=bestWeightSoFar(person,en.name);
     if(prevBest>-Infinity && thisMax>prevBest){ en.pr=thisMax; prs.push({name:en.name,weight:thisMax}); }
   });
+  const durationSec = timerElapsed(getTimer());
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
-    entries, feedback, difficulty, suggestions, volume };
+    entries, feedback, difficulty, suggestions, volume, durationSec };
   state.logs.push(log); save();
   delete formDrafts[draftKey()];
+  delete sessionTimers[draftKey()];
   justSavedId=log.id;
   activeTab="history";
   document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x.dataset.tab==="history"));
@@ -881,7 +944,7 @@ function drawHist(who){
       : "";
     return '<div class="log-item"><div class="log-row"><div>'
       + '<h3>'+esc(l.sessionName)+' <span class="pill '+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
-      + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+'</div></div>'
+      + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+'</div></div>'
       + '<div class="row"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
