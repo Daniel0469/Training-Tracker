@@ -437,6 +437,10 @@ let activeTab = "log";
 let curSession = state.program.order[0];
 let curDate = new Date().toISOString().slice(0,10);
 let justSavedId = null;
+// In-memory, per person+session drafts of the in-progress log form, so
+// switching person (or session) mid-entry doesn't wipe unsaved sets. Lets
+// both people log from one phone. Not persisted: a page reload clears them.
+let formDrafts = {};
 
 function load(){
   try{
@@ -519,14 +523,18 @@ function renderPeople(){
   el.innerHTML = state.people.map((n,i)=>
     '<button data-p="'+i+'" class="'+(state.activePerson===i?'active':'')+'">'+esc(n)+'</button>').join("");
   el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    if(+b.dataset.p===state.activePerson) return;
+    captureDraft();
     state.activePerson=+b.dataset.p; save(); renderPeople(); renderView();
+    if(activeTab==="log" && formDrafts[draftKey()])
+      toast("Restored "+possessive(state.people[state.activePerson])+" unsaved entry");
   });
   const w=state.weights[state.activePerson];
   document.getElementById("sub").textContent =
     w ? state.people[state.activePerson]+" · "+w+" kg" : "Tap the gear to set bodyweight";
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
-  b.onclick=()=>{ activeTab=b.dataset.tab;
+  b.onclick=()=>{ captureDraft(); activeTab=b.dataset.tab;
     document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x===b));
     renderView();
   };
@@ -569,6 +577,70 @@ function relTime(dateStr){
   return y+(y===1?" year":" years")+" ago";
 }
 
+function draftKey(){ return state.people[state.activePerson]+"|"+curSession; }
+// Read the live log form into formDrafts under the current person+session,
+// or drop the draft if nothing has been entered. Call before any action that
+// re-renders the form (person/session/date change, tab switch).
+function captureDraft(){
+  if(activeTab!=="log") return;
+  const form=document.getElementById("exForm");
+  if(!form) return;
+  const entries=[]; let any=false;
+  form.querySelectorAll(".ex").forEach(card=>{
+    const ei=+card.dataset.ei;
+    const rows=[], done=[];
+    card.querySelectorAll("tbody tr").forEach(tr=>{
+      const w=tr.querySelector('[data-c="0"]').value;
+      const r=tr.querySelector('[data-c="1"]').value;
+      const dn=tr.querySelector('[data-done]').checked;
+      rows.push([w,r]); done.push(dn);
+      if(w!==""||r!==""||dn) any=true;
+    });
+    entries[ei]={rows,done};
+  });
+  const sel=document.querySelector("#diff button.sel");
+  const difficulty=sel?+sel.dataset.d:null;
+  const fb=document.getElementById("feedback");
+  const feedback=fb?fb.value:"";
+  if(difficulty!=null||feedback.trim()!=="") any=true;
+  const key=draftKey();
+  if(any) formDrafts[key]={entries,difficulty,feedback}; else delete formDrafts[key];
+}
+// Re-apply a saved draft onto the freshly-rendered form. Returns true if one
+// was restored. Runs after the form is wired so added rows get their handlers.
+function restoreDraft(){
+  const draft=formDrafts[draftKey()];
+  if(!draft) return false;
+  const sess=state.program.sessions[curSession];
+  document.querySelectorAll("#exForm .ex").forEach(card=>{
+    const ei=+card.dataset.ei;
+    const d=draft.entries[ei]; if(!d) return;
+    const ex=sess.exercises[ei]; if(!ex) return;
+    const tb=card.querySelector("tbody");
+    const best=cardBestWeight(ex);
+    while(tb.rows.length<d.rows.length){
+      tb.insertAdjacentHTML("beforeend", setRowHtml(tb.rows.length+1, ex, "-"));
+      wireSetRow(tb.rows[tb.rows.length-1], ex, best);
+    }
+    d.rows.forEach((r,i)=>{
+      const tr=tb.rows[i]; if(!tr) return;
+      tr.querySelector('[data-c="0"]').value=r[0];
+      tr.querySelector('[data-c="1"]').value=r[1];
+      if(d.done[i]){
+        const cb=tr.querySelector('[data-done]');
+        cb.checked=true; tr.classList.add("done");
+        updateSetMedal(tr, ex, best);
+      }
+    });
+  });
+  if(draft.difficulty!=null){
+    const b=document.querySelector('#diff button[data-d="'+draft.difficulty+'"]');
+    if(b) b.classList.add("sel");
+  }
+  if(draft.feedback){ const f=document.getElementById("feedback"); if(f) f.value=draft.feedback; }
+  return true;
+}
+
 function renderLog(){
   const p = state.people[state.activePerson];
   const opts = orderedKeys().map(k=>{
@@ -608,8 +680,8 @@ function renderLog(){
 
   document.getElementById("view").innerHTML = html;
 
-  document.getElementById("sessionSel").onchange=e=>{ curSession=e.target.value; renderView(); };
-  document.getElementById("logDate").onchange=e=>{ curDate=e.target.value; var sk=sessionForDate(curDate); if(sk) curSession=sk; renderView(); };
+  document.getElementById("sessionSel").onchange=e=>{ captureDraft(); curSession=e.target.value; renderView(); };
+  document.getElementById("logDate").onchange=e=>{ captureDraft(); curDate=e.target.value; var sk=sessionForDate(curDate); if(sk) curSession=sk; renderView(); };
   document.getElementById("diff").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     document.querySelectorAll("#diff button").forEach(x=>x.classList.remove("sel"));
     b.classList.add("sel");
@@ -624,7 +696,8 @@ function renderLog(){
     if(ex) wireExCard(card, ex);
   });
   document.getElementById("saveSession").onclick=saveSession;
-  document.getElementById("clearForm").onclick=()=>{ renderView(); };
+  document.getElementById("clearForm").onclick=()=>{ delete formDrafts[draftKey()]; renderView(); };
+  restoreDraft();
 }
 
 function setRowHtml(n,ex,prevCell){
@@ -769,6 +842,7 @@ function saveSession(){
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
     entries, feedback, difficulty, suggestions, volume };
   state.logs.push(log); save();
+  delete formDrafts[draftKey()];
   justSavedId=log.id;
   activeTab="history";
   document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x.dataset.tab==="history"));
