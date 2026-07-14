@@ -767,6 +767,10 @@ function renderLog(){
   form.addEventListener("input", startOnEntry);
   form.addEventListener("change", startOnEntry);
   restoreDraft();
+  document.querySelectorAll("#exForm .ex").forEach(card=>{
+    const ex=sess.exercises[+card.dataset.ei];
+    if(ex) updateWarmup(card, ex);
+  });
   updateTimerUI();
   if(getTimer().running) ensureTimerTick();
 }
@@ -793,6 +797,26 @@ function recentNote(person, ex, prev){
   return 'Most recent: <b>'+esc(top[0])+' kg'+(top[1]!==""&&top[1]!=null?' × '+esc(top[1]):"")+'</b> · '
     + relTime(rec.log.date)+' ('+esc(rec.log.sessionName)+')';
 }
+// Warm-up notes may use "NN%" tokens; resolve them to kg from a reference
+// weight (the top set entered so far, else last session's top set).
+function warmupBase(card){
+  let top=-Infinity;
+  card.querySelectorAll('tbody tr [data-c="0"]').forEach(inp=>{ const w=parseFloat(inp.value); if(!isNaN(w)&&w>top) top=w; });
+  if(top===-Infinity){ const lt=parseFloat(card.dataset.lasttop); if(!isNaN(lt)) top=lt; }
+  return top>-Infinity ? top : null;
+}
+function computeWarmupText(warmup, base){
+  return warmup.replace(/(\d+(?:\.\d+)?)\s*%/g, function(m,pct){
+    if(base==null) return m;
+    var kg=Math.round((base*parseFloat(pct)/100)/2.5)*2.5;
+    return m+" (≈"+kg+"kg)";
+  });
+}
+function updateWarmup(card, ex){
+  if(!ex.warmup || ex.warmup.indexOf("%")<0) return;
+  const span=card.querySelector("[data-warmup]"); if(!span) return;
+  span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
+}
 function renderExForm(ex,ei,last,prevDate,plan,recent){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
   const fmt = r => esc(r[0])+(r[1]!==""&&r[1]!=null?" x "+esc(r[1]):"");
@@ -801,9 +825,15 @@ function renderExForm(ex,ei,last,prevDate,plan,recent){
     const r = last && last.rows[i] ? last.rows[i] : null;
     body += setRowHtml(i+1, ex, r?fmt(r):"-");
   }
-  return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'">'
+  let lastTop=-Infinity;
+  if(last && isLifting(ex)) last.rows.forEach(r=>{ const w=parseFloat(r[0]); if(!isNaN(w)&&w>lastTop) lastTop=w; });
+  const lastTopAttr = lastTop>-Infinity ? ' data-lasttop="'+lastTop+'"' : '';
+  const warmupHtml = ex.warmup
+    ? '<div class="warmup">Warm-up: <span data-warmup>'+esc(computeWarmupText(ex.warmup, lastTop>-Infinity?lastTop:null))+'</span></div>'
+    : "";
+  return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
-    + (ex.warmup?'<div class="warmup">Warm-up: '+esc(ex.warmup)+'</div>':"")
+    + warmupHtml
     + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
@@ -870,6 +900,10 @@ function wireExCard(card, ex){
         if(w && !w.value) w.value=val;
       });
     });
+  }
+  if(ex.warmup && ex.warmup.indexOf("%")>=0){
+    updateWarmup(card, ex);
+    tbody.addEventListener("input", ()=>updateWarmup(card, ex));
   }
 }
 
