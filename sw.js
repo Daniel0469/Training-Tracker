@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "tt-v2";
+const CACHE_NAME = "tt-v3";
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const APP_SHELL = [
   "./",
@@ -10,15 +10,17 @@ const APP_SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-512-maskable.png",
-  "./icons/apple-touch-icon.png",
-  CHART_JS_URL
+  "./icons/apple-touch-icon.png"
 ];
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(APP_SHELL)
+        // Chart.js is cross-origin: cache it best-effort so a blocked CDN
+        // can't abort the whole install and cost us local offline support.
+        .then(() => cache.add(CHART_JS_URL).catch(() => {}))
+    ).then(() => self.skipWaiting())
   );
 });
 
@@ -30,8 +32,17 @@ self.addEventListener("activate", event => {
   );
 });
 
+// Cache-first is only safe for the versioned app shell (invalidated by the
+// CACHE_NAME bump). Anything else — future sync/API calls included — goes
+// straight to the network untouched.
+function isShellRequest(request){
+  if (request.url === CHART_JS_URL) return true;
+  const url = new URL(request.url);
+  return url.origin === self.location.origin;
+}
+
 self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+  if (event.request.method !== "GET" || !isShellRequest(event.request)) return;
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
