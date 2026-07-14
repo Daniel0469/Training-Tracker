@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6df0">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Training Tracker">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="title">Training Tracker <small id="sub">Shared progress log</small></div>
+    <div class="people">
+      <div class="ptoggle" id="ptoggle"></div>
+      <button class="icon-btn" id="settingsBtn" title="Names, bodyweight &amp; data">&#9881;</button>
+    </div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-tab="log" class="active">Log</button>
+    <button data-tab="history">History</button>
+    <button data-tab="progress">Progress</button>
+    <button data-tab="edit">Edit Program</button>
+    <button data-tab="help">Guide</button>
+  </div>
+  <div id="view"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<dialog id="settingsDlg"><div class="dlg-body">
+  <h3>Names &amp; bodyweight</h3>
+  <div class="row" style="margin-bottom:12px">
+    <label class="fld grow">Person 1<input id="name0" type="text"></label>
+    <label class="fld grow">Person 2<input id="name1" type="text"></label>
+  </div>
+  <div class="row" style="margin-bottom:12px">
+    <label class="fld grow" id="wlab0">Bodyweight (kg)<input id="weight0" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
+    <label class="fld grow" id="wlab1">Bodyweight (kg)<input id="weight1" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
+  </div>
+  <div class="sec-title" style="margin:4px 0 8px">Data &mdash; move between devices</div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="exportBtn">&#11015; Export data</button>
+    <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
+  </div>
+  <div class="hint" style="margin-bottom:14px">Export saves a file you can send to another device. Import merges those logs in without overwriting what's already here.</div>
+  <div class="row" style="justify-content:space-between">
+    <button class="btn-danger mini" id="resetProgram">Reset program to default</button>
+    <div class="row">
+      <button class="btn btn-ghost" id="settingsCancel">Close</button>
+      <button class="btn btn-primary" id="settingsSave">Save</button>
+    </div>
+  </div>
+  <div class="hint" style="margin-top:10px">Resetting the program restores all default workouts. Your logged history is never deleted by this.</div>
+</div></dialog>
+
+<dialog id="importDlg"><div class="dlg-body">
+  <h3>Import / merge data</h3>
+  <div class="hint" style="margin-bottom:10px">Pick an exported file, or paste its contents below. New sessions are added to this device &mdash; nothing already here is lost.</div>
+  <input id="importFile" type="file" accept="application/json,.json" style="margin-bottom:10px;width:100%">
+  <textarea id="importText" placeholder="&hellip;or paste exported data here" style="min-height:120px"></textarea>
+  <label class="row" style="gap:7px;margin:10px 0;font-size:13px;color:var(--ink);font-weight:600">
+    <input id="importAdopt" type="checkbox" style="width:auto"> Also replace program &amp; names with the imported version
+  </label>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="importCancel">Cancel</button>
+    <button class="btn btn-primary" id="importConfirm">Merge in</button>
+  </div>
+</div></dialog>
+
+<dialog id="saveDlg"><div class="dlg-body" style="text-align:center;max-height:88vh;overflow:auto">
+  <div id="saveEmoji" style="font-size:42px;line-height:1">🏆</div>
+  <h3 id="saveVol" style="margin:8px 0 2px">-</h3>
+  <div id="saveCompare" class="hint" style="font-size:14px;margin:0 0 6px">-</div>
+  <div id="muscleWrap" style="margin:8px 0 2px">
+    <div class="hint" style="margin:0 0 2px">Muscles worked this session</div>
+    <svg id="muscleSvg" viewBox="0 0 250 188" style="width:100%;max-width:300px;height:auto" xmlns="http://www.w3.org/2000/svg">
+    <style>.musc{stroke:#cfd6df;stroke-width:.6}.sil{fill:#d7dde5}.lbl{fill:#8a93a3;font:600 9px sans-serif;text-anchor:middle}</style>
+    <circle class="sil" cx="62" cy="15" r="9"/><rect class="sil" x="57" y="22" width="10" height="8" rx="3"/><rect class="sil" x="50" y="76" width="24" height="11" rx="4"/>
+    <ellipse class="musc" data-muscle="delts" cx="43" cy="36" rx="8" ry="7" fill="#e9edf2"><title>Shoulders</title></ellipse>
+    <ellipse class="musc" data-muscle="delts" cx="81" cy="36" rx="8" ry="7" fill="#e9edf2"><title>Shoulders</title></ellipse>
+    <rect class="musc" data-muscle="chest" x="47" y="31" width="30" height="18" rx="8" fill="#e9edf2"><title>Chest</title></rect>
+    <rect class="musc" data-muscle="abs" x="51" y="50" width="22" height="26" rx="6" fill="#e9edf2"><title>Abs</title></rect>
+    <rect class="musc" data-muscle="biceps" x="33" y="42" width="11" height="24" rx="5" fill="#e9edf2"><title>Biceps</title></rect>
+    <rect class="musc" data-muscle="biceps" x="80" y="42" width="11" height="24" rx="5" fill="#e9edf2"><title>Biceps</title></rect>
+    <rect class="musc" data-muscle="forearms" x="30" y="66" width="10" height="24" rx="5" fill="#e9edf2"><title>Forearms</title></rect>
+    <rect class="musc" data-muscle="forearms" x="84" y="66" width="10" height="24" rx="5" fill="#e9edf2"><title>Forearms</title></rect>
+    <rect class="musc" data-muscle="quads" x="50" y="88" width="11" height="38" rx="5" fill="#e9edf2"><title>Quads</title></rect>
+    <rect class="musc" data-muscle="quads" x="63" y="88" width="11" height="38" rx="5" fill="#e9edf2"><title>Quads</title></rect>
+    <rect class="musc" data-muscle="adductors" x="60" y="90" width="4" height="30" rx="2" fill="#e9edf2"><title>Adductors</title></rect>
+    <rect class="musc" data-muscle="calves" x="51" y="128" width="9" height="34" rx="4" fill="#e9edf2"><title>Calves</title></rect>
+    <rect class="musc" data-muscle="calves" x="64" y="128" width="9" height="34" rx="4" fill="#e9edf2"><title>Calves</title></rect>
+    <text class="lbl" x="62" y="180">Front</text>
+    <circle class="sil" cx="190" cy="15" r="9"/><rect class="sil" x="185" y="22" width="10" height="8" rx="3"/>
+    <ellipse class="musc" data-muscle="delts" cx="171" cy="36" rx="8" ry="7" fill="#e9edf2"><title>Rear delts</title></ellipse>
+    <ellipse class="musc" data-muscle="delts" cx="209" cy="36" rx="8" ry="7" fill="#e9edf2"><title>Rear delts</title></ellipse>
+    <rect class="musc" data-muscle="traps" x="175" y="31" width="30" height="16" rx="7" fill="#e9edf2"><title>Upper back</title></rect>
+    <rect class="musc" data-muscle="lats" x="177" y="47" width="26" height="18" rx="7" fill="#e9edf2"><title>Lats</title></rect>
+    <rect class="musc" data-muscle="lowerback" x="181" y="65" width="18" height="10" rx="4" fill="#e9edf2"><title>Lower back</title></rect>
+    <rect class="musc" data-muscle="triceps" x="161" y="42" width="11" height="24" rx="5" fill="#e9edf2"><title>Triceps</title></rect>
+    <rect class="musc" data-muscle="triceps" x="208" y="42" width="11" height="24" rx="5" fill="#e9edf2"><title>Triceps</title></rect>
+    <rect class="musc" data-muscle="forearms" x="158" y="66" width="10" height="24" rx="5" fill="#e9edf2"><title>Forearms</title></rect>
+    <rect class="musc" data-muscle="forearms" x="212" y="66" width="10" height="24" rx="5" fill="#e9edf2"><title>Forearms</title></rect>
+    <rect class="musc" data-muscle="glutes" x="177" y="76" width="26" height="16" rx="7" fill="#e9edf2"><title>Glutes</title></rect>
+    <rect class="musc" data-muscle="hamstrings" x="178" y="92" width="11" height="34" rx="5" fill="#e9edf2"><title>Hamstrings</title></rect>
+    <rect class="musc" data-muscle="hamstrings" x="191" y="92" width="11" height="34" rx="5" fill="#e9edf2"><title>Hamstrings</title></rect>
+    <rect class="musc" data-muscle="calves" x="179" y="128" width="9" height="34" rx="4" fill="#e9edf2"><title>Calves</title></rect>
+    <rect class="musc" data-muscle="calves" x="192" y="128" width="9" height="34" rx="4" fill="#e9edf2"><title>Calves</title></rect>
+    <text class="lbl" x="190" y="180">Back</text>
+    </svg>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--muted);margin-top:0">
+      <span>fewer sets</span>
+      <span style="display:inline-block;width:84px;height:9px;border-radius:5px;background:linear-gradient(90deg,#bedfff,#0a3482)"></span>
+      <span>more sets</span>
+    </div>
+  </div>
+  <div id="savePRs"></div>
+  <button class="btn btn-primary" id="saveDlgOk" style="margin-top:10px">Nice 💪</button>
+</div></dialog>
+
+<dialog id="exDlg"><div class="dlg-body">
+  <h3 id="exDlgTitle">Edit exercise</h3>
+  <label class="fld" style="margin-bottom:9px">Exercise name<input id="exName" type="text"></label>
+  <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5"></label>
+  <div class="row" style="margin-bottom:9px">
+    <label class="fld grow">Target<input id="exTarget" type="text" placeholder="4x8-12"></label>
+    <label class="fld" style="width:90px">Set rows<input id="exSets" type="number" min="1" max="12" value="3"></label>
+  </div>
+  <div class="row" style="margin-bottom:14px">
+    <label class="fld grow">Column 1 label<input id="exCol0" type="text" value="Weight (kg)"></label>
+    <label class="fld grow">Column 2 label<input id="exCol1" type="text" value="Reps"></label>
+  </div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="exCancel">Cancel</button>
+    <button class="btn btn-primary" id="exSave">Save exercise</button>
+  </div>
+</div></dialog>
+
+<script src="js/app.js" defer></script>
+</body>
+</html>
