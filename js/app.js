@@ -1083,11 +1083,24 @@ function move(ref,dir){
 
 let exDlgCtx=null;
 const exDlg=document.getElementById("exDlg");
+// Unique exercise names seen anywhere (program + logged history), so the Add/
+// Edit dialog can offer them as pick-from-list suggestions and avoid the
+// spelling variants that fragment history for the same movement.
+function exerciseLibrary(){
+  const set={};
+  Object.keys(state.program.sessions).forEach(k=>{
+    state.program.sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
+  });
+  state.logs.forEach(l=>(l.entries||[]).forEach(e=>{ if(e.name) set[e.name]=true; }));
+  return Object.keys(set).sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1);
+}
 function openExDlg(sessionKey,ei){
   exDlgCtx={sessionKey,ei};
   const editing = ei!=null;
   const ex = editing? state.program.sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
+  document.getElementById("exNameList").innerHTML =
+    exerciseLibrary().map(n=>'<option value="'+esc(n)+'"></option>').join("");
   document.getElementById("exDlgTitle").textContent= editing?"Edit exercise":"Add exercise";
   document.getElementById("exName").value=ex.name;
   document.getElementById("exWarmup").value=ex.warmup||"";
