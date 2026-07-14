@@ -455,6 +455,7 @@ function toast(msg){
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1800);
 }
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const possessive = n => /s$/i.test(n) ? n+"'" : n+"'s";
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
 function orderedKeys(){
@@ -546,7 +547,7 @@ function renderLog(){
   const prev = latestLog(p, curSession);
   const planFor = name => { if(prev&&prev.suggestions){const s=prev.suggestions.find(x=>x.name===name); return s?s.text:"";} return ""; };
   const prevNote = prev
-    ? "Inputs start blank. "+esc(p)+"'s last session ("+esc(prev.date)+") is shown in the <b>Last</b> column - beat it."
+    ? "Inputs start blank. "+esc(possessive(p))+" last session ("+esc(prev.date)+") is shown in the <b>Last</b> column - beat it."
     : "No previous "+esc(p)+" log for this session yet - today sets the baseline.";
 
   let html = '<div class="card">'
@@ -831,8 +832,8 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("name1").value=state.people[1];
   document.getElementById("weight0").value=state.weights[0];
   document.getElementById("weight1").value=state.weights[1];
-  document.getElementById("wlab0").childNodes[0].nodeValue=state.people[0]+" - bodyweight (kg)";
-  document.getElementById("wlab1").childNodes[0].nodeValue=state.people[1]+" - bodyweight (kg)";
+  document.getElementById("wlab0").childNodes[0].nodeValue=possessive(state.people[0])+" bodyweight (kg)";
+  document.getElementById("wlab1").childNodes[0].nodeValue=possessive(state.people[1])+" bodyweight (kg)";
   setDlg.showModal();
 };
 document.getElementById("settingsCancel").onclick=()=>setDlg.close();
