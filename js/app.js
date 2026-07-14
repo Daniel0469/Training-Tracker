@@ -536,6 +536,14 @@ function latestLog(person, sessionKey){
   return state.logs.filter(l=>l.person===person && l.sessionKey===sessionKey)
     .sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1: (a.id<b.id?1:-1)))[0];
 }
+function bestWeightSoFar(person, exerciseName){
+  var best=-Infinity;
+  state.logs.filter(function(l){return l.person===person;}).forEach(function(l){
+    var e=l.entries.find(function(x){return x.name===exerciseName;}); if(!e) return;
+    e.rows.forEach(function(r){ var w=parseFloat(r[0]); if(!isNaN(w)&&w>best) best=w; });
+  });
+  return best;
+}
 
 function renderLog(){
   const p = state.people[state.activePerson];
@@ -587,27 +595,38 @@ function renderLog(){
     const tb=b.closest(".ex").querySelector("tbody");
     if(tb.rows.length>1){ tb.deleteRow(tb.rows.length-1); }
   });
+  document.getElementById("exForm").querySelectorAll(".ex").forEach(card=>{
+    const ex=sess.exercises.find(e=>e.name===card.dataset.name);
+    if(ex) wireExCard(card, ex);
+  });
   document.getElementById("saveSession").onclick=saveSession;
   document.getElementById("clearForm").onclick=()=>{ renderView(); };
 }
 
+function setRowHtml(n,ex,prevCell){
+  const lifting = isLifting(ex);
+  const im0 = lifting ? ' inputmode="decimal"' : '';
+  const im1 = lifting ? ' inputmode="numeric"' : '';
+  return '<tr><td class="setno">'+n+'</td>'
+    + '<td><input data-c="0"'+im0+' value="" placeholder="'+esc(ex.cols[0])+'"></td>'
+    + '<td><input data-c="1"'+im1+' value="" placeholder="'+esc(ex.cols[1])+'"></td>'
+    + '<td class="prev">'+prevCell+'</td>'
+    + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#127942;</span></td></tr>';
+}
 function renderExForm(ex,ei,last,prevDate,plan){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
   const fmt = r => esc(r[0])+(r[1]!==""&&r[1]!=null?" x "+esc(r[1]):"");
   let body="";
   for(let i=0;i<rows;i++){
     const r = last && last.rows[i] ? last.rows[i] : null;
-    body += '<tr><td class="setno">'+(i+1)+'</td>'
-      + '<td><input data-c="0" inputmode="text" value="" placeholder="'+esc(ex.cols[0])+'"></td>'
-      + '<td><input data-c="1" inputmode="text" value="" placeholder="'+esc(ex.cols[1])+'"></td>'
-      + '<td class="prev">'+(r?fmt(r):"-")+'</td></tr>';
+    body += setRowHtml(i+1, ex, r?fmt(r):"-");
   }
   return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'">'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + (ex.warmup?'<div class="warmup">Warm-up: '+esc(ex.warmup)+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
     + '<table class="sets"><thead><tr><th></th><th>'+esc(ex.cols[0])+'</th><th>'+esc(ex.cols[1])+'</th>'
-    + '<th class="prev">Last'+(prevDate?' · '+esc(prevDate):"")+'</th></tr></thead><tbody>'+body+'</tbody></table>'
+    + '<th class="prev">Last'+(prevDate?' · '+esc(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button></div></div>';
 }
@@ -616,10 +635,52 @@ function addSetRow(btn){
   const ex=state.program.sessions[curSession].exercises[ei];
   const tb=card.querySelector("tbody");
   const tr=tb.insertRow();
-  tr.innerHTML='<td class="setno">'+tb.rows.length+'</td>'
-    + '<td><input data-c="0" value="" placeholder="'+esc(ex.cols[0])+'"></td>'
-    + '<td><input data-c="1" value="" placeholder="'+esc(ex.cols[1])+'"></td>'
-    + '<td class="prev">-</td>';
+  tr.outerHTML=setRowHtml(tb.rows.length, ex, "-");
+  wireSetRow(tb.rows[tb.rows.length-1], ex);
+}
+
+function updateSetMedal(tr, ex){
+  const medal=tr.querySelector("[data-medal]");
+  if(!medal) return;
+  if(!isLifting(ex)){ medal.hidden=true; return; }
+  const w=parseFloat(tr.querySelector('[data-c="0"]').value);
+  const person=state.people[state.activePerson];
+  const best=bestWeightSoFar(person, ex.name);
+  medal.hidden = !(!isNaN(w) && best>-Infinity && w>best);
+}
+function wireSetRow(tr, ex){
+  const cb=tr.querySelector("[data-done]");
+  const weightInput=tr.querySelector('[data-c="0"]');
+  const repsInput=tr.querySelector('[data-c="1"]');
+  if(!cb) return;
+  cb.onchange=()=>{
+    tr.classList.toggle("done", cb.checked);
+    if(cb.checked){
+      if(repsInput && !repsInput.value.trim()){
+        const range=parseRange(ex.target);
+        if(range) repsInput.value=range.high;
+      }
+      updateSetMedal(tr, ex);
+    } else {
+      tr.querySelector("[data-medal]").hidden=true;
+    }
+  };
+  if(weightInput) weightInput.oninput=()=>{ if(cb.checked) updateSetMedal(tr, ex); };
+}
+function wireExCard(card, ex){
+  const tbody=card.querySelector("tbody");
+  Array.from(tbody.rows).forEach(tr=>wireSetRow(tr, ex));
+  const firstWeight = tbody.rows[0] && tbody.rows[0].querySelector('[data-c="0"]');
+  if(firstWeight && isLifting(ex)){
+    firstWeight.addEventListener("input", ()=>{
+      const val=firstWeight.value;
+      if(!val) return;
+      Array.from(tbody.rows).slice(1).forEach(tr=>{
+        const w=tr.querySelector('[data-c="0"]');
+        if(w && !w.value) w.value=val;
+      });
+    });
+  }
 }
 
 function saveSession(){
@@ -656,11 +717,7 @@ function saveSession(){
     var ws=en.rows.map(function(r){return parseFloat(r[0]);}).filter(function(v){return !isNaN(v);});
     if(!ws.length) return;
     var thisMax=Math.max.apply(null,ws);
-    var prevBest=-Infinity;
-    state.logs.filter(function(l){return l.person===person;}).forEach(function(l){
-      var e=l.entries.find(function(x){return x.name===en.name;}); if(!e) return;
-      e.rows.forEach(function(r){ var w=parseFloat(r[0]); if(!isNaN(w)&&w>prevBest) prevBest=w; });
-    });
+    var prevBest=bestWeightSoFar(person,en.name);
     if(prevBest>-Infinity && thisMax>prevBest){ en.pr=thisMax; prs.push({name:en.name,weight:thisMax}); }
   });
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,

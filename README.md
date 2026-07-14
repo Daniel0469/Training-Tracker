@@ -37,3 +37,8 @@ Push to GitHub and enable Pages on the repo (serve from the root of the default 
 - **Single `js/app.js`, not further split.** The app logic is one cohesive module (state,
   rendering, save/import/export all interact tightly); splitting further didn't seem to earn
   its keep yet. Worth revisiting if the file grows a lot more.
+- **Bump `CACHE_NAME` in `sw.js` on every deploy that touches `index.html`, `css/styles.css`,
+  or `js/app.js`.** The service worker is cache-first, so without a version bump, installed
+  users keep getting the old cached files indefinitely — the old cache only gets purged when a
+  new cache name shows up in `install`/`activate`. (Hit this myself while testing: edited
+  `app.js`, reloaded, and kept seeing the old behavior until I bumped the version.)

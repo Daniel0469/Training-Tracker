@@ -39,6 +39,10 @@
   table.sets input{width:100%;padding:7px 8px}
   .setno{color:var(--muted);font-weight:700;width:30px;text-align:center;font-size:13px}
   td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
+  td.done-cell,th.done-cell{width:38px;text-align:center;white-space:nowrap}
+  td.done-cell input[type="checkbox"]{width:19px;height:19px;cursor:pointer;accent-color:var(--good)}
+  tr.done td{background:#eaf7ee}
+  .medal{margin-left:3px;font-size:14px}
   .mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
   .mini:hover{border-color:var(--brand);color:var(--brand)}
   .btn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;font-size:15px}
