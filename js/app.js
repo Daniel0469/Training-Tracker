@@ -544,6 +544,30 @@ function bestWeightSoFar(person, exerciseName){
   });
   return best;
 }
+function latestEntryAnywhere(person, exName){
+  var bestLog=null, bestEntry=null;
+  state.logs.forEach(function(l){
+    if(l.person!==person) return;
+    var e=l.entries.find(function(x){return x.name===exName;}); if(!e) return;
+    if(!bestLog || l.date>bestLog.date || (l.date===bestLog.date && l.id>bestLog.id)){ bestLog=l; bestEntry=e; }
+  });
+  return bestLog ? {log:bestLog, entry:bestEntry} : null;
+}
+function daysAgo(dateStr){
+  return Math.round((new Date() - new Date(dateStr+"T12:00:00"))/86400000);
+}
+function relTime(dateStr){
+  var d=daysAgo(dateStr);
+  if(d<=0) return "today";
+  if(d===1) return "yesterday";
+  if(d<7) return d+" days ago";
+  var w=Math.round(d/7);
+  if(d<56) return w+(w===1?" week":" weeks")+" ago";
+  var m=Math.round(d/30.44);
+  if(d<700) return m+(m===1?" month":" months")+" ago";
+  var y=Math.round(d/365.25);
+  return y+(y===1?" year":" years")+" ago";
+}
 
 function renderLog(){
   const p = state.people[state.activePerson];
@@ -555,7 +579,7 @@ function renderLog(){
   const prev = latestLog(p, curSession);
   const planFor = name => { if(prev&&prev.suggestions){const s=prev.suggestions.find(x=>x.name===name); return s?s.text:"";} return ""; };
   const prevNote = prev
-    ? "Inputs start blank. "+esc(possessive(p))+" last session ("+esc(prev.date)+") is shown in the <b>Last</b> column - beat it."
+    ? "Inputs start blank. "+esc(possessive(p))+" last session ("+relTime(prev.date)+") is shown in the <b>Last</b> column - beat it."
     : "No previous "+esc(p)+" log for this session yet - today sets the baseline.";
 
   let html = '<div class="card">'
@@ -567,7 +591,7 @@ function renderLog(){
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
     const last = prev && prev.entries.find(e=>e.name===ex.name);
-    html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name));
+    html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name),recentNote(p,ex,prev));
   });
   html += '</div>';
 
@@ -613,7 +637,19 @@ function setRowHtml(n,ex,prevCell){
     + '<td class="prev">'+prevCell+'</td>'
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
-function renderExForm(ex,ei,last,prevDate,plan){
+// "Most recent for this movement in ANY session" note; empty when the most
+// recent occurrence is the log already shown in the Last column.
+function recentNote(person, ex, prev){
+  if(!isLifting(ex)) return "";
+  const rec=latestEntryAnywhere(person, ex.name);
+  if(!rec || (prev && rec.log.id===prev.id)) return "";
+  let top=null, tw=-Infinity;
+  rec.entry.rows.forEach(r=>{ const w=parseFloat(r[0]); if(!isNaN(w)&&w>tw){tw=w;top=r;} });
+  if(!top) return "";
+  return 'Most recent: <b>'+esc(top[0])+' kg'+(top[1]!==""&&top[1]!=null?' × '+esc(top[1]):"")+'</b> · '
+    + relTime(rec.log.date)+' ('+esc(rec.log.sessionName)+')';
+}
+function renderExForm(ex,ei,last,prevDate,plan,recent){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
   const fmt = r => esc(r[0])+(r[1]!==""&&r[1]!=null?" x "+esc(r[1]):"");
   let body="";
@@ -624,9 +660,10 @@ function renderExForm(ex,ei,last,prevDate,plan){
   return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'">'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + (ex.warmup?'<div class="warmup">Warm-up: '+esc(ex.warmup)+'</div>':"")
+    + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
     + '<table class="sets"><thead><tr><th></th><th>'+esc(ex.cols[0])+'</th><th>'+esc(ex.cols[1])+'</th>'
-    + '<th class="prev">Last'+(prevDate?' · '+esc(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table>'
+    + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button></div></div>';
 }
