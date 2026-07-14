@@ -1409,7 +1409,28 @@ function renderView(){
   else if(activeTab==="edit") renderEdit();
   else if(activeTab==="help") renderHelp();
 }
+
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", t==="dark" ? "#12151c" : "#2f6df0");
+  const btn=document.getElementById("themeBtn");
+  if(btn){ btn.textContent = t==="dark" ? "☀️" : "🌙"; }
+}
+function initTheme(){
+  let t=state.theme;
+  if(t!=="light" && t!=="dark"){
+    t=(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }
+  applyTheme(t);
+}
+document.getElementById("themeBtn").onclick=()=>{
+  const next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
+  state.theme=next; save(); applyTheme(next);
+};
+
 curSession = sessionForDate(curDate) || curSession;
+initTheme();
 renderPeople();
 renderView();
 
