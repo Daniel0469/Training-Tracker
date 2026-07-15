@@ -1173,21 +1173,26 @@ function renderProgress(){
     + '<div class="sec-title">🏅 Records &mdash; '+esc(p)+' <span class="pill '+pc+'">current bests</span></div>'
     + recTable + '</div>'
     + '<div class="card">'
-    + '<div class="flex-between" style="margin-bottom:12px">'
-    + '<label class="fld grow" style="max-width:340px">Exercise chart<select id="progEx">'
-    + allEx.map(n=>'<option>'+esc(n)+'</option>').join("")+'</select></label></div>'
-    + '<div class="hint" style="margin-bottom:10px">Tracks the highest value in the first column (e.g. top-set weight) per session, for both people.</div>'
+    + '<div class="row" style="margin-bottom:12px">'
+    + '<label class="fld grow" style="max-width:280px">Exercise chart<select id="progEx">'
+    + allEx.map(n=>'<option>'+esc(n)+'</option>').join("")+'</select></label>'
+    + '<label class="fld" style="width:150px">Metric<select id="progMetric"><option value="weight">Top-set weight</option><option value="e1rm">Est. 1RM</option></select></label></div>'
+    + '<div class="hint" style="margin-bottom:10px">Per session, for both people. Warm-up sets are excluded.</div>'
     + '<div class="chart-box"><canvas id="progChart"></canvas></div></div>';
   document.getElementById("progEx").onchange=drawChart;
+  document.getElementById("progMetric").onchange=drawChart;
   drawChart();
 }
 function drawChart(){
   const name=document.getElementById("progEx").value;
+  const metric=(document.getElementById("progMetric")||{}).value||"weight";
   const series=state.people.map((p,i)=>{
     const pts=state.logs.filter(l=>l.person===p)
       .map(l=>{ const e=l.entries.find(x=>x.name===name); if(!e) return null;
-        const vals=e.rows.map(r=>parseFloat(r[0])).filter(v=>!isNaN(v));
-        if(!vals.length) return null; return {x:l.date,y:Math.max(...vals)}; })
+        const wu=e.warmup||[]; const vals=[];
+        e.rows.forEach((r,ri)=>{ if(wu.indexOf(ri)>=0) return; const w=parseFloat(r[0]); if(isNaN(w)) return;
+          if(metric==="e1rm"){ const v=epley(w,parseInt(r[1],10)); if(!isNaN(v)) vals.push(v); } else vals.push(w); });
+        if(!vals.length) return null; return {x:l.date,y:Math.round(Math.max.apply(null,vals)*10)/10}; })
       .filter(Boolean).sort((a,b)=>a.x<b.x?-1:1);
     return {label:p,data:pts,borderColor:i===0?"#2f6df0":"#e0633a",
       backgroundColor:i===0?"#2f6df0":"#e0633a",tension:.25,spanGaps:true};
@@ -1201,7 +1206,7 @@ function drawChart(){
     options:{responsive:true,maintainAspectRatio:false,parsing:false,
       scales:{x:{type:"category",labels:[...new Set(state.logs.map(l=>l.date))].sort(),
           ticks:{color:tickCol},grid:{color:gridCol}},
-        y:{beginAtZero:false,title:{display:true,text:"Top value",color:tickCol},
+        y:{beginAtZero:false,title:{display:true,text:metric==="e1rm"?"Est. 1RM (kg)":"Top-set weight",color:tickCol},
           ticks:{color:tickCol},grid:{color:gridCol}}},
       plugins:{legend:{position:"top",labels:{color:tickCol}}}}
   });
