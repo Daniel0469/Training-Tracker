@@ -681,6 +681,19 @@ function fmtRow(cols, r){
 function daysAgo(dateStr){
   return Math.round((new Date() - new Date(dateStr+"T12:00:00"))/86400000);
 }
+// Monday (ISO week start) of the week containing dateStr, as YYYY-MM-DD.
+function weekMonday(dateStr){
+  var d=new Date(dateStr+"T12:00:00");
+  var off=(d.getDay()+6)%7; // 0 = Monday
+  d.setDate(d.getDate()-off);
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+}
+function weeklyVolumes(person){
+  var map={};
+  state.logs.filter(function(l){return l.person===person;}).forEach(function(l){ var wk=weekMonday(l.date); map[wk]=(map[wk]||0)+(l.volume||0); });
+  return Object.keys(map).sort().map(function(wk){ return {week:wk, volume:map[wk]}; });
+}
 function relTime(dateStr){
   var d=daysAgo(dateStr);
   if(d<=0) return "today";
@@ -1110,11 +1123,50 @@ function renderHistory(){
     html+='<div class="card empty">No sessions logged yet.<br>Head to the <b>Log</b> tab to record your first one.</div>';
     document.getElementById("view").innerHTML=html; return;
   }
+  // This-week summary for the active person (volume, sessions, muscle heatmap).
+  const p=state.people[state.activePerson];
+  const pc = state.people[0]===p ? "me" : "partner";
+  const thisWk=weekMonday(trainingDateStr());
+  const wkLogs=state.logs.filter(l=>l.person===p && weekMonday(l.date)===thisWk);
+  const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
+  html+='<div class="card"><div class="sec-title">📅 This week &mdash; '+esc(p)+' <span class="pill '+pc+'">'+wkLogs.length+' session'+(wkLogs.length===1?"":"s")+'</span></div>'
+    + '<div class="row" style="align-items:center;gap:16px">'
+    + '<div><div style="font-size:22px;font-weight:800">'+wkVol.toLocaleString()+' kg</div><div class="hint" style="margin:0">volume this week</div></div>'
+    + '<div id="weekMap" style="flex:1;min-width:180px;max-width:280px"></div>'
+    + '</div>'
+    + '<div class="hint" style="margin:10px 0 4px">Weekly volume</div><div class="chart-box" style="height:150px"><canvas id="weekChart"></canvas></div></div>';
   html+='<div id="histList"></div>';
   document.getElementById("view").innerHTML=html;
+  // Weekly muscle heatmap: clone the (styled) save-dialog map and shade it.
+  const src=document.getElementById("muscleSvg");
+  if(src && wkLogs.length){
+    const clone=src.cloneNode(true); clone.removeAttribute("id"); clone.style.maxWidth="280px";
+    paintMuscleMap(clone, muscleSetsForLogs(wkLogs));
+    document.getElementById("weekMap").appendChild(clone);
+  } else if(document.getElementById("weekMap")){
+    document.getElementById("weekMap").innerHTML='<div class="hint" style="margin:0">No sessions yet this week.</div>';
+  }
+  drawWeekChart(p);
   const filter=document.getElementById("histFilter");
   filter.onchange=()=>drawHist(filter.value);
   drawHist("all");
+}
+let weekChart=null;
+function drawWeekChart(person){
+  const canvas=document.getElementById("weekChart"); if(!canvas) return;
+  const weeks=weeklyVolumes(person).slice(-10);
+  const i=state.people.indexOf(person);
+  const col=i===0?"#2f6df0":"#e0633a";
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  if(weekChart) weekChart.destroy();
+  weekChart=new Chart(canvas,{
+    type:"bar",
+    data:{labels:weeks.map(w=>w.week.slice(5)), datasets:[{label:person+" weekly kg", data:weeks.map(w=>w.volume), backgroundColor:col}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{x:{ticks:{color:tickCol},grid:{color:gridCol}}, y:{beginAtZero:true, ticks:{color:tickCol}, grid:{color:gridCol}}},
+      plugins:{legend:{display:false}}}
+  });
 }
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
@@ -1724,7 +1776,7 @@ function renderHelp(){
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
-      p('<b>History</b> lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
+      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
      +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
@@ -1803,6 +1855,31 @@ function classifyMuscles(name){
   if(/back extension|hyperextension|lower back/.test(n)) add("lowerback");
   return m;
 }
+// Muscle set-counts (warm-ups excluded) from a list of entries, and from logs.
+function muscleSetsFromEntries(entries){
+  var m={};
+  (entries||[]).forEach(function(en){
+    var ms=classifyMuscles(en.name||""); var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
+    ms.forEach(function(mk){ m[mk]=(m[mk]||0)+sets; });
+  });
+  return m;
+}
+function muscleSetsForLogs(logs){
+  var m={};
+  logs.forEach(function(l){ var mm=muscleSetsFromEntries(l.entries); for(var k in mm){ m[k]=(m[k]||0)+mm[k]; } });
+  return m;
+}
+// Shade an SVG muscle map (by data-muscle) from a set-count map; returns the max.
+function paintMuscleMap(svgEl, museSets){
+  var maxc=0; for(var k in museSets){ if(museSets[k]>maxc) maxc=museSets[k]; }
+  svgEl.querySelectorAll(".musc").forEach(function(el){
+    var mk=el.getAttribute("data-muscle"); var cval=museSets[mk]||0;
+    el.style.fill = muscleColor(cval,maxc);
+    var ti=el.querySelector("title");
+    if(ti){ var base=ti.textContent.replace(/:.*$/,""); ti.textContent=base+": "+cval+" set"+(cval===1?"":"s"); }
+  });
+  return maxc;
+}
 function showSaveSummary(volume, prs, entries){
   var prHtml = prs.length
     ? prs.map(function(pr){return '<div style="background:#fff7e0;border:1px solid #f0dca0;border-radius:8px;padding:6px 10px;margin:6px 0;font-size:13.5px;font-weight:700;color:#8a6d1a">🥇 New PR &middot; '+esc(pr.name)+' &middot; '+pr.weight+' kg</div>';}).join("")
@@ -1817,22 +1894,10 @@ function showSaveSummary(volume, prs, entries){
     document.getElementById("saveVol").textContent="Session saved";
     document.getElementById("saveCompare").textContent="Great conditioning work!";
   }
-  var muscleSets={};
-  (entries||[]).forEach(function(en){
-    var ms=classifyMuscles(en.name||""); var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
-    ms.forEach(function(mk){ muscleSets[mk]=(muscleSets[mk]||0)+sets; });
-  });
-  var maxc=0; for(var k in muscleSets){ if(muscleSets[k]>maxc) maxc=muscleSets[k]; }
+  var muscleSets=muscleSetsFromEntries(entries);
   var wrap=document.getElementById("muscleWrap");
-  if(maxc>0){
-    wrap.style.display="";
-    document.querySelectorAll("#muscleSvg .musc").forEach(function(el){
-      var mk=el.getAttribute("data-muscle"); var cval=muscleSets[mk]||0;
-      el.style.fill = muscleColor(cval,maxc);
-      var ti=el.querySelector("title");
-      if(ti){ var base=ti.textContent.replace(/:.*$/,""); ti.textContent=base+": "+cval+" set"+(cval===1?"":"s"); }
-    });
-  } else { wrap.style.display="none"; }
+  if(paintMuscleMap(document.getElementById("muscleSvg"), muscleSets)>0) wrap.style.display="";
+  else wrap.style.display="none";
   document.getElementById("savePRs").innerHTML=prHtml;
   document.getElementById("saveDlg").showModal();
 }
