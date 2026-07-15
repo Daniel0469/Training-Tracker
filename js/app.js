@@ -1156,9 +1156,25 @@ function renderProgress(){
     document.getElementById("view").innerHTML='<div class="card empty">Log a few sessions and your progress charts will appear here.</div>';
     return;
   }
+  const p=state.people[state.activePerson];
+  const pc = state.people[0]===p ? "me" : "partner";
+  const recs=personRecords(p);
+  const recNames=Object.keys(recs).sort();
+  let recTable;
+  if(recNames.length){
+    recTable='<div class="sets-wrap"><table class="rec"><thead><tr><th>Exercise</th><th>Best</th><th>Reps</th><th>e1RM</th><th>When</th></tr></thead><tbody>'
+      + recNames.map(function(n){ const r=recs[n]; const e=epley(r.kg, r.reps);
+          return '<tr><td>'+esc(n)+'</td><td><b>'+r.kg+' kg</b></td><td>'+(r.reps!=null?r.reps:"–")+'</td><td>'+(isNaN(e)?"–":Math.round(e)+" kg")+'</td><td class="ex-meta">'+relTime(r.date)+'</td></tr>'; }).join("")
+      + '</tbody></table></div>';
+  } else {
+    recTable='<div class="hint">No lifting bests for '+esc(p)+' yet.</div>';
+  }
   document.getElementById("view").innerHTML='<div class="card">'
+    + '<div class="sec-title">🏅 Records &mdash; '+esc(p)+' <span class="pill '+pc+'">current bests</span></div>'
+    + recTable + '</div>'
+    + '<div class="card">'
     + '<div class="flex-between" style="margin-bottom:12px">'
-    + '<label class="fld grow" style="max-width:340px">Exercise<select id="progEx">'
+    + '<label class="fld grow" style="max-width:340px">Exercise chart<select id="progEx">'
     + allEx.map(n=>'<option>'+esc(n)+'</option>').join("")+'</select></label></div>'
     + '<div class="hint" style="margin-bottom:10px">Tracks the highest value in the first column (e.g. top-set weight) per session, for both people.</div>'
     + '<div class="chart-box"><canvas id="progChart"></canvas></div></div>';
@@ -1519,6 +1535,26 @@ function personPRs(person){
   });
   return best;
 }
+// Epley estimated 1RM.
+function epley(w, reps){ return (isNaN(w)||isNaN(reps)||reps<1) ? NaN : w*(1+reps/30); }
+// Per-exercise current bests for a person: heaviest working set, the reps on
+// it, its estimated 1RM, and when. Warm-up sets excluded.
+function personRecords(person){
+  const best={};
+  state.logs.filter(l=>l.person===person).forEach(function(l){
+    (l.entries||[]).forEach(function(e){
+      if(!isLifting(e)) return;
+      const wu=e.warmup||[];
+      e.rows.forEach(function(r,ri){
+        if(wu.indexOf(ri)>=0) return;
+        const w=parseFloat(r[0]), reps=parseInt(r[1],10);
+        if(isNaN(w)) return;
+        if(!(e.name in best) || w>best[e.name].kg) best[e.name]={kg:w, reps:isNaN(reps)?null:reps, date:l.date};
+      });
+    });
+  });
+  return best;
+}
 function rowPlain(cols, r){
   cols=cols||[];
   const lift=/kg|assist/i.test(cols[0]||"") && /rep/i.test(cols[1]||"");
@@ -1682,9 +1718,9 @@ function renderHelp(){
       p('Cardio exercises use their own fields. A <b>running</b> exercise (Distance / Time / Pace) computes <b>pace</b> for you and treats each row as a <b>split</b>.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.'));
 
-  h+=card('5 &middot; History &amp; Progress',
+  h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
-     +p('<b>Progress</b> charts your top set for any exercise over time, both people on one graph.'));
+     +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
