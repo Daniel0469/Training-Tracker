@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "tt-v20";
+const CACHE_NAME = "tt-v21";
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const APP_SHELL = [
   "./",

@@ -1492,6 +1492,69 @@ function mergeInData(data, adoptConfig){
   }
   return {added, updated};
 }
+// One-pass current bests (max top-set weight) per lifting exercise for a person.
+function personPRs(person){
+  const best={};
+  state.logs.filter(l=>l.person===person).forEach(function(l){
+    (l.entries||[]).forEach(function(e){
+      if(!isLifting(e)) return;
+      let top=-Infinity; e.rows.forEach(function(r){ const w=parseFloat(r[0]); if(!isNaN(w)&&w>top) top=w; });
+      if(top>-Infinity && (!(e.name in best) || top>best[e.name].kg)) best[e.name]={kg:top, date:l.date};
+    });
+  });
+  return best;
+}
+function rowPlain(cols, r){
+  cols=cols||[];
+  const lift=/kg|assist/i.test(cols[0]||"") && /rep/i.test(cols[1]||"");
+  const n=Math.max(cols.length, r.length), vals=[];
+  for(let i=0;i<n;i++) vals.push(r[i]==null?"":String(r[i]).trim());
+  if(lift) return vals[0]+(vals[1]!==""?" x "+vals[1]:"");
+  const ne=vals.filter(v=>v!==""); return ne.length?ne.join(" / "):"-";
+}
+// Markdown coaching brief for one person: goals + bodyweight + PRs + recent
+// sessions, with a coach preamble. Paste into Claude, or drop into Obsidian.
+function coachBrief(person){
+  const i=state.people.indexOf(person);
+  const goal=((state.goals&&state.goals[i])||"").trim();
+  const bw=bwFor(person), latest=bw.length?bw[bw.length-1]:null;
+  const logs=state.logs.filter(l=>l.person===person)
+    .sort((a,b)=> a.date<b.date?1:a.date>b.date?-1:(b.id-a.id));
+  const prs=personPRs(person);
+  let md="# Coaching brief — "+person+"\n\n";
+  md+="> You are "+possessive(person)+" strength & conditioning coach. Review the training below "
+    + "against the goals and give specific, actionable feedback and the next session's focus.\n\n";
+  md+="## Goals\n"+(goal||"_none set_")+"\n\n";
+  md+="## Bodyweight\n"+(latest?("Latest **"+latest.kg+" kg** ("+relTime(latest.date)+")"
+    + (bw.length>1?"; "+bw.length+" entries logged":"")):"_none logged_")+"\n\n";
+  const prNames=Object.keys(prs).sort();
+  md+="## Current bests\n"+(prNames.length? prNames.map(n=>"- **"+n+"** — "+prs[n].kg+" kg ("+relTime(prs[n].date)+")").join("\n") : "_none yet_")+"\n\n";
+  md+="## Recent sessions (latest "+Math.min(8,logs.length)+")\n";
+  if(!logs.length) md+="_none logged_\n";
+  logs.slice(0,8).forEach(function(l){
+    const meta=[l.date]; if(l.difficulty) meta.push("difficulty "+l.difficulty+"/10");
+    if(l.volume) meta.push(l.volume.toLocaleString()+" kg"); if(l.durationSec) meta.push(fmtDuration(l.durationSec));
+    md+="\n### "+l.sessionName+" — "+meta.join(" · ")+"\n";
+    (l.entries||[]).forEach(function(e){ md+="- "+e.name+(e.pr?" 🥇":"")+": "+(e.rows||[]).map(r=>rowPlain(e.cols||[],r)).join(", ")+"\n"; });
+    if(l.feedback) md+="- _Note:_ "+l.feedback+"\n";
+  });
+  return md;
+}
+function exportCoachBrief(){
+  const person=state.people[state.activePerson];
+  const md=coachBrief(person);
+  const fname="coach-brief-"+person.replace(/\s+/g,"-")+"-"+todayStr()+".md";
+  try{
+    const blob=new Blob([md],{type:"text/markdown"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }catch(e){}
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(md).then(()=>toast("Coach brief copied + saved"), ()=>toast("Coach brief saved"));
+  } else toast("Coach brief saved");
+}
 function exportData(){
   const text=JSON.stringify(exportPayload(),null,2);
   const fname="training-data-"+todayStr()+".json";
@@ -1510,6 +1573,7 @@ function exportData(){
   }
 }
 document.getElementById("exportBtn").onclick=exportData;
+document.getElementById("coachBriefBtn").onclick=exportCoachBrief;
 document.getElementById("importBtn").onclick=()=>{
   document.getElementById("importText").value="";
   document.getElementById("importAdopt").checked=false;
@@ -1608,7 +1672,8 @@ function renderHelp(){
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
-     +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.'));
+     +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
+     +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
