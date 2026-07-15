@@ -1341,8 +1341,9 @@ function volCompare(total){
 }
 function lerp(a,b,t){return Math.round(a+(b-a)*t);}
 function muscleColor(c,max){
-  if(!c||!max) return "#e9edf2";
-  var t=c/max, l=[190,222,255], d=[10,52,130];
+  if(!c||!max) return ""; // unworked: clear inline fill, fall back to CSS --musc-base
+  // Heat ramp brightens with more sets; endpoints suit light and dark cards.
+  var t=c/max, l=[150,190,240], d=[37,99,235];
   return "rgb("+lerp(l[0],d[0],t)+","+lerp(l[1],d[1],t)+","+lerp(l[2],d[2],t)+")";
 }
 function classifyMuscles(name){
@@ -1393,7 +1394,7 @@ function showSaveSummary(volume, prs, entries){
     wrap.style.display="";
     document.querySelectorAll("#muscleSvg .musc").forEach(function(el){
       var mk=el.getAttribute("data-muscle"); var cval=muscleSets[mk]||0;
-      el.setAttribute("fill", muscleColor(cval,maxc));
+      el.style.fill = muscleColor(cval,maxc);
       var ti=el.querySelector("title");
       if(ti){ var base=ti.textContent.replace(/:.*$/,""); ti.textContent=base+": "+cval+" set"+(cval===1?"":"s"); }
     });
