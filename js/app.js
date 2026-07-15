@@ -1491,49 +1491,45 @@ function renderHelp(){
   function p(t){ return '<p style="margin:0 0 9px">'+t+'</p>'; }
   var h='';
   h+='<div class="card"><h3 style="margin-bottom:6px">How to use this tracker</h3>'
-    +'<div class="hint" style="margin-bottom:0">A shared training log for two people. Pick who you are, log each workout, and it tells you what to aim for next time. Everything saves automatically on this device - no account or internet needed.</div></div>';
+    +'<div class="hint" style="margin-bottom:0">A shared training + health log for two people. Pick who you are, log each workout, and it tells you what to aim for next time. Works offline, saves on this device - no account needed.</div></div>';
 
   h+=card('1 &middot; Pick who you are',
-      p('Use the toggle at the top right to switch between the two of you (blue and orange). Every set you log and every suggestion belongs to whoever is selected, so check it before you start.')
-     +p('Tap the gear icon to set both <b>names</b> and each person\'s <b>bodyweight</b>. The selected person\'s bodyweight shows under the title - update it whenever it changes.'));
+      p('Use the <b>name toggle</b> top-right (blue / orange). Everything you log and every suggestion belongs to whoever is selected. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
+     +p('The 🌙 / ☀️ button switches <b>dark / light</b> theme. The gear icon sets <b>names</b> and <b>bodyweight</b>; the selected person\'s latest weight shows under the title.'));
 
   h+=card('2 &middot; Log a workout',
-      p('Open the <b>Log</b> tab and choose the session (Lower 1, Upper 1, etc.) and the date. Each exercise shows its target reps and any warm-up note.')
-     +p('Type your <b>weight</b> and <b>reps</b> for each set. Use <b>+ set</b> / <b>- set</b> to change how many sets you do.')
-     +p('Boxes start <b>blank on purpose</b>. The grey <b>Last</b> column on the right shows exactly what that person did last time, set by set - your job is to match or beat it.'));
+      p('Open <b>Log</b>, choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
+     +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
+     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg once a working weight is known.'));
 
-  h+=card('3 &middot; Rate it and save',
-      p('At the bottom, tap a <b>difficulty</b> from 1 (easy) to 10 (max effort), and add any personal <b>notes</b> (optional).')
-     +p('Hit <b>Save session</b>. The app instantly writes a <b>plan for next time</b> for every exercise - e.g. "hit the top of the range, add 2.5 kg" or "below target reps, chase more reps", and whether you went up or down versus last session.'));
+  h+=card('3 &middot; Time it, rate it, save',
+      p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
+     +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, a <b>muscle map</b> of what you worked, and a written <b>plan for next time</b> per exercise.'));
 
-  h+=card('4 &middot; The next-session plan',
-      p('Your saved plan appears in <b>History</b> right after saving, and again as a green <b>Plan</b> line on each exercise the next time you log that session. Follow it to keep adding weight or reps gradually (progressive overload).'));
+  h+=card('4 &middot; Cardio &amp; running',
+      p('Cardio exercises use their own fields. A <b>running</b> exercise (Distance / Time / Pace) computes <b>pace</b> for you and treats each row as a <b>split</b>.')
+     +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.'));
 
-  h+=card('5 &middot; History',
-      p('The <b>History</b> tab lists every saved session, newest first. Filter by person, tap <b>View</b> to expand the full set data, notes and plan, or <b>Delete</b> to remove a session.'));
+  h+=card('5 &middot; History &amp; Progress',
+      p('<b>History</b> lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
+     +p('<b>Progress</b> charts your top set for any exercise over time, both people on one graph.'));
 
-  h+=card('6 &middot; Progress',
-      p('The <b>Progress</b> tab charts your best set (top weight) for any exercise over time, with both people on the same graph - a quick way to see who is moving up and where things have stalled.'));
+  h+=card('6 &middot; Body (bodyweight)',
+      p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.'));
 
   h+=card('7 &middot; Edit the program',
-      p('The <b>Edit Program</b> tab lets you change the workouts: rename an exercise, change its target, add a warm-up note, add/remove/reorder movements, or relabel the input columns (handy for cardio fields like Min or Pace).')
-     +p('Changes only affect future logging - your past history is never altered. To start over, use <b>Reset program to default</b> in the gear menu (your logs stay).'));
+      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+     +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
-  h+=card('8 &middot; Where your data lives',
-      p('Everything is stored <b>on this device, in this browser</b>. There is no cloud sync, so your phone copy and your computer copy keep <b>separate</b> logs. Pick one main place to log each day (most people use their phone).'));
-
-  h+=card('9 &middot; Move data between devices (sync)',
-      p('In the gear menu under <b>Data</b>: <b>Export</b> saves a file with everything; send it to the other device (email, Drive, AirDrop).')
-     +p('On the other device, tap <b>Import / merge</b>, pick the file, and its sessions are <b>added in</b>. Merging is by unique ID, so nothing is overwritten or duplicated - you can import in either direction as often as you like.')
-     +p('Tick "Also replace program &amp; names" only if you want to copy the other device\'s program too; leave it off to merge logs only.'));
-
-  h+=card('10 &middot; Put it on your phone',
-      p('Open the file in your phone browser, then add it to your home screen (Share &rarr; Add to Home Screen on iPhone; menu &rarr; Add to Home screen on Android). Always open it from that icon so it uses the same saved data.'));
+  h+=card('8 &middot; Your data, backups &amp; sync',
+      p('Everything saves <b>on this device</b>. There is no automatic cloud sync yet, so keep one main place to log (usually your phone).')
+     +p('Gear menu &rarr; <b>Export</b> saves a file with everything (workouts + bodyweight + program); <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates. Export now and then as a <b>backup</b>.')
+     +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.'));
 
   h+=card('Quick tips',
-      p('&bull; Beat the grey <b>Last</b> numbers - even one extra rep counts.')
-     +p('&bull; Save every session so the plans and charts stay accurate.')
-     +p('&bull; Export now and then as a backup, and to keep both of you in sync.'));
+      p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
+     +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
+     +p('&bull; Export regularly as a backup, and to keep both of you in sync.'));
 
   document.getElementById("view").innerHTML=h;
 }
