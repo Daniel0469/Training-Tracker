@@ -1083,12 +1083,17 @@ function drawChart(){
       backgroundColor:i===0?"#2f6df0":"#e0633a",tension:.25,spanGaps:true};
   });
   if(chart) chart.destroy();
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const tickCol=dark?"#9aa3b2":"#697086";
+  const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   chart=new Chart(document.getElementById("progChart"),{
     type:"line", data:{datasets:series},
     options:{responsive:true,maintainAspectRatio:false,parsing:false,
-      scales:{x:{type:"category",labels:[...new Set(state.logs.map(l=>l.date))].sort()},
-        y:{beginAtZero:false,title:{display:true,text:"Top value"}}},
-      plugins:{legend:{position:"top"}}}
+      scales:{x:{type:"category",labels:[...new Set(state.logs.map(l=>l.date))].sort(),
+          ticks:{color:tickCol},grid:{color:gridCol}},
+        y:{beginAtZero:false,title:{display:true,text:"Top value",color:tickCol},
+          ticks:{color:tickCol},grid:{color:gridCol}}},
+      plugins:{legend:{position:"top",labels:{color:tickCol}}}}
   });
 }
 
@@ -1428,8 +1433,10 @@ function initTheme(){
   applyTheme(t);
 }
 document.getElementById("themeBtn").onclick=()=>{
+  if(activeTab==="log") captureDraft(); // preserve unsaved entry across the re-render
   const next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
   state.theme=next; save(); applyTheme(next);
+  renderView(); // re-render so the themed chart + surfaces refresh
 };
 
 curSession = sessionForDate(curDate) || curSession;
