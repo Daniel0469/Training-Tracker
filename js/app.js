@@ -652,7 +652,7 @@ function latestLog(person, sessionKey){
 function bestWeightSoFar(person, exerciseName){
   var best=-Infinity;
   state.logs.filter(function(l){return l.person===person;}).forEach(function(l){
-    var e=l.entries.find(function(x){return x.name===exerciseName;}); if(!e) return;
+    var e=(l.entries||[]).find(function(x){return x.name===exerciseName;}); if(!e) return;
     var wu=e.warmup||[];
     e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]); if(!isNaN(w)&&w>best) best=w; });
   });
@@ -662,7 +662,7 @@ function latestEntryAnywhere(person, exName){
   var bestLog=null, bestEntry=null;
   state.logs.forEach(function(l){
     if(l.person!==person) return;
-    var e=l.entries.find(function(x){return x.name===exName;}); if(!e) return;
+    var e=(l.entries||[]).find(function(x){return x.name===exName;}); if(!e) return;
     if(!bestLog || l.date>bestLog.date || (l.date===bestLog.date && l.id>bestLog.id)){ bestLog=l; bestEntry=e; }
   });
   return bestLog ? {log:bestLog, entry:bestEntry} : null;
@@ -847,7 +847,7 @@ function renderLog(){
 
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
-    const last = prev && prev.entries.find(e=>e.name===ex.name);
+    const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
     html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name),recentNote(p,ex,prev));
   });
   html += '</div>';
@@ -1083,7 +1083,7 @@ function saveSession(){
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
   const suggestions=entries.map(en=>{
     const ex=sess.exercises.find(e=>e.name===en.name)||{cols:en.cols,target:""};
-    const lastEn=prev && prev.entries.find(e=>e.name===en.name);
+    const lastEn=prev && (prev.entries||[]).find(e=>e.name===en.name);
     return {name:en.name, text:suggestNext(ex,en,lastEn)};
   });
   var volume=0;
@@ -1174,7 +1174,7 @@ function drawHist(who){
   const pc=p=> state.people[0]===p?"me":"partner";
   document.getElementById("histList").innerHTML = logs.map(l=>{
     const open = l.id===justSavedId;
-    const rows=l.entries.map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
+    const rows=(l.entries||[]).map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
       + e.rows.map(function(r,ri){ var s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>').join("");
     const plan=(l.suggestions&&l.suggestions.length)
       ? '<div class="planbox"><div class="sec-title" style="margin:0 0 5px">Plan for next '+esc(l.sessionName)+'</div>'
@@ -1203,7 +1203,7 @@ function drawHist(who){
 
 let chart=null;
 function renderProgress(){
-  const allEx=[...new Set(state.logs.flatMap(l=>l.entries.map(e=>e.name)))].sort();
+  const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
   if(!allEx.length){
     document.getElementById("view").innerHTML='<div class="card empty">Log a few sessions and your progress charts will appear here.</div>';
     return;
@@ -1240,7 +1240,7 @@ function drawChart(){
   const metric=(document.getElementById("progMetric")||{}).value||"weight";
   const series=state.people.map((p,i)=>{
     const pts=state.logs.filter(l=>l.person===p)
-      .map(l=>{ const e=l.entries.find(x=>x.name===name); if(!e) return null;
+      .map(l=>{ const e=(l.entries||[]).find(x=>x.name===name); if(!e) return null;
         const wu=e.warmup||[]; const vals=[];
         e.rows.forEach((r,ri)=>{ if(wu.indexOf(ri)>=0) return; const w=parseFloat(r[0]); if(isNaN(w)) return;
           if(metric==="e1rm"){ const v=epley(w,parseInt(r[1],10)); if(!isNaN(v)) vals.push(v); } else vals.push(w); });
@@ -1643,7 +1643,8 @@ function coachBrief(person){
     const meta=[l.date]; if(l.difficulty) meta.push("difficulty "+l.difficulty+"/10");
     if(l.volume) meta.push(l.volume.toLocaleString()+" kg"); if(l.durationSec) meta.push(fmtDuration(l.durationSec));
     md+="\n### "+l.sessionName+" — "+meta.join(" · ")+"\n";
-    (l.entries||[]).forEach(function(e){ md+="- "+e.name+(e.pr?" 🥇":"")+": "+(e.rows||[]).map(r=>rowPlain(e.cols||[],r)).join(", ")+"\n"; });
+    (l.entries||[]).forEach(function(e){ var wu=e.warmup||[];
+      md+="- "+e.name+(e.pr?" 🥇":"")+": "+(e.rows||[]).map(function(r,ri){ var s=rowPlain(e.cols||[],r); return wu.indexOf(ri)>=0?s+" (warm-up)":s; }).join(", ")+"\n"; });
     if(l.feedback) md+="- _Note:_ "+l.feedback+"\n";
   });
   return md;
@@ -1735,7 +1736,7 @@ function syncNow(){
   setSyncStatus("Syncing…");
   return ghGetFile(cfg).then(function(remote){
     let merged={added:0,updated:0};
-    if(remote.exists && remote.json) merged=mergeInData(remote.json, false);
+    if(remote.exists && remote.json){ merged=mergeInData(remote.json, false); save(); } // keep pulled data even if the push fails
     return ghPutFile(cfg, JSON.stringify(exportPayload(),null,2), remote.exists?remote.sha:null)
       .then(function(res){
         cfg.sha=res&&res.content&&res.content.sha; saveSyncCfg(cfg);
