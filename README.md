@@ -10,7 +10,7 @@ all data lives in the browser's `localStorage`. Deployable as-is on GitHub Pages
   progressive-overload suggestions, PR detection, the muscle-map summary).
 - `manifest.webmanifest`, `icons/`, `sw.js` — PWA installability + offline support.
 - `claude-code-handoff.md` — original brief and backlog this project is being worked from.
-- `docs/garmin-import.md` — feasibility research + proposal for importing Garmin runs (not built).
+- `docs/running-import.md` — how the built-in TCX/GPX run importer works (Garmin & Strava).
 - `sample-daniel.json` / `sample-cerys.json` — real exported data, used as local test fixtures
   only (see "Notes & decisions" below — not committed to git).
 
