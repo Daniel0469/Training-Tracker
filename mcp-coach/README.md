@@ -15,7 +15,10 @@ and tell me what to change,"* and it calls these tools itself.
 
 ### 1. Requirements
 - Python 3.10+
-- `python -m pip install mcp`  (use `python -m pip`, not bare `pip`, if pip isn't on PATH)
+- `python -m pip install mcp truststore`  (use `python -m pip`, not bare `pip`, if pip isn't on
+  PATH). `truststore` makes SSL use the OS trust store — needed if antivirus/proxy TLS inspection
+  causes `CERTIFICATE_VERIFY_FAILED`.
+- Verify with `python mcp-coach/test_connection.py` after filling in `.mcp.json`.
 
 ### 2. Point it at your data
 Use the **GitHub store** the app syncs to (recommended, always current):
