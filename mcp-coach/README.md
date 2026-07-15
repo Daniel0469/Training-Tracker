@@ -15,11 +15,11 @@ and tell me what to change,"* and it calls these tools itself.
 
 ### 1. Requirements
 - Python 3.10+
-- `pip install mcp`  (or `pip install "mcp[cli]"`)
+- `python -m pip install mcp`  (use `python -m pip`, not bare `pip`, if pip isn't on PATH)
 
 ### 2. Point it at your data
 Use the **GitHub store** the app syncs to (recommended, always current):
-- `TT_GITHUB_REPO`  — e.g. `danielmorris/training-data`
+- `TT_GITHUB_REPO`  — `Daniel0469/Training-Data`
 - `TT_GITHUB_TOKEN` — a fine-grained token with **Contents: read** on that repo
 - `TT_GITHUB_PATH`  — optional, default `data.json`
 
@@ -41,7 +41,7 @@ python server.py --selftest /path/to/an-export.json
       "command": "python",
       "args": ["C:\\Users\\danie\\Documents\\TrainingTracker\\mcp-coach\\server.py"],
       "env": {
-        "TT_GITHUB_REPO": "danielmorris/training-data",
+        "TT_GITHUB_REPO": "Daniel0469/Training-Data",
         "TT_GITHUB_TOKEN": "github_pat_…",
         "TT_GITHUB_PATH": "data.json"
       }

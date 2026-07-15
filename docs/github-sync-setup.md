@@ -3,9 +3,12 @@
 Cloud sync keeps Daniel's and Cerys's data in one place (and off-device **backup**), stored in a
 private GitHub repo you control. Free. ~5 minutes to set up once.
 
+**Your repos:** app = `Daniel0469/Training-Tracker`, sync data = `Daniel0469/Training-Data`.
+Use the **Training-Data** repo for sync (keep code and data separate).
+
 ## 1. Create a private repo for the data
-On GitHub: **New repository** → name it e.g. `training-data` → **Private** → Create. Leave it
-empty (the app creates the data file on first sync).
+Already done: `Daniel0469/Training-Data`. (If starting fresh: **New repository** → **Private** →
+Create, leave it empty — the app creates the data file on first sync.)
 
 ## 2. Create a fine-grained access token (scoped to just that repo)
 GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
@@ -17,7 +20,7 @@ Generate new token**:
 
 ## 3. Connect the app
 Open the tracker → gear icon → **Cloud sync (GitHub)**:
-- **Repo (owner/name):** e.g. `danielmorris/training-data`
+- **Repo (owner/name):** `Daniel0469/Training-Data`
 - **File path:** `data.json` (default is fine)
 - **Access token:** paste the token
 - **Save sync settings**, then **Sync now**. First sync creates `data.json` in the repo.
