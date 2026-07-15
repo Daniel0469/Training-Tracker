@@ -22,6 +22,14 @@ Self-test without an MCP client:
 """
 import os, sys, json, base64, re, urllib.request
 
+# Use the OS (Windows) trust store if available, so SSL works behind antivirus /
+# proxy TLS inspection that injects a root CA the default verifier rejects.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 # ---------------------------------------------------------------- data loading
 def load_data():
     repo = os.environ.get("TT_GITHUB_REPO")

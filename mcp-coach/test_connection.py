@@ -27,7 +27,7 @@ try:
     data = server.load_data()
     print("Connected to", env.get("TT_GITHUB_REPO"), "/", env.get("TT_GITHUB_PATH"))
     print(json.dumps(server.list_people(data), indent=2))
-    print("\nLooks good — restart Claude Code and the coach is ready.")
+    print("\nLooks good - restart Claude Code and the coach is ready.")
 except Exception as e:
     print("FAILED:", e)
     print("- Is TT_GITHUB_PATH the exact file name in your Training-Data repo?")
