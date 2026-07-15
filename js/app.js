@@ -1423,6 +1423,11 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("wlab1").childNodes[0].nodeValue=possessive(state.people[1])+" bodyweight (kg)";
   document.getElementById("glab0").childNodes[0].nodeValue=possessive(state.people[0])+" goals";
   document.getElementById("glab1").childNodes[0].nodeValue=possessive(state.people[1])+" goals";
+  const sc=loadSync();
+  document.getElementById("ghRepo").value=sc.repo||"";
+  document.getElementById("ghPath").value=sc.path||"";
+  document.getElementById("ghToken").value=sc.token||"";
+  setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
   setDlg.showModal();
 };
 document.getElementById("settingsCancel").onclick=()=>setDlg.close();
@@ -1438,6 +1443,20 @@ document.getElementById("settingsSave").onclick=()=>{
   state.weights.forEach((w,i)=>{ const kg=parseFloat(w); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg); });
   save(); setDlg.close(); renderPeople(); renderView(); toast("Saved");
 };
+document.getElementById("ghSaveCfg").onclick=()=>{
+  const cfg=loadSync();
+  cfg.repo=document.getElementById("ghRepo").value.trim();
+  cfg.path=document.getElementById("ghPath").value.trim()||"data.json";
+  cfg.token=document.getElementById("ghToken").value.trim();
+  saveSyncCfg(cfg);
+  setSyncStatus(cfg.repo&&cfg.token ? "Saved. Ready to sync "+cfg.repo : "Saved (repo + token needed to sync).");
+  toast("Sync settings saved");
+};
+document.getElementById("ghSyncBtn").onclick=()=>{
+  // Persist whatever's in the fields first, then sync.
+  document.getElementById("ghSaveCfg").click();
+  syncNow();
+};
 document.getElementById("resetProgram").onclick=()=>{
   if(confirm("Reset all workouts to the default program? Your logged history stays.")){
     state.program=clone(DEFAULT_PROGRAM); curSession=state.program.order[0];
@@ -1446,11 +1465,35 @@ document.getElementById("resetProgram").onclick=()=>{
 };
 
 const importDlg=document.getElementById("importDlg");
-function exportData(){
-  const payload={version:1, exportedAt:new Date().toISOString(),
+function exportPayload(){
+  return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, bodyweights:state.bodyweights,
     program:state.program, logs:state.logs};
-  const text=JSON.stringify(payload,null,2);
+}
+// Merge an exported/synced payload into local state. Logs upsert by id and
+// bodyweights by person+date (both idempotent). Config (program/people/
+// weights/goals) is only replaced when adopting; otherwise empty goals are
+// filled from the incoming copy so each person's goal propagates.
+function mergeInData(data, adoptConfig){
+  let added=0, updated=0;
+  if(Array.isArray(data.logs)){
+    var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
+    data.logs.forEach(function(l){ if(!l) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
+  }
+  if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
+  if(adoptConfig){
+    if(data.program&&data.program.sessions) state.program=clone(data.program);
+    if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
+    if(Array.isArray(data.weights)) state.weights=data.weights.slice(0,2);
+    if(Array.isArray(data.goals)) state.goals=data.goals.slice(0,2);
+    curSession=sessionForDate(curDate)||state.program.order[0];
+  } else if(Array.isArray(data.goals)){
+    data.goals.forEach(function(g,i){ if(g && !((state.goals[i]||"").trim())) state.goals[i]=g; });
+  }
+  return {added, updated};
+}
+function exportData(){
+  const text=JSON.stringify(exportPayload(),null,2);
   const fname="training-data-"+todayStr()+".json";
   try{
     const blob=new Blob([text],{type:"application/json"});
@@ -1483,21 +1526,57 @@ document.getElementById("importConfirm").onclick=()=>{
   let data; try{ data=JSON.parse(document.getElementById("importText").value); }
   catch(e){ toast("Couldn't read that data"); return; }
   if(!data || !Array.isArray(data.logs)){ toast("No logs found in import"); return; }
-  var byId={}; state.logs.forEach(function(l,i){ byId[l.id]=i; });
-  let added=0, updated=0;
-  data.logs.forEach(function(l){ if(!l) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
-  // Merge bodyweight history too (upsert by person+date), idempotent like logs.
-  if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
-  if(document.getElementById("importAdopt").checked){
-    if(data.program&&data.program.sessions) state.program=clone(data.program);
-    if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
-    if(Array.isArray(data.weights)) state.weights=data.weights.slice(0,2);
-    if(Array.isArray(data.goals)) state.goals=data.goals.slice(0,2);
-    curSession=sessionForDate(curDate)||state.program.order[0];
-  }
+  const res=mergeInData(data, document.getElementById("importAdopt").checked);
   save(); importDlg.close(); setDlg.close(); renderPeople(); renderView();
-  toast(added+" added, "+updated+" updated");
+  toast(res.added+" added, "+res.updated+" updated");
 };
+
+// ---- Cloud sync (GitHub Contents API) ----
+const SYNC_KEY="flLiveTracker_sync_v1";
+function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY))||{}; }catch(e){ return {}; } }
+function saveSyncCfg(s){ localStorage.setItem(SYNC_KEY, JSON.stringify(s)); }
+function ghHeaders(token){ return {"Authorization":"Bearer "+token, "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}; }
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64decode(str){ return decodeURIComponent(escape(atob(String(str).replace(/\s/g,"")))); }
+function ghUrl(cfg){ return "https://api.github.com/repos/"+cfg.repo+"/contents/"+cfg.path; }
+function ghGetFile(cfg){
+  return fetch(ghUrl(cfg), {headers:ghHeaders(cfg.token)}).then(function(r){
+    if(r.status===404) return {exists:false};
+    if(!r.ok) throw new Error("read "+r.status);
+    return r.json().then(function(j){ return {exists:true, sha:j.sha, json:JSON.parse(b64decode(j.content))}; });
+  });
+}
+function ghPutFile(cfg, payloadStr, sha){
+  const body={message:"Sync training data "+new Date().toISOString(), content:b64encode(payloadStr)};
+  if(sha) body.sha=sha;
+  return fetch(ghUrl(cfg), {method:"PUT", headers:ghHeaders(cfg.token), body:JSON.stringify(body)}).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error("write "+r.status); });
+    return r.json();
+  });
+}
+function setSyncStatus(msg){ const el=document.getElementById("ghStatus"); if(el) el.textContent=msg; }
+// Pull remote -> merge (logs+bodyweights union) -> push merged local back.
+function syncNow(){
+  const cfg=loadSync();
+  if(!cfg.repo || !cfg.token){ toast("Add your GitHub repo + token first"); return; }
+  cfg.path=cfg.path||"data.json";
+  setSyncStatus("Syncing…");
+  return ghGetFile(cfg).then(function(remote){
+    let merged={added:0,updated:0};
+    if(remote.exists && remote.json) merged=mergeInData(remote.json, false);
+    return ghPutFile(cfg, JSON.stringify(exportPayload(),null,2), remote.exists?remote.sha:null)
+      .then(function(res){
+        cfg.sha=res&&res.content&&res.content.sha; saveSyncCfg(cfg);
+        save(); renderPeople(); renderView();
+        setSyncStatus("Synced "+new Date().toLocaleTimeString()+" · +"+merged.added+" new, "+merged.updated+" updated");
+        toast("Synced");
+      });
+  }).catch(function(e){
+    const m=String(e.message||e);
+    setSyncStatus("Sync failed ("+(m.indexOf("401")>=0||m.indexOf("403")>=0?"check token/repo access":m)+")");
+    toast("Sync failed");
+  });
+}
 
 function renderHelp(){
   function card(title, body){ return '<div class="card"><div class="sec-title">'+title+'</div>'+body+'</div>'; }
@@ -1536,8 +1615,8 @@ function renderHelp(){
      +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
-      p('Everything saves <b>on this device</b>. There is no automatic cloud sync yet, so keep one main place to log (usually your phone).')
-     +p('Gear menu &rarr; <b>Export</b> saves a file with everything (workouts + bodyweight + program); <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates. Export now and then as a <b>backup</b>.')
+      p('Everything saves <b>on this device</b>. Gear menu &rarr; <b>Export</b> saves a file with everything; <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates.')
+     +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu, then <b>Sync now</b> pulls the other person\'s changes and pushes yours (workouts + bodyweight merge automatically). It doubles as an off-device <b>backup</b>. The token is stored only on this device and never included in exports.')
      +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.'));
 
   h+=card('Quick tips',
