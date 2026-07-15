@@ -13,7 +13,17 @@ works offline. Growing into a shared health/fitness hub with Claude as coach.
 - **App:** https://github.com/Daniel0469/Training-Tracker  (this repo; deploy on GitHub Pages)
 - **Sync data (private):** https://github.com/Daniel0469/Training-Data  (holds `data.json` for cloud sync)
 
-## Status: where we are
+## Status: where we are (2026-07-16)
+**Live & set up:** app deployed on GitHub Pages → **https://daniel0469.github.io/Training-Tracker/**.
+Cloud **sync is working** (both Daniel + Cerys → `Training-Data/data.json`; store currently has
+~19 sessions across both). The **MCP coach is connected** in Claude Code (`.mcp.json` on this
+laptop, gitignored; `truststore` installed for SSL) and is **two-way** — it reads the data and can
+`write_coaching` notes that show in the app. Full inline **code review done**.
+- ⚠️ **After the last commit, restart Claude Code once** so the MCP server picks up the new
+  `write_coaching` tool. The read tools were already live.
+- Coaching now happens in a **separate Claude Code chat** — see `docs/coaching-prompt.md`. App
+  development continues in the main chat.
+
 Done and committed: the original handoff backlog, all of backlog **item 3**, a batch of **additional
 fixes**, **Phase 1** (hub + coaching foundation) and **Phase 2** (analysis features). **Phase 3
 nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review** (then fix findings).
@@ -38,8 +48,9 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
 - **Theme:** dark/light toggle (persisted, follows OS default).
 - **Data:** export/import (merge by id / person+date), **free GitHub cloud sync** + off-device
   backup, **Coach-brief Markdown export** (paste into Claude / Obsidian).
-- **Coaching:** `mcp-coach/` MCP server exposes the data to Claude (runs on the subscription, no API
-  cost), reading the GitHub store.
+- **Coaching (two-way):** `mcp-coach/` MCP server exposes the data to Claude (subscription, no API
+  cost) AND `write_coaching` lets Claude push notes back → shown as a purple 🧠 Coach card + per-
+  exercise cues on the Log tab after a sync. Coaching-chat starter prompt: `docs/coaching-prompt.md`.
 
 ## File / architecture map
 - `index.html` — markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
@@ -82,12 +93,17 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   indices) and excluded from volume/PRs/e1RM/heatmap everywhere.
 
 ## Open items / TODO
-- **Run the full inline code review**, then fix findings (next task).
-- **Deploy:** enable GitHub Pages on `Training-Tracker` (serve repo root).
+- **Restart Claude Code** to activate the `write_coaching` MCP tool (one-time).
+- **Set goals** for both people in the app (gear → goals → Sync) — they're blank; coaching is
+  sharper with them.
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
+  (1byone export is unreliable; bodyweight is entered manually / by CSV import.)
 - **PWA icons:** replace placeholder `icons/` with real branding when available.
-- Phase-2 remainder was completed; **Phase 3 (rest timer, kg/lb toggle, Hevy CSV, plate calc) is
-  not wanted.**
+- Next dev direction: the **"all-round health & fitness hub"** — likely candidates: nutrition /
+  calorie or protein logging, sleep/recovery, habit or check-in tracking, weekly review dashboard,
+  and richer coaching (auto weekly summary). Decide + spec before building.
+- Done: code review, GitHub Pages deploy, sync, MCP coach (read + write). **Phase 3 mini-features
+  (rest timer, kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.**
 
 ## Dev notes
 - Serve any static way; a **no-cache dev server** avoids the browser HTTP/bfcache serving stale
