@@ -1,6 +1,12 @@
 # Health & fitness hub + AI coaching — design proposal
 
-**Status: proposal, nothing built.** Daniel wants this to grow into a shared health & fitness hub
+**Status: Phase 1 built.** Per-person **goals**, **GitHub sync** (B1, see
+`docs/github-sync-setup.md`), the **MCP coaching server** (B3, see `mcp-coach/`), and the manual
+**Coach-brief Markdown export** are all implemented and committed. Remaining: wiring it live with
+Daniel's GitHub token, and the Phase-2 analysis features (records page, e1RM, weekly view, etc.).
+Original proposal below.
+
+Daniel wants this to grow into a shared health & fitness hub
 for him and Cerys, with Claude acting as their coach. This lays out how to get there for **free**,
 in phases he can approve one at a time. Decisions from the planning round: backend is fine *only
 if free* (GitHub as a possible store); coaching saved for later; runs via file import; iPhone for
