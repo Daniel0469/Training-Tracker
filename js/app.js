@@ -847,10 +847,12 @@ function warmupBase(card){
   return top>-Infinity ? top : null;
 }
 function computeWarmupText(warmup, base){
+  // Once a reference weight is known, show the resolved kg in place of the
+  // "NN%" token (e.g. "40%x8" -> "40kg x8"); before then, keep the raw %.
   return warmup.replace(/(\d+(?:\.\d+)?)\s*%/g, function(m,pct){
     if(base==null) return m;
     var kg=Math.round((base*parseFloat(pct)/100)/2.5)*2.5;
-    return m+" (≈"+kg+"kg)";
+    return kg+"kg";
   });
 }
 function updateWarmup(card, ex){
