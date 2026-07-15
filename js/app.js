@@ -452,6 +452,7 @@ function load(){
     const s = JSON.parse(localStorage.getItem(KEY));
     if(s && s.program && s.program.sessions){
       if(!Array.isArray(s.weights)) s.weights=["",""];
+      if(!Array.isArray(s.goals)) s.goals=["",""];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
         s.bodyweights=[];
@@ -464,7 +465,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -1246,7 +1247,12 @@ function renderBody(){
   const hist=bwFor(p).slice().reverse(); // newest first for the list
   const latest=latestBw(p);
   const pc = state.people[0]===p ? "me" : "partner";
-  let html='<div class="card">'
+  const goal=(state.goals&&state.goals[state.activePerson])||"";
+  let html='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
+    + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
+            : '<div class="hint" style="margin:0">No goals set yet &mdash; add them via the gear menu.</div>')
+    + '</div>';
+  html+='<div class="card">'
     + '<div class="flex-between" style="margin-bottom:10px"><div>'
     + '<h3>'+esc(p)+' <span class="pill '+pc+'">bodyweight</span></h3>'
     + '<div class="ex-meta">'+(latest? latest.kg+' kg · '+relTime(latest.date) : 'No entries yet')+'</div></div></div>'
@@ -1411,8 +1417,12 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("name1").value=state.people[1];
   document.getElementById("weight0").value=state.weights[0];
   document.getElementById("weight1").value=state.weights[1];
+  document.getElementById("goals0").value=(state.goals&&state.goals[0])||"";
+  document.getElementById("goals1").value=(state.goals&&state.goals[1])||"";
   document.getElementById("wlab0").childNodes[0].nodeValue=possessive(state.people[0])+" bodyweight (kg)";
   document.getElementById("wlab1").childNodes[0].nodeValue=possessive(state.people[1])+" bodyweight (kg)";
+  document.getElementById("glab0").childNodes[0].nodeValue=possessive(state.people[0])+" goals";
+  document.getElementById("glab1").childNodes[0].nodeValue=possessive(state.people[1])+" goals";
   setDlg.showModal();
 };
 document.getElementById("settingsCancel").onclick=()=>setDlg.close();
@@ -1422,6 +1432,8 @@ document.getElementById("settingsSave").onclick=()=>{
   state.people=[n0,n1];
   state.weights=[document.getElementById("weight0").value.trim(),
                  document.getElementById("weight1").value.trim()];
+  state.goals=[document.getElementById("goals0").value.trim(),
+               document.getElementById("goals1").value.trim()];
   // Record today's bodyweight into history when set here too.
   state.weights.forEach((w,i)=>{ const kg=parseFloat(w); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg); });
   save(); setDlg.close(); renderPeople(); renderView(); toast("Saved");
@@ -1436,7 +1448,7 @@ document.getElementById("resetProgram").onclick=()=>{
 const importDlg=document.getElementById("importDlg");
 function exportData(){
   const payload={version:1, exportedAt:new Date().toISOString(),
-    people:state.people, weights:state.weights, bodyweights:state.bodyweights,
+    people:state.people, weights:state.weights, goals:state.goals, bodyweights:state.bodyweights,
     program:state.program, logs:state.logs};
   const text=JSON.stringify(payload,null,2);
   const fname="training-data-"+todayStr()+".json";
@@ -1480,6 +1492,7 @@ document.getElementById("importConfirm").onclick=()=>{
     if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
     if(Array.isArray(data.weights)) state.weights=data.weights.slice(0,2);
+    if(Array.isArray(data.goals)) state.goals=data.goals.slice(0,2);
     curSession=sessionForDate(curDate)||state.program.order[0];
   }
   save(); importDlg.close(); setDlg.close(); renderPeople(); renderView();
@@ -1514,8 +1527,9 @@ function renderHelp(){
       p('<b>History</b> lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
      +p('<b>Progress</b> charts your top set for any exercise over time, both people on one graph.'));
 
-  h+=card('6 &middot; Body (bodyweight)',
-      p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.'));
+  h+=card('6 &middot; Body, goals &amp; bodyweight',
+      p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
+     +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
