@@ -11,6 +11,7 @@ all data lives in the browser's `localStorage`. Deployable as-is on GitHub Pages
 - `manifest.webmanifest`, `icons/`, `sw.js` — PWA installability + offline support.
 - `claude-code-handoff.md` — original brief and backlog this project is being worked from.
 - `docs/running-import.md` — how the built-in TCX/GPX run importer works (Garmin & Strava).
+- `docs/hub-and-coaching.md` — proposal for the shared hub, free sync, and AI coaching (not built).
 - `sample-daniel.json` / `sample-cerys.json` — real exported data, used as local test fixtures
   only (see "Notes & decisions" below — not committed to git).
 
