@@ -452,10 +452,19 @@ function load(){
     const s = JSON.parse(localStorage.getItem(KEY));
     if(s && s.program && s.program.sessions){
       if(!Array.isArray(s.weights)) s.weights=["",""];
+      if(!Array.isArray(s.bodyweights)){
+        // Migrate: seed history from each person's current single weight.
+        s.bodyweights=[];
+        var today=new Date().toISOString().slice(0,10);
+        s.weights.forEach(function(w,i){
+          var kg=parseFloat(w);
+          if(!isNaN(kg)) s.bodyweights.push({person:s.people[i], date:today, kg:kg});
+        });
+      }
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -1097,6 +1106,140 @@ function drawChart(){
   });
 }
 
+function bwFor(person){
+  return state.bodyweights.filter(b=>b.person===person)
+    .slice().sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
+}
+function latestBw(person){ const a=bwFor(person); return a.length? a[a.length-1] : null; }
+// Add or replace a person's bodyweight for a date; keeps weights[] (the
+// "current" value shown in the header/settings) in sync with the newest entry.
+function addBodyweight(person, date, kg){
+  if(isNaN(kg)) return;
+  const existing=state.bodyweights.find(b=>b.person===person && b.date===date);
+  if(existing) existing.kg=kg; else state.bodyweights.push({person, date, kg});
+  const pi=state.people.indexOf(person);
+  if(pi>=0){ const lb=latestBw(person); if(lb) state.weights[pi]=String(lb.kg); }
+}
+// Tolerant CSV parse: split on comma/semicolon/tab, honouring simple quotes.
+function parseCsv(text){
+  return text.replace(/\r/g,"").split("\n").filter(l=>l.trim()!=="").map(line=>{
+    const out=[]; let cur="", q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else if(c==='"') q=true;
+      else if(c===","||c===";"||c==="\t"){ out.push(cur); cur=""; }
+      else cur+=c;
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
+  });
+}
+function parseAnyDate(s){
+  s=String(s).trim(); if(!s) return null;
+  let m=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); // ISO-ish
+  if(m) return m[1]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[3]).slice(-2);
+  m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); // D/M/Y or M/D/Y — assume D/M/Y
+  if(m){ let d=+m[1], mo=+m[2]; if(d>12){/*keep*/} else if(mo>12){ const t=d;d=mo;mo=t; }
+    return m[3]+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2); }
+  const t=new Date(s); if(!isNaN(t)) return t.toISOString().slice(0,10);
+  return null;
+}
+// Import a bodyweight CSV (e.g. from the 1byone Health app export). Auto-detects
+// the date and weight columns from the header; converts lb→kg if the header says so.
+function importBodyweightCsv(text, person){
+  const rows=parseCsv(text);
+  if(!rows.length) return {added:0, msg:"Empty file"};
+  const header=rows[0].map(h=>h.toLowerCase());
+  let di=header.findIndex(h=>/date|time|day/.test(h));
+  let wi=header.findIndex(h=>/weight|mass|\bkg\b|\blb\b|lbs|pounds/.test(h));
+  let start=1;
+  if(di<0 || wi<0){ // no recognisable header — assume col0=date, col1=weight, no header
+    di=0; wi=1; start=0;
+  }
+  const isLb=wi>=0 && /lb|pound/.test(header[wi]||"");
+  let added=0;
+  for(let r=start;r<rows.length;r++){
+    const cells=rows[r]; if(!cells || cells.length<=Math.max(di,wi)) continue;
+    const date=parseAnyDate(cells[di]);
+    let kg=parseFloat(String(cells[wi]).replace(/[^\d.]/g,""));
+    if(!date || isNaN(kg)) continue;
+    if(isLb) kg=Math.round(kg*0.453592*10)/10;
+    addBodyweight(person, date, kg); added++;
+  }
+  return {added, msg: added? added+" entries imported" : "No date+weight rows found"};
+}
+
+let bwChart=null;
+function renderBody(){
+  const p=state.people[state.activePerson];
+  const hist=bwFor(p).slice().reverse(); // newest first for the list
+  const latest=latestBw(p);
+  const pc = state.people[0]===p ? "me" : "partner";
+  let html='<div class="card">'
+    + '<div class="flex-between" style="margin-bottom:10px"><div>'
+    + '<h3>'+esc(p)+' <span class="pill '+pc+'">bodyweight</span></h3>'
+    + '<div class="ex-meta">'+(latest? latest.kg+' kg · '+relTime(latest.date) : 'No entries yet')+'</div></div></div>'
+    + '<div class="row" style="align-items:flex-end;gap:8px">'
+    + '<label class="fld"><span>Weight (kg)</span><input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76" style="width:120px"></label>'
+    + '<label class="fld"><span>Date</span><input id="bwDate" type="date" value="'+trainingDateStr()+'" style="width:150px"></label>'
+    + '<button class="btn btn-primary" id="bwAdd">Add</button>'
+    + '<button class="mini" id="bwImport" style="margin-left:auto">⬆ Import from scale (CSV)</button>'
+    + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
+    + '</div>'
+    + '<div class="hint" style="margin-top:6px">Import a CSV exported from your scale app (e.g. 1byone Health). Date + weight columns are detected automatically.</div>'
+    + '</div>';
+  if(hist.length){
+    html+='<div class="card"><div class="sec-title">Trend</div><div class="chart-box"><canvas id="bwChart"></canvas></div></div>';
+    html+='<div class="card"><div class="sec-title">History &mdash; '+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
+  } else {
+    html+='<div class="card empty">No bodyweight logged for '+esc(p)+' yet.<br>Add one above, or import from your scale app.</div>';
+  }
+  document.getElementById("view").innerHTML=html;
+
+  document.getElementById("bwAdd").onclick=()=>{
+    const kg=parseFloat(document.getElementById("bwKg").value);
+    const date=document.getElementById("bwDate").value||todayStr();
+    if(isNaN(kg)){ toast("Enter a weight"); return; }
+    addBodyweight(p, date, kg); save(); renderPeople(); renderBody(); toast("Saved");
+  };
+  document.getElementById("bwImport").onclick=()=>document.getElementById("bwFile").click();
+  document.getElementById("bwFile").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ const res=importBodyweightCsv(rd.result, p); if(res.added){ save(); renderPeople(); } renderBody(); toast(res.msg); };
+    rd.readAsText(f);
+  };
+  if(hist.length){
+    const list=document.getElementById("bwList");
+    list.innerHTML=hist.map(b=>'<div class="log-row" style="padding:4px 0;border-bottom:1px solid var(--line)">'
+      + '<div><b>'+b.kg+' kg</b> <span class="ex-meta">'+esc(b.date)+' · '+relTime(b.date)+'</span></div>'
+      + '<button class="mini" data-bwdel="'+esc(b.person)+'|'+esc(b.date)+'" style="color:var(--bad)">Delete</button></div>').join("");
+    list.querySelectorAll("[data-bwdel]").forEach(btn=>btn.onclick=()=>{
+      const a=btn.dataset.bwdel.split("|");
+      state.bodyweights=state.bodyweights.filter(b=>!(b.person===a[0] && b.date===a[1]));
+      const pi=state.people.indexOf(p); if(pi>=0){ const lb=latestBw(p); state.weights[pi]=lb?String(lb.kg):""; }
+      save(); renderPeople(); renderBody(); toast("Deleted");
+    });
+    drawBwChart(p);
+  }
+}
+function drawBwChart(person){
+  const pts=bwFor(person).map(b=>({x:b.date, y:b.kg}));
+  const i=state.people.indexOf(person);
+  const col=i===0?"#2f6df0":"#e0633a";
+  if(bwChart) bwChart.destroy();
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  bwChart=new Chart(document.getElementById("bwChart"),{
+    type:"line", data:{datasets:[{label:person+" (kg)", data:pts, borderColor:col, backgroundColor:col, tension:.25, spanGaps:true}]},
+    options:{responsive:true, maintainAspectRatio:false, parsing:false,
+      scales:{x:{type:"category", labels:[...new Set(bwFor(person).map(b=>b.date))].sort(), ticks:{color:tickCol}, grid:{color:gridCol}},
+        y:{beginAtZero:false, title:{display:true, text:"kg", color:tickCol}, ticks:{color:tickCol}, grid:{color:gridCol}}},
+      plugins:{legend:{position:"top", labels:{color:tickCol}}}}
+  });
+}
+
 function renderEdit(){
   let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched.</div></div>';
   orderedKeys().forEach(k=>{
@@ -1209,6 +1352,8 @@ document.getElementById("settingsSave").onclick=()=>{
   state.people=[n0,n1];
   state.weights=[document.getElementById("weight0").value.trim(),
                  document.getElementById("weight1").value.trim()];
+  // Record today's bodyweight into history when set here too.
+  state.weights.forEach((w,i)=>{ const kg=parseFloat(w); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg); });
   save(); setDlg.close(); renderPeople(); renderView(); toast("Saved");
 };
 document.getElementById("resetProgram").onclick=()=>{
@@ -1221,7 +1366,8 @@ document.getElementById("resetProgram").onclick=()=>{
 const importDlg=document.getElementById("importDlg");
 function exportData(){
   const payload={version:1, exportedAt:new Date().toISOString(),
-    people:state.people, weights:state.weights, program:state.program, logs:state.logs};
+    people:state.people, weights:state.weights, bodyweights:state.bodyweights,
+    program:state.program, logs:state.logs};
   const text=JSON.stringify(payload,null,2);
   const fname="training-data-"+todayStr()+".json";
   try{
@@ -1258,6 +1404,8 @@ document.getElementById("importConfirm").onclick=()=>{
   var byId={}; state.logs.forEach(function(l,i){ byId[l.id]=i; });
   let added=0, updated=0;
   data.logs.forEach(function(l){ if(!l) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
+  // Merge bodyweight history too (upsert by person+date), idempotent like logs.
+  if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   if(document.getElementById("importAdopt").checked){
     if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
@@ -1414,6 +1562,7 @@ function renderView(){
   if(activeTab==="log") renderLog();
   else if(activeTab==="history") renderHistory();
   else if(activeTab==="progress") renderProgress();
+  else if(activeTab==="body") renderBody();
   else if(activeTab==="edit") renderEdit();
   else if(activeTab==="help") renderHelp();
 }
