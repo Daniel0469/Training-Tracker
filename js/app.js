@@ -453,6 +453,7 @@ function load(){
     if(s && s.program && s.program.sessions){
       if(!Array.isArray(s.weights)) s.weights=["",""];
       if(!Array.isArray(s.goals)) s.goals=["",""];
+      if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
         s.bodyweights=[];
@@ -465,7 +466,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -829,6 +830,8 @@ function renderLog(){
   const sess = state.program.sessions[curSession];
   const prev = latestLog(p, curSession);
   const planFor = name => { if(prev&&prev.suggestions){const s=prev.suggestions.find(x=>x.name===name); return s?s.text:"";} return ""; };
+  const coach = (state.coaching && state.coaching[p]) || {};
+  const coachFor = name => (coach.byExercise && coach.byExercise[name]) || "";
   const prevNote = prev
     ? "Inputs start blank. "+esc(possessive(p))+" last session ("+relTime(prev.date)+") is shown in the <b>Last</b> column - beat it."
     : "No previous "+esc(p)+" log for this session yet - today sets the baseline.";
@@ -845,10 +848,15 @@ function renderLog(){
     + '<span class="hint" style="margin:0">Workout time &mdash; saved with the session.</span>'
     + '</div></div>';
 
+  if(coach.overall){
+    html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+      + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
+  }
+
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
     const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
-    html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name),recentNote(p,ex,prev));
+    html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name),recentNote(p,ex,prev),coachFor(ex.name));
   });
   html += '</div>';
 
@@ -945,7 +953,7 @@ function updateWarmup(card, ex){
   const span=card.querySelector("[data-warmup]"); if(!span) return;
   span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
 }
-function renderExForm(ex,ei,last,prevDate,plan,recent){
+function renderExForm(ex,ei,last,prevDate,plan,recent,coach){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
   const fmt = r => fmtRow(ex.cols, r);
   let body="";
@@ -963,6 +971,7 @@ function renderExForm(ex,ei,last,prevDate,plan,recent){
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + warmupHtml
     + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
+    + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
@@ -1554,8 +1563,8 @@ document.getElementById("resetProgram").onclick=()=>{
 const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
-    people:state.people, weights:state.weights, goals:state.goals, bodyweights:state.bodyweights,
-    program:state.program, logs:state.logs};
+    people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
+    bodyweights:state.bodyweights, program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -1568,6 +1577,8 @@ function mergeInData(data, adoptConfig){
     data.logs.forEach(function(l){ if(!l) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
   }
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
+  // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
+  if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
   if(adoptConfig){
     if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
@@ -1783,7 +1794,8 @@ function renderHelp(){
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
-     +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).'));
+     +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
+     +p('When a coach sends you notes, they show as a purple <b>🧠 Coach</b> card at the top of the Log tab and a <b>🧠 Coach</b> cue on each exercise. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')

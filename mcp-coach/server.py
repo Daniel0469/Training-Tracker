@@ -54,6 +54,58 @@ def load_data():
         "or TT_DATA_FILE. See mcp-coach/README.md."
     )
 
+# ---------------------------------------------------------------- writing (coaching)
+def _github_cfg():
+    repo = os.environ.get("TT_GITHUB_REPO")
+    token = os.environ.get("TT_GITHUB_TOKEN")
+    path = os.environ.get("TT_GITHUB_PATH", "data.json")
+    if not (repo and token):
+        raise RuntimeError("Writing needs the GitHub store: set TT_GITHUB_REPO + TT_GITHUB_TOKEN "
+                           "(token needs Contents: read AND write).")
+    return repo, token, path
+
+def _github_read_with_sha():
+    repo, token, path = _github_cfg()
+    url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "tt-coach"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        j = json.load(r)
+    return json.loads(base64.b64decode(j["content"])), j["sha"], url, token
+
+def _github_write(data, sha, url, token, message):
+    body = {"message": message,
+            "content": base64.b64encode(json.dumps(data, indent=2).encode("utf-8")).decode("ascii"),
+            "sha": sha}
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="PUT", headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "tt-coach"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.load(r)
+
+def _today():
+    import datetime
+    return datetime.date.today().isoformat()
+
+def set_coaching(person, overall="", by_exercise=None):
+    """Write coaching for a person into the shared data. `overall` is a session
+    note; `by_exercise` maps exercise name -> a short cue. Both are merged into
+    any existing coaching. Shows in the app on the log form after the person syncs."""
+    data, sha, url, token = _github_read_with_sha()
+    coaching = data.get("coaching") or {}
+    entry = coaching.get(person) or {}
+    if overall:
+        entry["overall"] = overall
+    if by_exercise:
+        merged = dict(entry.get("byExercise") or {})
+        merged.update(by_exercise)
+        entry["byExercise"] = merged
+    entry["updated"] = _today()
+    coaching[person] = entry
+    data["coaching"] = coaching
+    _github_write(data, sha, url, token, f"Coaching update for {person}")
+    return {"ok": True, "person": person,
+            "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+
 # ---------------------------------------------------------------- helpers
 def _is_lifting(cols):
     cols = cols or []
@@ -188,6 +240,14 @@ def _register(mcp):
     def progress(person: str, exercise: str) -> str:
         """Top-set weight over time for one exercise, for tracking progression."""
         return json.dumps(get_progress(load_data(), person, exercise), indent=2)
+
+    @mcp.tool()
+    def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None) -> str:
+        """Push coaching to a person so it shows in their app during workouts.
+        `overall` = a short session note shown at the top of the Log tab.
+        `by_exercise` = {exercise name: one-line cue} shown on that exercise.
+        Merges into existing coaching. They see it after tapping Sync now."""
+        return json.dumps(set_coaching(person, overall, by_exercise or {}), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
