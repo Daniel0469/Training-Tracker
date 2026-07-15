@@ -62,7 +62,11 @@
   table.sets th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;font-weight:700;padding:2px 6px}
   table.sets td{padding:3px 6px}
   table.sets input{width:100%;padding:7px 8px}
-  .setno{color:var(--muted);font-weight:700;width:30px;text-align:center;font-size:13px}
+  .setno{color:var(--muted);font-weight:700;width:30px;text-align:center;font-size:13px;cursor:pointer;user-select:none}
+  .setno[data-setno]:hover{color:var(--brand)}
+  tr.wset td{opacity:.55}
+  tr.wset .setno{opacity:1;color:var(--warn)}
+  .wu-tag{color:var(--muted)}
   td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
   td.done-cell,th.done-cell{width:38px;text-align:center;white-space:nowrap}
   td.done-cell input[type="checkbox"]{width:19px;height:19px;cursor:pointer;accent-color:var(--good)}

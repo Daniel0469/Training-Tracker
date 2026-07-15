@@ -113,8 +113,11 @@ def get_prs(data, person):
         for e in l.get("entries", []):
             if not _is_lifting(e.get("cols")):
                 continue
+            warm = set(e.get("warmup") or [])
             top = None
-            for row in e.get("rows", []):
+            for ri, row in enumerate(e.get("rows", [])):
+                if ri in warm:
+                    continue
                 w = _num(row[0]) if row else None
                 if w is not None and (top is None or w > top):
                     top = w

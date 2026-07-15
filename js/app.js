@@ -653,7 +653,8 @@ function bestWeightSoFar(person, exerciseName){
   var best=-Infinity;
   state.logs.filter(function(l){return l.person===person;}).forEach(function(l){
     var e=l.entries.find(function(x){return x.name===exerciseName;}); if(!e) return;
-    e.rows.forEach(function(r){ var w=parseFloat(r[0]); if(!isNaN(w)&&w>best) best=w; });
+    var wu=e.warmup||[];
+    e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]); if(!isNaN(w)&&w>best) best=w; });
   });
   return best;
 }
@@ -704,15 +705,16 @@ function captureDraft(){
   const entries=[]; let any=false;
   form.querySelectorAll(".ex").forEach(card=>{
     const ei=+card.dataset.ei;
-    const rows=[], done=[];
+    const rows=[], done=[], warm=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let rowHas=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ vals.push(inp.value); if(inp.value!=="") rowHas=true; });
       const dn=tr.querySelector('[data-done]').checked;
-      rows.push(vals); done.push(dn);
-      if(rowHas||dn) any=true;
+      const wu=tr.classList.contains("wset");
+      rows.push(vals); done.push(dn); warm.push(wu);
+      if(rowHas||dn||wu) any=true;
     });
-    entries[ei]={rows,done};
+    entries[ei]={rows,done,warm};
   });
   const sel=document.querySelector("#diff button.sel");
   const difficulty=sel?+sel.dataset.d:null;
@@ -743,6 +745,10 @@ function restoreDraft(){
       const inputs=tr.querySelectorAll('[data-c]');
       (r||[]).forEach((v,ci)=>{ if(inputs[ci]) inputs[ci].value=v; });
       if(isRunning(ex)) updatePace(tr, ex);
+      if(d.warm && d.warm[i]){
+        tr.classList.add("wset");
+        const sn=tr.querySelector("[data-setno]"); if(sn) sn.textContent="W";
+      }
       if(d.done[i]){
         const cb=tr.querySelector('[data-done]');
         cb.checked=true; tr.classList.add("done");
@@ -888,7 +894,7 @@ function setRowHtml(n,ex,prevCell){
     if(ci===paceIdx) attr += ' readonly';
     cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(c)+'"></td>';
   });
-  return '<tr><td class="setno">'+n+'</td>'+cells
+  return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells
     + '<td class="prev">'+prevCell+'</td>'
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
@@ -976,7 +982,8 @@ function updateSetMedal(tr, ex, best){
   const medal=tr.querySelector("[data-medal]");
   if(!medal) return;
   const w=parseFloat(tr.querySelector('[data-c="0"]').value);
-  medal.hidden = !(isLifting(ex) && !isNaN(w) && best>-Infinity && w>best);
+  // Warm-up sets never earn a PR medal.
+  medal.hidden = !(isLifting(ex) && !tr.classList.contains("wset") && !isNaN(w) && best>-Infinity && w>best);
 }
 function wireSetRow(tr, ex, best){
   const cb=tr.querySelector("[data-done]");
@@ -1000,6 +1007,12 @@ function wireSetRow(tr, ex, best){
     const upd=()=>updatePace(tr, ex);
     tr.querySelectorAll('[data-c]').forEach(inp=>inp.addEventListener("input", upd));
   }
+  const setno=tr.querySelector("[data-setno]");
+  if(setno) setno.addEventListener("click", ()=>{
+    const wu=tr.classList.toggle("wset");
+    setno.textContent = wu ? "W" : setno.dataset.n;
+    updateSetMedal(tr, ex, best); // warm-up rows show no medal
+  });
 }
 function wireExCard(card, ex){
   const tbody=card.querySelector("tbody");
@@ -1046,13 +1059,13 @@ function saveSession(){
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ex=sess.exercises[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
     const name=ex.name || card.dataset.name;
-    const rows=[];
+    const rows=[], warmup=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let has=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
-      if(has) rows.push(vals);
+      if(has){ if(tr.classList.contains("wset")) warmup.push(rows.length); rows.push(vals); }
     });
-    if(rows.length) entries.push({name,cols:ex.cols.slice(),rows});
+    if(rows.length){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup; entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
   const suggestions=entries.map(en=>{
@@ -1061,12 +1074,13 @@ function saveSession(){
     return {name:en.name, text:suggestNext(ex,en,lastEn)};
   });
   var volume=0;
-  entries.forEach(function(en){ en.rows.forEach(function(r){ var w=parseFloat(r[0]), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
+  entries.forEach(function(en){ var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
   volume=Math.round(volume);
   var prs=[];
   entries.forEach(function(en){
     if(!isLifting(en)) return; // col-0 is only a weight (kg) for lifting entries
-    var ws=en.rows.map(function(r){return parseFloat(r[0]);}).filter(function(v){return !isNaN(v);});
+    var wu=en.warmup||[];
+    var ws=en.rows.map(function(r,ri){return wu.indexOf(ri)>=0?NaN:parseFloat(r[0]);}).filter(function(v){return !isNaN(v);});
     if(!ws.length) return;
     var thisMax=Math.max.apply(null,ws);
     var prevBest=bestWeightSoFar(person,en.name);
@@ -1109,7 +1123,7 @@ function drawHist(who){
   document.getElementById("histList").innerHTML = logs.map(l=>{
     const open = l.id===justSavedId;
     const rows=l.entries.map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
-      + e.rows.map(r=>fmtRow(e.cols||[], r)).join(" · ")+'</td></tr>').join("");
+      + e.rows.map(function(r,ri){ var s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>').join("");
     const plan=(l.suggestions&&l.suggestions.length)
       ? '<div class="planbox"><div class="sec-title" style="margin:0 0 5px">Plan for next '+esc(l.sessionName)+'</div>'
         + l.suggestions.map(s=>'<div class="planrow"><b>'+esc(s.name)+':</b> '+esc(s.text)+'</div>').join("")+'</div>'
@@ -1498,7 +1512,8 @@ function personPRs(person){
   state.logs.filter(l=>l.person===person).forEach(function(l){
     (l.entries||[]).forEach(function(e){
       if(!isLifting(e)) return;
-      let top=-Infinity; e.rows.forEach(function(r){ const w=parseFloat(r[0]); if(!isNaN(w)&&w>top) top=w; });
+      const wu=e.warmup||[];
+      let top=-Infinity; e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; const w=parseFloat(r[0]); if(!isNaN(w)&&w>top) top=w; });
       if(top>-Infinity && (!(e.name in best) || top>best[e.name].kg)) best[e.name]={kg:top, date:l.date};
     });
   });
@@ -1656,7 +1671,8 @@ function renderHelp(){
   h+=card('2 &middot; Log a workout',
       p('Open <b>Log</b>, choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
      +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
-     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg once a working weight is known.'));
+     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg once a working weight is known.')
+     +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.'));
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
@@ -1762,7 +1778,7 @@ function showSaveSummary(volume, prs, entries){
   }
   var muscleSets={};
   (entries||[]).forEach(function(en){
-    var ms=classifyMuscles(en.name||""); var sets=(en.rows&&en.rows.length)||0;
+    var ms=classifyMuscles(en.name||""); var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
     ms.forEach(function(mk){ muscleSets[mk]=(muscleSets[mk]||0)+sets; });
   });
   var maxc=0; for(var k in muscleSets){ if(muscleSets[k]>maxc) maxc=muscleSets[k]; }
