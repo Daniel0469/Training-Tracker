@@ -525,6 +525,62 @@ function updatePace(tr, ex){
   var dist=parseFloat(dInp.value), tmin=parseTimeToMin(tInp.value);
   pInp.value = (!isNaN(dist)&&dist>0&&!isNaN(tmin)&&tmin>0) ? fmtPace(tmin/dist) : "";
 }
+function fmtMmSs(sec){ sec=Math.round(sec); var m=Math.floor(sec/60), s=sec%60; return m+":"+(s<10?"0":"")+s; }
+// Parse a Garmin/Strava TCX: each <Lap> -> one split {km, sec}.
+function parseTcx(doc){
+  const laps=[], nodes=doc.getElementsByTagName("Lap");
+  for(let i=0;i<nodes.length;i++){
+    const dm=nodes[i].getElementsByTagName("DistanceMeters")[0];
+    const tt=nodes[i].getElementsByTagName("TotalTimeSeconds")[0];
+    const km=dm?parseFloat(dm.textContent)/1000:NaN, sec=tt?parseFloat(tt.textContent):NaN;
+    if(!isNaN(km)&&!isNaN(sec)) laps.push({km, sec});
+  }
+  return laps;
+}
+function haversineM(la1,lo1,la2,lo2){
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLa=rad(la2-la1), dLo=rad(lo2-lo1);
+  const a=Math.sin(dLa/2)**2+Math.cos(rad(la1))*Math.cos(rad(la2))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+// Parse a GPX: no laps, so sum trackpoint legs into one summary {km, sec}.
+function parseGpx(doc){
+  const pts=doc.getElementsByTagName("trkpt");
+  if(pts.length<2) return [];
+  let dist=0, t0=null, t1=null, prev=null;
+  for(let i=0;i<pts.length;i++){
+    const lat=parseFloat(pts[i].getAttribute("lat")), lon=parseFloat(pts[i].getAttribute("lon"));
+    if(isNaN(lat)||isNaN(lon)) continue;
+    if(prev) dist+=haversineM(prev.lat,prev.lon,lat,lon);
+    prev={lat,lon};
+    const te=pts[i].getElementsByTagName("time")[0];
+    if(te){ const t=new Date(te.textContent); if(!isNaN(t)){ if(!t0)t0=t; t1=t; } }
+  }
+  const km=dist/1000; if(km<=0) return [];
+  return [{km, sec:(t0&&t1)?(t1-t0)/1000:0}];
+}
+// Fill a running exercise's rows (splits) on the log form from a TCX/GPX file.
+function importRunIntoCard(text, ex, card){
+  let doc;
+  try{ doc=new DOMParser().parseFromString(text, "application/xml"); }catch(e){ toast("Couldn't read that file"); return; }
+  if(doc.getElementsByTagName("parsererror").length){ toast("That file isn't valid TCX/GPX"); return; }
+  let laps=parseTcx(doc); if(!laps.length) laps=parseGpx(doc);
+  if(!laps.length){ toast("No run data found in file"); return; }
+  const di=colIndex(ex,/dist/i), ti=colIndex(ex,/time/i);
+  const tb=card.querySelector("tbody");
+  while(tb.rows.length<laps.length){
+    tb.insertAdjacentHTML("beforeend", setRowHtml(tb.rows.length+1, ex, "-"));
+    wireSetRow(tb.rows[tb.rows.length-1], ex, cardBestWeight(ex));
+  }
+  laps.forEach((lap,i)=>{
+    const inputs=tb.rows[i].querySelectorAll('[data-c]');
+    if(di>=0&&inputs[di]) inputs[di].value=Math.round(lap.km*100)/100;
+    if(ti>=0&&inputs[ti]) inputs[ti].value=fmtMmSs(lap.sec);
+    updatePace(tb.rows[i], ex);
+  });
+  startTimerIfIdle();
+  toast(laps.length+" split"+(laps.length>1?"s":"")+" imported");
+}
 function parseRange(target){
   const m=String(target).match(/(\d+)\s*[-]\s*(\d+)/);
   return m? {low:+m[1],high:+m[2]} : null;
@@ -892,7 +948,9 @@ function renderExForm(ex,ei,last,prevDate,plan,recent){
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
     + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
-    + '<button class="mini" data-delset>- set</button></div></div>';
+    + '<button class="mini" data-delset>- set</button>'
+    + (isRunning(ex)?'<button class="mini" data-runimport style="margin-left:auto">⬆ Import run (TCX/GPX)</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
+    + '</div></div>';
 }
 function addSetRow(btn){
   const card=btn.closest(".ex"); const ei=+card.dataset.ei;
@@ -960,6 +1018,18 @@ function wireExCard(card, ex){
   if(ex.warmup && ex.warmup.indexOf("%")>=0){
     updateWarmup(card, ex);
     tbody.addEventListener("input", ()=>updateWarmup(card, ex));
+  }
+  const runBtn=card.querySelector("[data-runimport]");
+  if(runBtn){
+    const fileInp=card.querySelector("[data-runfile]");
+    runBtn.onclick=()=>fileInp.click();
+    fileInp.onchange=e=>{
+      const f=e.target.files[0]; if(!f) return;
+      const rd=new FileReader();
+      rd.onload=()=>importRunIntoCard(rd.result, ex, card);
+      rd.readAsText(f);
+      fileInp.value="";
+    };
   }
 }
 
