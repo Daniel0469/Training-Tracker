@@ -57,6 +57,18 @@
     <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
   </div>
   <div class="hint" style="margin-bottom:14px">Export saves a file you can send to another device. Import merges those logs in without overwriting what's already here.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) &mdash; optional, free</div>
+  <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
+  <div class="row" style="margin-bottom:8px">
+    <label class="fld grow">File path<input id="ghPath" type="text" placeholder="data.json" autocomplete="off"></label>
+    <label class="fld grow">Access token<input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+  </div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="ghSaveCfg">Save sync settings</button>
+    <button class="btn btn-primary grow" id="ghSyncBtn">&#8635; Sync now</button>
+  </div>
+  <div class="hint" id="ghStatus" style="margin-bottom:6px">Not configured.</div>
+  <div class="hint" style="margin-bottom:14px">Stored only on this device (never included in exports). Create a <b>fine-grained token</b> limited to one <b>private</b> repo with <b>Contents: read &amp; write</b>. Sync merges both people's workouts &amp; bodyweight; program/names/goals use last-sync-wins.</div>
   <div class="row" style="justify-content:space-between">
     <button class="btn-danger mini" id="resetProgram">Reset program to default</button>
     <div class="row">
