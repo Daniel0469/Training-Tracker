@@ -69,6 +69,10 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   change to a cached file.** Currently `tt-v25`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
+- `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
+  `sample-activity.json`). Reads runs from Garmin Connect + imports one into the shared store;
+  maps a Garmin activity → the app's run-log shape. Same stdlib GitHub read/write as `mcp-coach`;
+  `garminconnect` imported lazily so `--selftest` runs without it.
 - `docs/` — `github-sync-setup.md`, `running-import.md`, `hub-and-coaching.md`, this file.
 - `sample-daniel.json` / `sample-cerys.json` — **gitignored** real exports, local test fixtures only.
 
@@ -103,14 +107,29 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
 
 ## Build order remaining (each stops for review)
-1. **Garmin MCP** — unofficial-login server so Claude reads runs + optional auto-import (Daniel OK'd
-   storing his Garmin login locally).
+1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
+   (community `garminconnect`) so Claude reads your runs and can **import a run into the app** (it
+   lands in History like any session; merges by Garmin activity id, no dupes). Reading needs only a
+   Garmin login; importing also needs the `TT_GITHUB_*` store token (Contents: read+write). Pure
+   mapping verified in-browser (a mapped run renders correctly in History, no console errors). **To
+   switch on:** `pip install -r mcp-garmin/requirements.txt`, run `python server.py --login` once
+   (handles MFA → caches the session), register the `training-garmin` server, restart Claude Code.
+   See `mcp-garmin/README.md`. Credentials stay on the laptop (env + `~/.garminconnect` cache).
 2. **Hub:** home **dashboard** → **nutrition** (protein/calorie + targets) → **sleep/wellness
    check-in** → **auto weekly review**.
+   - **Scale input via phone screenshot (come back to when building the hub):** Daniel logs
+     bodyweight by taking a **screenshot of his scale app on the phone**. Add an in-app flow to
+     input a bodyweight (and later other body metrics) **from a screenshot on the phone** — e.g. a
+     "read from screenshot" button on the Body tab that lets him attach/paste the scale screenshot
+     and pulls the number out, rather than typing it. (Today's path is pasting the screenshot into
+     Claude's vision; the hub goal is to do it in-app on the phone. Keep it dependency-light — see
+     the scale decision below re: no heavy in-app OCR.)
 
 ## Other open items
 - **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g. the
-  `write_coaching`, `suggestions`, `resolve_suggestion_tool` tools).
+  `write_coaching`, `suggestions`, `resolve_suggestion_tool` tools, and the new `garmin_*` tools).
+- **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
+  (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
 - **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker.
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
 - **PWA icons:** replace placeholder `icons/` with real branding when available.
