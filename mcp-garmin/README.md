@@ -26,8 +26,13 @@ and how my pace is trending."*
 ### 1. Requirements
 - Python 3.10+
 - `python -m pip install -r mcp-garmin/requirements.txt` (installs `mcp`, `garminconnect`,
-  `truststore`). Use `python -m pip`, not bare `pip`, if pip isn't on PATH. `truststore` makes SSL
-  use the OS trust store — needed if antivirus/proxy TLS inspection causes `CERTIFICATE_VERIFY_FAILED`.
+  `truststore`). Use `python -m pip`, not bare `pip`, if pip isn't on PATH.
+- **SSL behind antivirus/proxy TLS inspection** (`unable to get local issuer certificate` /
+  `CERTIFICATE_VERIFY_FAILED`): handled automatically on Windows — the server exports your Windows
+  cert store to a PEM and points `curl_cffi` (which the Garmin login uses), `requests` and stdlib SSL
+  at it. No action needed.
+- **`429 — IP rate limited by Garmin`**: too many login attempts in a short window. Wait ~30–60 min
+  before trying `--login` again; retrying immediately just extends the block.
 
 ### 2. Sign in to Garmin once (creates the cached session)
 Garmin accounts often have MFA, which can't be answered from the headless MCP server. So do an
