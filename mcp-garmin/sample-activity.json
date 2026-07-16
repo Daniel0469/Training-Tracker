@@ -1,0 +1,20 @@
+{
+  "activity": {
+    "activityId": 18234567890,
+    "activityName": "Morning Run",
+    "startTimeLocal": "2026-07-15 07:32:11",
+    "activityType": { "typeKey": "running" },
+    "distance": 5027.3,
+    "duration": 1563.0,
+    "averageHR": 154.2
+  },
+  "splits": {
+    "lapDTOs": [
+      { "distance": 1000.0, "duration": 305.0 },
+      { "distance": 1000.0, "duration": 311.0 },
+      { "distance": 1000.0, "duration": 309.0 },
+      { "distance": 1000.0, "duration": 318.0 },
+      { "distance": 1027.3, "duration": 320.0 }
+    ]
+  }
+}
