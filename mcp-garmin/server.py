@@ -37,6 +37,46 @@ try:
 except Exception:
     pass
 
+def _ensure_ca_bundle():
+    """The Garmin login (garth) also talks over `curl_cffi` (libcurl) and `requests`,
+    which use their OWN trust stores — not the OS one truststore patches. Behind
+    antivirus/proxy TLS inspection that yields 'unable to get local issuer certificate'.
+    Fix: export the Windows Root+CA stores (incl. the AV/proxy root) to a PEM and point
+    the standard CA-bundle env vars at it, so all three HTTP stacks trust it. Windows-only,
+    idempotent, and respects any bundle you set yourself."""
+    if os.name != "nt":
+        return
+    if os.environ.get("CURL_CA_BUNDLE") and os.environ.get("REQUESTS_CA_BUNDLE"):
+        return
+    try:
+        import ssl, tempfile
+        parts, seen = [], set()
+        try:
+            import certifi
+            with open(certifi.where(), encoding="utf-8") as f:
+                parts.append(f.read())
+        except Exception:
+            pass
+        for store in ("ROOT", "CA"):
+            try:
+                for cert, enc, _trust in ssl.enum_certificates(store):
+                    if enc == "x509_asn" and cert not in seen:
+                        seen.add(cert)
+                        parts.append(ssl.DER_cert_to_PEM_cert(cert))
+            except Exception:
+                pass
+        if not parts:
+            return
+        bundle = os.path.join(tempfile.gettempdir(), "tt_garmin_cacert.pem")
+        with open(bundle, "w", encoding="utf-8") as f:
+            f.write("\n".join(parts))
+        for var in ("CURL_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+            os.environ.setdefault(var, bundle)
+    except Exception:
+        pass
+
+_ensure_ca_bundle()
+
 # ---------------------------------------------------------------- formatting (matches the app)
 def _mmss(sec):
     """Seconds -> "m:ss" (same shape as fmtMmSs / fmtPace in js/app.js)."""
