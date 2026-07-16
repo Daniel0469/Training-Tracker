@@ -59,6 +59,10 @@
   <div class="hint" style="margin-bottom:8px">Export saves a file you can send to another device. Import merges those logs in without overwriting what's already here.</div>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="coachBriefBtn">&#129504; Coach brief (Markdown) &mdash; selected person</button></div>
   <div class="hint" style="margin-bottom:14px">A ready-to-paste summary of the selected person's goals, PRs, bodyweight and recent sessions &mdash; paste into Claude for coaching, or drop into an Obsidian vault.</div>
+  <div class="sec-title" style="margin:4px 0 8px">💡 Improve the app</div>
+  <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
+  <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">➕ Add suggestion</button></div>
+  <div id="sugList" style="margin-bottom:14px"></div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) &mdash; optional, free</div>
   <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
   <div class="row" style="margin-bottom:8px">

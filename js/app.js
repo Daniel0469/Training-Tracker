@@ -454,6 +454,7 @@ function load(){
       if(!Array.isArray(s.weights)) s.weights=["",""];
       if(!Array.isArray(s.goals)) s.goals=["",""];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
+      if(!Array.isArray(s.suggestions)) s.suggestions=[];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
         s.bodyweights=[];
@@ -466,7 +467,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, suggestions:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -1525,7 +1526,30 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("ghPath").value=sc.path||"";
   document.getElementById("ghToken").value=sc.token||"";
   setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
+  document.getElementById("sugText").value="";
+  renderSuggestions();
   setDlg.showModal();
+};
+function renderSuggestions(){
+  const list=document.getElementById("sugList"); if(!list) return;
+  const open=(state.suggestions||[]).filter(s=>s&&s.status!=="done").slice().reverse();
+  list.innerHTML = open.length
+    ? '<div class="hint" style="margin:0 0 4px">'+open.length+' pending &mdash; synced for the dev/coach chat to action</div>'
+      + open.map(s=>'<div class="log-row" style="padding:3px 0;border-bottom:1px solid var(--line);gap:8px">'
+        + '<div style="font-size:13px"><b class="pill '+(state.people[0]===s.person?"me":"partner")+'">'+esc(s.person||"?")+'</b> '+esc(s.text)+'</div>'
+        + '<button class="mini" data-sugdel="'+s.id+'" style="color:var(--bad)">&times;</button></div>').join("")
+    : '<div class="hint" style="margin:0">No suggestions yet.</div>';
+  list.querySelectorAll("[data-sugdel]").forEach(b=>b.onclick=()=>{
+    state.suggestions=state.suggestions.filter(s=>String(s.id)!==b.dataset.sugdel);
+    save(); renderSuggestions(); autoSync();
+  });
+}
+document.getElementById("sugSend").onclick=()=>{
+  const t=document.getElementById("sugText").value.trim();
+  if(!t){ toast("Type a suggestion first"); return; }
+  if(!Array.isArray(state.suggestions)) state.suggestions=[];
+  state.suggestions.push({id:Date.now(), person:state.people[state.activePerson], date:todayStr(), text:t, status:"open"});
+  save(); document.getElementById("sugText").value=""; renderSuggestions(); autoSync(); toast("Suggestion added");
 };
 document.getElementById("settingsCancel").onclick=()=>setDlg.close();
 document.getElementById("settingsSave").onclick=()=>{
@@ -1565,7 +1589,7 @@ const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
-    bodyweights:state.bodyweights, program:state.program, logs:state.logs};
+    suggestions:state.suggestions, bodyweights:state.bodyweights, program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -1580,6 +1604,8 @@ function mergeInData(data, adoptConfig){
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
+  // Improvement suggestions: union by id.
+  if(Array.isArray(data.suggestions)){ if(!Array.isArray(state.suggestions)) state.suggestions=[]; var sid={}; state.suggestions.forEach(function(s){ sid[s.id]=true; }); data.suggestions.forEach(function(s){ if(s&&s.id!=null&&!sid[s.id]){ state.suggestions.push(s); sid[s.id]=true; } }); }
   if(adoptConfig){
     if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
@@ -1813,7 +1839,8 @@ function renderHelp(){
   h+=card('Quick tips',
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
-     +p('&bull; Export regularly as a backup, and to keep both of you in sync.'));
+     +p('&bull; Export regularly as a backup, and to keep both of you in sync.')
+     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> — it syncs to the dev backlog so it isn\'t forgotten.'));
 
   document.getElementById("view").innerHTML=h;
 }
