@@ -92,18 +92,30 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
 - **Data keyed by person NAME; drafts/timers in-memory.** Warm-ups stored as `entry.warmup` (row
   indices) and excluded from volume/PRs/e1RM/heatmap everywhere.
 
-## Open items / TODO
-- **Restart Claude Code** to activate the `write_coaching` MCP tool (one-time).
-- **Set goals** for both people in the app (gear → goals → Sync) — they're blank; coaching is
-  sharper with them.
+## Automation approach (decided)
+- **Coaching:** **semi-auto now** (open the coaching chat weekly, paste the prompt — free, keeps a
+  human in the loop while calibrating). **Later, optional:** a weekly **GitHub Action** that calls
+  the Anthropic API to write coaching — fully hands-off but **not free** (~£0.10–0.30/month).
+- **Code fixes / self-improvement:** **semi-auto now** (in-app 💡 suggestions sync to the backlog;
+  a dev chat reads them via the `suggestions` MCP tool, auto-applies easy fixes, consults on hard).
+  **Later, optional:** a scheduled agent that opens **pull requests for Daniel to review/merge** —
+  *not* auto-push to the live app. Deliberately keep a human merge gate (code deploys to both
+  phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
+
+## Build order remaining (each stops for review)
+1. **Garmin MCP** — unofficial-login server so Claude reads runs + optional auto-import (Daniel OK'd
+   storing his Garmin login locally).
+2. **Hub:** home **dashboard** → **nutrition** (protein/calorie + targets) → **sleep/wellness
+   check-in** → **auto weekly review**.
+
+## Other open items
+- **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g. the
+  `write_coaching`, `suggestions`, `resolve_suggestion_tool` tools).
+- **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker.
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
-  (1byone export is unreliable; bodyweight is entered manually / by CSV import.)
 - **PWA icons:** replace placeholder `icons/` with real branding when available.
-- Next dev direction: the **"all-round health & fitness hub"** — likely candidates: nutrition /
-  calorie or protein logging, sleep/recovery, habit or check-in tracking, weekly review dashboard,
-  and richer coaching (auto weekly summary). Decide + spec before building.
-- Done: code review, GitHub Pages deploy, sync, MCP coach (read + write). **Phase 3 mini-features
-  (rest timer, kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.**
+- Done: code review, GitHub Pages deploy, auto-sync, MCP coach (read + write), in-app suggestions.
+  **Phase 3 mini-features (rest timer, kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.**
 
 ## Dev notes
 - Serve any static way; a **no-cache dev server** avoids the browser HTTP/bfcache serving stale

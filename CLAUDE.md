@@ -22,8 +22,12 @@ feature proposals/specs.
 - **localStorage is the only store** (key `flLiveTracker_v1`). Data is keyed by person NAME, so
   renames orphan history — acceptable, matches existing behaviour. Export/import merges by id
   (logs) and person+date (bodyweights); keep new data idempotent to merge.
-- **Commit per feature**, each verified in the browser. Don't push (no remote unless Daniel adds
-  one). End commit messages with the Co-Authored-By trailer.
+- **Commit per feature**, each verified in the browser, then **push** — `origin/main` is
+  `Daniel0469/Training-Tracker` and pushing **auto-deploys** to GitHub Pages
+  (https://daniel0469.github.io/Training-Tracker/). End commit messages with the Co-Authored-By
+  trailer.
+- **New chats:** see `docs/CHATS.md` for the dev + coaching starter prompts and setup. Full status
+  is `docs/PROJECT-STATUS.md`.
 
 ## Local dev / verification
 
