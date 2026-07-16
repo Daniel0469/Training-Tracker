@@ -192,6 +192,21 @@ def get_bodyweight(data, person):
     bws.sort(key=lambda b: b.get("date", ""))
     return [{"date": b.get("date"), "kg": b.get("kg")} for b in bws]
 
+def get_suggestions(data, include_done=False):
+    subs = data.get("suggestions") or []
+    return [s for s in subs if include_done or s.get("status") != "done"]
+
+def resolve_suggestion(sid):
+    data, sha, url, token = _github_read_with_sha()
+    found = False
+    for s in data.get("suggestions") or []:
+        if str(s.get("id")) == str(sid):
+            s["status"] = "done"; found = True
+    if not found:
+        return {"ok": False, "message": f"No suggestion with id {sid}"}
+    _github_write(data, sha, url, token, f"Resolve suggestion {sid}")
+    return {"ok": True, "id": sid}
+
 def get_progress(data, person, exercise):
     pts = []
     for l in _person_logs(data, person):
@@ -240,6 +255,17 @@ def _register(mcp):
     def progress(person: str, exercise: str) -> str:
         """Top-set weight over time for one exercise, for tracking progression."""
         return json.dumps(get_progress(load_data(), person, exercise), indent=2)
+
+    @mcp.tool()
+    def suggestions(include_done: bool = False) -> str:
+        """In-app improvement suggestions / bug reports Daniel & Cerys logged. Each has id,
+        person, date, text, status. Use for the app's dev backlog."""
+        return json.dumps(get_suggestions(load_data(), include_done), indent=2)
+
+    @mcp.tool()
+    def resolve_suggestion_tool(suggestion_id: str) -> str:
+        """Mark a suggestion done (by id) once handled, so it drops off the app's pending list."""
+        return json.dumps(resolve_suggestion(suggestion_id), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None) -> str:
