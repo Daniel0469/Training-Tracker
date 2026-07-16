@@ -1119,6 +1119,7 @@ function saveSession(){
   document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x.dataset.tab==="history"));
   renderView();
   showSaveSummary(volume, prs, entries);
+  autoSync(); // push this session to the shared store automatically (if sync is set up)
 }
 
 function renderHistory(){
@@ -1740,9 +1741,10 @@ function ghPutFile(cfg, payloadStr, sha){
 }
 function setSyncStatus(msg){ const el=document.getElementById("ghStatus"); if(el) el.textContent=msg; }
 // Pull remote -> merge (logs+bodyweights union) -> push merged local back.
-function syncNow(){
+// quiet=true for automatic syncs (on save / on open): no toasts, best-effort.
+function syncNow(quiet){
   const cfg=loadSync();
-  if(!cfg.repo || !cfg.token){ toast("Add your GitHub repo + token first"); return; }
+  if(!cfg.repo || !cfg.token){ if(!quiet) toast("Add your GitHub repo + token first"); return Promise.resolve(); }
   cfg.path=cfg.path||"data.json";
   setSyncStatus("Syncing…");
   return ghGetFile(cfg).then(function(remote){
@@ -1753,14 +1755,16 @@ function syncNow(){
         cfg.sha=res&&res.content&&res.content.sha; saveSyncCfg(cfg);
         save(); renderPeople(); renderView();
         setSyncStatus("Synced "+new Date().toLocaleTimeString()+" · +"+merged.added+" new, "+merged.updated+" updated");
-        toast("Synced");
+        if(!quiet) toast("Synced"); else if(merged.added||merged.updated) toast("Synced · "+(merged.added+merged.updated)+" update"+(merged.added+merged.updated===1?"":"s")+" pulled");
       });
   }).catch(function(e){
     const m=String(e.message||e);
     setSyncStatus("Sync failed ("+(m.indexOf("401")>=0||m.indexOf("403")>=0?"check token/repo access":m)+")");
-    toast("Sync failed");
+    if(!quiet) toast("Sync failed"); // stay quiet on auto-sync (e.g. offline) — it retries next time
   });
 }
+// Best-effort background sync — only if configured. Used after save and on open.
+function autoSync(){ const c=loadSync(); if(c.repo && c.token) syncNow(true); }
 
 function renderHelp(){
   function card(title, body){ return '<div class="card"><div class="sec-title">'+title+'</div>'+body+'</div>'; }
@@ -1803,7 +1807,7 @@ function renderHelp(){
 
   h+=card('8 &middot; Your data, backups &amp; sync',
       p('Everything saves <b>on this device</b>. Gear menu &rarr; <b>Export</b> saves a file with everything; <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates.')
-     +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu, then <b>Sync now</b> pulls the other person\'s changes and pushes yours (workouts + bodyweight merge automatically). It doubles as an off-device <b>backup</b>. The token is stored only on this device and never included in exports.')
+     +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu once. After that it syncs <b>automatically</b> - when you open the app and after every save - so both of you stay up to date and your coach sees new sessions without you doing anything. (<b>Sync now</b> is still there for a manual pull.) It doubles as an off-device <b>backup</b>; the token is stored only on this device and never included in exports.')
      +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.'));
 
   h+=card('Quick tips',
@@ -1951,6 +1955,7 @@ curSession = sessionForDate(curDate) || curSession;
 initTheme();
 renderPeople();
 renderView();
+autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
 
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js"); });
