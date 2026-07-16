@@ -87,6 +87,27 @@ trio for import), e.g. with `claude mcp add -e KEY=value …`.
 ```
 **Restart Claude Code / Desktop** after adding it so the `training-garmin` tools load.
 
+## Two people (Daniel + Cerys)
+Each Garmin account needs its **own** server instance and — importantly — its **own
+`GARMIN_TOKENSTORE`**, or the two sessions overwrite each other. Add a second block with a distinct
+name and token cache, e.g.:
+```json
+"training-garmin-cerys": {
+  "command": "python",
+  "args": ["C:\\Users\\danie\\Documents\\TrainingTracker\\mcp-garmin\\server.py"],
+  "env": {
+    "GARMIN_EMAIL": "cerys@example.com",
+    "GARMIN_PASSWORD": "…",
+    "GARMIN_TOKENSTORE": "C:\\Users\\danie\\.garminconnect-cerys",
+    "TT_GITHUB_REPO": "Daniel0469/Training-Data",
+    "TT_GITHUB_TOKEN": "github_pat_…",
+    "TT_GITHUB_PATH": "data.json"
+  }
+}
+```
+In Claude, name whose runs you mean ("show **Cerys's** Garmin runs") so it picks the right server,
+and import with that person (`garmin_import_run(activity_id, "Cerys")`).
+
 ## Notes
 - **Credentials never leave the laptop** and are read from the environment / token cache — don't
   commit them. `.garminconnect` and any `.mcp.json` stay off git.
