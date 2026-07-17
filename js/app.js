@@ -588,42 +588,6 @@ function parseRange(target){
   const m=String(target).match(/(\d+)\s*[-]\s*(\d+)/);
   return m? {low:+m[1],high:+m[2]} : null;
 }
-function loadStep(w){ return w>=60?"5 kg":w>=20?"2.5 kg":"1-2 kg"; }
-function suggestNext(ex, entry, lastEntry){
-  if(!isLifting(ex)) return "Beat last time - add a little time, distance, or pace.";
-  const sets=entry.rows.map(r=>({w:parseFloat(r[0]),reps:parseInt(r[1],10)})).filter(s=>!isNaN(s.reps));
-  if(!sets.length) return "Enter weight and reps to get a recommendation.";
-  const range=parseRange(ex.target);
-  const minReps=Math.min(...sets.map(s=>s.reps));
-  const maxReps=Math.max(...sets.map(s=>s.reps));
-  const ws=sets.map(s=>s.w).filter(w=>!isNaN(w));
-  const topW=ws.length?Math.max(...ws):null;
-  let txt;
-  if(range){
-    if(minReps>=range.high)
-      txt = topW!=null ? "Hit the top of the range on every set - add "+loadStep(topW)+" next time and aim for "+range.low+"+ reps."
-                       : "Hit the top of the range - increase the difficulty next time.";
-    else if(maxReps<range.low)
-      txt = topW!=null ? "Below target reps - keep "+topW+" kg and push for "+range.low+"+ reps next time."
-                       : "Below target reps - aim for "+range.low+"+ next time.";
-    else
-      txt = "In range - add a rep per set toward "+range.high+", then add "+(topW!=null?loadStep(topW):"weight")+".";
-  } else {
-    txt = "Aim to add a rep or a little load vs this session.";
-  }
-  if(lastEntry){
-    const ls=lastEntry.rows.map(r=>({w:parseFloat(r[0]),reps:parseInt(r[1],10)})).filter(s=>!isNaN(s.reps));
-    if(ls.length){
-      const vol=a=>a.reduce((t,s)=>t+(isNaN(s.w)?s.reps:s.w*s.reps),0);
-      const lastTop=Math.max(...ls.map(s=>s.w).filter(w=>!isNaN(w)),-Infinity);
-      if(topW!=null && lastTop>-Infinity){
-        if(topW>lastTop || vol(sets)>vol(ls)) txt="✅ Up from last session. "+txt;
-        else if(vol(sets)<vol(ls)) txt="⚠️ Down vs last - repeat and beat it. "+txt;
-      }
-    }
-  }
-  return txt;
-}
 
 function renderPeople(){
   const el=document.getElementById("ptoggle");
@@ -830,7 +794,6 @@ function renderLog(){
   }).join("");
   const sess = state.program.sessions[curSession];
   const prev = latestLog(p, curSession);
-  const planFor = name => { if(prev&&prev.suggestions){const s=prev.suggestions.find(x=>x.name===name); return s?s.text:"";} return ""; };
   const coach = (state.coaching && state.coaching[p]) || {};
   const coachFor = name => (coach.byExercise && coach.byExercise[name]) || "";
   const prevNote = prev
@@ -857,7 +820,7 @@ function renderLog(){
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
     const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
-    html += renderExForm(ex,ei,last,prev?prev.date:"",planFor(ex.name),recentNote(p,ex,prev),coachFor(ex.name));
+    html += renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name));
   });
   html += '</div>';
 
@@ -867,7 +830,7 @@ function renderLog(){
     + '<div class="diff" id="diff">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-d="'+n+'">'+n+'</button>').join("")+'</div>'
     + '</div></div>'
     + '<label class="fld">Your own notes (optional)<textarea id="feedback" placeholder="e.g. Right knee tight on squats. Felt strong today."></textarea></label>'
-    + '<div class="hint">A per-exercise plan for next session is generated automatically when you save.</div></div>'
+    + '<div class="hint">🧠 Coaching notes show at the top and on each exercise after a sync.</div></div>'
     + '<div class="row" style="justify-content:flex-end;margin-bottom:30px">'
     + '<button class="btn btn-ghost" id="clearForm">Clear</button>'
     + '<button class="btn btn-primary" id="saveSession">Save session &check;</button></div>';
@@ -954,7 +917,7 @@ function updateWarmup(card, ex){
   const span=card.querySelector("[data-warmup]"); if(!span) return;
   span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
 }
-function renderExForm(ex,ei,last,prevDate,plan,recent,coach){
+function renderExForm(ex,ei,last,prevDate,recent,coach){
   const rows = Math.max(ex.sets, last? last.rows.length:0);
   const fmt = r => fmtRow(ex.cols, r);
   let body="";
@@ -974,7 +937,6 @@ function renderExForm(ex,ei,last,prevDate,plan,recent,coach){
     + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
     + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
-    + (plan?'<div class="plan">🎯 Plan: '+esc(plan)+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
     + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
@@ -1091,11 +1053,6 @@ function saveSession(){
     if(rows.length){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup; entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
-  const suggestions=entries.map(en=>{
-    const ex=sess.exercises.find(e=>e.name===en.name)||{cols:en.cols,target:""};
-    const lastEn=prev && (prev.entries||[]).find(e=>e.name===en.name);
-    return {name:en.name, text:suggestNext(ex,en,lastEn)};
-  });
   var volume=0;
   entries.forEach(function(en){ var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
   volume=Math.round(volume);
@@ -1111,7 +1068,7 @@ function saveSession(){
   });
   const durationSec = timerElapsed(getTimer());
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
-    entries, feedback, difficulty, suggestions, volume, durationSec };
+    entries, feedback, difficulty, volume, durationSec };
   // Cardio/running session: flag it so the Garmin sync (laptop) can link the run's
   // extra data (HR, cadence, elevation, splits…). Cleared once linked; see mcp-garmin.
   if(entries.some(en=>isRunning(en))) log.garminWanted=true;
@@ -1209,10 +1166,6 @@ function drawHist(who){
     const open = l.id===justSavedId;
     const rows=(l.entries||[]).map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
       + e.rows.map(function(r,ri){ var s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>').join("");
-    const plan=(l.suggestions&&l.suggestions.length)
-      ? '<div class="planbox"><div class="sec-title" style="margin:0 0 5px">Plan for next '+esc(l.sessionName)+'</div>'
-        + l.suggestions.map(s=>'<div class="planrow"><b>'+esc(s.name)+':</b> '+esc(s.text)+'</div>').join("")+'</div>'
-      : "";
     return '<div class="log-item"><div class="log-row"><div>'
       + '<h3>'+esc(l.sessionName)+' <span class="pill '+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
       + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
@@ -1220,7 +1173,7 @@ function drawHist(who){
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
-      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)+plan+'</div></div>';
+      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)+'</div></div>';
   }).join("");
   justSavedId=null;
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
@@ -1836,7 +1789,7 @@ function renderHelp(){
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
-     +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, a <b>muscle map</b> of what you worked, and a written <b>plan for next time</b> per exercise.'));
+     +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
   h+=card('4 &middot; Cardio &amp; running',
       p('Cardio exercises use their own fields. A <b>running</b> exercise (Distance / Time / Pace) computes <b>pace</b> for you and treats each row as a <b>split</b>.')
@@ -1844,7 +1797,7 @@ function renderHelp(){
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
-      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
+      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail, or delete.')
      +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
