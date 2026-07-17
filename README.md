@@ -12,6 +12,7 @@ all data lives in the browser's `localStorage`. Deployable as-is on GitHub Pages
 - `claude-code-handoff.md` — original brief and backlog this project is being worked from.
 - `docs/running-import.md` — how the built-in TCX/GPX run importer works (Garmin & Strava).
 - `docs/PROJECT-STATUS.md` — **full project status & handoff** (read first in a new chat).
+- `docs/CAPABILITIES.md` — **plain-English list of everything the app can do, and its limitations.**
 - `docs/CHATS.md` — **starter prompts for new dev + coaching chats** and how to give them context.
 - `docs/github-sync-setup.md` — one-time setup for the free GitHub cloud sync / backup.
 - `mcp-coach/` — a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
