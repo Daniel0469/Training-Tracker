@@ -86,15 +86,20 @@ def _today():
     import datetime
     return datetime.date.today().isoformat()
 
-def set_coaching(person, overall="", by_exercise=None):
-    """Write coaching for a person into the shared data. `overall` is a session
-    note; `by_exercise` maps exercise name -> a short cue. Both are merged into
-    any existing coaching. Shows in the app on the log form after the person syncs."""
+def set_coaching(person, overall="", by_exercise=None, by_session=None):
+    """Write coaching for a person into the shared data. `overall` is a general
+    note; `by_session` maps session name -> a focus note for that session;
+    `by_exercise` maps exercise name -> a short next-step cue. All are merged into
+    any existing coaching. Shows in the app on Home + the log form after the person syncs."""
     data, sha, url, token = _github_read_with_sha()
     coaching = data.get("coaching") or {}
     entry = coaching.get(person) or {}
     if overall:
         entry["overall"] = overall
+    if by_session:
+        merged = dict(entry.get("bySession") or {})
+        merged.update(by_session)
+        entry["bySession"] = merged
     if by_exercise:
         merged = dict(entry.get("byExercise") or {})
         merged.update(by_exercise)
@@ -268,12 +273,16 @@ def _register(mcp):
         return json.dumps(resolve_suggestion(suggestion_id), indent=2)
 
     @mcp.tool()
-    def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None) -> str:
-        """Push coaching to a person so it shows in their app during workouts.
-        `overall` = a short session note shown at the top of the Log tab.
-        `by_exercise` = {exercise name: one-line cue} shown on that exercise.
-        Merges into existing coaching. They see it after tapping Sync now."""
-        return json.dumps(set_coaching(person, overall, by_exercise or {}), indent=2)
+    def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
+                       by_session: dict | None = None) -> str:
+        """Push coaching to a person so it shows in their app (Home + Log) during workouts.
+        `by_session` = {exact session name: focus note} shown on that session (Home shows
+        today's; Log shows the open session's). Prefer this for session-level guidance.
+        `by_exercise` = {exact exercise name: a concrete next step} shown on that exercise
+        (e.g. "hit 5x5 @100 — add 2.5kg next time"). Give one per exercise you have advice on.
+        `overall` = an optional general note shown on every session.
+        All merge into existing coaching. They see it after tapping Sync now."""
+        return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {}), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:

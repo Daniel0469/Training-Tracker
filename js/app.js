@@ -812,6 +812,11 @@ function renderLog(){
     + '<span class="hint" style="margin:0">Workout time &mdash; saved with the session.</span>'
     + '</div></div>';
 
+  const coachSessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
+  if(coachSessNote){
+    html += '<div class="card coach-card"><div class="sec-title">🧠 Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+      + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
+  }
   if(coach.overall){
     html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
@@ -1804,7 +1809,7 @@ function renderHelp(){
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as a purple <b>🧠 Coach</b> card at the top of the Log tab and a <b>🧠 Coach</b> cue on each exercise. Tap <b>Sync now</b> to pull the latest coaching.'));
+     +p('When a coach sends you notes, they show as purple <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
@@ -1956,6 +1961,11 @@ function renderHome(){
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div></div>';
 
+  const coachSessNote=(coach.bySession && sess && coach.bySession[sess.name])||"";
+  if(coachSessNote){
+    html+='<div class="card coach-card"><div class="sec-title">🧠 Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+      + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
+  }
   if(coach.overall){
     html+='<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';

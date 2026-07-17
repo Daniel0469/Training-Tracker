@@ -49,8 +49,11 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
 - **Data:** export/import (merge by id / person+date), **free GitHub cloud sync** + off-device
   backup, **Coach-brief Markdown export** (paste into Claude / Obsidian).
 - **Coaching (two-way):** `mcp-coach/` MCP server exposes the data to Claude (subscription, no API
-  cost) AND `write_coaching` lets Claude push notes back → shown as a purple 🧠 Coach card + per-
-  exercise cues on the Log tab after a sync. Coaching-chat starter prompt: `docs/coaching-prompt.md`.
+  cost) AND `write_coaching(person, overall, by_exercise, by_session)` lets Claude push notes back →
+  shown as purple 🧠 Coach cards on Home + Log: a **per-session** focus note (`by_session`, keyed by
+  session name), an optional general `overall`, and a **per-exercise next-step** cue (`by_exercise`)
+  on each exercise. (Replaced the old auto-generated per-exercise plan.) Coaching-chat starter
+  prompt: `docs/coaching-prompt.md`. **`by_session` needs a Claude Code restart to load in the MCP.**
 
 ## File / architecture map
 - `index.html` — markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
