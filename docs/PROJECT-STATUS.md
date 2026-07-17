@@ -97,14 +97,34 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   indices) and excluded from volume/PRs/e1RM/heatmap everywhere.
 
 ## Automation approach (decided)
-- **Coaching:** **semi-auto now** (open the coaching chat weekly, paste the prompt — free, keeps a
-  human in the loop while calibrating). **Later, optional:** a weekly **GitHub Action** that calls
-  the Anthropic API to write coaching — fully hands-off but **not free** (~£0.10–0.30/month).
+Rule of thumb: **auto is fine when it's free + deterministic; keep a human gate when it bills or can
+break something.**
+- **Garmin run auto-import:** ✅ **fully hands-free by design, FREE** (no LLM). Event-driven: saving
+  a cardio session flags it (`garminWanted`); a scheduled `python mcp-garmin/server.py --sync
+  <server>` on the laptop links that day's run and the app auto-syncs on open. It's deterministic
+  Python (garminconnect + GitHub), so it doesn't use Claude and costs nothing. **Only remaining
+  step to make it hands-free: add the Windows Task Scheduler job(s)** — see `mcp-garmin/README.md`.
+  Caveat: runs when the laptop is on (the phone can't reach Garmin itself; slight delay also helps,
+  since the watch uploads a few min after you finish).
+- **Coaching:** **semi-auto now** (open the coaching chat weekly, paste the prompt — free, on the
+  subscription, keeps a human in the loop while calibrating). **Later, optional — fully hands-free
+  costs money:** a weekly **GitHub Action** calling the Anthropic API (a scheduled job can't use the
+  subscription). Est. **pennies/run, well under £1/month**: ~£0.30–0.60/mo on Sonnet 5, ~£0.50–1.00
+  on Opus 4.8, weekly, depending on how much history it reads. Real tradeoff isn't the money — it
+  pushes coaching to the phones **without Daniel reviewing it first** (lower stakes than code; a bad
+  cue is ignorable, not app-breaking).
 - **Code fixes / self-improvement:** **semi-auto now** (in-app 💡 suggestions sync to the backlog;
   a dev chat reads them via the `suggestions` MCP tool, auto-applies easy fixes, consults on hard).
   **Later, optional:** a scheduled agent that opens **pull requests for Daniel to review/merge** —
   *not* auto-push to the live app. Deliberately keep a human merge gate (code deploys to both
   phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
+
+### To decide (open questions Daniel raised)
+- **Turn on hands-free Garmin?** Add the Task Scheduler job(s) so linking happens without running
+  `--sync` by hand. Free. Just needs Daniel's go-ahead (and choosing a cadence — hourly is cheap
+  since it no-ops when nothing's pending).
+- **Turn on hands-free coaching?** Build the weekly paid GitHub Action (~£0.30–1/mo) vs. keep
+  pasting the prompt weekly. Decide once the coaching quality feels calibrated.
 
 ## Build order remaining (each stops for review)
 1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
