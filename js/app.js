@@ -434,7 +434,7 @@ const DEFAULT_PROGRAM = {
 const clone = o => JSON.parse(JSON.stringify(o));
 let state = load();
 if(!state.namesSet){ if(state.people[0]==="Me") state.people[0]="Daniel"; if(state.people[1]==="Partner") state.people[1]="Cerys"; state.namesSet=true; try{save();}catch(e){} }
-let activeTab = "log";
+let activeTab = "home";
 let curSession = state.program.order[0];
 let curDate = trainingDateStr();
 let justSavedId = null;
@@ -1821,6 +1821,9 @@ function renderHelp(){
   h+='<div class="card"><h3 style="margin-bottom:6px">How to use this tracker</h3>'
     +'<div class="hint" style="margin-bottom:0">A shared training + health log for two people. Pick who you are, log each workout, and it tells you what to aim for next time. Works offline, saves on this device - no account needed.</div></div>';
 
+  h+=card('Home',
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.'));
+
   h+=card('1 &middot; Pick who you are',
       p('Use the <b>name toggle</b> top-right (blue / orange). Everything you log and every suggestion belongs to whoever is selected. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
      +p('The 🌙 / ☀️ button switches <b>dark / light</b> theme. The gear icon sets <b>names</b> and <b>bodyweight</b>; the selected person\'s latest weight shows under the title.'));
@@ -1970,9 +1973,110 @@ function showSaveSummary(volume, prs, entries){
 }
 document.getElementById("saveDlgOk").onclick=function(){ document.getElementById("saveDlg").close(); };
 
+// Home dashboard — the hub landing: greeting + today's session, coach card,
+// this-week stat tiles, last session, last run, bodyweight trend, goals.
+// Reuses existing helpers; links out to the detailed tabs.
+let homeChart=null;
+function renderHome(){
+  const p=state.people[state.activePerson];
+  const pc = state.people[0]===p ? "me":"partner";
+  const thisWk=weekMonday(trainingDateStr());
+  const pLogs=[...state.logs].filter(l=>l.person===p).sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
+  const wkLogs=pLogs.filter(l=>weekMonday(l.date)===thisWk);
+  const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
+  const last=pLogs[0];
+  const lastRun=pLogs.find(l=>(l.entries||[]).some(e=>isRunning(e)));
+  const bw=bwFor(p);
+  const latest=bw.length? bw[bw.length-1] : null;
+  let bwDelta="";
+  if(bw.length>=2){ const d=Math.round((bw[bw.length-1].kg-bw[bw.length-2].kg)*10)/10; bwDelta = d>0?'▲ '+d:d<0?'▼ '+Math.abs(d):'—'; }
+  const coach=(state.coaching&&state.coaching[p])||{};
+  const goal=(state.goals&&state.goals[state.activePerson])||"";
+  const sess=state.program.sessions[curSession];
+  let niceDate; try{ niceDate=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}); }catch(e){ niceDate=todayStr(); }
+
+  let html='<div class="card">'
+    + '<div class="sec-title" style="margin:0">👋 '+esc(possessive(p))+' hub</div>'
+    + '<div class="home-greet">'+esc(niceDate)+'</div>'
+    + '<div class="flex-between" style="align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">'
+    + '<div>Today’s session: <b>'+esc(sess?sess.name:"—")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
+    + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
+    + '</div></div>';
+
+  if(coach.overall){
+    html+='<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+      + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
+  }
+
+  html+='<div class="tiles">'
+    + '<div class="tile"><div class="big">'+wkLogs.length+'</div><div class="lbl">sessions this week</div></div>'
+    + '<div class="tile"><div class="big">'+wkVol.toLocaleString()+'</div><div class="lbl">kg volume this week</div></div>'
+    + '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'—')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>'
+    + '<div class="tile"><div class="big">'+pLogs.length+'</div><div class="lbl">sessions logged</div></div>'
+    + '</div>';
+
+  if(last){
+    const pr=(last.entries||[]).some(e=>e.pr);
+    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">Last session</div>'
+      + '<button class="mini" data-home-go="history">History →</button></div>'
+      + '<h3 style="margin:8px 0 2px">'+esc(last.sessionName)+(pr?' 🥇':'')+' <span class="pill '+pc+'">'+relTime(last.date)+'</span></h3>'
+      + '<div class="ex-meta">'+esc(last.date)+(last.difficulty?' · difficulty '+last.difficulty+'/10':"")+(last.volume?' · '+last.volume.toLocaleString()+' kg':"")+(last.durationSec?' · ⏱ '+fmtDuration(last.durationSec):"")+garminStatus(last)+'</div>'
+      + '</div>';
+  } else {
+    html+='<div class="card empty">No sessions logged yet.<br>Head to the <b>Log</b> tab to record your first one.</div>';
+  }
+
+  if(lastRun){
+    const runEntry=(lastRun.entries||[]).find(e=>isRunning(e));
+    const km=(runEntry.rows||[]).reduce((t,r)=>t+(parseFloat(r[0])||0),0);
+    const g=lastRun.garmin||{};
+    const bits=[];
+    if(km) bits.push((Math.round(km*100)/100)+' km');
+    if(lastRun.durationSec) bits.push('⏱ '+fmtDuration(lastRun.durationSec));
+    if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr);
+    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">🏃 Last run</div>'
+      + '<button class="mini" data-home-go="history">History →</button></div>'
+      + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill '+pc+'">'+relTime(lastRun.date)+'</span></h3>'
+      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'—')+garminStatus(lastRun)+'</div></div>';
+  }
+
+  if(bw.length>=2){
+    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">⚖️ Bodyweight trend</div>'
+      + '<button class="mini" data-home-go="body">Body →</button></div>'
+      + '<div class="chart-box" style="height:150px"><canvas id="homeBwChart"></canvas></div></div>';
+  }
+
+  html+='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
+    + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
+            : '<div class="hint" style="margin:0">No goals set yet &mdash; add them via the gear menu so coaching can target them.</div>')
+    + '</div>';
+
+  document.getElementById("view").innerHTML=html;
+
+  const go=tab=>{ const b=document.querySelector('#tabs button[data-tab="'+tab+'"]'); if(b) b.click(); };
+  const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
+  document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
+
+  if(bw.length>=2){
+    const i=state.people.indexOf(p);
+    const col=i===0?"#2f6df0":"#e0633a";
+    const dark=document.documentElement.getAttribute("data-theme")==="dark";
+    const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+    if(homeChart) homeChart.destroy();
+    homeChart=new Chart(document.getElementById("homeBwChart"),{
+      type:"line",
+      data:{labels:bw.map(b=>b.date), datasets:[{data:bw.map(b=>b.kg), borderColor:col, backgroundColor:col, tension:.25, pointRadius:2, spanGaps:true}]},
+      options:{responsive:true, maintainAspectRatio:false,
+        scales:{x:{ticks:{color:tickCol,maxTicksLimit:6}, grid:{color:gridCol}}, y:{beginAtZero:false, ticks:{color:tickCol}, grid:{color:gridCol}}},
+        plugins:{legend:{display:false}}}
+    });
+  }
+}
+
 function renderView(){
   if(!state.program.sessions[curSession]) curSession=state.program.order[0];
-  if(activeTab==="log") renderLog();
+  if(activeTab==="home") renderHome();
+  else if(activeTab==="log") renderLog();
   else if(activeTab==="history") renderHistory();
   else if(activeTab==="progress") renderProgress();
   else if(activeTab==="body") renderBody();
