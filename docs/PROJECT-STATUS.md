@@ -119,12 +119,16 @@ break something.**
   *not* auto-push to the live app. Deliberately keep a human merge gate (code deploys to both
   phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
 
-### To decide (open questions Daniel raised)
-- **Turn on hands-free Garmin?** Add the Task Scheduler job(s) so linking happens without running
-  `--sync` by hand. Free. Just needs Daniel's go-ahead (and choosing a cadence — hourly is cheap
-  since it no-ops when nothing's pending).
-- **Turn on hands-free coaching?** Build the weekly paid GitHub Action (~£0.30–1/mo) vs. keep
-  pasting the prompt weekly. Decide once the coaching quality feels calibrated.
+### Automation to-do (on the plan)
+The two "make it hands-free" jobs, grouped:
+1. **Garmin auto-schedule (Daniel):** add the **Windows Task Scheduler** job running
+   `python mcp-garmin/server.py --sync training-garmin` so cardio sessions auto-link to that day's
+   run with no manual `--sync`. **Free.** Cadence: hourly is fine (no-ops when nothing's pending).
+   Cerys's is deferred until her Garmin login is set up. See `mcp-garmin/README.md`.
+2. **Hands-free coaching:** weekly **GitHub Action** calling the Anthropic API to write coaching,
+   instead of pasting the prompt weekly. **~£0.30–1/month** (Sonnet 5 vs Opus 4.8; a scheduled job
+   can't use the subscription). Turn on once the coaching quality feels calibrated — it pushes
+   coaching to the phones without Daniel reviewing it first.
 
 ## Build order remaining (each stops for review)
 1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
