@@ -52,8 +52,11 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   cost) AND `write_coaching(person, overall, by_exercise, by_session)` lets Claude push notes back →
   shown as purple 🧠 Coach cards on Home + Log: a **per-session** focus note (`by_session`, keyed by
   session name), an optional general `overall`, and a **per-exercise next-step** cue (`by_exercise`)
-  on each exercise. (Replaced the old auto-generated per-exercise plan.) Coaching-chat starter
-  prompt: `docs/coaching-prompt.md`. **`by_session` needs a Claude Code restart to load in the MCP.**
+  on each exercise. (Replaced the old auto-generated per-exercise plan.) Every write is also appended
+  to a **coaching history** (`coachingLog`, synced): the app shows it as a collapsible **🧠 Coaching
+  history** on Home, and the coach reads it back via the **`coaching_history(person)`** tool to track
+  whether past advice was followed and the numbers improved. Coaching-chat starter prompt:
+  `docs/coaching-prompt.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
 
 ## File / architecture map
 - `index.html` — markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
@@ -171,8 +174,8 @@ The two "make it hands-free" jobs:
      the scale decision below re: no heavy in-app OCR.)
 
 ## Other open items
-- **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g. the
-  `write_coaching`, `suggestions`, `resolve_suggestion_tool` tools, and the new `garmin_*` tools).
+- **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
+  `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*`).
 - **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
   (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
 - **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker.

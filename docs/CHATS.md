@@ -60,7 +60,7 @@ Full version + follow-ups are in **`docs/coaching-prompt.md`**. Short version to
 - **Live app:** https://daniel0469.github.io/Training-Tracker/  · **App repo:** Daniel0469/Training-Tracker
 - **Sync/data repo (private):** Daniel0469/Training-Data (`data.json`)
 - **MCP config:** `.mcp.json` (gitignored, on this laptop). Coach tools: `people`, `goals`,
-  `recent_sessions`, `session`, `prs`, `bodyweight`, `progress`, `write_coaching`, `suggestions`,
-  `resolve_suggestion_tool`.
+  `recent_sessions`, `session`, `prs`, `bodyweight`, `progress`, `write_coaching`, `coaching_history`,
+  `suggestions`, `resolve_suggestion_tool`.
 - **Key docs:** `PROJECT-STATUS.md` (handoff), `coaching-prompt.md`, `github-sync-setup.md`,
   `mcp-coach/README.md`, `hub-and-coaching.md`, `running-import.md`.

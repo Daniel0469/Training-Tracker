@@ -454,6 +454,7 @@ function load(){
       if(!Array.isArray(s.weights)) s.weights=["",""];
       if(!Array.isArray(s.goals)) s.goals=["",""];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
+      if(!Array.isArray(s.coachingLog)) s.coachingLog=[];
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
@@ -467,7 +468,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, suggestions:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, coachingLog:[], suggestions:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -812,14 +813,12 @@ function renderLog(){
     + '<span class="hint" style="margin:0">Workout time &mdash; saved with the session.</span>'
     + '</div></div>';
 
-  const coachSessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
-  if(coachSessNote){
-    html += '<div class="card coach-card"><div class="sec-title">🧠 Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
-      + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
-  }
-  if(coach.overall){
+  const sessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
+  if(sessNote || coach.overall){
     html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
-      + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
+      + (sessNote?'<div style="white-space:pre-wrap"><b>'+esc(sess.name)+':</b> '+esc(sessNote)+'</div>':"")
+      + (coach.overall?'<div style="white-space:pre-wrap'+(sessNote?';margin-top:7px':'')+'">'+esc(coach.overall)+'</div>':"")
+      + '</div>';
   }
 
   html += '<div id="exForm">';
@@ -1569,7 +1568,8 @@ const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
-    suggestions:state.suggestions, bodyweights:state.bodyweights, program:state.program, logs:state.logs};
+    coachingLog:state.coachingLog, suggestions:state.suggestions, bodyweights:state.bodyweights,
+    program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -1584,6 +1584,8 @@ function mergeInData(data, adoptConfig){
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
+  // Coaching history: union by id (every past coach write, so improvement can be tracked).
+  if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
   // Improvement suggestions: union by id.
   if(Array.isArray(data.suggestions)){ if(!Array.isArray(state.suggestions)) state.suggestions=[]; var sid={}; state.suggestions.forEach(function(s){ sid[s.id]=true; }); data.suggestions.forEach(function(s){ if(s&&s.id!=null&&!sid[s.id]){ state.suggestions.push(s); sid[s.id]=true; } }); }
   if(adoptConfig){
@@ -1809,7 +1811,7 @@ function renderHelp(){
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as purple <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Tap <b>Sync now</b> to pull the latest coaching.'));
+     +p('When a coach sends you notes, they show as purple <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
@@ -2013,6 +2015,20 @@ function renderHome(){
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
             : '<div class="hint" style="margin:0">No goals set yet &mdash; add them via the gear menu so coaching can target them.</div>')
     + '</div>';
+
+  // Coaching history — every past coach write, so improvement can be tracked over time.
+  const chist=(state.coachingLog||[]).filter(e=>e&&e.person===p).sort((a,b)=> (a.id<b.id?1:a.id>b.id?-1:0));
+  if(chist.length){
+    html+='<details class="card coach-hist"><summary class="sec-title">🧠 Coaching history · '+chist.length+'</summary>'
+      + chist.slice(0,15).map(e=>{
+          const parts=[];
+          if(e.overall) parts.push('<div><b>Overall:</b> '+esc(e.overall)+'</div>');
+          if(e.bySession) Object.keys(e.bySession).forEach(k=> parts.push('<div><b>'+esc(k)+':</b> '+esc(e.bySession[k])+'</div>'));
+          if(e.byExercise) Object.keys(e.byExercise).forEach(k=> parts.push('<div>'+esc(k)+' &mdash; '+esc(e.byExercise[k])+'</div>'));
+          return '<div class="hist-entry"><div class="ex-meta">'+esc(e.date||"")+'</div>'+(parts.join('')||'<div class="hint" style="margin:0">(no note)</div>')+'</div>';
+        }).join('')
+      + '</details>';
+  }
 
   document.getElementById("view").innerHTML=html;
 

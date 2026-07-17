@@ -4,7 +4,8 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 *only* for coaching). App development stays in its own chat.
 
 **Before first use:** fully restart Claude Code once so the `training-tracker` MCP server picks up
-the `write_coaching` tool, then start a new chat and paste the prompt below.
+the latest coaching tools (`write_coaching`, `coaching_history`), then start a new chat and paste
+the prompt below.
 
 ---
 
@@ -24,10 +25,12 @@ the `write_coaching` tool, then start a new chat and paste the prompt below.
 > persistent profile so the interview never has to happen again.
 >
 > **To review:** call `people` first, then per person `goals`, `recent_sessions`, `prs`,
-> `bodyweight`, and `progress` for any lift you want to trend. Read their session `feedback` notes
-> closely — that's where injuries, form cues and how they felt live. Cross-reference against their
-> saved profile: does recent training respect their hard stops, and is it tracking toward their
-> stated primary goal on the timeline they gave you?
+> `bodyweight`, and `progress` for any lift you want to trend. Also call `coaching_history(person)`
+> to see **what you last advised** — then judge whether they followed it and whether the numbers
+> actually improved since (e.g. did the squat cue "add 2.5kg" show up as +2.5kg this week?). Read
+> their session `feedback` notes closely — that's where injuries, form cues and how they felt live.
+> Cross-reference against their saved profile: does recent training respect their hard stops, and is
+> it tracking toward their stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
 > `write_coaching(person, overall, by_exercise, by_session)`. Prefer **session-specific** and
