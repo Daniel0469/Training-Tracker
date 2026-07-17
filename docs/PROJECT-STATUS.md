@@ -120,11 +120,15 @@ break something.**
   phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
 
 ### Automation to-do (on the plan)
-The two "make it hands-free" jobs, grouped:
-1. **Garmin auto-schedule (Daniel):** add the **Windows Task Scheduler** job running
-   `python mcp-garmin/server.py --sync training-garmin` so cardio sessions auto-link to that day's
-   run with no manual `--sync`. **Free.** Cadence: hourly is fine (no-ops when nothing's pending).
-   Cerys's is deferred until her Garmin login is set up. See `mcp-garmin/README.md`.
+The two "make it hands-free" jobs:
+1. **Garmin auto-schedule (Daniel):** ✅ **DONE — Windows Task Scheduler task "TT Garmin sync
+   (Daniel)" is live** (runs `python mcp-garmin/server.py --sync training-garmin`; verified,
+   LastResult 0). **Free.** Cadence: **hourly all day Wed + Sat, and hourly 00:00–05:00 Thu + Sun**
+   (the 05:00 cutoff matches the app's ~5am training-day rollover, so a cardio session that spills
+   past midnight is still caught). Matcher uses the same 5am window, so an after-midnight Garmin run
+   links to the prior day's session. Runs only while the laptop is on. Manage it in Task Scheduler
+   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys's is deferred** until her
+   Garmin login is set up (then repeat with `training-garmin-cerys`).
 2. **Hands-free coaching:** weekly **GitHub Action** calling the Anthropic API to write coaching,
    instead of pasting the prompt weekly. **~£0.30–1/month** (Sonnet 5 vs Opus 4.8; a scheduled job
    can't use the subscription). Turn on once the coaching quality feels calibrated — it pushes
