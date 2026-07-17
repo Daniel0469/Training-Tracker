@@ -151,8 +151,14 @@ The two "make it hands-free" jobs:
      once (handles MFA → caches the session), register the `training-garmin` server, restart Claude
      Code, then add the Task Scheduler job(s). See `mcp-garmin/README.md`. Credentials stay on the
      laptop (env + `~/.garminconnect` cache).
-2. **Hub:** home **dashboard** → **nutrition** (protein/calorie + targets) → **sleep/wellness
+2. **Hub:** ~~home **dashboard**~~ ✅ → **nutrition** (protein/calorie + targets) → **sleep/wellness
    check-in** → **auto weekly review**.
+   - **Home dashboard — ✅ built.** New **Home** tab (`renderHome`), now the app's default landing.
+     Per active person: greeting + today's session (with a **Log it** shortcut), 🧠 Coach card,
+     stat tiles (sessions + volume this week, latest bodyweight with trend arrow, total sessions),
+     last session (with 🥇 + Garmin status), last run (km/time/HR), a bodyweight-trend mini-chart,
+     and goals. Reuses existing helpers; arrows jump to History/Body. Verified light+dark, nav works,
+     no console errors. `.tile`/`.tiles` CSS themed via vars. `CACHE_NAME` → tt-v31; Guide updated.
    - **Scale input via phone screenshot (come back to when building the hub):** Daniel logs
      bodyweight by taking a **screenshot of his scale app on the phone**. Add an in-app flow to
      input a bodyweight (and later other body metrics) **from a screenshot on the phone** — e.g. a
