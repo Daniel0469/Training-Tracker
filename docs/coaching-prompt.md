@@ -30,13 +30,17 @@ the `write_coaching` tool, then start a new chat and paste the prompt below.
 > stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
-> `write_coaching(person, overall, by_exercise)`:
-> - `overall` = one short paragraph for the top of their Log tab (this week's focus / main cue,
->   framed around their stated primary goal).
-> - `by_exercise` = `{ "Exercise name": "one-line cue" }` — use the **exact** exercise names from
->   their program, keep each cue to a single actionable sentence (a load/rep target, a form cue, or
->   a "back off if it hurts").
-> They'll see it on the log form after they tap **Sync now** in the app.
+> `write_coaching(person, overall, by_exercise, by_session)`. Prefer **session-specific** and
+> **per-exercise** coaching over a single generic note:
+> - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
+>   you have advice on (e.g. `"Lower 2"`, `"Cardio: Speed + Core"`). Use the **exact** session names
+>   from their program. Shown on Home (today's) and at the top of that session on the Log tab.
+> - `by_exercise` = `{ "Exercise name": "a concrete next step" }` — use the **exact** exercise names,
+>   and give a **reliable next step** per exercise (a load/rep target like "hit 5×5 @100 — add 2.5kg
+>   next time", a form cue, or a "back off if it hurts"). Aim to leave one on every exercise you can.
+> - `overall` = *optional* general note shown on every session — use it only for something that
+>   isn't session-specific; otherwise lean on `by_session`.
+> They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **Style:** specific over generic; tie advice to their goals, recent numbers, and their stated
 > coaching-voice preference; progress lifts sensibly (small jumps, backed by the numbers). Be
@@ -58,7 +62,7 @@ the `write_coaching` tool, then start a new chat and paste the prompt below.
 
 ## Notes
 - Coaching **replaces/merges** per person each time you write — writing a new `overall` overwrites
-  the old one; `by_exercise` cues merge in (write an empty string to blank one).
+  the old one; `by_session` notes and `by_exercise` cues merge in (write an empty string to blank one).
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
 - Free: runs on the Claude subscription via MCP, no API billing.

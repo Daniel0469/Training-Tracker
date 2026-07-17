@@ -42,8 +42,9 @@ Full version + follow-ups are in **`docs/coaching-prompt.md`**. Short version to
 > `training-tracker` MCP tools (don't ask me for data): `people`, then per person `goals`,
 > `recent_sessions`, `prs`, `bodyweight`, `progress`; read their session `feedback` notes closely.
 > Then push concise, actionable coaching into their app with **`write_coaching(person, overall,
-> by_exercise)`** — `overall` = a short session note, `by_exercise` = {exact exercise name: one-line
-> cue}. They see it after their app syncs. Be specific, tie to goals + recent numbers, progress lifts
+> by_exercise, by_session)`** — prefer **`by_session`** = {exact session name: focus note} and
+> **`by_exercise`** = {exact exercise name: a concrete next step} over a generic `overall`. They see
+> it after their app syncs. Be specific, tie to goals + recent numbers, progress lifts
 > in small jumps, encourage Cerys, and treat pain notes conservatively (deload / mobility / "get it
 > checked", never diagnose). Start by reviewing both and give me your read, then write coaching.
 
