@@ -17,9 +17,39 @@ follow-up — see `docs/running-import.md` for why we avoid the Strava/Garmin *d
 - `garmin_import_run(activity_id, person)` — **import** a run into Training Tracker for `person`
   (needs the GitHub store env vars with write access). Merges by activity id, so it's safe to run
   twice — re-importing updates rather than duplicating.
+- `garmin_fill_pending(person)` — **link** Garmin runs to cardio sessions the app flagged as
+  awaiting a run (see below). This is what the scheduled `--sync` calls; use it to fill on demand.
 
 Then in Claude you just ask, e.g. *"Import my last run for Daniel,"* or *"Show me my runs this week
 and how my pace is trending."*
+
+## Auto-link runs to cardio sessions (hands-off)
+When you save a **cardio/running** session in the app it's tagged *⌚ awaiting run…*. A scheduled
+`--sync` on the laptop then finds that day's Garmin run, matches it by person + date, and adds the
+extra info **onto that session** — avg/max **heart rate**, **cadence**, **elevation gain**,
+**calories**, **moving time**, **aerobic training effect**, **VO₂max**, and per-km splits *if you
+left them blank*. It **never overwrites** what you typed; the app shows it as a **⌚ Garmin** line in
+History after the next sync (which happens automatically on open).
+
+This is safe to run often: it only contacts Garmin when there's actually a flagged session to fill.
+
+**Run it manually:**
+```
+python server.py --sync training-garmin        # Daniel (reads that server's creds from .mcp.json)
+python server.py --sync training-garmin-cerys   # Cerys
+```
+`--sync <server-name>` pulls that server's `env` block from `.mcp.json`, so no secrets go on the
+command line. It needs **`TT_PERSON`** in that env block (e.g. `"Daniel"`) to know whose sessions to
+fill — add it alongside the Garmin/GitHub vars.
+
+**Schedule it (Windows Task Scheduler)** — a light cadence is plenty since it no-ops when nothing's
+pending. E.g. hourly:
+```
+schtasks /Create /TN "TT Garmin sync (Daniel)" /SC HOURLY ^
+  /TR "\"C:\Users\danie\AppData\Local\Python\pythoncore-3.14-64\python.exe\" \"C:\Users\danie\Documents\TrainingTracker\mcp-garmin\server.py\" --sync training-garmin"
+```
+(Repeat with `training-garmin-cerys` for Cerys.) The task only runs while the laptop is on/awake —
+that's the trade-off vs. a cloud job, and it's fine for a daily-ish catch-up.
 
 ## Setup (once, on the laptop)
 

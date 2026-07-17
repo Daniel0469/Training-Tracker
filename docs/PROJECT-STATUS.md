@@ -110,11 +110,19 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
 1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
    (community `garminconnect`) so Claude reads your runs and can **import a run into the app** (it
    lands in History like any session; merges by Garmin activity id, no dupes). Reading needs only a
-   Garmin login; importing also needs the `TT_GITHUB_*` store token (Contents: read+write). Pure
-   mapping verified in-browser (a mapped run renders correctly in History, no console errors). **To
-   switch on:** `pip install -r mcp-garmin/requirements.txt`, run `python server.py --login` once
-   (handles MFA → caches the session), register the `training-garmin` server, restart Claude Code.
-   See `mcp-garmin/README.md`. Credentials stay on the laptop (env + `~/.garminconnect` cache).
+   Garmin login; importing also needs the `TT_GITHUB_*` store token (Contents: read+write).
+   - **Auto-link on cardio days:** saving a cardio/running session tags it `garminWanted` (shown as
+     *⌚ awaiting run…*). A scheduled `python server.py --sync <server>` (or the `garmin_fill_pending`
+     tool) matches that day's Garmin run by person+date and **enriches the logged session** with HR,
+     cadence, elevation, calories, moving time, training effect, VO₂max + per-km split HR — **never
+     overwriting** entered data. Shows as a **⌚ Garmin** line in History. `--sync <server-name>`
+     reads that server's creds from `.mcp.json` (needs `TT_PERSON` in its env); schedule via Windows
+     Task Scheduler (it no-ops when nothing's pending, so hourly is cheap). Verified in-browser
+     (linked + awaiting sessions render, light+dark, no console errors); pure mapping via `--selftest`.
+   - **To switch on:** `pip install -r mcp-garmin/requirements.txt`, run `python server.py --login`
+     once (handles MFA → caches the session), register the `training-garmin` server, restart Claude
+     Code, then add the Task Scheduler job(s). See `mcp-garmin/README.md`. Credentials stay on the
+     laptop (env + `~/.garminconnect` cache).
 2. **Hub:** home **dashboard** → **nutrition** (protein/calorie + targets) → **sleep/wellness
    check-in** → **auto weekly review**.
    - **Scale input via phone screenshot (come back to when building the hub):** Daniel logs

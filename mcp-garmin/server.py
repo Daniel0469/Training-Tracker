@@ -96,6 +96,12 @@ def _pace(km, sec):
     return f"{m}:{s:02d}"
 
 # ---------------------------------------------------------------- Garmin field access
+def _num(x):
+    try:
+        return float(str(x).strip())
+    except (TypeError, ValueError):
+        return None
+
 # The list endpoint returns flat fields; the single-activity endpoint nests some of
 # them under summaryDTO. Read from either so both shapes work.
 def _field(a, name):
@@ -171,6 +177,86 @@ def activity_to_log(a, splits, person):
         "source": "garmin",
         "garminActivityId": a.get("activityId"),
     }
+
+# ---------------------------------------------------------------- enrichment (link Garmin -> a logged session)
+def activity_metrics(a):
+    """The extra info Garmin adds on top of a logged run: HR, cadence, elevation,
+    calories, moving time, training effect, VO2max. Only keys the device recorded."""
+    m = {}
+    def put(key, val, rnd=None):
+        if val is None:
+            return
+        m[key] = round(val, rnd) if rnd is not None else val
+    put("avg_hr", _num(_field(a, "averageHR")), 0)
+    put("max_hr", _num(_field(a, "maxHR")), 0)
+    put("cadence_spm", _num(_field(a, "averageRunningCadenceInStepsPerMinute")), 0)
+    put("elevation_gain_m", _num(_field(a, "elevationGain")), 0)
+    put("calories", _num(_field(a, "calories") or _field(a, "activeKilocalories")), 0)
+    mov = _num(_field(a, "movingDuration"))
+    if mov:
+        m["moving_time"] = _mmss(mov)
+    put("training_effect", _num(_field(a, "aerobicTrainingEffect")), 1)
+    put("vo2max", _num(_field(a, "vO2MaxValue")), 1)
+    return {k: (int(v) if isinstance(v, float) and v.is_integer() else v) for k, v in m.items()}
+
+def splits_to_rows_hr(splits, a=None):
+    """Like splits_to_rows, but appends per-lap average HR as a 4th value when the
+    watch recorded it (so the session gains an HR column). Falls back to one summary
+    split from the activity if there are no laps."""
+    laps = (splits or {}).get("lapDTOs") or []
+    rows, any_hr = [], False
+    for lap in laps:
+        km = round((lap.get("distance") or 0) / 1000, 2)
+        sec = int(lap.get("duration") or 0)
+        if km <= 0 and sec <= 0:
+            continue
+        hr = _num(lap.get("averageHR"))
+        if hr is not None:
+            any_hr = True
+        rows.append([km, _mmss(sec), _pace(km, sec), round(hr) if hr is not None else ""])
+    if not any_hr:
+        rows = [r[:3] for r in rows]
+    if not rows and a is not None:
+        dist_km = round((_field(a, "distance") or 0) / 1000, 2)
+        dur = int(_field(a, "duration") or 0)
+        if dist_km > 0:
+            rows = [[dist_km, _mmss(dur), _pace(dist_km, dur)]]
+    return rows
+
+def _is_run_entry(e):
+    cols = e.get("cols") or []
+    return any("dist" in str(c).lower() for c in cols) and any("time" in str(c).lower() for c in cols)
+
+def _entry_has_rows(e):
+    return any(any(str(v).strip() for v in (row or [])) for row in (e.get("rows") or []))
+
+def enrich_log(log, a, splits):
+    """Attach Garmin's extra info to an already-logged session, without overwriting
+    what the person entered. Fills splits only if the run entry was left empty."""
+    log["garminActivityId"] = a.get("activityId")
+    log["garminWanted"] = False
+    metrics = activity_metrics(a)
+    if metrics:
+        log["garmin"] = metrics
+    run_entry = next((e for e in log.get("entries", []) if _is_run_entry(e)), None)
+    if run_entry is not None and not _entry_has_rows(run_entry):
+        rows = splits_to_rows_hr(splits, a)
+        if rows:
+            has_hr = any(len(r) > 3 and r[3] != "" for r in rows)
+            run_entry["cols"] = ["Distance (km)", "Time", "Pace"] + (["HR"] if has_hr else [])
+            run_entry["rows"] = rows
+    if not log.get("durationSec"):
+        log["durationSec"] = int(_field(a, "duration") or 0)
+    return log
+
+def match_run(runs, date, used_ids):
+    """Pick the Garmin run for a session logged on `date`: same date, not already
+    linked to another session; if several, the longest (the main run of the day)."""
+    same = [a for a in runs
+            if (_field(a, "startTimeLocal") or "")[:10] == date and a.get("activityId") not in used_ids]
+    if not same:
+        return None
+    return max(same, key=lambda a: _num(_field(a, "duration")) or 0)
 
 # ---------------------------------------------------------------- Garmin client (network)
 _client = None
@@ -264,6 +350,40 @@ def import_run(activity_id, person):
             "message": f"{'Updated' if replaced else 'Imported'} run for {person}. "
                        f"They'll see it after tapping Sync now."}
 
+def fill_pending(person, lookback=30):
+    """Link Garmin runs to cardio sessions the app flagged `garminWanted`. Reads the
+    store; only contacts Garmin if there's something to fill (so it's cheap to run
+    often). Matches by person + date, enriches in place, writes back once."""
+    data, sha, url, token = _github_read_with_sha()
+    logs = data.get("logs", [])
+    pending = [l for l in logs
+               if l and l.get("person") == person and l.get("garminWanted") and not l.get("garminActivityId")]
+    if not pending:
+        return {"ok": True, "person": person, "filled": 0,
+                "message": "No cardio sessions awaiting a Garmin run."}
+    runs = [a for a in fetch_recent_activities(lookback) if is_run(a)]
+    used = {l.get("garminActivityId") for l in logs if l and l.get("garminActivityId")}
+    filled = []
+    for l in pending:
+        a = match_run(runs, l.get("date"), used)
+        if not a:
+            continue
+        aid = a.get("activityId")
+        try:
+            splits = garmin_client().get_activity_splits(aid)
+        except Exception:
+            splits = {}
+        enrich_log(l, a, splits)
+        used.add(aid)
+        filled.append({"session": l.get("sessionName"), "date": l.get("date"),
+                       "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
+    if filled:
+        _github_write(data, sha, url, token,
+                      f"Link {len(filled)} Garmin run(s) to {person}'s cardio session(s)")
+    return {"ok": True, "person": person, "filled": len(filled), "details": filled,
+            "unmatched": len(pending) - len(filled),
+            "message": f"Linked {len(filled)} run(s). They show in the app after a sync."}
+
 # ---------------------------------------------------------------- MCP wiring
 def _register(mcp):
     @mcp.tool()
@@ -295,6 +415,14 @@ def _register(mcp):
         env vars with write access."""
         return json.dumps(import_run(activity_id, person), indent=2)
 
+    @mcp.tool()
+    def garmin_fill_pending(person: str) -> str:
+        """Link Garmin runs to `person`'s cardio sessions that the app flagged as
+        awaiting a run (adds HR, cadence, elevation, calories, training effect, and fills
+        splits if empty). Matches by date, never overwrites entered data. This is what the
+        scheduled `--sync` runs; call it to fill on demand."""
+        return json.dumps(fill_pending(person), indent=2)
+
 # ---------------------------------------------------------------- CLI (login / selftest)
 def _login_interactive():
     from garminconnect import Garmin
@@ -311,17 +439,51 @@ def _login_interactive():
     print("Signed in. Session cached at", tokenstore)
     print("Recent activity:", (fetch_recent_activities(1) or [{}])[0].get("activityName", "(none)"))
 
+def _load_server_env(server_name):
+    """Pull a server's env block out of the repo's .mcp.json so a scheduled `--sync`
+    reuses the exact credentials already configured (no secrets in the Task Scheduler
+    command). Existing environment values win, so you can still override per-run."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, ".mcp.json"), encoding="utf-8") as f:
+        cfg = json.load(f)
+    env = (cfg.get("mcpServers", {}).get(server_name, {}) or {}).get("env", {})
+    if not env:
+        raise SystemExit(f"No env for server '{server_name}' in .mcp.json")
+    for k, v in env.items():
+        os.environ.setdefault(k, v)
+
+def _sync(args):
+    """`--sync [server-name]`: link Garmin runs to flagged cardio sessions. If a
+    server name is given, its .mcp.json env (creds + TT_PERSON) is loaded first."""
+    if args:
+        _load_server_env(args[0])
+        _ensure_ca_bundle()               # tokenstore/certs may have just been set
+    person = os.environ.get("TT_PERSON")
+    if not person:
+        raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
+                         "e.g. `python server.py --sync training-garmin`.")
+    print(json.dumps(fill_pending(person), indent=2))
+
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
         fx = json.load(fh)
     a, splits = fx.get("activity", fx), fx.get("splits", {})
     print("summary:", json.dumps(summarize_activity(a), indent=2))
-    print("\nsplit rows:", json.dumps(splits_to_rows(splits), indent=2))
-    print("\nas Training Tracker log:", json.dumps(activity_to_log(a, splits, "Daniel"), indent=2))
+    print("\nGarmin extra metrics:", json.dumps(activity_metrics(a), indent=2))
+    print("\nas a standalone import log:", json.dumps(activity_to_log(a, splits, "Daniel"), indent=2))
+    # demo the enrichment path: a manually-logged cardio session gains Garmin's info
+    logged = {"id": 999, "date": (_field(a, "startTimeLocal") or "")[:10], "person": "Daniel",
+              "sessionName": "Cardio: Endurance + Core", "garminWanted": True,
+              "entries": [{"name": "Run", "cols": ["Distance (km)", "Time", "Pace"], "rows": []},
+                          {"name": "Plank", "cols": ["Weight (kg)", "Reps"], "rows": [["", "60"]]}]}
+    print("\nlogged cardio session AFTER linking:",
+          json.dumps(enrich_log(logged, a, splits), indent=2))
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "--login":
         _login_interactive(); sys.exit(0)
+    if len(sys.argv) >= 2 and sys.argv[1] == "--sync":
+        _sync(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         _selftest(sys.argv[2]); sys.exit(0)
     from mcp.server.fastmcp import FastMCP
