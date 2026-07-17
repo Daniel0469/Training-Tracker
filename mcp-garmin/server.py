@@ -27,7 +27,7 @@ Setup + Claude config: see mcp-garmin/README.md.
 Self-test the pure mapping (no Garmin/network needed):
     python server.py --selftest sample-activity.json
 """
-import os, sys, json, base64, urllib.request
+import os, sys, json, base64, datetime, urllib.request
 
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
@@ -249,14 +249,36 @@ def enrich_log(log, a, splits):
         log["durationSec"] = int(_field(a, "duration") or 0)
     return log
 
+def _start_dt(a):
+    s = str(_field(a, "startTimeLocal") or "").replace("T", " ").strip()[:19]
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
 def match_run(runs, date, used_ids):
-    """Pick the Garmin run for a session logged on `date`: same date, not already
-    linked to another session; if several, the longest (the main run of the day)."""
-    same = [a for a in runs
-            if (_field(a, "startTimeLocal") or "")[:10] == date and a.get("activityId") not in used_ids]
-    if not same:
+    """Pick the Garmin run for a session logged on `date`. Uses the app's ~5am
+    training-day window (see trainingDateStr in js/app.js: it subtracts 5h before
+    dating a session): a session dated D covers runs that start in [D 05:00, D+1 05:00),
+    so a run started after midnight still links to the prior day's session. Skips runs
+    already linked; if several qualify, picks the longest (the day's main run)."""
+    try:
+        lo = datetime.datetime.strptime(date, "%Y-%m-%d") + datetime.timedelta(hours=5)
+    except (ValueError, TypeError):
         return None
-    return max(same, key=lambda a: _num(_field(a, "duration")) or 0)
+    hi = lo + datetime.timedelta(days=1)
+    cands = []
+    for a in runs:
+        if a.get("activityId") in used_ids:
+            continue
+        sdt = _start_dt(a)
+        if sdt is not None and lo <= sdt < hi:
+            cands.append(a)
+    if not cands:
+        return None
+    return max(cands, key=lambda a: _num(_field(a, "duration")) or 0)
 
 # ---------------------------------------------------------------- Garmin client (network)
 _client = None
