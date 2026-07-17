@@ -1112,6 +1112,9 @@ function saveSession(){
   const durationSec = timerElapsed(getTimer());
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
     entries, feedback, difficulty, suggestions, volume, durationSec };
+  // Cardio/running session: flag it so the Garmin sync (laptop) can link the run's
+  // extra data (HR, cadence, elevation, splits…). Cleared once linked; see mcp-garmin.
+  if(entries.some(en=>isRunning(en))) log.garminWanted=true;
   state.logs.push(log); save();
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
@@ -1179,6 +1182,25 @@ function drawWeekChart(person){
       plugins:{legend:{display:false}}}
   });
 }
+// The extra info Garmin adds to a linked cardio session (see mcp-garmin). Themed box.
+function garminLine(l){
+  const g=l.garmin; if(!g) return "";
+  const bits=[];
+  if(g.avg_hr!=null) bits.push("avg HR "+g.avg_hr);
+  if(g.max_hr!=null) bits.push("max "+g.max_hr);
+  if(g.cadence_spm!=null) bits.push("cadence "+g.cadence_spm+" spm");
+  if(g.elevation_gain_m!=null) bits.push("+"+g.elevation_gain_m+" m");
+  if(g.calories!=null) bits.push(g.calories+" kcal");
+  if(g.moving_time) bits.push("moving "+g.moving_time);
+  if(g.training_effect!=null) bits.push("TE "+g.training_effect);
+  if(g.vo2max!=null) bits.push("VO₂ "+g.vo2max);
+  return bits.length? '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")+'</div>' : "";
+}
+function garminStatus(l){
+  if(l.garminActivityId) return ' · ⌚ Garmin';
+  if(l.garminWanted) return ' · ⌚ awaiting run…';
+  return "";
+}
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   if(who!=="all") logs=logs.filter(l=>l.person===who);
@@ -1193,12 +1215,12 @@ function drawHist(who){
       : "";
     return '<div class="log-item"><div class="log-row"><div>'
       + '<h3>'+esc(l.sessionName)+' <span class="pill '+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
-      + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+'</div></div>'
+      + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
       + '<div class="row"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
-      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+plan+'</div></div>';
+      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)+plan+'</div></div>';
   }).join("");
   justSavedId=null;
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
@@ -1815,7 +1837,8 @@ function renderHelp(){
 
   h+=card('4 &middot; Cardio &amp; running',
       p('Cardio exercises use their own fields. A <b>running</b> exercise (Distance / Time / Pace) computes <b>pace</b> for you and treats each row as a <b>split</b>.')
-     +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.'));
+     +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
+     +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail + plan, or delete.')
