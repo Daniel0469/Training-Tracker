@@ -107,9 +107,26 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None):
     entry["updated"] = _today()
     coaching[person] = entry
     data["coaching"] = coaching
+    # Append this write to the coaching history so progress can be tracked over time.
+    import time
+    hist = data.get("coachingLog")
+    if not isinstance(hist, list):
+        hist = []
+    rec = {"id": int(time.time() * 1000), "date": _today(), "person": person}
+    if overall: rec["overall"] = overall
+    if by_session: rec["bySession"] = dict(by_session)
+    if by_exercise: rec["byExercise"] = dict(by_exercise)
+    if len(rec) > 3:                      # something beyond id/date/person was written
+        hist.append(rec)
+        data["coachingLog"] = hist
     _github_write(data, sha, url, token, f"Coaching update for {person}")
     return {"ok": True, "person": person,
             "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+
+def get_coaching_history(data, person, limit=10):
+    log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
+    log.sort(key=lambda e: e.get("id", 0), reverse=True)
+    return log[:limit]
 
 # ---------------------------------------------------------------- helpers
 def _is_lifting(cols):
@@ -271,6 +288,14 @@ def _register(mcp):
     def resolve_suggestion_tool(suggestion_id: str) -> str:
         """Mark a suggestion done (by id) once handled, so it drops off the app's pending list."""
         return json.dumps(resolve_suggestion(suggestion_id), indent=2)
+
+    @mcp.tool()
+    def coaching_history(person: str, limit: int = 10) -> str:
+        """Past coaching you've written for a person (newest first) — each entry has a date
+        plus the overall / per-session (bySession) / per-exercise (byExercise) notes from that
+        write. Read this before coaching to see what you last advised, then judge whether it
+        was followed and whether the numbers actually improved since."""
+        return json.dumps(get_coaching_history(load_data(), person, limit), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
