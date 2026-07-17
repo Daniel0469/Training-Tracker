@@ -6,15 +6,22 @@
     "activityType": { "typeKey": "running" },
     "distance": 5027.3,
     "duration": 1563.0,
-    "averageHR": 154.2
+    "movingDuration": 1548.0,
+    "averageHR": 154.2,
+    "maxHR": 171,
+    "averageRunningCadenceInStepsPerMinute": 172.4,
+    "elevationGain": 84.6,
+    "calories": 321,
+    "aerobicTrainingEffect": 3.4,
+    "vO2MaxValue": 52.0
   },
   "splits": {
     "lapDTOs": [
-      { "distance": 1000.0, "duration": 305.0 },
-      { "distance": 1000.0, "duration": 311.0 },
-      { "distance": 1000.0, "duration": 309.0 },
-      { "distance": 1000.0, "duration": 318.0 },
-      { "distance": 1027.3, "duration": 320.0 }
+      { "distance": 1000.0, "duration": 305.0, "averageHR": 148 },
+      { "distance": 1000.0, "duration": 311.0, "averageHR": 152 },
+      { "distance": 1000.0, "duration": 309.0, "averageHR": 156 },
+      { "distance": 1000.0, "duration": 318.0, "averageHR": 159 },
+      { "distance": 1027.3, "duration": 320.0, "averageHR": 162 }
     ]
   }
 }
