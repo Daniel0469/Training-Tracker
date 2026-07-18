@@ -1589,8 +1589,20 @@ function mergeInData(data, adoptConfig){
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
   // Coaching history: union by id (every past coach write, so improvement can be tracked).
   if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
-  // Improvement suggestions: union by id.
-  if(Array.isArray(data.suggestions)){ if(!Array.isArray(state.suggestions)) state.suggestions=[]; var sid={}; state.suggestions.forEach(function(s){ sid[s.id]=true; }); data.suggestions.forEach(function(s){ if(s&&s.id!=null&&!sid[s.id]){ state.suggestions.push(s); sid[s.id]=true; } }); }
+  // Improvement suggestions: union by id, and a "done" status wins from either
+  // side — so resolving one in the coach/dev chat clears it on every device on
+  // the next sync. (A plain union kept the local "open" copy and ignored the
+  // incoming "done", so resolved suggestions stayed pending in the app.)
+  if(Array.isArray(data.suggestions)){
+    if(!Array.isArray(state.suggestions)) state.suggestions=[];
+    var byS={}; state.suggestions.forEach(function(s){ if(s&&s.id!=null) byS[s.id]=s; });
+    data.suggestions.forEach(function(s){
+      if(!s||s.id==null) return;
+      var cur=byS[s.id];
+      if(!cur){ state.suggestions.push(s); byS[s.id]=s; }
+      else if(s.status==="done" && cur.status!=="done"){ cur.status="done"; updated++; }
+    });
+  }
   if(adoptConfig){
     if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
