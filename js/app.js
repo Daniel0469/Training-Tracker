@@ -609,10 +609,7 @@ function renderPeople(){
     w ? state.people[state.activePerson]+" · "+w+" kg" : "Tap the gear to set bodyweight";
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
-  b.onclick=()=>{ captureDraft(); activeTab=b.dataset.tab;
-    document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x===b));
-    renderView();
-  };
+  b.onclick=()=>switchTab(b.dataset.tab);
 });
 
 function latestLog(person, sessionKey){
@@ -1083,9 +1080,7 @@ function saveSession(){
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
   justSavedId=log.id;
-  activeTab="history";
-  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x.dataset.tab==="history"));
-  renderView();
+  switchTab("history", true); // draft just cleared above — don't re-capture it
   showSaveSummary(volume, prs, entries);
   autoSync(); // push this session to the shared store automatically (if sync is set up)
 }
@@ -1098,7 +1093,7 @@ function renderHistory(){
     + state.people.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("")
     + '</select></div></div>';
   if(!logs.length){
-    html+='<div class="card empty">No sessions logged yet.<br>Head to the <b>Log</b> tab to record your first one.</div>';
+    html+='<div class="card empty">No sessions logged yet.<br>Tap <b>Log it</b> on <b>Home</b> to record your first one.</div>';
     document.getElementById("view").innerHTML=html; return;
   }
   // This-week summary for the active person (volume, sessions, muscle heatmap).
@@ -1534,6 +1529,7 @@ document.getElementById("sugSend").onclick=()=>{
   save(); document.getElementById("sugText").value=""; renderSuggestions(); autoSync(); toast("Suggestion added");
 };
 document.getElementById("settingsCancel").onclick=()=>setDlg.close();
+document.getElementById("guideBtn").onclick=()=>{ setDlg.close(); switchTab("help"); };
 document.getElementById("settingsSave").onclick=()=>{
   const n0=document.getElementById("name0").value.trim()||"Daniel";
   const n1=document.getElementById("name1").value.trim()||"Cerys";
@@ -1801,10 +1797,10 @@ function renderHelp(){
 
   h+=card('1 &middot; Pick who you are',
       p('Use the <b>name toggle</b> top-right. Each person has their own colour - <b>Daniel in dark blue</b>, <b>Cerys in purple</b> - and the whole app picks up whoever\'s selected. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
-     +p('The 🌙 / ☀️ button switches <b>dark / light</b> theme. The gear icon sets <b>names</b> and <b>bodyweight</b>; the selected person\'s latest weight shows under the title.'));
+     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, set <b>names</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title.'));
 
   h+=card('2 &middot; Log a workout',
-      p('Open <b>Log</b>, choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
+      p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
      +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg once a working weight is known.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.'));
@@ -2005,7 +2001,7 @@ function renderHome(){
       + '<div class="ex-meta">'+esc(last.date)+(last.difficulty?' · difficulty '+last.difficulty+'/10':"")+(last.volume?' · '+last.volume.toLocaleString()+' kg':"")+(last.durationSec?' · ⏱ '+fmtDuration(last.durationSec):"")+garminStatus(last)+'</div>'
       + '</div>';
   } else {
-    html+='<div class="card empty">No sessions logged yet.<br>Head to the <b>Log</b> tab to record your first one.</div>';
+    html+='<div class="card empty">No sessions logged yet.<br>Tap <b>Log it</b> on <b>Home</b> to record your first one.</div>';
   }
 
   if(lastRun){
@@ -2049,7 +2045,7 @@ function renderHome(){
 
   document.getElementById("view").innerHTML=html;
 
-  const go=tab=>{ const b=document.querySelector('#tabs button[data-tab="'+tab+'"]'); if(b) b.click(); };
+  const go=tab=>switchTab(tab);
   const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
   document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
 
@@ -2080,6 +2076,16 @@ function renderView(){
   else if(activeTab==="help") renderHelp();
 }
 
+// Switch section. Works even for views without a bottom-bar tab (Log, Guide):
+// Log is reached via Home's "Log it", Guide via Settings. skipCapture is used
+// right after saving, when the draft has just been cleared on purpose.
+function switchTab(tab, skipCapture){
+  if(!skipCapture) captureDraft();
+  activeTab=tab;
+  document.querySelectorAll("#tabs button").forEach(function(x){ x.classList.toggle("active", x.dataset.tab===tab); });
+  renderView();
+}
+
 // Person accent hex (keeps charts + meta in step with the CSS vars):
 // Daniel (0) navy, Cerys (1) purple; lighter variants for the dark theme.
 function brandColor(i,dark){ return i===0 ? (dark?"#7d9bf5":"#1e3a8a") : (dark?"#b57cff":"#7a1fe0"); }
@@ -2093,8 +2099,8 @@ function updateMeta(){
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme", t);
   updateMeta();
-  const btn=document.getElementById("themeBtn");
-  if(btn){ btn.textContent = t==="dark" ? "☀️" : "🌙"; }
+  const btn=document.getElementById("themeToggleBtn");
+  if(btn){ btn.textContent = t==="dark" ? "☀️ Light mode" : "🌙 Dark mode"; }
 }
 function initTheme(){
   let t=state.theme;
@@ -2103,12 +2109,13 @@ function initTheme(){
   }
   applyTheme(t);
 }
-document.getElementById("themeBtn").onclick=()=>{
+function toggleTheme(){
   if(activeTab==="log") captureDraft(); // preserve unsaved entry across the re-render
   const next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
   state.theme=next; save(); applyTheme(next);
   renderView(); // re-render so the themed chart + surfaces refresh
-};
+}
+document.getElementById("themeToggleBtn").onclick=toggleTheme;
 
 curSession = sessionForDate(curDate) || curSession;
 initTheme();
