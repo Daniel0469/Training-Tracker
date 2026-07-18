@@ -76,6 +76,14 @@ python server.py --login                 # answer the MFA code if prompted
 This writes the session to `%USERPROFILE%\.garminconnect` (override with `GARMIN_TOKENSTORE`).
 You can then clear `GARMIN_PASSWORD` — the server resumes from the cache.
 
+**Already have the server in `.mcp.json`?** Pass its name and `--login` reuses that block's
+email / password / `GARMIN_TOKENSTORE` — nothing to type but the MFA code, no password on the
+command line:
+```
+python server.py --login training-garmin         # Daniel
+python server.py --login training-garmin-cerys    # Cerys (writes .garminconnect-cerys)
+```
+
 Sanity-check the mapping without Garmin or a network at all:
 ```
 python server.py --selftest sample-activity.json
@@ -135,8 +143,14 @@ name and token cache, e.g.:
   }
 }
 ```
-In Claude, name whose runs you mean ("show **Cerys's** Garmin runs") so it picks the right server,
-and import with that person (`garmin_import_run(activity_id, "Cerys")`).
+With that block in `.mcp.json`, sign Cerys in once — reuses her configured creds + token store, so
+you only answer her MFA code:
+```
+python server.py --login training-garmin-cerys
+```
+Then **restart Claude Code** so the `training-garmin-cerys` tools load. In Claude, name whose runs
+you mean ("show **Cerys's** Garmin runs") so it picks the right server, and import with that person
+(`garmin_import_run(activity_id, "Cerys")`).
 
 ## Notes
 - **Credentials never leave the laptop** and are read from the environment / token cache — don't

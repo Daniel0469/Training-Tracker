@@ -503,6 +503,12 @@ def _selftest(path):
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "--login":
+        # `--login [server-name]`: with a server name, pull that server's creds +
+        # tokenstore from .mcp.json (same as --sync) so a second person can sign in
+        # without re-typing their password — only the MFA prompt remains.
+        if len(sys.argv) >= 3:
+            _load_server_env(sys.argv[2])
+            _ensure_ca_bundle()           # tokenstore/certs may have just been set
         _login_interactive(); sys.exit(0)
     if len(sys.argv) >= 2 and sys.argv[1] == "--sync":
         _sync(sys.argv[2:]); sys.exit(0)
