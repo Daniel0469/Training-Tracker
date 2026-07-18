@@ -1008,13 +1008,18 @@ function wireExCard(card, ex){
   Array.from(tbody.rows).forEach(tr=>wireSetRow(tr, ex, best));
   const firstWeight = tbody.rows[0] && tbody.rows[0].querySelector('[data-c="0"]');
   if(firstWeight && isLifting(ex)){
+    // Mirror the first set's weight into rows the user hasn't set themselves.
+    // Track the last mirrored value so multi-digit entry keeps updating: typing
+    // "6" then "0" fills every row with "60", not stuck at "6" (the old check
+    // only filled empty rows, so after the first digit they were never updated).
+    let mirrored=firstWeight.value||"";
     firstWeight.addEventListener("input", ()=>{
       const val=firstWeight.value;
-      if(!val) return;
       Array.from(tbody.rows).slice(1).forEach(tr=>{
         const w=tr.querySelector('[data-c="0"]');
-        if(w && !w.value) w.value=val;
+        if(w && (!w.value || w.value===mirrored)) w.value=val;
       });
+      mirrored=val;
     });
   }
   if(ex.warmup && ex.warmup.indexOf("%")>=0){
