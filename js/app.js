@@ -1488,16 +1488,14 @@ document.getElementById("exSave").onclick=()=>{
 
 const setDlg=document.getElementById("settingsDlg");
 document.getElementById("settingsBtn").onclick=()=>{
-  document.getElementById("name0").value=state.people[0];
-  document.getElementById("name1").value=state.people[1];
-  document.getElementById("weight0").value=state.weights[0];
-  document.getElementById("weight1").value=state.weights[1];
-  document.getElementById("goals0").value=(state.goals&&state.goals[0])||"";
-  document.getElementById("goals1").value=(state.goals&&state.goals[1])||"";
-  document.getElementById("wlab0").childNodes[0].nodeValue=possessive(state.people[0])+" bodyweight (kg)";
-  document.getElementById("wlab1").childNodes[0].nodeValue=possessive(state.people[1])+" bodyweight (kg)";
-  document.getElementById("glab0").childNodes[0].nodeValue=possessive(state.people[0])+" goals";
-  document.getElementById("glab1").childNodes[0].nodeValue=possessive(state.people[1])+" goals";
+  // Settings are person-specific: edit the selected person; switch person to edit the other.
+  const i=state.activePerson;
+  document.getElementById("setWho").textContent="· "+(state.people[i]||"");
+  document.getElementById("pName").value=state.people[i]||"";
+  document.getElementById("pWeight").value=(state.weights&&state.weights[i])||"";
+  document.getElementById("pGoals").value=(state.goals&&state.goals[i])||"";
+  document.getElementById("pWeightLab").childNodes[0].nodeValue=possessive(state.people[i])+" bodyweight (kg)";
+  document.getElementById("pGoalsLab").childNodes[0].nodeValue=possessive(state.people[i])+" goals";
   const sc=loadSync();
   document.getElementById("ghRepo").value=sc.repo||"";
   document.getElementById("ghPath").value=sc.path||"";
@@ -1528,20 +1526,23 @@ document.getElementById("sugSend").onclick=()=>{
   state.suggestions.push({id:Date.now(), person:state.people[state.activePerson], date:todayStr(), text:t, status:"open"});
   save(); document.getElementById("sugText").value=""; renderSuggestions(); autoSync(); toast("Suggestion added");
 };
-document.getElementById("settingsCancel").onclick=()=>setDlg.close();
+// Auto-save the selected person's name / bodyweight / goals whenever the
+// dialog closes (X, Done, Esc or backdrop) — no explicit Save button.
+function saveSettingsPerson(){
+  const i=state.activePerson;
+  if(!Array.isArray(state.weights)) state.weights=["",""];
+  if(!Array.isArray(state.goals)) state.goals=["",""];
+  const nm=(document.getElementById("pName").value||"").trim();
+  if(nm) state.people[i]=nm;
+  state.weights[i]=(document.getElementById("pWeight").value||"").trim();
+  state.goals[i]=(document.getElementById("pGoals").value||"").trim();
+  const kg=parseFloat(state.weights[i]); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg);
+  save(); renderPeople(); renderView();
+}
+setDlg.addEventListener("close", saveSettingsPerson);
+document.getElementById("settingsClose").onclick=()=>setDlg.close();
+document.getElementById("settingsClose2").onclick=()=>setDlg.close();
 document.getElementById("guideBtn").onclick=()=>{ setDlg.close(); switchTab("help"); };
-document.getElementById("settingsSave").onclick=()=>{
-  const n0=document.getElementById("name0").value.trim()||"Daniel";
-  const n1=document.getElementById("name1").value.trim()||"Cerys";
-  state.people=[n0,n1];
-  state.weights=[document.getElementById("weight0").value.trim(),
-                 document.getElementById("weight1").value.trim()];
-  state.goals=[document.getElementById("goals0").value.trim(),
-               document.getElementById("goals1").value.trim()];
-  // Record today's bodyweight into history when set here too.
-  state.weights.forEach((w,i)=>{ const kg=parseFloat(w); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg); });
-  save(); setDlg.close(); renderPeople(); renderView(); toast("Saved");
-};
 document.getElementById("ghSaveCfg").onclick=()=>{
   const cfg=loadSync();
   cfg.repo=document.getElementById("ghRepo").value.trim();
@@ -1712,13 +1713,6 @@ function exportData(){
     toast("Download blocked - copy this text to transfer");
   }
 }
-document.getElementById("exportBtn").onclick=exportData;
-document.getElementById("coachBriefBtn").onclick=exportCoachBrief;
-document.getElementById("importBtn").onclick=()=>{
-  document.getElementById("importText").value="";
-  document.getElementById("importAdopt").checked=false;
-  importDlg.showModal();
-};
 document.getElementById("importCancel").onclick=()=>importDlg.close();
 document.getElementById("importFile").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -2124,5 +2118,18 @@ renderView();
 autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
 
 if("serviceWorker" in navigator){
-  window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js"); });
+  // Auto-apply new versions. sw.js calls skipWaiting()+clients.claim(), so a
+  // freshly deployed version activates instead of waiting for every tab to
+  // close; controllerchange then reloads the page so the phone actually runs
+  // the new code (an installed PWA otherwise keeps stale JS in memory for
+  // ages — which is why fixes seemed not to land). Guarded so the initial
+  // claim on a first visit doesn't trigger a reload loop.
+  let hadController = !!navigator.serviceWorker.controller, reloadingForUpdate=false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    if(!hadController){ hadController=true; return; }
+    if(reloadingForUpdate) return; reloadingForUpdate=true; window.location.reload();
+  });
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{ if(reg) reg.update(); });
+  });
 }

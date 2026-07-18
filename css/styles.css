@@ -39,16 +39,17 @@
   .ptoggle button{border:0;background:transparent;color:var(--muted);font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:14px}
   .ptoggle button.active[data-p="0"]{background:var(--me);color:#fff}
   .ptoggle button.active[data-p="1"]{background:var(--partner);color:#fff}
-  .icon-btn{border:1px solid var(--line);background:var(--card);border-radius:9px;width:36px;height:36px;cursor:pointer;font-size:16px;box-shadow:var(--shadow)}
+  .icon-btn{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;border:1px solid var(--line);background:var(--card);border-radius:9px;width:36px;height:36px;cursor:pointer;font-size:16px;box-shadow:var(--shadow)}
   /* Bottom navigation bar: fixed to the viewport foot, like the mobile preview. */
   .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:2px;
     background:var(--card);border-top:1px solid var(--line);
-    padding:6px max(8px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-right));
+    padding:8px max(10px,env(safe-area-inset-left)) calc(18px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right));
     box-shadow:0 -2px 12px rgba(20,30,55,.10);overflow-x:auto}
-  .tabs button{flex:1 0 auto;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13.5px;padding:12px 10px;border-radius:11px;cursor:pointer;white-space:nowrap}
+  .tabs button{flex:1 0 auto;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:15px;padding:15px 6px;border-radius:12px;cursor:pointer;white-space:nowrap}
   .tabs button.active{background:var(--brand-soft);color:var(--brand)}
-  /* Keep page content clear of the fixed bar. */
-  .wrap{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+  /* Keep page content clear of the fixed bar (taller now, lifted off the
+     screen edge so taps don't collide with the phone's home-swipe gesture). */
+  .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
   .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:15px;margin-bottom:13px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}

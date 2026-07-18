@@ -35,32 +35,18 @@
 <div class="toast" id="toast"></div>
 
 <dialog id="settingsDlg"><div class="dlg-body">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+    <h3 style="margin:0">Settings <small id="setWho" class="hint" style="font-weight:600"></small></h3>
+    <button class="icon-btn" id="settingsClose" title="Close (saves automatically)" aria-label="Close">&times;</button>
+  </div>
   <div class="row" style="margin-bottom:14px">
     <button class="btn btn-ghost grow" id="themeToggleBtn">&#127769; Dark mode</button>
     <button class="btn btn-ghost grow" id="guideBtn">&#128214; Open Guide</button>
   </div>
-  <h3>Names &amp; bodyweight</h3>
-  <div class="row" style="margin-bottom:12px">
-    <label class="fld grow">Person 1<input id="name0" type="text"></label>
-    <label class="fld grow">Person 2<input id="name1" type="text"></label>
-  </div>
-  <div class="row" style="margin-bottom:12px">
-    <label class="fld grow" id="wlab0">Bodyweight (kg)<input id="weight0" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
-    <label class="fld grow" id="wlab1">Bodyweight (kg)<input id="weight1" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
-  </div>
-  <div class="row" style="margin-bottom:12px">
-    <label class="fld grow" id="glab0">Goals<textarea id="goals0" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:52px"></textarea></label>
-    <label class="fld grow" id="glab1">Goals<textarea id="goals1" placeholder="e.g. first pull-up, 5k under 30 min" style="min-height:52px"></textarea></label>
-  </div>
-  <div class="hint" style="margin-top:-6px;margin-bottom:12px">Goals are saved with your data so a coach (or Claude) can see what you're working toward.</div>
-  <div class="sec-title" style="margin:4px 0 8px">Data &mdash; move between devices</div>
-  <div class="row" style="margin-bottom:6px">
-    <button class="btn btn-ghost grow" id="exportBtn">&#11015; Export data</button>
-    <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
-  </div>
-  <div class="hint" style="margin-bottom:8px">Export saves a file you can send to another device. Import merges those logs in without overwriting what's already here.</div>
-  <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="coachBriefBtn">&#129504; Coach brief (Markdown) &mdash; selected person</button></div>
-  <div class="hint" style="margin-bottom:14px">A ready-to-paste summary of the selected person's goals, PRs, bodyweight and recent sessions &mdash; paste into Claude for coaching, or drop into an Obsidian vault.</div>
+  <label class="fld" style="margin-bottom:12px">Name<input id="pName" type="text"></label>
+  <label class="fld" style="margin-bottom:12px" id="pWeightLab">Bodyweight (kg)<input id="pWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
+  <label class="fld" style="margin-bottom:6px" id="pGoalsLab">Goals<textarea id="pGoals" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:56px"></textarea></label>
+  <div class="hint" style="margin-bottom:14px">For the selected person &mdash; switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
   <div class="sec-title" style="margin:4px 0 8px">💡 Improve the app</div>
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">➕ Add suggestion</button></div>
@@ -76,15 +62,12 @@
     <button class="btn btn-primary grow" id="ghSyncBtn">&#8635; Sync now</button>
   </div>
   <div class="hint" id="ghStatus" style="margin-bottom:6px">Not configured.</div>
-  <div class="hint" style="margin-bottom:14px">Once set, it syncs <b>automatically</b> on open and after each save (the button is just a manual pull). Stored only on this device (never in exports). Use a <b>fine-grained token</b> limited to one <b>private</b> repo with <b>Contents: read &amp; write</b>. Merges both people's workouts &amp; bodyweight; program/names/goals use last-sync-wins.</div>
-  <div class="row" style="justify-content:space-between">
+  <div class="hint" style="margin-bottom:14px">Syncs <b>automatically</b> on open and after each save (the button is just a manual pull). Stored only on this device. Use a <b>fine-grained token</b> limited to one <b>private</b> repo with <b>Contents: read &amp; write</b>.</div>
+  <div class="row" style="justify-content:space-between;align-items:center">
     <button class="btn-danger mini" id="resetProgram">Reset program to default</button>
-    <div class="row">
-      <button class="btn btn-ghost" id="settingsCancel">Close</button>
-      <button class="btn btn-primary" id="settingsSave">Save</button>
-    </div>
+    <button class="btn btn-primary" id="settingsClose2">Done</button>
   </div>
-  <div class="hint" style="margin-top:10px">Resetting the program restores all default workouts. Your logged history is never deleted by this.</div>
+  <div class="hint" style="margin-top:10px">Changes save automatically when you close. Resetting the program restores default workouts; your logged history is never deleted.</div>
 </div></dialog>
 
 <dialog id="importDlg"><div class="dlg-body">
