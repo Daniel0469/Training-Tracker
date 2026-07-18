@@ -20,24 +20,25 @@
     <div class="title">Training Tracker <small id="sub">Shared progress log</small></div>
     <div class="people">
       <div class="ptoggle" id="ptoggle"></div>
-      <button class="icon-btn" id="themeBtn" title="Light / dark theme">&#127769;</button>
-      <button class="icon-btn" id="settingsBtn" title="Names, bodyweight &amp; data">&#9881;</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings, theme &amp; guide">&#9881;</button>
     </div>
   </div>
   <div id="view"></div>
   <nav class="tabs" id="tabs" aria-label="Sections">
     <button data-tab="home" class="active">Home</button>
-    <button data-tab="log">Log</button>
     <button data-tab="history">History</button>
     <button data-tab="progress">Progress</button>
     <button data-tab="body">Body</button>
     <button data-tab="edit">Program</button>
-    <button data-tab="help">Guide</button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
 
 <dialog id="settingsDlg"><div class="dlg-body">
+  <div class="row" style="margin-bottom:14px">
+    <button class="btn btn-ghost grow" id="themeToggleBtn">&#127769; Dark mode</button>
+    <button class="btn btn-ghost grow" id="guideBtn">&#128214; Open Guide</button>
+  </div>
   <h3>Names &amp; bodyweight</h3>
   <div class="row" style="margin-bottom:12px">
     <label class="fld grow">Person 1<input id="name0" type="text"></label>
@@ -169,7 +170,7 @@
     </svg>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--muted);margin-top:0">
       <span>fewer sets</span>
-      <span style="display:inline-block;width:84px;height:9px;border-radius:5px;background:linear-gradient(90deg,rgb(150,190,240),rgb(37,99,235))"></span>
+      <span style="display:inline-block;width:84px;height:9px;border-radius:5px;background:linear-gradient(90deg,rgb(255,206,110),rgb(222,60,45))"></span>
       <span>more sets</span>
     </div>
   </div>
