@@ -814,10 +814,9 @@ function renderLog(){
     + '</div></div>';
 
   const sessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
-  if(sessNote || coach.overall){
+  if(sessNote){
     html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
-      + (sessNote?'<div style="white-space:pre-wrap"><b>'+esc(sess.name)+':</b> '+esc(sessNote)+'</div>':"")
-      + (coach.overall?'<div style="white-space:pre-wrap'+(sessNote?';margin-top:7px':'')+'">'+esc(coach.overall)+'</div>':"")
+      + '<div style="white-space:pre-wrap"><b>'+esc(sess.name)+':</b> '+esc(sessNote)+'</div>'
       + '</div>';
   }
 
