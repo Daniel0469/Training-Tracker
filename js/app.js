@@ -1873,9 +1873,11 @@ function volCompare(total){
 function lerp(a,b,t){return Math.round(a+(b-a)*t);}
 function muscleColor(c,max){
   if(!c||!max) return ""; // unworked: clear inline fill, fall back to CSS --musc-base
-  // Heat ramp brightens with more sets; endpoints suit light and dark cards.
-  var t=c/max, l=[150,190,240], d=[37,99,235];
-  return "rgb("+lerp(l[0],d[0],t)+","+lerp(l[1],d[1],t)+","+lerp(l[2],d[2],t)+")";
+  // Neutral intensity heat ramp (warm amber -> hot red as the set count rises).
+  // Person-independent on purpose: the map reads as "how hard" not "who", so it
+  // doesn't clash with the per-person accents. Endpoints suit light + dark cards.
+  var t=c/max, lo=[255,206,110], hi=[222,60,45];
+  return "rgb("+lerp(lo[0],hi[0],t)+","+lerp(lo[1],hi[1],t)+","+lerp(lo[2],hi[2],t)+")";
 }
 function classifyMuscles(name){
   var n=String(name).toLowerCase(), m=[];
