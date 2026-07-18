@@ -1,25 +1,31 @@
 ﻿  :root{
     color-scheme: light;
     --bg:#f6f7f9; --card:#ffffff; --card-2:#fcfcfe; --input-bg:#ffffff; --ink:#1c2330; --muted:#697086;
-    --line:#e4e7ee; --brand:#2f6df0; --brand-soft:#eaf1ff;
-    --me:#2f6df0; --partner:#e0633a; --good:#2e9e6b; --warn:#d9a300; --bad:#d9534f;
+    --line:#e4e7ee;
+    --me:#1e3a8a; --me-soft:#e3e8f7; --partner:#7a1fe0; --partner-soft:#f0e6fd;
+    --brand:var(--me); --brand-soft:var(--me-soft);
+    --good:#2e9e6b; --warn:#d9a300; --bad:#d9534f;
     --shadow:0 1px 3px rgba(20,30,55,.08),0 1px 2px rgba(20,30,55,.06);
     --musc-base:#e6ebf1; --musc-sil:#cdd5df; --musc-stroke:#c2cad6;
   }
   :root[data-theme="dark"]{
     color-scheme: dark;
     --bg:#12151c; --card:#1b1f28; --card-2:#20242e; --input-bg:#232833; --ink:#e7ebf2; --muted:#9aa3b2;
-    --line:#2b313d; --brand:#5b8bf5; --brand-soft:#1e2a44;
-    --me:#5b8bf5; --partner:#e0805a; --good:#3fae7f; --warn:#d9a300; --bad:#e06b66;
+    --line:#2b313d;
+    --me:#7d9bf5; --me-soft:#1e2a52; --partner:#b57cff; --partner-soft:#2c1e52;
+    --brand:var(--me); --brand-soft:var(--me-soft);
+    --good:#3fae7f; --warn:#d9a300; --bad:#e06b66;
     --shadow:0 1px 3px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.35);
     --musc-base:#2b3340; --musc-sil:#333c49; --musc-stroke:#3a4452;
   }
+  /* App accent follows the active person: Daniel (0) navy, Cerys (1) purple.
+     Placed after the theme blocks so it wins the source-order tiebreak in both themes. */
+  :root[data-person="1"]{ --brand:var(--partner); --brand-soft:var(--partner-soft); }
   :root[data-theme="dark"] .fb,:root[data-theme="dark"] .notes{background:#2a2716;border-color:#4a431f;color:#e8dca0}
   :root[data-theme="dark"] .garminbox{background:#16202e;border-color:#26364c;color:#acc4e6}
   :root[data-theme="dark"] .recent{background:var(--card-2);border-color:var(--line);color:var(--muted)}
   :root[data-theme="dark"] tr.done td{background:#173026}
   :root[data-theme="dark"] table.sets input[readonly]{background:var(--card-2)}
-  :root[data-theme="dark"] .pill.partner{background:#3a251c}
   dialog{background:var(--card);color:var(--ink)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:14px;}
@@ -51,10 +57,10 @@
   .warmup{font-size:12px;color:var(--brand);background:var(--brand-soft);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
   .recent{font-size:12px;color:var(--muted);background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
   .notes{font-size:12px;color:#6a5b1a;background:#fbf6e3;border:1px solid #efe4b8;border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px;white-space:pre-wrap}
-  .coach{font-size:12.5px;color:#5b3aa6;background:#f1ecfb;border:1px solid #ddd0f5;border-radius:7px;padding:5px 9px;display:block;margin-bottom:7px;white-space:pre-wrap}
-  .coach-card{border-color:#ddd0f5}
-  :root[data-theme="dark"] .coach{background:#211a33;border-color:#3a2d57;color:#c9b8f0}
-  :root[data-theme="dark"] .coach-card{border-color:#3a2d57}
+  .coach{font-size:12.5px;color:#145a4b;background:#e2f2ee;border:1px solid #c4e2d9;border-radius:7px;padding:5px 9px;display:block;margin-bottom:7px;white-space:pre-wrap}
+  .coach-card{border-color:#c4e2d9}
+  :root[data-theme="dark"] .coach{background:#12241f;border-color:#244a40;color:#6fd0b8}
+  :root[data-theme="dark"] .coach-card{border-color:#244a40}
   .timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;color:var(--muted);min-width:58px;text-align:center}
   .timer.running{color:var(--brand)}
   .sets-wrap{overflow-x:auto}
@@ -90,8 +96,8 @@
   .diff button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
   .hint{font-size:12px;color:var(--muted);margin-top:4px}
   .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
-  .pill.me{background:var(--brand-soft);color:var(--me)}
-  .pill.partner{background:#fbe9e2;color:var(--partner)}
+  .pill.me{background:var(--me-soft);color:var(--me)}
+  .pill.partner{background:var(--partner-soft);color:var(--partner)}
   .log-item{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;background:var(--card-2)}
   .log-item h3{font-size:15px}
   .log-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
