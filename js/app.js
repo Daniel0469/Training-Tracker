@@ -591,6 +591,9 @@ function parseRange(target){
 }
 
 function renderPeople(){
+  // Drive the app accent (via CSS --brand) and chrome colour off the active person.
+  document.documentElement.setAttribute("data-person", state.activePerson);
+  updateMeta();
   const el=document.getElementById("ptoggle");
   el.innerHTML = state.people.map((n,i)=>
     '<button data-p="'+i+'" class="'+(state.activePerson===i?'active':'')+'">'+esc(n)+'</button>').join("");
@@ -1131,8 +1134,8 @@ function drawWeekChart(person){
   const canvas=document.getElementById("weekChart"); if(!canvas) return;
   const weeks=weeklyVolumes(person).slice(-10);
   const i=state.people.indexOf(person);
-  const col=i===0?"#2f6df0":"#e0633a";
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const col=brandColor(i,dark);
   const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   if(weekChart) weekChart.destroy();
   weekChart=new Chart(canvas,{
@@ -1228,6 +1231,7 @@ function renderProgress(){
 function drawChart(){
   const name=document.getElementById("progEx").value;
   const metric=(document.getElementById("progMetric")||{}).value||"weight";
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
   const series=state.people.map((p,i)=>{
     const pts=state.logs.filter(l=>l.person===p)
       .map(l=>{ const e=(l.entries||[]).find(x=>x.name===name); if(!e) return null;
@@ -1236,11 +1240,10 @@ function drawChart(){
           if(metric==="e1rm"){ const v=epley(w,parseInt(r[1],10)); if(!isNaN(v)) vals.push(v); } else vals.push(w); });
         if(!vals.length) return null; return {x:l.date,y:Math.round(Math.max.apply(null,vals)*10)/10}; })
       .filter(Boolean).sort((a,b)=>a.x<b.x?-1:1);
-    return {label:p,data:pts,borderColor:i===0?"#2f6df0":"#e0633a",
-      backgroundColor:i===0?"#2f6df0":"#e0633a",tension:.25,spanGaps:true};
+    return {label:p,data:pts,borderColor:brandColor(i,dark),
+      backgroundColor:brandColor(i,dark),tension:.25,spanGaps:true};
   });
   if(chart) chart.destroy();
-  const dark=document.documentElement.getAttribute("data-theme")==="dark";
   const tickCol=dark?"#9aa3b2":"#697086";
   const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   chart=new Chart(document.getElementById("progChart"),{
@@ -1380,9 +1383,9 @@ function renderBody(){
 function drawBwChart(person){
   const pts=bwFor(person).map(b=>({x:b.date, y:b.kg}));
   const i=state.people.indexOf(person);
-  const col=i===0?"#2f6df0":"#e0633a";
   if(bwChart) bwChart.destroy();
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const col=brandColor(i,dark);
   const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   bwChart=new Chart(document.getElementById("bwChart"),{
     type:"line", data:{datasets:[{label:person+" (kg)", data:pts, borderColor:col, backgroundColor:col, tension:.25, spanGaps:true}]},
@@ -1785,7 +1788,7 @@ function renderHelp(){
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.'));
 
   h+=card('1 &middot; Pick who you are',
-      p('Use the <b>name toggle</b> top-right (blue / orange). Everything you log and every suggestion belongs to whoever is selected. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
+      p('Use the <b>name toggle</b> top-right. Each person has their own colour - <b>Daniel in dark blue</b>, <b>Cerys in purple</b> - and the whole app picks up whoever\'s selected. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
      +p('The 🌙 / ☀️ button switches <b>dark / light</b> theme. The gear icon sets <b>names</b> and <b>bodyweight</b>; the selected person\'s latest weight shows under the title.'));
 
   h+=card('2 &middot; Log a workout',
@@ -1811,7 +1814,7 @@ function renderHelp(){
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as purple <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
+     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
@@ -2038,8 +2041,8 @@ function renderHome(){
 
   if(bw.length>=2){
     const i=state.people.indexOf(p);
-    const col=i===0?"#2f6df0":"#e0633a";
     const dark=document.documentElement.getAttribute("data-theme")==="dark";
+    const col=brandColor(i,dark);
     const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
     if(homeChart) homeChart.destroy();
     homeChart=new Chart(document.getElementById("homeBwChart"),{
@@ -2063,10 +2066,19 @@ function renderView(){
   else if(activeTab==="help") renderHelp();
 }
 
+// Person accent hex (keeps charts + meta in step with the CSS vars):
+// Daniel (0) navy, Cerys (1) purple; lighter variants for the dark theme.
+function brandColor(i,dark){ return i===0 ? (dark?"#7d9bf5":"#1e3a8a") : (dark?"#b57cff":"#7a1fe0"); }
+// Address-bar / PWA chrome colour: active person's accent in light, app bg in dark.
+function updateMeta(){
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(!meta) return;
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  meta.setAttribute("content", dark ? "#12151c" : brandColor(state.activePerson,false));
+}
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme", t);
-  const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute("content", t==="dark" ? "#12151c" : "#2f6df0");
+  updateMeta();
   const btn=document.getElementById("themeBtn");
   if(btn){ btn.textContent = t==="dark" ? "☀️" : "🌙"; }
 }
