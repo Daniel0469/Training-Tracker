@@ -456,7 +456,23 @@ def _login_interactive():
         g = Garmin(email, pw, prompt_mfa=lambda: input("MFA code (blank if none): ").strip())
     except TypeError:                     # older garminconnect without prompt_mfa
         g = Garmin(email, pw)
-    g.login()
+    try:
+        g.login()
+    except Exception as e:
+        msg = str(e)
+        print("\nGarmin sign-in failed:", msg)
+        if "429" in msg or "rate limit" in msg.lower():
+            print("  * Garmin has rate-limited this IP after repeated attempts. WAIT ~1 hour "
+                  "(longer after several tries) before retrying — retrying now only extends the "
+                  "block, and the delay can also expire your MFA code mid-login. A different "
+                  "network (e.g. a phone hotspot) gives a fresh IP.")
+        if "mfa" in msg.lower() or "authentication application" in msg.lower():
+            print("  * This account uses app-based 2-step verification. At the 'MFA code' prompt, "
+                  "open the Garmin authenticator, type the current 6-digit code and press Enter "
+                  "promptly (codes rotate ~30s) — don't leave it blank. If it keeps failing, "
+                  "switch 2-step verification to email in Garmin account settings, which the "
+                  "library handles more reliably.")
+        raise SystemExit(1)
     g.garth.dump(tokenstore)
     print("Signed in. Session cached at", tokenstore)
     print("Recent activity:", (fetch_recent_activities(1) or [{}])[0].get("activityName", "(none)"))
