@@ -282,6 +282,18 @@ def match_run(runs, date, used_ids):
 
 # ---------------------------------------------------------------- Garmin client (network)
 _client = None
+def _dump_session(g, tokenstore):
+    """Persist the signed-in session to the token store. garminconnect exposes the
+    underlying garth client as `.garth` in older versions and `.client` in newer
+    ones — save via whichever provides dump(), so this survives library upgrades."""
+    for attr in ("garth", "client"):
+        obj = getattr(g, attr, None)
+        if obj is not None and hasattr(obj, "dump"):
+            obj.dump(tokenstore)
+            return
+    raise RuntimeError("Couldn't persist the Garmin session — this garminconnect "
+                       "version exposes neither g.garth nor g.client with dump().")
+
 def garmin_client():
     """Sign in to Garmin Connect, resuming a cached session if one exists."""
     global _client
@@ -303,7 +315,7 @@ def garmin_client():
         g = Garmin(email, pw)
         g.login()
         try:
-            g.garth.dump(tokenstore)
+            _dump_session(g, tokenstore)
         except Exception:
             pass
     _client = g
@@ -473,7 +485,7 @@ def _login_interactive():
                   "switch 2-step verification to email in Garmin account settings, which the "
                   "library handles more reliably.")
         raise SystemExit(1)
-    g.garth.dump(tokenstore)
+    _dump_session(g, tokenstore)
     print("Signed in. Session cached at", tokenstore)
     print("Recent activity:", (fetch_recent_activities(1) or [{}])[0].get("activityName", "(none)"))
 
