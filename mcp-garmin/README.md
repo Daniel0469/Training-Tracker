@@ -152,6 +152,21 @@ Then **restart Claude Code** so the `training-garmin-cerys` tools load. In Claud
 you mean ("show **Cerys's** Garmin runs") so it picks the right server, and import with that person
 (`garmin_import_run(activity_id, "Cerys")`).
 
+## Troubleshooting sign-in
+Getting `--login` through can be fiddly — from experience setting up Cerys:
+- **`429 — IP rate limited by Garmin` on the mobile paths:** repeated `--login` runs (each fires
+  several attempts) get the account/IP throttled. **Stop retrying** — every run resets the clock.
+  Wait it out, or use a different network (phone hotspot / VPN) for a fresh IP.
+- **Falls to an MFA prompt on a no-MFA account:** that's the widget fallback the library uses when
+  the mobile path is blocked; there's nothing to type. What reliably cleared it: **log into
+  `connect.garmin.com` in a browser on the same laptop** first — that answers Garmin's verification
+  challenge, after which `--login` signs in with no prompt (the `429` lines may still show; ignore
+  them once you see `Signed in.`).
+- **`AttributeError: 'Garmin' object has no attribute 'garth'`:** newer `garminconnect` exposes the
+  token client as `g.client`, not `g.garth`. Handled now via `_dump_session()` (saves via whichever
+  exists), so keep `garminconnect` reasonably current.
+- Success looks like: `Signed in. Session cached at …` followed by a real `Recent activity:` line.
+
 ## Notes
 - **Credentials never leave the laptop** and are read from the environment / token cache — don't
   commit them. `.garminconnect` and any `.mcp.json` stay off git.

@@ -133,8 +133,14 @@ The two "make it hands-free" jobs:
    (the 05:00 cutoff matches the app's ~5am training-day rollover, so a cardio session that spills
    past midnight is still caught). Matcher uses the same 5am window, so an after-midnight Garmin run
    links to the prior day's session. Runs only while the laptop is on. Manage it in Task Scheduler
-   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys's is deferred** until her
-   Garmin login is set up (then repeat with `training-garmin-cerys`).
+   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys: Garmin login now DONE**
+   (2026-07-19 — session cached at `~/.garminconnect-cerys` via
+   `python server.py --login training-garmin-cerys`; verified it read a recent activity). **Remaining
+   for Cerys:** add her Task Scheduler job (`--sync training-garmin-cerys`) to make it hands-free.
+   NB: signing in took several tries — Garmin **429-rate-limits** repeated `--login` attempts; what
+   unblocked it was Cerys logging into connect.garmin.com in a browser on the laptop (cleared a
+   verification challenge) plus fixing a library-API break — see `mcp-garmin/README.md`
+   → *Troubleshooting sign-in*.
 2. **Hands-free coaching:** weekly **GitHub Action** calling the Anthropic API to write coaching,
    instead of pasting the prompt weekly. **~£0.30–1/month** (Sonnet 5 vs Opus 4.8; a scheduled job
    can't use the subscription). Turn on once the coaching quality feels calibrated — it pushes
