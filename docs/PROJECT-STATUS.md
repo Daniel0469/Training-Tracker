@@ -133,10 +133,13 @@ The two "make it hands-free" jobs:
    (the 05:00 cutoff matches the app's ~5am training-day rollover, so a cardio session that spills
    past midnight is still caught). Matcher uses the same 5am window, so an after-midnight Garmin run
    links to the prior day's session. Runs only while the laptop is on. Manage it in Task Scheduler
-   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys: Garmin login now DONE**
-   (2026-07-19 — session cached at `~/.garminconnect-cerys` via
-   `python server.py --login training-garmin-cerys`; verified it read a recent activity). **Remaining
-   for Cerys:** add her Task Scheduler job (`--sync training-garmin-cerys`) to make it hands-free.
+   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys: Garmin fully set up DONE**
+   (2026-07-19). Session cached at `~/.garminconnect-cerys` via
+   `python server.py --login training-garmin-cerys` (verified it read a recent activity), **and the
+   Task Scheduler job "TT Garmin sync (Cerys)" is live** — an exact clone of Daniel's (hourly Wed/Sat
+   all day + Thu/Sun 00:00–05:00), running `--sync training-garmin-cerys`; verified with a manual run
+   (`ok:true`, nothing pending). Remove with `schtasks /Delete /TN "TT Garmin sync (Cerys)" /F`. Both
+   people are now on the hands-free Garmin auto-link.
    NB: signing in took several tries — Garmin **429-rate-limits** repeated `--login` attempts; what
    unblocked it was Cerys logging into connect.garmin.com in a browser on the laptop (cleared a
    verification challenge) plus fixing a library-API break — see `mcp-garmin/README.md`
