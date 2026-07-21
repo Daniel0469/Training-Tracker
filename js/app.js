@@ -17,7 +17,7 @@ const DEFAULT_PROGRAM = {
       "exercises": [
         {
           "name": "Leg press",
-          "warmup": "70x10, then 110x5",
+          "warmup": "50%x10, then 75%x5",
           "target": "4x8-12",
           "sets": 4,
           "cols": [
@@ -27,7 +27,7 @@ const DEFAULT_PROGRAM = {
         },
         {
           "name": "Romanian deadlift",
-          "warmup": "light x8",
+          "warmup": "50%x8",
           "target": "3x8-12",
           "cols": [
             "Weight (kg)",
@@ -159,7 +159,7 @@ const DEFAULT_PROGRAM = {
       "exercises": [
         {
           "name": "Squat",
-          "warmup": "empty x10, then ~60% x5",
+          "warmup": "empty x10, then 60%x5",
           "target": "4x6-10",
           "cols": [
             "Weight (kg)",
@@ -245,7 +245,7 @@ const DEFAULT_PROGRAM = {
         },
         {
           "name": "Incline bench",
-          "warmup": "10x10, then 14x5",
+          "warmup": "50%x10, then 75%x5",
           "target": "3x8-12",
           "sets": 3,
           "cols": [
@@ -465,6 +465,23 @@ function load(){
           var kg=parseFloat(w);
           if(!isNaN(kg)) s.bodyweights.push({person:s.people[i], date:today, kg:kg});
         });
+      }
+      // Migrate: the default warm-ups were fixed kg, so Daniel and Cerys both saw
+      // the same numbers. Percentages resolve against each person's own last top
+      // set, so convert — but only where the text still matches the old default,
+      // leaving anything edited in Edit Program alone.
+      if(!s.warmupPct){
+        var WU={ "70x10, then 110x5":"50%x10, then 75%x5",
+                 "light x8":"50%x8",
+                 "empty x10, then ~60% x5":"empty x10, then 60%x5",
+                 "10x10, then 14x5":"50%x10, then 75%x5" };
+        Object.keys(s.program.sessions).forEach(function(k){
+          (s.program.sessions[k].exercises||[]).forEach(function(ex){
+            var repl=WU[(ex.warmup||"").trim()];
+            if(repl) ex.warmup=repl;
+          });
+        });
+        s.warmupPct=true;
       }
       return s;
     }
@@ -947,7 +964,7 @@ function renderExForm(ex,ei,last,prevDate,recent,coach){
   return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + warmupHtml
-    + (ex.notes?'<div class="notes">🔧 '+esc(ex.notes)+'</div>':"")
+    + '<textarea class="notes" data-exnotes rows="1" placeholder="🔧 Machine settings — seat height, pins…">'+esc(ex.notes||"")+'</textarea>'
     + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
@@ -1035,6 +1052,18 @@ function wireExCard(card, ex){
   if(ex.warmup && ex.warmup.indexOf("%")>=0){
     updateWarmup(card, ex);
     tbody.addEventListener("input", ()=>updateWarmup(card, ex));
+  }
+  // Machine settings are editable mid-session: `ex` is the live program object,
+  // so changes stick for next time too. Saved on blur to avoid writing on every
+  // keystroke; autoSync on change so the other phone picks the settings up.
+  const notesEl=card.querySelector("[data-exnotes]");
+  if(notesEl){
+    notesEl.addEventListener("change", ()=>{
+      const v=notesEl.value.trim();
+      if(v===(ex.notes||"")) return;
+      ex.notes=v; save(); autoSync();
+      toast("Machine settings saved");
+    });
   }
   const runBtn=card.querySelector("[data-runimport]");
   if(runBtn){
@@ -1833,7 +1862,8 @@ function renderHelp(){
   h+=card('2 &middot; Log a workout',
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
      +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
-     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg once a working weight is known.')
+     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
+     +p('The <b>🔧 machine settings</b> box on each exercise is editable <b>during</b> the session - change the seat height or pin and it\'s saved to the program for next time.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.'));
 
   h+=card('3 &middot; Time it, rate it, save',
@@ -1856,7 +1886,7 @@ function renderHelp(){
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
-      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (fixed or a %), and <b>setup notes</b> (seat height, pins - shown on the log form). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
