@@ -38,6 +38,23 @@ existing `Documents\TrainingTracker` ← `Training-Tracker` pattern. Other repos
 Expect: `Cloning into 'HomeHub'...` then a warning that you cloned an empty-ish repo, or nothing at
 all. If a browser window asks you to sign in to GitHub, approve it — that's Git Credential Manager.
 
+**If it fails with `SSL certificate problem: unable to get local issuer certificate`** — it will,
+on a fresh clone on this laptop. Something here (antivirus or a proxy) inspects TLS and injects a
+root certificate that git's bundled CA list doesn't trust. Git's *system* config sets
+`http.sslbackend=openssl`; `Training-Tracker` works only because `schannel` was set in that repo's
+own `.git/config`, so the fix never reached new clones. Same root cause as the `truststore` import
+in `mcp-coach/server.py`.
+
+Fix it globally, once, so every future clone works too:
+
+```powershell
+git config --global http.sslBackend schannel
+```
+
+That switches git to the **Windows certificate store**, which does trust the injected root, then
+re-run the clone. **Don't use `http.sslVerify false`** — it's the first hit when searching this
+error and it disables certificate checking altogether instead of fixing the trust path.
+
 ### Step 3 — move the plan in and push it
 
 ```powershell
