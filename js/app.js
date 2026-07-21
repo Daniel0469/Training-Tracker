@@ -696,6 +696,10 @@ function captureDraft(){
       if(rowHas||dn||wu) any=true;
     });
     entries[ei]={rows,done,warm};
+    // A changed set count is worth persisting on its own, so sets you add or
+    // remove survive a re-render even before anything has been typed.
+    const exDef=((state.program.sessions[curSession]||{}).exercises||[])[ei];
+    if(exDef && rows.length!==Math.max(1, exDef.sets||1)) any=true;
   });
   const sel=document.querySelector("#diff button.sel");
   const difficulty=sel?+sel.dataset.d:null;
@@ -721,6 +725,9 @@ function restoreDraft(){
       tb.insertAdjacentHTML("beforeend", setRowHtml(tb.rows.length+1, ex, "-"));
       wireSetRow(tb.rows[tb.rows.length-1], ex, best);
     }
+    // ...and drop extras, so sets you removed stay removed across a re-render
+    // (leaving/returning to the tab used to add them straight back).
+    while(tb.rows.length>d.rows.length && tb.rows.length>1) tb.deleteRow(tb.rows.length-1);
     d.rows.forEach((r,i)=>{
       const tr=tb.rows[i]; if(!tr) return;
       const inputs=tr.querySelectorAll('[data-c]');
@@ -922,7 +929,9 @@ function updateWarmup(card, ex){
   span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
 }
 function renderExForm(ex,ei,last,prevDate,recent,coach){
-  const rows = Math.max(ex.sets, last? last.rows.length:0);
+  // Set count comes from the program only. It used to be max(program, last log),
+  // so one session with extra sets permanently inflated every future session.
+  const rows = Math.max(1, ex.sets||1);
   const fmt = r => fmtRow(ex.cols, r);
   let body="";
   for(let i=0;i<rows;i++){
@@ -1540,6 +1549,10 @@ document.getElementById("sugSend").onclick=()=>{
 // Auto-save the selected person's name / bodyweight / goals whenever the
 // dialog closes (X, Done, Esc or backdrop) — no explicit Save button.
 function saveSettingsPerson(){
+  // Preserve any in-progress log entry: closing settings re-renders the view, and
+  // without capturing first the half-filled form was wiped (“going into settings
+  // then back to log clears the log”).
+  captureDraft();
   const i=state.activePerson;
   if(!Array.isArray(state.weights)) state.weights=["",""];
   if(!Array.isArray(state.goals)) state.goals=["",""];
