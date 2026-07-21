@@ -962,9 +962,13 @@ function renderExForm(ex,ei,last,prevDate,recent,coach){
     ? '<div class="warmup">Warm-up: <span data-warmup>'+esc(computeWarmupText(ex.warmup, lastTop>-Infinity?lastTop:null))+'</span></div>'
     : "";
   return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
-    + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
+    + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
+      + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">&#128295;</button>'
+      + '</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + warmupHtml
-    + '<textarea class="notes" data-exnotes rows="1" placeholder="🔧 Machine settings — seat height, pins…">'+esc(ex.notes||"")+'</textarea>'
+    + '<div class="notes-wrap" data-notes-wrap hidden>'
+      + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
+      + '</div>'
     + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
@@ -1057,11 +1061,22 @@ function wireExCard(card, ex){
   // so changes stick for next time too. Saved on blur to avoid writing on every
   // keystroke; autoSync on change so the other phone picks the settings up.
   const notesEl=card.querySelector("[data-exnotes]");
+  const notesWrap=card.querySelector("[data-notes-wrap]");
+  const notesBtn=card.querySelector("[data-exnotes-toggle]");
+  if(notesBtn && notesWrap){
+    notesBtn.onclick=()=>{
+      const opening=notesWrap.hasAttribute("hidden");
+      if(opening){ notesWrap.removeAttribute("hidden"); if(notesEl) notesEl.focus(); }
+      else notesWrap.setAttribute("hidden","");
+      notesBtn.setAttribute("aria-expanded", opening?"true":"false");
+    };
+  }
   if(notesEl){
     notesEl.addEventListener("change", ()=>{
       const v=notesEl.value.trim();
       if(v===(ex.notes||"")) return;
       ex.notes=v; save(); autoSync();
+      if(notesBtn) notesBtn.classList.toggle("has", !!v); // wrench stays lit when settings are saved
       toast("Machine settings saved");
     });
   }
@@ -1863,7 +1878,7 @@ function renderHelp(){
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
      +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
-     +p('The <b>🔧 machine settings</b> box on each exercise is editable <b>during</b> the session - change the seat height or pin and it\'s saved to the program for next time.')
+     +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.'));
 
   h+=card('3 &middot; Time it, rate it, save',

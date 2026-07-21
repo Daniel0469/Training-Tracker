@@ -64,7 +64,12 @@
   .warmup{font-size:12px;color:var(--brand);background:var(--brand-soft);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
   .recent{font-size:12px;color:var(--muted);background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
   .notes{font-size:12px;color:#6a5b1a;background:#fbf6e3;border:1px solid #efe4b8;border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px;white-space:pre-wrap}
-  /* Editable machine settings in the log form: same look, but typeable. */
+  /* Machine settings: collapsed behind the 🔧 next to the exercise name. The
+     wrench stays lit when settings are saved, so you can spot them at a glance. */
+  .wrench{border:0;background:transparent;padding:0 0 0 6px;font-size:13px;line-height:1;cursor:pointer;opacity:.4;vertical-align:middle}
+  .wrench:hover,.wrench[aria-expanded="true"],.wrench.has{opacity:1}
+  .notes-wrap{margin-bottom:7px}
+  .notes-wrap[hidden]{display:none}
   textarea.notes{width:100%;font-family:inherit;line-height:1.35;resize:vertical;min-height:24px;overflow:hidden}
   textarea.notes::placeholder{color:#a89a60;opacity:1}
   :root[data-theme="dark"] textarea.notes::placeholder{color:#8a7f4e}
