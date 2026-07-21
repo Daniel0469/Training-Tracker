@@ -168,6 +168,10 @@ The two "make it hands-free" jobs:
      laptop (env + `~/.garminconnect` cache).
 2. **Hub:** ~~home **dashboard**~~ ✅ → **nutrition** (protein/calorie + targets) → **sleep/wellness
    check-in** → **auto weekly review**.
+   - **Nutrition now has a planned data source:** a separate **Home Hub** app (plants/chores/climate,
+     home server) will capture meals by barcode/camera and write them to the shared `data.json`;
+     this app displays them and feeds them to the coach. Contract + tracker-side work in
+     `docs/home-hub-link.md`. Nothing built yet.
    - **Home dashboard — ✅ built.** New **Home** tab (`renderHome`), now the app's default landing.
      Per active person: greeting + today's session (with a **Log it** shortcut), 🧠 Coach card,
      stat tiles (sessions + volume this week, latest bodyweight with trend arrow, total sessions),
