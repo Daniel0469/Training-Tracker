@@ -79,22 +79,26 @@ Nothing new needed — it reads `data.json` directly:
 
 Ordered; each is independently useful and stops for review, per the usual convention.
 
-### 1. Multi-writer retry (do this first — it's the only real risk)
+### 1. Multi-writer retry ✅ DONE
 `data.json` already has 3+ writers: both phones, `mcp-coach`, `mcp-garmin`. The hub makes 4+.
 Every writer sends the file's `sha`, so a concurrent write **409s rather than silently losing data**
 — the safety property is already there. But **nothing retries on 409**, so it just errors
 (`_github_write`, [mcp-coach/server.py:76](../mcp-coach/server.py#L76)).
 
-Add a shared `pull → modify → push, retry on 409 (3 attempts, small backoff)` helper and use it in
-both Python servers. Small, self-contained, and it makes the store safe for a fourth writer.
+`_github_update(mutate, message)` in both servers does `read → mutate → write`, re-reading and
+reapplying on 409/412 (3 attempts, backoff) and then failing with a readable message. Other HTTP
+errors still raise immediately. `fill_pending` keeps its Garmin calls *outside* the retry loop, and
+re-checks on write that an activity wasn't claimed meanwhile, so a race can't link one run twice.
 
-### 2. `meals` in state + merge
-- Add `meals: []` to `state`, `exportPayload` ([js/app.js:1572](../js/app.js#L1572)), and
-  `mergeInData` (upsert by id, mirroring the `logs` branch).
-- Migration in `load()` for existing installs (missing key → `[]`).
-- Bump `CACHE_NAME` in `sw.js` (currently `tt-v41`).
+**The store is now safe for a fourth writer — the hub can be pointed at it.**
 
-This alone makes hub-written meals survive sync, before any UI exists.
+### 2. `meals` in state + merge ✅ DONE
+`state.meals`, `exportPayload`, and a `mergeInData` branch that upserts by id (mirroring `logs`),
+plus a `load()` migration for installs saved before the change. Unknown fields on incoming meals are
+preserved, so the hub can add fields without a change here. `CACHE_NAME` → `tt-v42`.
+
+**Hub-written meals now survive sync in both directions, with no UI yet.** Nothing is displayed until
+item 3 — a meal in the store is currently invisible in the app.
 
 ### 3. Nutrition UI (the roadmap item, now with a data source)
 - Per-person daily targets (kcal + protein) alongside the existing goals.
@@ -130,5 +134,5 @@ Hub phases 1–4 (Home Assistant, plants, climate, chores/bills) touch none of t
 completion before anything here starts. Only **hub phase 5** needs this side, and it needs items 1–2
 above to exist first.
 
-Sensible order: **item 1 → item 2** (small, safe, unblocks the hub) → hub builds capture → **items
-3–4** land the display and coaching side → **item 5** whenever the Pi is up.
+Sensible order: ~~item 1 → item 2~~ ✅ **done — the hub is unblocked** → hub builds capture →
+**items 3–4** land the display and coaching side → **item 5** whenever the Pi is up.

@@ -456,6 +456,7 @@ function load(){
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
       if(!Array.isArray(s.coachingLog)) s.coachingLog=[];
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
+      if(!Array.isArray(s.meals)) s.meals=[];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
         s.bodyweights=[];
@@ -468,7 +469,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, coachingLog:[], suggestions:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -1572,8 +1573,8 @@ const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
-    coachingLog:state.coachingLog, suggestions:state.suggestions, bodyweights:state.bodyweights,
-    program:state.program, logs:state.logs};
+    coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
+    bodyweights:state.bodyweights, program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -1602,6 +1603,19 @@ function mergeInData(data, adoptConfig){
       var cur=byS[s.id];
       if(!cur){ state.suggestions.push(s); byS[s.id]=s; }
       else if(s.status==="done" && cur.status!=="done"){ cur.status="done"; updated++; }
+    });
+  }
+  // Meals: upsert by id, same as logs. Written by the Home Hub app (barcode /
+  // camera capture) into the shared store; this app displays them. Unknown
+  // fields are kept as-is so the hub can add some without a change here.
+  // See docs/home-hub-link.md for the agreed shape.
+  if(Array.isArray(data.meals)){
+    if(!Array.isArray(state.meals)) state.meals=[];
+    var byM={}; state.meals.forEach(function(m,i){ if(m&&m.id!=null) byM[m.id]=i; });
+    data.meals.forEach(function(m){
+      if(!m||m.id==null) return;
+      if(byM[m.id]!=null){ state.meals[byM[m.id]]=m; updated++; }
+      else { byM[m.id]=state.meals.length; state.meals.push(m); added++; }
     });
   }
   if(adoptConfig){
