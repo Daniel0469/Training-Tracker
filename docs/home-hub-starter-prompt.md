@@ -6,16 +6,86 @@ existed first — **move it into the hub repo** once that repo has its own `docs
 
 ## Before pasting
 
-1. Create the repo — **private** (it will hold Home Assistant config and device details).
-2. Clone it under `Documents/`, e.g. `C:\Users\danie\Documents\HomeHub`.
-3. Move `C:\Users\danie\Documents\home-hub-plan.md` into it as `docs/PLAN.md`.
-4. Open that folder as a new Claude Code project and paste the prompt below.
+Checked against this laptop on 2026-07-21: git 2.45 is installed, the **GitHub CLI (`gh`) is not**,
+and remotes use **HTTPS + Git Credential Manager** (so no token or SSH key is needed to clone or
+push — the saved login is reused). Python is 3.14.1.
+
+### Step 1 — create the repo on github.com
+
+The GitHub CLI isn't installed, so do this in a browser.
+
+1. Go to **https://github.com/new** (sign in as `Daniel0469` if prompted).
+2. **Repository name:** `Home-Hub` (hyphen, matching `Training-Tracker`).
+3. **Visibility:** select **Private**. It will hold Home Assistant config and device details.
+4. Tick **"Add a README file"**. This matters — it makes the repo clonable immediately instead of
+   leaving an empty repo that needs an extra push to initialise.
+5. Leave .gitignore and licence as *None*.
+6. Click **Create repository**.
+
+### Step 2 — clone it
+
+Open **PowerShell** and run these one at a time:
+
+```powershell
+cd $HOME\Documents
+git clone https://github.com/Daniel0469/Home-Hub.git HomeHub
+```
+
+The folder is `HomeHub` (no hyphen) while the repo is `Home-Hub` — that's deliberate, it matches the
+existing `Documents\TrainingTracker` ← `Training-Tracker` pattern. Other repos live in
+`Documents\GitHub\`; this one goes directly in `Documents\` alongside TrainingTracker.
+
+Expect: `Cloning into 'HomeHub'...` then a warning that you cloned an empty-ish repo, or nothing at
+all. If a browser window asks you to sign in to GitHub, approve it — that's Git Credential Manager.
+
+### Step 3 — move the plan in and push it
+
+```powershell
+cd $HOME\Documents\HomeHub
+mkdir docs
+move $HOME\Documents\home-hub-plan.md docs\PLAN.md
+git add docs/PLAN.md
+git commit -m "docs: initial Home Hub plan"
+git push
+```
+
+Check it worked — this should print the file and the commit:
+
+```powershell
+dir docs
+git log --oneline -1
+```
+
+If `move` says it can't find `home-hub-plan.md`, it's already been moved; check `dir docs` first.
+
+### Step 4 — (optional) fix the commit email for this repo
+
+Commits are currently authored as `27600885@students.lincoln.ac.uk` (university), not the email on
+the GitHub account. It works either way, but commits won't link to the GitHub profile. To use the
+account email **for this repo only**:
+
+```powershell
+cd $HOME\Documents\HomeHub
+git config user.email "danielmorris6904@gmail.com"
+```
+
+### Step 5 — open it as a Claude Code project
+
+Either open `C:\Users\danie\Documents\HomeHub` as the working folder in the Claude desktop app, or
+from PowerShell:
+
+```powershell
+cd $HOME\Documents\HomeHub
+claude
+```
+
+Then paste the prompt below as the first message.
 
 ---
 
 ## The prompt
 
-> This is the Home Hub — a new project. Nothing is built yet; the repo is empty apart from
+> This is the Home Hub — a new project. Nothing is built yet; the repo contains only `README.md` and
 > `docs/PLAN.md`.
 >
 > **Read `docs/PLAN.md` first.** It's the agreed plan: a home dashboard for plants, chores, room
@@ -66,6 +136,21 @@ existed first — **move it into the hub repo** once that repo has its own `docs
 > of that exists yet. Ask me what I've actually got before assuming.
 
 ---
+
+## After that — what actually happens next
+
+The hub chat will reply with a `CLAUDE.md` and a two-list plan. **Everything past that waits on
+hardware**, so don't expect to be writing app code the same evening:
+
+1. A **Raspberry Pi 4 or 5** (or any old mini PC / spare laptop that can stay on) with Home Assistant
+   installed. This is the real phase 1, and it's a hardware evening, not a coding one.
+2. **Pair the devices in Home Assistant** — Levoit (VeSync), Dreo (hass-dreo via HACS), Pro Breeze
+   (LocalTuya or Midea, depending on the model number — find it on the unit's label first), Echo Dot
+   and the Amazon Air Quality Monitor (both via Alexa Media Player).
+3. **Confirm readings appear in HA** before building anything on top of them.
+
+Only then does the hub's own code start. The GitHub token for the shared store isn't needed until
+hub phase 5, which is several phases away.
 
 ## Notes for later
 
