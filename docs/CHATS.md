@@ -64,3 +64,6 @@ Full version + follow-ups are in **`docs/coaching-prompt.md`**. Short version to
   `suggestions`, `resolve_suggestion_tool`.
 - **Key docs:** `PROJECT-STATUS.md` (handoff), `coaching-prompt.md`, `github-sync-setup.md`,
   `mcp-coach/README.md`, `hub-and-coaching.md`, `running-import.md`.
+- **Home Hub (separate app, separate repo + chat):** `home-hub-link.md` (shared `meals` contract +
+  the work needed on this side) and `home-hub-starter-prompt.md` (the prompt to open the hub's own
+  Claude Code project with). Don't build hub features in this repo.
