@@ -27,7 +27,7 @@ Setup + Claude config: see mcp-garmin/README.md.
 Self-test the pure mapping (no Garmin/network needed):
     python server.py --selftest sample-activity.json
 """
-import os, sys, json, base64, datetime, urllib.request
+import os, sys, json, base64, datetime, time, urllib.request, urllib.error
 
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
@@ -361,6 +361,33 @@ def _github_write(data, sha, url, token, message):
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r)
 
+def _github_update(mutate, message, attempts=3):
+    """Read -> mutate -> write the shared store, retrying if another writer got in
+    first. data.json has several writers (both phones' sync, the coach, this job);
+    each sends the file's sha, so a race 409s instead of silently losing the other
+    side's data - but without a retry that just surfaced as an error. `mutate` edits
+    the data in place and returns a result; returning None aborts (no write).
+    `message` is the commit message, or a callable taking the result. Keep Garmin
+    fetches OUT of `mutate` - it can run more than once."""
+    for attempt in range(attempts):
+        data, sha, url, token = _github_read_with_sha()
+        result = mutate(data)
+        if result is None:
+            return None
+        try:
+            _github_write(data, sha, url, token, message(result) if callable(message) else message)
+        except urllib.error.HTTPError as e:
+            # 409/412 = someone else wrote between our read and write: re-read and reapply.
+            if e.code not in (409, 412):
+                raise
+            if attempt == attempts - 1:
+                raise RuntimeError(
+                    "Could not write to the shared store: another writer (a phone sync, or the "
+                    f"coach) kept beating us to it, {attempts} times. Try again in a moment.")
+            time.sleep(0.5 * (attempt + 1))
+            continue
+        return result
+
 def import_run(activity_id, person):
     """Fetch a Garmin run and upsert it into the shared data as a Training Tracker
     session (merges by id, so re-importing is safe)."""
@@ -369,15 +396,15 @@ def import_run(activity_id, person):
         return {"ok": False, "message": f"Activity {activity_id} is a "
                 f"'{activity_type(a) or 'non-run'}', not a run. Import skipped."}
     log = activity_to_log(a, splits, person)
-    data, sha, url, token = _github_read_with_sha()
-    logs = data.setdefault("logs", [])
-    replaced = False
-    for i, l in enumerate(logs):
-        if l and str(l.get("id")) == str(log["id"]):
-            logs[i] = log; replaced = True; break
-    if not replaced:
+    def mutate(data):
+        logs = data.setdefault("logs", [])
+        for i, l in enumerate(logs):
+            if l and str(l.get("id")) == str(log["id"]):
+                logs[i] = log
+                return {"replaced": True}
         logs.append(log)
-    _github_write(data, sha, url, token, f"Import Garmin run {activity_id} for {person}")
+        return {"replaced": False}
+    replaced = _github_update(mutate, f"Import Garmin run {activity_id} for {person}")["replaced"]
     return {"ok": True, "person": person, "session": log["sessionName"], "date": log["date"],
             "distance_km": log["entries"][0]["rows"] and sum(r[0] for r in log["entries"][0]["rows"]),
             "updated_existing": replaced,
@@ -388,16 +415,19 @@ def fill_pending(person, lookback=30):
     """Link Garmin runs to cardio sessions the app flagged `garminWanted`. Reads the
     store; only contacts Garmin if there's something to fill (so it's cheap to run
     often). Matches by person + date, enriches in place, writes back once."""
-    data, sha, url, token = _github_read_with_sha()
+    data, _sha, _url, _token = _github_read_with_sha()
     logs = data.get("logs", [])
     pending = [l for l in logs
                if l and l.get("person") == person and l.get("garminWanted") and not l.get("garminActivityId")]
     if not pending:
         return {"ok": True, "person": person, "filled": 0,
                 "message": "No cardio sessions awaiting a Garmin run."}
+    # Match against Garmin first, outside the write: these calls are slow and must
+    # not be repeated if the write has to retry. Keyed by log id so the matches can
+    # be reapplied to a freshly read copy of the store.
     runs = [a for a in fetch_recent_activities(lookback) if is_run(a)]
     used = {l.get("garminActivityId") for l in logs if l and l.get("garminActivityId")}
-    filled = []
+    matches = {}
     for l in pending:
         a = match_run(runs, l.get("date"), used)
         if not a:
@@ -407,13 +437,33 @@ def fill_pending(person, lookback=30):
             splits = garmin_client().get_activity_splits(aid)
         except Exception:
             splits = {}
-        enrich_log(l, a, splits)
+        matches[str(l.get("id"))] = (a, splits)
         used.add(aid)
-        filled.append({"session": l.get("sessionName"), "date": l.get("date"),
-                       "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
-    if filled:
-        _github_write(data, sha, url, token,
-                      f"Link {len(filled)} Garmin run(s) to {person}'s cardio session(s)")
+    if not matches:
+        return {"ok": True, "person": person, "filled": 0, "details": [], "unmatched": len(pending),
+                "message": "No Garmin run matched the session(s) awaiting one."}
+
+    def mutate(data):
+        cur = data.get("logs", [])
+        taken = {l.get("garminActivityId") for l in cur if l and l.get("garminActivityId")}
+        done = []
+        for l in cur:
+            if not l or l.get("garminActivityId"):
+                continue                       # another run of this job already linked it
+            m = matches.get(str(l.get("id")))
+            if not m:
+                continue
+            a, splits = m
+            aid = a.get("activityId")
+            if aid in taken:
+                continue
+            enrich_log(l, a, splits)
+            taken.add(aid)
+            done.append({"session": l.get("sessionName"), "date": l.get("date"),
+                         "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
+        return done or None                    # None = nothing left to link, don't write
+    filled = _github_update(
+        mutate, lambda f: f"Link {len(f)} Garmin run(s) to {person}'s cardio session(s)") or []
     return {"ok": True, "person": person, "filled": len(filled), "details": filled,
             "unmatched": len(pending) - len(filled),
             "message": f"Linked {len(filled)} run(s). They show in the app after a sync."}

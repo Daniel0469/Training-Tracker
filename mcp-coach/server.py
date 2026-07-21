@@ -20,7 +20,7 @@ Setup + Claude config: see mcp-coach/README.md.
 Self-test without an MCP client:
     python server.py --selftest ../sample-daniel.json
 """
-import os, sys, json, base64, re, urllib.request
+import os, sys, json, base64, re, time, urllib.request, urllib.error
 
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
@@ -82,6 +82,32 @@ def _github_write(data, sha, url, token, message):
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r)
 
+def _github_update(mutate, message, attempts=3):
+    """Read -> mutate -> write the shared store, retrying if another writer got in
+    first. data.json has several writers (both phones' sync, this coach, the Garmin
+    job); each sends the file's sha, so a race 409s instead of silently losing the
+    other side's data - but without a retry that just surfaced as an error. `mutate`
+    edits the data in place and returns a result; returning None aborts (no write).
+    `message` is the commit message, or a callable taking the result."""
+    for attempt in range(attempts):
+        data, sha, url, token = _github_read_with_sha()
+        result = mutate(data)
+        if result is None:
+            return None
+        try:
+            _github_write(data, sha, url, token, message(result) if callable(message) else message)
+        except urllib.error.HTTPError as e:
+            # 409/412 = someone else wrote between our read and write: re-read and reapply.
+            if e.code not in (409, 412):
+                raise
+            if attempt == attempts - 1:
+                raise RuntimeError(
+                    "Could not write to the shared store: another writer (a phone sync, or the "
+                    f"Garmin job) kept beating us to it, {attempts} times. Try again in a moment.")
+            time.sleep(0.5 * (attempt + 1))
+            continue
+        return result
+
 def _today():
     import datetime
     return datetime.date.today().isoformat()
@@ -91,35 +117,35 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None):
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> a short next-step cue. All are merged into
     any existing coaching. Shows in the app on Home + the log form after the person syncs."""
-    data, sha, url, token = _github_read_with_sha()
-    coaching = data.get("coaching") or {}
-    entry = coaching.get(person) or {}
-    if overall:
-        entry["overall"] = overall
-    if by_session:
-        merged = dict(entry.get("bySession") or {})
-        merged.update(by_session)
-        entry["bySession"] = merged
-    if by_exercise:
-        merged = dict(entry.get("byExercise") or {})
-        merged.update(by_exercise)
-        entry["byExercise"] = merged
-    entry["updated"] = _today()
-    coaching[person] = entry
-    data["coaching"] = coaching
-    # Append this write to the coaching history so progress can be tracked over time.
-    import time
-    hist = data.get("coachingLog")
-    if not isinstance(hist, list):
-        hist = []
-    rec = {"id": int(time.time() * 1000), "date": _today(), "person": person}
-    if overall: rec["overall"] = overall
-    if by_session: rec["bySession"] = dict(by_session)
-    if by_exercise: rec["byExercise"] = dict(by_exercise)
-    if len(rec) > 3:                      # something beyond id/date/person was written
-        hist.append(rec)
-        data["coachingLog"] = hist
-    _github_write(data, sha, url, token, f"Coaching update for {person}")
+    def mutate(data):
+        coaching = data.get("coaching") or {}
+        entry = coaching.get(person) or {}
+        if overall:
+            entry["overall"] = overall
+        if by_session:
+            merged = dict(entry.get("bySession") or {})
+            merged.update(by_session)
+            entry["bySession"] = merged
+        if by_exercise:
+            merged = dict(entry.get("byExercise") or {})
+            merged.update(by_exercise)
+            entry["byExercise"] = merged
+        entry["updated"] = _today()
+        coaching[person] = entry
+        data["coaching"] = coaching
+        # Append this write to the coaching history so progress can be tracked over time.
+        hist = data.get("coachingLog")
+        if not isinstance(hist, list):
+            hist = []
+        rec = {"id": int(time.time() * 1000), "date": _today(), "person": person}
+        if overall: rec["overall"] = overall
+        if by_session: rec["bySession"] = dict(by_session)
+        if by_exercise: rec["byExercise"] = dict(by_exercise)
+        if len(rec) > 3:                  # something beyond id/date/person was written
+            hist.append(rec)
+            data["coachingLog"] = hist
+        return True
+    _github_update(mutate, f"Coaching update for {person}")
     return {"ok": True, "person": person,
             "message": f"Saved. {person} will see it in the app after tapping Sync now."}
 
@@ -219,14 +245,14 @@ def get_suggestions(data, include_done=False):
     return [s for s in subs if include_done or s.get("status") != "done"]
 
 def resolve_suggestion(sid):
-    data, sha, url, token = _github_read_with_sha()
-    found = False
-    for s in data.get("suggestions") or []:
-        if str(s.get("id")) == str(sid):
-            s["status"] = "done"; found = True
-    if not found:
+    def mutate(data):
+        found = False
+        for s in data.get("suggestions") or []:
+            if str(s.get("id")) == str(sid):
+                s["status"] = "done"; found = True
+        return True if found else None    # None = nothing to do, don't write
+    if _github_update(mutate, f"Resolve suggestion {sid}") is None:
         return {"ok": False, "message": f"No suggestion with id {sid}"}
-    _github_write(data, sha, url, token, f"Resolve suggestion {sid}")
     return {"ok": True, "id": sid}
 
 def get_progress(data, person, exercise):
