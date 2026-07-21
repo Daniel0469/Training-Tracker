@@ -1517,10 +1517,16 @@ function renderSuggestions(){
     ? '<div class="hint" style="margin:0 0 4px">'+open.length+' pending &mdash; synced for the dev/coach chat to action</div>'
       + open.map(s=>'<div class="log-row" style="padding:3px 0;border-bottom:1px solid var(--line);gap:8px">'
         + '<div style="font-size:13px"><b class="pill '+(state.people[0]===s.person?"me":"partner")+'">'+esc(s.person||"?")+'</b> '+esc(s.text)+'</div>'
-        + '<button class="mini" data-sugdel="'+s.id+'" style="color:var(--bad)">&times;</button></div>').join("")
+        + '<button class="mini" data-sugdel="'+s.id+'" title="Mark as done" style="color:var(--good)">&#10003;</button></div>').join("")
     : '<div class="hint" style="margin:0">No suggestions yet.</div>';
   list.querySelectorAll("[data-sugdel]").forEach(b=>b.onclick=()=>{
-    state.suggestions=state.suggestions.filter(s=>String(s.id)!==b.dataset.sugdel);
+    // Mark done rather than deleting. A deleted row was resurrected by the very
+    // next sync — mergeInData unions in any remote suggestion missing locally —
+    // so dismissals never stuck. A local "done" is the tombstone: it hides the
+    // row, blocks the re-add, and is re-asserted on every push, so it stays
+    // cleared even if another device pushed an older "open" copy.
+    const s=(state.suggestions||[]).find(x=>String(x.id)===b.dataset.sugdel);
+    if(s){ s.status="done"; s.doneAt=new Date().toISOString(); }
     save(); renderSuggestions(); autoSync();
   });
 }
