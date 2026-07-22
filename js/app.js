@@ -845,10 +845,16 @@ function renderLog(){
       + '</div>';
   }
 
+  // Cardio day: the run auto-fills from Garmin, so tell them to just save.
+  if((sess.exercises||[]).some(e=>isRunning(e))){
+    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> — the run\'s distance, splits, pace &amp; ♥ HR fill in automatically once it syncs. Otherwise type the splits below, or <b>⬆ import</b> a file.</div>';
+  }
+
   html += '<div id="exForm">';
   sess.exercises.forEach((ex,ei)=>{
     const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
-    html += renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name));
+    const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, prev&&prev.garmin) : "";
+    html += renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name),lastRun);
   });
   html += '</div>';
 
@@ -945,14 +951,18 @@ function updateWarmup(card, ex){
   const span=card.querySelector("[data-warmup]"); if(!span) return;
   span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
 }
-function renderExForm(ex,ei,last,prevDate,recent,coach){
-  // Set count comes from the program only. It used to be max(program, last log),
-  // so one session with extra sets permanently inflated every future session.
-  const rows = Math.max(1, ex.sets||1);
+function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
+  const running = isRunning(ex);
+  // Runs get a single blank split row — the watch (or the importer) fills the
+  // real splits in. Other exercises take their set count from the program only
+  // (it used to be max(program, last log), which permanently inflated it).
+  const rows = running ? 1 : Math.max(1, ex.sets||1);
   const fmt = r => fmtRow(ex.cols, r);
   let body="";
   for(let i=0;i<rows;i++){
-    const r = last && last.rows[i] ? last.rows[i] : null;
+    // Per-set "Last" only makes sense for lifting; a run's km-by-km splits don't
+    // line up session to session, so runs show a single "Last run" line instead.
+    const r = !running && last && last.rows[i] ? last.rows[i] : null;
     body += setRowHtml(i+1, ex, r?fmt(r):"-");
   }
   let lastTop=-Infinity;
@@ -966,6 +976,7 @@ function renderExForm(ex,ei,last,prevDate,recent,coach){
       + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">&#128295;</button>'
       + '</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + warmupHtml
+    + (running && lastRun ? '<div class="recent">🏃 Last run: <b>'+esc(lastRun)+'</b></div>' : "")
     + '<div class="notes-wrap" data-notes-wrap hidden>'
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
       + '</div>'
@@ -1230,8 +1241,9 @@ function parseClock(s){
 // aren't splits and skew pace/totals — drop those (but keep blank-distance rows
 // from manual entry). Used by both the collapsed summary and the splits table.
 function isSplitRow(r, di){ const d=parseFloat(r[di]); return isNaN(d) || d>0; }
-function runSummary(l){
-  const e=(l.entries||[]).find(x=>isRunning(x)); if(!e) return null;
+// Distance · time · avg pace · ♥ HR for one run entry (0-distance laps skipped).
+function runSummaryFromEntry(e, garmin){
+  if(!e) return "";
   const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i);
   let km=0, sec=0;
   (e.rows||[]).forEach(r=>{ const d=parseFloat(r[di]); if(isNaN(d)||d<=0) return;
@@ -1240,8 +1252,12 @@ function runSummary(l){
   if(km>0) bits.push((Math.round(km*100)/100)+" km");
   if(sec>0) bits.push(fmtMmSs(sec));
   if(km>0&&sec>0) bits.push(fmtPace((sec/60)/km)+"/km");
-  const g=l.garmin||{}; if(g.avg_hr!=null) bits.push("♥ "+g.avg_hr);
-  return bits.length? bits.join(" · ") : null;
+  const g=garmin||{}; if(g.avg_hr!=null) bits.push("♥ "+g.avg_hr);
+  return bits.join(" · ");
+}
+function runSummary(l){
+  const e=(l.entries||[]).find(x=>isRunning(x)); if(!e) return null;
+  return runSummaryFromEntry(e, l.garmin) || null;
 }
 // One entry's detail row. Runs render as a proper splits table (per-lap
 // distance/time/pace/HR) with a totals line; everything else stays a compact
@@ -1943,7 +1959,7 @@ function renderHelp(){
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
   h+=card('4 &middot; Cardio &amp; running',
-      p('Cardio exercises use their own fields. A <b>running</b> exercise (Distance / Time / Pace) computes <b>pace</b> for you and treats each row as a <b>split</b>.')
+      p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs; the run starts as a single blank row and shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
 
