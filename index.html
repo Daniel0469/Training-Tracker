@@ -55,6 +55,13 @@
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">➕ Add suggestion</button></div>
   <div id="sugList" style="margin-bottom:14px"></div>
+  <div class="sec-title" style="margin:4px 0 8px">Backup &amp; data</div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="exportBtn">&#11015; Export</button>
+    <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
+    <button class="btn btn-ghost grow" id="coachBriefBtn">&#128203; Coach brief</button>
+  </div>
+  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device &mdash; use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) &mdash; optional, free</div>
   <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
   <div class="row" style="margin-bottom:8px">
