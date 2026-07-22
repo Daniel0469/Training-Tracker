@@ -1218,17 +1218,67 @@ function garminStatus(l){
   if(l.garminWanted) return ' · ⌚ awaiting run…';
   return "";
 }
+// Parse "m:ss" / "h:mm:ss" to seconds; blank/invalid -> null.
+function parseClock(s){
+  if(s==null) return null; s=String(s).trim(); if(!s) return null;
+  const p=s.split(":").map(Number); if(p.some(isNaN)) return null;
+  return p.reduce((t,n)=>t*60+n,0);
+}
+// One-line summary of a session's run for the collapsed History row: total
+// distance, time, average pace, and avg HR from the linked Garmin data.
+function runSummary(l){
+  const e=(l.entries||[]).find(x=>isRunning(x)); if(!e) return null;
+  const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i);
+  let km=0, sec=0;
+  (e.rows||[]).forEach(r=>{ const d=parseFloat(r[di]); if(!isNaN(d)) km+=d;
+    const t=parseClock(r[ti]); if(t!=null) sec+=t; });
+  const bits=[];
+  if(km>0) bits.push((Math.round(km*100)/100)+" km");
+  if(sec>0) bits.push(fmtMmSs(sec));
+  if(km>0&&sec>0) bits.push(fmtPace((sec/60)/km)+"/km");
+  const g=l.garmin||{}; if(g.avg_hr!=null) bits.push("♥ "+g.avg_hr);
+  return bits.length? bits.join(" · ") : null;
+}
+// One entry's detail row. Runs render as a proper splits table (per-lap
+// distance/time/pace/HR) with a totals line; everything else stays a compact
+// dot-joined list.
+function entryDetailHtml(e){
+  if(isRunning(e) && (e.rows||[]).length){
+    const cols=e.cols||[];
+    const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i), pi=colIndex(e,/pace/i), hi=colIndex(e,/hr/i);
+    const head='<tr><th class="spl">#</th>'+cols.map(c=>'<th class="spl">'+esc(c)+'</th>').join("")+'</tr>';
+    const body=e.rows.map((r,ri)=>'<tr><td class="spl">'+(ri+1)+'</td>'
+      + cols.map((c,ci)=>'<td class="spl">'+esc(r[ci]!=null&&String(r[ci]).trim()!==""?String(r[ci]):"-")+'</td>').join("")+'</tr>').join("");
+    let km=0, sec=0, hrSum=0, hrN=0;
+    e.rows.forEach(r=>{ const d=parseFloat(r[di]); if(!isNaN(d)) km+=d;
+      const t=parseClock(r[ti]); if(t!=null) sec+=t;
+      if(hi>=0){ const h=parseFloat(r[hi]); if(!isNaN(h)){ hrSum+=h; hrN++; } } });
+    const tot=cols.map((c,ci)=>{
+      let v="";
+      if(ci===di && km>0) v=Math.round(km*100)/100;
+      else if(ci===ti && sec>0) v=fmtMmSs(sec);
+      else if(ci===pi && km>0 && sec>0) v=fmtPace((sec/60)/km)+"/km";
+      else if(ci===hi && hrN) v=Math.round(hrSum/hrN);
+      return '<td class="spl">'+esc(String(v))+'</td>';
+    }).join("");
+    const totals=(km>0||sec>0)?'<tr class="tot"><td class="spl">Σ</td>'+tot+'</tr>':"";
+    return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'
+      + '<div class="splits-wrap"><table class="splits">'+head+body+totals+'</table></div></td></tr>';
+  }
+  return '<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
+    + e.rows.map((r,ri)=>{ const s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>';
+}
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   if(who!=="all") logs=logs.filter(l=>l.person===who);
   const pc=p=> state.people[0]===p?"me":"partner";
   document.getElementById("histList").innerHTML = logs.map(l=>{
     const open = l.id===justSavedId;
-    const rows=(l.entries||[]).map(e=>'<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
-      + e.rows.map(function(r,ri){ var s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>').join("");
+    const rows=(l.entries||[]).map(entryDetailHtml).join("");
+    const rs=runSummary(l);
     return '<div class="log-item"><div class="log-row"><div>'
       + '<h3>'+esc(l.sessionName)+' <span class="pill '+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
-      + '<div class="ex-meta">'+esc(l.date)+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
+      + '<div class="ex-meta">'+esc(l.date)+(rs?' · '+esc(rs):"")+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
       + '<div class="row"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
@@ -1891,7 +1941,7 @@ function renderHelp(){
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
-      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first) with volume, difficulty and duration; filter by person, expand for full detail, or delete.')
+      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
