@@ -1577,7 +1577,11 @@ function drawBwChart(person){
 
 function renderEdit(){
   let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched.</div>'
-    + '<div class="row" style="margin-top:10px"><button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
+    + '<div class="row" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
+    + '<button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
+  if(!orderedKeys().length){
+    html+='<div class="card empty">No sessions yet.<br>Tap <b>+ Add session</b> above to create your first workout day.</div>';
+  }
   orderedKeys().forEach(k=>{
     const s=state.program.sessions[k];
     html+='<div class="card"><div class="flex-between" style="margin-bottom:10px"><div>'
@@ -1608,6 +1612,11 @@ function renderEdit(){
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
   document.getElementById("importSessionBtn").onclick=()=>importSessionDlg.showModal();
+  document.getElementById("addSessionBtn").onclick=()=>{
+    document.getElementById("sessName").value="";
+    document.getElementById("sessDay").value="Monday";
+    sessionDlg.showModal();
+  };
 }
 function move(ref,dir){
   const a=ref.split(":"); const arr=state.program.sessions[a[0]].exercises;
@@ -2003,6 +2012,19 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   state.program.order.push(key);
   save(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
   toast("Added "+(payload.name||"session"));
+};
+const sessionDlg=document.getElementById("sessionDlg");
+document.getElementById("sessCancel").onclick=()=>sessionDlg.close();
+document.getElementById("sessSave").onclick=()=>{
+  const name=(document.getElementById("sessName").value||"").trim();
+  if(!name){ toast("Name required"); return; }
+  const day=document.getElementById("sessDay").value;
+  let key=slugify(name), n=2;
+  while(state.program.sessions[key]){ key=slugify(name)+"-"+n; n++; }
+  state.program.sessions[key]={name, day, exercises:[]};
+  state.program.order.push(key);
+  save(); sessionDlg.close(); renderEdit();
+  toast("Added "+name);
 };
 
 // ---- Cloud sync (GitHub Contents API) ----
