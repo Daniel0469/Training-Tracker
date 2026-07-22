@@ -185,6 +185,21 @@
   <button class="btn btn-primary" id="saveDlgOk" style="margin-top:10px">Nice 💪</button>
 </div></dialog>
 
+<dialog id="sessionDlg"><div class="dlg-body">
+  <h3>Add session</h3>
+  <label class="fld" style="margin-bottom:9px">Name<input id="sessName" type="text" placeholder="e.g. Push day" autocomplete="off"></label>
+  <label class="fld" style="margin-bottom:14px">Day<select id="sessDay">
+    <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
+    <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
+    <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
+    <option value="Sunday">Sunday</option>
+  </select></label>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="sessCancel">Cancel</button>
+    <button class="btn btn-primary" id="sessSave">Add session</button>
+  </div>
+</div></dialog>
+
 <dialog id="exDlg"><div class="dlg-body">
   <h3 id="exDlgTitle">Edit exercise</h3>
   <label class="fld" style="margin-bottom:9px">Exercise name<input id="exName" type="text" list="exNameList" autocomplete="off"></label>
