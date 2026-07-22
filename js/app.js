@@ -489,7 +489,8 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], colors:["navy","purple"], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  // Genuinely blank install: no accounts, no program - see renderCreateAccount().
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -612,22 +613,71 @@ function parseRange(target){
 }
 
 function renderPeople(){
+  // Self-heal: if the active slot has no account but the other one does (e.g.
+  // right after a skip, or stale data), point activePerson at the real one.
+  if(!state.people[state.activePerson] && state.people[1-state.activePerson]) state.activePerson=1-state.activePerson;
   // Drive the app accent (via CSS --brand) and chrome colour off the active person's chosen swatch.
   document.documentElement.setAttribute("data-color", (state.colors&&state.colors[state.activePerson])||"navy");
   updateMeta();
   const el=document.getElementById("ptoggle");
-  el.innerHTML = state.people.map((n,i)=>
-    '<button data-p="'+i+'" class="'+(state.activePerson===i?'active':'')+'">'+esc(n)+'</button>').join("");
-  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  let html="";
+  state.people.forEach((n,i)=>{
+    if(n) html+='<button data-p="'+i+'" class="'+(state.activePerson===i?'active':'')+'">'+esc(n)+'</button>';
+  });
+  const emptySlot=state.people.findIndex(n=>!n);
+  if(emptySlot>=0 && state.people.some(n=>n)) html+='<button class="mini" data-addperson="'+emptySlot+'">+ Add</button>';
+  el.innerHTML=html;
+  el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
     if(+b.dataset.p===state.activePerson) return;
     captureDraft();
     state.activePerson=+b.dataset.p; save(); renderPeople(); renderView();
     if(activeTab==="log" && formDrafts[draftKey()])
       toast("Restored "+possessive(state.people[state.activePerson])+" unsaved entry");
   });
+  el.querySelectorAll("[data-addperson]").forEach(b=>b.onclick=()=>renderCreateAccount(+b.dataset.addperson));
   const w=state.weights[state.activePerson];
   document.getElementById("sub").textContent =
     w ? state.people[state.activePerson]+" · "+w+" kg" : "Tap the gear to set bodyweight";
+}
+// Full-screen-ish onboarding card: no account exists yet (slotIndex 0), or an
+// existing account is offering to add a second (slotIndex 1, skippable).
+function renderCreateAccount(slotIndex){
+  document.getElementById("tabs").style.display="none";
+  document.getElementById("ptoggle").style.display="none";
+  document.getElementById("settingsBtn").style.display="none";
+  const isSecond = slotIndex===1 && state.people[0];
+  let html='<div class="card">'
+    + '<div class="sec-title" style="margin:0 0 4px">'+(isSecond?"Add a second account":"Welcome — create your account")+'</div>'
+    + '<div class="hint" style="margin-bottom:16px">'+(isSecond
+        ?"Optional — this device can be shared by up to two people."
+        :"Give your tracker a name and a colour to get started. Nothing is sent anywhere; it's saved on this device.")+'</div>'
+    + '<label class="fld" style="margin-bottom:14px">Name<input id="caName" type="text" placeholder="e.g. Alex" autocomplete="off"></label>'
+    + '<label class="fld" style="margin-bottom:18px">Colour<div class="swatchpick" id="caColor"></div></label>'
+    + '<div class="row" style="justify-content:flex-end">'
+    + (isSecond?'<button class="btn btn-ghost" id="caSkip">Skip — just me for now</button>':"")
+    + '<button class="btn btn-primary" id="caCreate">Create account</button>'
+    + '</div></div>';
+  document.getElementById("view").innerHTML=html;
+  const colorEl=document.getElementById("caColor");
+  renderSwatchPicker(colorEl, slotIndex===1?"purple":"navy");
+  wireSwatchPicker(colorEl);
+  const reveal=()=>{
+    document.getElementById("tabs").style.display="";
+    document.getElementById("ptoggle").style.display="";
+    document.getElementById("settingsBtn").style.display="";
+  };
+  document.getElementById("caCreate").onclick=()=>{
+    const nm=(document.getElementById("caName").value||"").trim();
+    if(!nm){ toast("Enter a name"); return; }
+    state.people[slotIndex]=nm;
+    state.colors[slotIndex]=readSwatchPicker(colorEl);
+    state.activePerson=slotIndex;
+    save(); reveal(); renderPeople(); renderView();
+    toast("Welcome, "+nm+"!");
+  };
+  if(isSecond){
+    document.getElementById("caSkip").onclick=()=>{ reveal(); renderPeople(); renderView(); };
+  }
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>switchTab(b.dataset.tab);
@@ -2302,6 +2352,10 @@ function renderHome(){
 }
 
 function renderView(){
+  if(!state.people[0] && !state.people[1]){ renderCreateAccount(0); return; }
+  // No sessions yet: force Program, since Home/Log/History/Progress all assume
+  // a real curSession. Self-corrects the moment a first session is added.
+  if(!state.program.order.length) activeTab="edit";
   if(!state.program.sessions[curSession]) curSession=state.program.order[0];
   if(activeTab==="home") renderHome();
   else if(activeTab==="log") renderLog();
