@@ -1882,6 +1882,9 @@ document.getElementById("importConfirm").onclick=()=>{
   save(); importDlg.close(); setDlg.close(); renderPeople(); renderView();
   toast(res.added+" added, "+res.updated+" updated");
 };
+document.getElementById("exportBtn").onclick=()=>exportData();
+document.getElementById("importBtn").onclick=()=>{ setDlg.close(); importDlg.showModal(); };
+document.getElementById("coachBriefBtn").onclick=()=>exportCoachBrief();
 
 // ---- Cloud sync (GitHub Contents API) ----
 const SYNC_KEY="flLiveTracker_sync_v1";
