@@ -1611,6 +1611,7 @@ document.getElementById("settingsBtn").onclick=()=>{
   setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
   document.getElementById("sugText").value="";
   renderSuggestions();
+  showAppVersion();
   setDlg.showModal();
 };
 function renderSuggestions(){
@@ -2265,3 +2266,29 @@ if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").then(reg=>{ if(reg) reg.update(); });
   });
 }
+
+// Show the running app version (the shell cache name, e.g. "tt-v47") in Settings.
+function showAppVersion(){
+  const el=document.getElementById("appVersion"); if(!el) return;
+  if(!window.caches){ el.textContent="—"; return; }
+  caches.keys().then(keys=>{
+    const v=keys.filter(k=>/^tt-v/.test(k)).sort((a,b)=>
+      (parseInt(a.replace(/\D/g,""),10)||0)-(parseInt(b.replace(/\D/g,""),10)||0));
+    el.textContent = v.length ? v[v.length-1] : "—";
+  }).catch(()=>{ el.textContent="—"; });
+}
+// Force the newest deployed version: drop the service worker + every cache, then
+// reload from the network. This is the reliable escape hatch for an installed
+// PWA that keeps serving stale files.
+function forceUpdate(){
+  const btn=document.getElementById("updateNow"); if(btn){ btn.disabled=true; btn.textContent="Updating…"; }
+  const reload=()=>window.location.reload();
+  const jobs=[];
+  if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+    jobs.push(navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))));
+  if(window.caches)
+    jobs.push(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))));
+  Promise.all(jobs).then(reload).catch(reload);
+}
+const updBtn=document.getElementById("updateNow");
+if(updBtn) updBtn.onclick=forceUpdate;
