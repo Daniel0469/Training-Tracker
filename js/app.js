@@ -1719,9 +1719,25 @@ document.getElementById("settingsBtn").onclick=()=>{
   setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
   document.getElementById("sugText").value="";
   renderSuggestions();
+  renderNotSetupList();
   showAppVersion();
   setDlg.showModal();
 };
+// What this device/account doesn't have set up yet, vs. what Daniel & Cerys
+// already have running. None of it is code-gated per account - it's all
+// laptop-side setup (MCP servers, tokens) any account can get the same way.
+function renderNotSetupList(){
+  const el=document.getElementById("notSetupList"); if(!el) return;
+  const sync=loadSync();
+  const syncOk=!!(sync.repo && sync.token);
+  el.innerHTML =
+      '<p style="margin:0 0 8px">'+(syncOk
+        ?'<b>Cloud sync</b> - configured on this device.'
+        :'<b>Cloud sync</b> - not set up on this device. Needs a private GitHub repo + access token (above).')+'</p>'
+    + '<p style="margin:0 0 8px"><b>Garmin auto-import</b> - not set up. Needs its own MCP server, a Garmin login, and a scheduled sync job on a laptop running Claude Code (see mcp-garmin/README.md).</p>'
+    + '<p style="margin:0 0 8px"><b>AI coaching</b> - not set up. Needs the coaching MCP server, plus someone running a coaching chat for you (see docs/coaching-prompt.md).</p>'
+    + '<div class="hint" style="margin:0">This device supports up to <b>2 accounts</b>. A third person needs their own separate device/install.</div>';
+}
 function renderSuggestions(){
   const list=document.getElementById("sugList"); if(!list) return;
   const open=(state.suggestions||[]).filter(s=>s&&s.status!=="done").slice().reverse();
@@ -2128,7 +2144,8 @@ function renderHelp(){
   h+=card('8 &middot; Your data, backups &amp; sync',
       p('Everything saves <b>on this device</b>. Gear menu &rarr; <b>Export</b> saves a file with everything; <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates.')
      +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu once. After that it syncs <b>automatically</b> - when you open the app and after every save - so both of you stay up to date and your coach sees new sessions without you doing anything. (<b>Sync now</b> is still there for a manual pull.) It doubles as an off-device <b>backup</b>; the token is stored only on this device and never included in exports.')
-     +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.'));
+     +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.')
+     +p('Gear menu &rarr; <b>What\'s not set up yet</b> lists anything that needs laptop-side setup (cloud sync, Garmin auto-import, AI coaching) and what it takes - none of it is tied to a particular account, so any account can get the same thing the same way.'));
 
   h+=card('Quick tips',
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
