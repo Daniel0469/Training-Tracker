@@ -1,7 +1,7 @@
 {
   "name": "Training Tracker",
   "short_name": "Tracker",
-  "description": "Shared workout log and progressive-overload planner for Daniel & Cerys.",
+  "description": "Workout log and progressive-overload planner for up to two people sharing a device.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

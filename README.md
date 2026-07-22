@@ -1,7 +1,9 @@
 # Training Tracker
 
-A workout tracker for two people (Daniel & Cerys). Static site, no build step, no backend —
-all data lives in the browser's `localStorage`. Deployable as-is on GitHub Pages.
+A workout tracker for up to two people sharing a device (built for Daniel & Cerys, but a fresh
+install starts blank — create your own account, no accounts or program pre-loaded). Static site,
+no build step, no backend — all data lives in the browser's `localStorage`. Deployable as-is on
+GitHub Pages.
 
 ## Files
 - `index.html` — markup, PWA meta tags, dialogs.
