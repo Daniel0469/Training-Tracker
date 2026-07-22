@@ -453,6 +453,9 @@ function load(){
     if(s && s.program && s.program.sessions){
       if(!Array.isArray(s.weights)) s.weights=["",""];
       if(!Array.isArray(s.goals)) s.goals=["",""];
+      // Existing installs get the exact colours they already look like today
+      // (Daniel navy, Cerys purple) - no visual change from adding this feature.
+      if(!Array.isArray(s.colors)) s.colors=["navy","purple"];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
       if(!Array.isArray(s.coachingLog)) s.coachingLog=[];
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
@@ -486,7 +489,7 @@ function load(){
       return s;
     }
   }catch(e){}
-  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
+  return { people:["Daniel","Cerys"], weights:["",""], goals:["",""], colors:["navy","purple"], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:clone(DEFAULT_PROGRAM), logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -609,8 +612,8 @@ function parseRange(target){
 }
 
 function renderPeople(){
-  // Drive the app accent (via CSS --brand) and chrome colour off the active person.
-  document.documentElement.setAttribute("data-person", state.activePerson);
+  // Drive the app accent (via CSS --brand) and chrome colour off the active person's chosen swatch.
+  document.documentElement.setAttribute("data-color", (state.colors&&state.colors[state.activePerson])||"navy");
   updateMeta();
   const el=document.getElementById("ptoggle");
   el.innerHTML = state.people.map((n,i)=>
@@ -1200,7 +1203,7 @@ function drawWeekChart(person){
   const weeks=weeklyVolumes(person).slice(-10);
   const i=state.people.indexOf(person);
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
-  const col=brandColor(i,dark);
+  const col=swatchColor(state.colors[i],dark);
   const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   if(weekChart) weekChart.destroy();
   weekChart=new Chart(canvas,{
@@ -1366,8 +1369,8 @@ function drawChart(){
           if(metric==="e1rm"){ const v=epley(w,parseInt(r[1],10)); if(!isNaN(v)) vals.push(v); } else vals.push(w); });
         if(!vals.length) return null; return {x:l.date,y:Math.round(Math.max.apply(null,vals)*10)/10}; })
       .filter(Boolean).sort((a,b)=>a.x<b.x?-1:1);
-    return {label:p,data:pts,borderColor:brandColor(i,dark),
-      backgroundColor:brandColor(i,dark),tension:.25,spanGaps:true};
+    return {label:p,data:pts,borderColor:swatchColor(state.colors[i],dark),
+      backgroundColor:swatchColor(state.colors[i],dark),tension:.25,spanGaps:true};
   });
   if(chart) chart.destroy();
   const tickCol=dark?"#9aa3b2":"#697086";
@@ -1511,7 +1514,7 @@ function drawBwChart(person){
   const i=state.people.indexOf(person);
   if(bwChart) bwChart.destroy();
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
-  const col=brandColor(i,dark);
+  const col=swatchColor(state.colors[i],dark);
   const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
   bwChart=new Chart(document.getElementById("bwChart"),{
     type:"line", data:{datasets:[{label:person+" (kg)", data:pts, borderColor:col, backgroundColor:col, tension:.25, spanGaps:true}]},
@@ -1644,6 +1647,8 @@ document.getElementById("settingsBtn").onclick=()=>{
   const i=state.activePerson;
   document.getElementById("setWho").textContent="· "+(state.people[i]||"");
   document.getElementById("pName").value=state.people[i]||"";
+  renderSwatchPicker(document.getElementById("pColor"), (state.colors&&state.colors[i])||"navy");
+  wireSwatchPicker(document.getElementById("pColor"));
   document.getElementById("pWeight").value=(state.weights&&state.weights[i])||"";
   document.getElementById("pGoals").value=(state.goals&&state.goals[i])||"";
   document.getElementById("pWeightLab").childNodes[0].nodeValue=possessive(state.people[i])+" bodyweight (kg)";
@@ -1695,8 +1700,10 @@ function saveSettingsPerson(){
   const i=state.activePerson;
   if(!Array.isArray(state.weights)) state.weights=["",""];
   if(!Array.isArray(state.goals)) state.goals=["",""];
+  if(!Array.isArray(state.colors)) state.colors=["",""];
   const nm=(document.getElementById("pName").value||"").trim();
   if(nm) state.people[i]=nm;
+  state.colors[i]=readSwatchPicker(document.getElementById("pColor"));
   state.weights[i]=(document.getElementById("pWeight").value||"").trim();
   state.goals[i]=(document.getElementById("pGoals").value||"").trim();
   const kg=parseFloat(state.weights[i]); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg);
@@ -2281,7 +2288,7 @@ function renderHome(){
   if(bw.length>=2){
     const i=state.people.indexOf(p);
     const dark=document.documentElement.getAttribute("data-theme")==="dark";
-    const col=brandColor(i,dark);
+    const col=swatchColor(state.colors[i],dark);
     const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
     if(homeChart) homeChart.destroy();
     homeChart=new Chart(document.getElementById("homeBwChart"),{
@@ -2315,15 +2322,36 @@ function switchTab(tab, skipCapture){
   renderView();
 }
 
-// Person accent hex (keeps charts + meta in step with the CSS vars):
-// Daniel (0) navy, Cerys (1) purple; lighter variants for the dark theme.
-function brandColor(i,dark){ return i===0 ? (dark?"#7d9bf5":"#1e3a8a") : (dark?"#b57cff":"#7a1fe0"); }
+// Preset account colours - hex values mirror the CSS vars in css/styles.css
+// (--me/--partner/--sw-*) so charts + the theme-color meta tag (which Chart.js
+// and <meta> need as raw hex, not var()) stay in step with the app's --brand.
+const SWATCHES = {
+  navy:{light:"#1e3a8a",dark:"#7d9bf5"}, purple:{light:"#7a1fe0",dark:"#b57cff"},
+  teal:{light:"#0d7d72",dark:"#4fd8c9"}, rose:{light:"#be185d",dark:"#f472b6"},
+  amber:{light:"#a15c00",dark:"#f2b84b"}, green:{light:"#15803d",dark:"#5fd88a"}
+};
+function swatchColor(key,dark){ const s=SWATCHES[key]||SWATCHES.navy; return dark?s.dark:s.light; }
+// Renders/reads a single-select colour-swatch picker (.swatchpick, styled in
+// css/styles.css). Shared by the Settings dialog and account creation.
+function renderSwatchPicker(container, selected){
+  container.innerHTML = Object.keys(SWATCHES).map(function(k){
+    return '<button type="button" data-c="'+k+'" class="'+(k===selected?"sel":"")+'" title="'+k.charAt(0).toUpperCase()+k.slice(1)+'"></button>';
+  }).join("");
+}
+function readSwatchPicker(container){ const b=container.querySelector("button.sel"); return b?b.dataset.c:"navy"; }
+function wireSwatchPicker(container){
+  container.onclick=e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    container.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel");
+  };
+}
 // Address-bar / PWA chrome colour: active person's accent in light, app bg in dark.
 function updateMeta(){
   const meta=document.querySelector('meta[name="theme-color"]');
   if(!meta) return;
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
-  meta.setAttribute("content", dark ? "#12151c" : brandColor(state.activePerson,false));
+  meta.setAttribute("content", dark ? "#12151c" : swatchColor(state.colors[state.activePerson],false));
 }
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme", t);
