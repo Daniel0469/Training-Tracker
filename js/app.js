@@ -1859,6 +1859,7 @@ function exportData(){
     const a=document.createElement("a"); a.href=url; a.download=fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),2000);
+    state.lastExportAt=new Date().toISOString(); save();
     toast("Exported "+fname);
   }catch(e){
     setDlg.close();
@@ -2274,6 +2275,21 @@ initTheme();
 renderPeople();
 renderView();
 autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
+
+// Ask the browser to protect this site's storage from automatic eviction under
+// storage pressure — relevant for anyone not using cloud sync, since local data
+// is the only copy. Best-effort; no UI, nothing to do if unsupported/denied.
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+// Nudge toward a manual backup if it's been a long time (or never) since the
+// last Export and there's actually something to lose. Delayed so it doesn't
+// collide with the sync-status toast from autoSync() above.
+setTimeout(function(){
+  if(!state.logs || !state.logs.length) return;
+  var last = state.lastExportAt ? new Date(state.lastExportAt).getTime() : 0;
+  var daysSince = (Date.now()-last)/86400000;
+  if(daysSince>30) toast("Haven't exported in a while — back up via gear → Export");
+}, 4000);
 
 if("serviceWorker" in navigator){
   // Auto-apply new versions. sw.js calls skipWaiting()+clients.claim(), so a
