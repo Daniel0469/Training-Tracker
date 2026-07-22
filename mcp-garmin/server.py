@@ -142,7 +142,7 @@ def splits_to_rows(splits):
     for lap in laps:
         km = round((lap.get("distance") or 0) / 1000, 2)
         sec = int(lap.get("duration") or 0)
-        if km <= 0 and sec <= 0:
+        if km <= 0:            # skip 0-distance rest/auto laps — not real splits
             continue
         rows.append([km, _mmss(sec), _pace(km, sec)])
     return rows
@@ -208,7 +208,7 @@ def splits_to_rows_hr(splits, a=None):
     for lap in laps:
         km = round((lap.get("distance") or 0) / 1000, 2)
         sec = int(lap.get("duration") or 0)
-        if km <= 0 and sec <= 0:
+        if km <= 0:            # skip 0-distance rest/auto laps — not real splits
             continue
         hr = _num(lap.get("averageHR"))
         if hr is not None:

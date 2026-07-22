@@ -1226,12 +1226,16 @@ function parseClock(s){
 }
 // One-line summary of a session's run for the collapsed History row: total
 // distance, time, average pace, and avg HR from the linked Garmin data.
+// A real running split has distance. Garmin logs rest/auto laps at 0 km, which
+// aren't splits and skew pace/totals — drop those (but keep blank-distance rows
+// from manual entry). Used by both the collapsed summary and the splits table.
+function isSplitRow(r, di){ const d=parseFloat(r[di]); return isNaN(d) || d>0; }
 function runSummary(l){
   const e=(l.entries||[]).find(x=>isRunning(x)); if(!e) return null;
   const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i);
   let km=0, sec=0;
-  (e.rows||[]).forEach(r=>{ const d=parseFloat(r[di]); if(!isNaN(d)) km+=d;
-    const t=parseClock(r[ti]); if(t!=null) sec+=t; });
+  (e.rows||[]).forEach(r=>{ const d=parseFloat(r[di]); if(isNaN(d)||d<=0) return;
+    km+=d; const t=parseClock(r[ti]); if(t!=null) sec+=t; });
   const bits=[];
   if(km>0) bits.push((Math.round(km*100)/100)+" km");
   if(sec>0) bits.push(fmtMmSs(sec));
@@ -1246,11 +1250,13 @@ function entryDetailHtml(e){
   if(isRunning(e) && (e.rows||[]).length){
     const cols=e.cols||[];
     const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i), pi=colIndex(e,/pace/i), hi=colIndex(e,/hr/i);
+    const splitRows=e.rows.filter(r=>isSplitRow(r, di)); // drop 0-distance rest laps
+    if(!splitRows.length) return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td></tr>';
     const head='<tr><th class="spl">#</th>'+cols.map(c=>'<th class="spl">'+esc(c)+'</th>').join("")+'</tr>';
-    const body=e.rows.map((r,ri)=>'<tr><td class="spl">'+(ri+1)+'</td>'
+    const body=splitRows.map((r,ri)=>'<tr><td class="spl">'+(ri+1)+'</td>'
       + cols.map((c,ci)=>'<td class="spl">'+esc(r[ci]!=null&&String(r[ci]).trim()!==""?String(r[ci]):"-")+'</td>').join("")+'</tr>').join("");
     let km=0, sec=0, hrSum=0, hrN=0;
-    e.rows.forEach(r=>{ const d=parseFloat(r[di]); if(!isNaN(d)) km+=d;
+    splitRows.forEach(r=>{ const d=parseFloat(r[di]); if(!isNaN(d)) km+=d;
       const t=parseClock(r[ti]); if(t!=null) sec+=t;
       if(hi>=0){ const h=parseFloat(r[hi]); if(!isNaN(h)){ hrSum+=h; hrN++; } } });
     const tot=cols.map((c,ci)=>{
