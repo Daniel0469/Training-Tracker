@@ -1523,12 +1523,14 @@ function drawBwChart(person){
 }
 
 function renderEdit(){
-  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched.</div></div>';
+  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched.</div>'
+    + '<div class="row" style="margin-top:10px"><button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
   orderedKeys().forEach(k=>{
     const s=state.program.sessions[k];
     html+='<div class="card"><div class="flex-between" style="margin-bottom:10px"><div>'
       + '<h3>'+esc(s.name)+'</h3><div class="ex-meta">'+esc(s.day)+'</div></div>'
-      + '<button class="mini" data-addex="'+k+'">+ exercise</button></div>';
+      + '<div class="row"><button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
+      + '<button class="mini" data-addex="'+k+'">+ exercise</button></div></div>';
     s.exercises.forEach((ex,ei)=>{
       html+='<div class="ex"><div class="ex-head"><div><div class="ex-name">'+esc(ex.name)+'</div>'
         + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div>'
@@ -1551,6 +1553,8 @@ function renderEdit(){
   });
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
+  document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
+  document.getElementById("importSessionBtn").onclick=()=>importSessionDlg.showModal();
 }
 function move(ref,dir){
   const a=ref.split(":"); const arr=state.program.sessions[a[0]].exercises;
@@ -1905,6 +1909,45 @@ document.getElementById("exportBtn").onclick=()=>exportData();
 document.getElementById("importBtn").onclick=()=>{ setDlg.close(); importDlg.showModal(); };
 document.getElementById("coachBriefBtn").onclick=()=>exportCoachBrief();
 
+// ---- Share a session (routine only - no personal numbers) ----
+// Travels as plain text through the phone's native share sheet, since there's
+// no backend connecting separate installs. Recipient pastes it back in via
+// Import shared session, which decodes and adds it as a new program session.
+function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-+|-+$)/g,"") || "session"; }
+function sessionShareCode(sessionKey){
+  const s=state.program.sessions[sessionKey];
+  const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  return b64encode(JSON.stringify(payload));
+}
+function shareSession(sessionKey){
+  const s=state.program.sessions[sessionKey];
+  const text="🏋️ "+s.name+" workout — paste this into Training Tracker → Program → Import shared session:\n\n"+sessionShareCode(sessionKey);
+  if(navigator.share){
+    navigator.share({text}).catch(()=>{}); // user cancelling the share sheet isn't an error
+  } else if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast("Share code copied - paste it to them"), ()=>toast("Couldn't copy"));
+  } else toast("Sharing isn't supported in this browser");
+}
+const importSessionDlg=document.getElementById("importSessionDlg");
+document.getElementById("importSessionCancel").onclick=()=>importSessionDlg.close();
+document.getElementById("importSessionConfirm").onclick=()=>{
+  // The pasted text may be the whole shared message (friendly intro line +
+  // code), not just the code itself - the code is always the last token.
+  const raw=document.getElementById("importSessionText").value.trim();
+  const tokens=raw.split(/\s+/).filter(Boolean);
+  const candidate=tokens.length?tokens[tokens.length-1]:raw;
+  let payload;
+  try{ payload=JSON.parse(b64decode(candidate)); }
+  catch(e){ toast("Couldn't read that code"); return; }
+  if(!payload || payload.type!=="tt-session" || !Array.isArray(payload.exercises)){ toast("Not a valid shared session"); return; }
+  let key=slugify(payload.name), n=2;
+  while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
+  state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  state.program.order.push(key);
+  save(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
+  toast("Added "+(payload.name||"session"));
+};
+
 // ---- Cloud sync (GitHub Contents API) ----
 const SYNC_KEY="flLiveTracker_sync_v1";
 function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY))||{}; }catch(e){ return {}; } }
@@ -1998,6 +2041,7 @@ function renderHelp(){
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search, or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
+     +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
      +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
