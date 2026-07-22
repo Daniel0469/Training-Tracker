@@ -647,14 +647,14 @@ function renderCreateAccount(slotIndex){
   document.getElementById("settingsBtn").style.display="none";
   const isSecond = slotIndex===1 && state.people[0];
   let html='<div class="card">'
-    + '<div class="sec-title" style="margin:0 0 4px">'+(isSecond?"Add a second account":"Welcome — create your account")+'</div>'
+    + '<div class="sec-title" style="margin:0 0 4px">'+(isSecond?"Add a second account":"Welcome - create your account")+'</div>'
     + '<div class="hint" style="margin-bottom:16px">'+(isSecond
-        ?"Optional — this device can be shared by up to two people."
+        ?"Optional - this device can be shared by up to two people."
         :"Give your tracker a name and a colour to get started. Nothing is sent anywhere; it's saved on this device.")+'</div>'
     + '<label class="fld" style="margin-bottom:14px">Name<input id="caName" type="text" placeholder="e.g. Alex" autocomplete="off"></label>'
     + '<label class="fld" style="margin-bottom:18px">Colour<div class="swatchpick" id="caColor"></div></label>'
     + '<div class="row" style="justify-content:flex-end">'
-    + (isSecond?'<button class="btn btn-ghost" id="caSkip">Skip — just me for now</button>':"")
+    + (isSecond?'<button class="btn btn-ghost" id="caSkip">Skip - just me for now</button>':"")
     + '<button class="btn btn-primary" id="caCreate">Create account</button>'
     + '</div></div>';
   document.getElementById("view").innerHTML=html;
@@ -888,7 +888,7 @@ function renderLog(){
     + '<span class="timer" id="timerDisplay">0:00</span>'
     + '<button class="mini" id="timerToggle">Start</button>'
     + '<button class="mini" id="timerReset">Reset</button>'
-    + '<span class="hint" style="margin:0">Workout time &mdash; saved with the session.</span>'
+    + '<span class="hint" style="margin:0">Workout time - saved with the session.</span>'
     + '</div></div>';
 
   const sessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
@@ -900,7 +900,7 @@ function renderLog(){
 
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
   if((sess.exercises||[]).some(e=>isRunning(e))){
-    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> — the run\'s distance, splits, pace &amp; ♥ HR fill in automatically once it syncs. Otherwise type the splits below, or <b>⬆ import</b> a file.</div>';
+    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - the run\'s distance, splits, pace &amp; ♥ HR fill in automatically once it syncs. Otherwise type the splits below, or <b>⬆ import</b> a file.</div>';
   }
 
   html += '<div id="exForm">';
@@ -1221,11 +1221,11 @@ function renderHistory(){
   }
   // This-week summary for the active person (volume, sessions, muscle heatmap).
   const p=state.people[state.activePerson];
-  const pc = state.people[0]===p ? "me" : "partner";
+  const pc = personSwatch(p);
   const thisWk=weekMonday(trainingDateStr());
   const wkLogs=state.logs.filter(l=>l.person===p && weekMonday(l.date)===thisWk);
   const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
-  html+='<div class="card"><div class="sec-title">📅 This week &mdash; '+esc(p)+' <span class="pill '+pc+'">'+wkLogs.length+' session'+(wkLogs.length===1?"":"s")+'</span></div>'
+  html+='<div class="card"><div class="sec-title">📅 This week - '+esc(p)+' <span class="pill" data-sw="'+pc+'">'+wkLogs.length+' session'+(wkLogs.length===1?"":"s")+'</span></div>'
     + '<div class="row" style="align-items:center;gap:16px">'
     + '<div><div style="font-size:22px;font-weight:800">'+wkVol.toLocaleString()+' kg</div><div class="hint" style="margin:0">volume this week</div></div>'
     + '<div id="weekMap" style="flex:1;min-width:180px;max-width:280px"></div>'
@@ -1347,13 +1347,13 @@ function entryDetailHtml(e){
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   if(who!=="all") logs=logs.filter(l=>l.person===who);
-  const pc=p=> state.people[0]===p?"me":"partner";
+  const pc=personSwatch;
   document.getElementById("histList").innerHTML = logs.map(l=>{
     const open = l.id===justSavedId;
     const rows=(l.entries||[]).map(entryDetailHtml).join("");
     const rs=runSummary(l);
     return '<div class="log-item"><div class="log-row"><div>'
-      + '<h3>'+esc(l.sessionName)+' <span class="pill '+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
+      + '<h3>'+esc(l.sessionName)+' <span class="pill" data-sw="'+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
       + '<div class="ex-meta">'+esc(l.date)+(rs?' · '+esc(rs):"")+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
       + '<div class="row"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
@@ -1381,7 +1381,7 @@ function renderProgress(){
     return;
   }
   const p=state.people[state.activePerson];
-  const pc = state.people[0]===p ? "me" : "partner";
+  const pc = personSwatch(p);
   const recs=personRecords(p);
   const recNames=Object.keys(recs).sort();
   let recTable;
@@ -1394,7 +1394,7 @@ function renderProgress(){
     recTable='<div class="hint">No lifting bests for '+esc(p)+' yet.</div>';
   }
   document.getElementById("view").innerHTML='<div class="card">'
-    + '<div class="sec-title">🏅 Records &mdash; '+esc(p)+' <span class="pill '+pc+'">current bests</span></div>'
+    + '<div class="sec-title">🏅 Records - '+esc(p)+' <span class="pill" data-sw="'+pc+'">current bests</span></div>'
     + recTable + '</div>'
     + '<div class="card">'
     + '<div class="row" style="margin-bottom:12px">'
@@ -1505,15 +1505,15 @@ function renderBody(){
   const p=state.people[state.activePerson];
   const hist=bwFor(p).slice().reverse(); // newest first for the list
   const latest=latestBw(p);
-  const pc = state.people[0]===p ? "me" : "partner";
+  const pc = personSwatch(p);
   const goal=(state.goals&&state.goals[state.activePerson])||"";
   let html='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
-            : '<div class="hint" style="margin:0">No goals set yet &mdash; add them via the gear menu.</div>')
+            : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu.</div>')
     + '</div>';
   html+='<div class="card">'
     + '<div class="flex-between" style="margin-bottom:10px"><div>'
-    + '<h3>'+esc(p)+' <span class="pill '+pc+'">bodyweight</span></h3>'
+    + '<h3>'+esc(p)+' <span class="pill" data-sw="'+pc+'">bodyweight</span></h3>'
     + '<div class="ex-meta">'+(latest? latest.kg+' kg · '+relTime(latest.date) : 'No entries yet')+'</div></div></div>'
     + '<div class="row" style="align-items:flex-end;gap:8px">'
     + '<label class="fld"><span>Weight (kg)</span><input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76" style="width:120px"></label>'
@@ -1526,7 +1526,7 @@ function renderBody(){
     + '</div>';
   if(hist.length){
     html+='<div class="card"><div class="sec-title">Trend</div><div class="chart-box"><canvas id="bwChart"></canvas></div></div>';
-    html+='<div class="card"><div class="sec-title">History &mdash; '+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
+    html+='<div class="card"><div class="sec-title">History - '+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
   } else {
     html+='<div class="card empty">No bodyweight logged for '+esc(p)+' yet.<br>Add one above, or import from your scale app.</div>';
   }
@@ -1726,9 +1726,9 @@ function renderSuggestions(){
   const list=document.getElementById("sugList"); if(!list) return;
   const open=(state.suggestions||[]).filter(s=>s&&s.status!=="done").slice().reverse();
   list.innerHTML = open.length
-    ? '<div class="hint" style="margin:0 0 4px">'+open.length+' pending &mdash; synced for the dev/coach chat to action</div>'
+    ? '<div class="hint" style="margin:0 0 4px">'+open.length+' pending - synced for the dev/coach chat to action</div>'
       + open.map(s=>'<div class="log-row" style="padding:3px 0;border-bottom:1px solid var(--line);gap:8px">'
-        + '<div style="font-size:13px"><b class="pill '+(state.people[0]===s.person?"me":"partner")+'">'+esc(s.person||"?")+'</b> '+esc(s.text)+'</div>'
+        + '<div style="font-size:13px"><b class="pill" data-sw="'+personSwatch(s.person)+'">'+esc(s.person||"?")+'</b> '+esc(s.text)+'</div>'
         + '<button class="mini" data-sugdel="'+s.id+'" title="Mark as done" style="color:var(--good)">&#10003;</button></div>').join("")
     : '<div class="hint" style="margin:0">No suggestions yet.</div>';
   list.querySelectorAll("[data-sugdel]").forEach(b=>b.onclick=()=>{
@@ -1903,20 +1903,20 @@ function coachBrief(person){
   const logs=state.logs.filter(l=>l.person===person)
     .sort((a,b)=> a.date<b.date?1:a.date>b.date?-1:(b.id-a.id));
   const prs=personPRs(person);
-  let md="# Coaching brief — "+person+"\n\n";
+  let md="# Coaching brief - "+person+"\n\n";
   md+="> You are "+possessive(person)+" strength & conditioning coach. Review the training below "
     + "against the goals and give specific, actionable feedback and the next session's focus.\n\n";
   md+="## Goals\n"+(goal||"_none set_")+"\n\n";
   md+="## Bodyweight\n"+(latest?("Latest **"+latest.kg+" kg** ("+relTime(latest.date)+")"
     + (bw.length>1?"; "+bw.length+" entries logged":"")):"_none logged_")+"\n\n";
   const prNames=Object.keys(prs).sort();
-  md+="## Current bests\n"+(prNames.length? prNames.map(n=>"- **"+n+"** — "+prs[n].kg+" kg ("+relTime(prs[n].date)+")").join("\n") : "_none yet_")+"\n\n";
+  md+="## Current bests\n"+(prNames.length? prNames.map(n=>"- **"+n+"** - "+prs[n].kg+" kg ("+relTime(prs[n].date)+")").join("\n") : "_none yet_")+"\n\n";
   md+="## Recent sessions (latest "+Math.min(8,logs.length)+")\n";
   if(!logs.length) md+="_none logged_\n";
   logs.slice(0,8).forEach(function(l){
     const meta=[l.date]; if(l.difficulty) meta.push("difficulty "+l.difficulty+"/10");
     if(l.volume) meta.push(l.volume.toLocaleString()+" kg"); if(l.durationSec) meta.push(fmtDuration(l.durationSec));
-    md+="\n### "+l.sessionName+" — "+meta.join(" · ")+"\n";
+    md+="\n### "+l.sessionName+" - "+meta.join(" · ")+"\n";
     (l.entries||[]).forEach(function(e){ var wu=e.warmup||[];
       md+="- "+e.name+(e.pr?" 🥇":"")+": "+(e.rows||[]).map(function(r,ri){ var s=rowPlain(e.cols||[],r); return wu.indexOf(ri)>=0?s+" (warm-up)":s; }).join(", ")+"\n"; });
     if(l.feedback) md+="- _Note:_ "+l.feedback+"\n";
@@ -1987,7 +1987,7 @@ function sessionShareCode(sessionKey){
 }
 function shareSession(sessionKey){
   const s=state.program.sessions[sessionKey];
-  const text="🏋️ "+s.name+" workout — paste this into Training Tracker → Program → Import shared session:\n\n"+sessionShareCode(sessionKey);
+  const text="🏋️ "+s.name+" workout - paste this into Training Tracker → Program → Import shared session:\n\n"+sessionShareCode(sessionKey);
   if(navigator.share){
     navigator.share({text}).catch(()=>{}); // user cancelling the share sheet isn't an error
   } else if(navigator.clipboard && navigator.clipboard.writeText){
@@ -2134,7 +2134,7 @@ function renderHelp(){
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
      +p('&bull; Export regularly as a backup, and to keep both of you in sync.')
-     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> — it syncs to the dev backlog so it isn\'t forgotten.'));
+     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.'));
 
   document.getElementById("view").innerHTML=h;
 }
@@ -2262,7 +2262,7 @@ document.getElementById("saveDlgOk").onclick=function(){ document.getElementById
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
-  const pc = state.people[0]===p ? "me":"partner";
+  const pc = personSwatch(p);
   const thisWk=weekMonday(trainingDateStr());
   const pLogs=[...state.logs].filter(l=>l.person===p).sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   const wkLogs=pLogs.filter(l=>weekMonday(l.date)===thisWk);
@@ -2272,7 +2272,7 @@ function renderHome(){
   const bw=bwFor(p);
   const latest=bw.length? bw[bw.length-1] : null;
   let bwDelta="";
-  if(bw.length>=2){ const d=Math.round((bw[bw.length-1].kg-bw[bw.length-2].kg)*10)/10; bwDelta = d>0?'▲ '+d:d<0?'▼ '+Math.abs(d):'—'; }
+  if(bw.length>=2){ const d=Math.round((bw[bw.length-1].kg-bw[bw.length-2].kg)*10)/10; bwDelta = d>0?'▲ '+d:d<0?'▼ '+Math.abs(d):'-'; }
   const coach=(state.coaching&&state.coaching[p])||{};
   const goal=(state.goals&&state.goals[state.activePerson])||"";
   const sess=state.program.sessions[curSession];
@@ -2282,7 +2282,7 @@ function renderHome(){
     + '<div class="sec-title" style="margin:0">👋 '+esc(possessive(p))+' hub</div>'
     + '<div class="home-greet">'+esc(niceDate)+'</div>'
     + '<div class="flex-between" style="align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">'
-    + '<div>Today’s session: <b>'+esc(sess?sess.name:"—")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
+    + '<div>Today’s session: <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div></div>';
 
@@ -2299,7 +2299,7 @@ function renderHome(){
   html+='<div class="tiles">'
     + '<div class="tile"><div class="big">'+wkLogs.length+'</div><div class="lbl">sessions this week</div></div>'
     + '<div class="tile"><div class="big">'+wkVol.toLocaleString()+'</div><div class="lbl">kg volume this week</div></div>'
-    + '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'—')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>'
+    + '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'-')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>'
     + '<div class="tile"><div class="big">'+pLogs.length+'</div><div class="lbl">sessions logged</div></div>'
     + '</div>';
 
@@ -2307,7 +2307,7 @@ function renderHome(){
     const pr=(last.entries||[]).some(e=>e.pr);
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">Last session</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
-      + '<h3 style="margin:8px 0 2px">'+esc(last.sessionName)+(pr?' 🥇':'')+' <span class="pill '+pc+'">'+relTime(last.date)+'</span></h3>'
+      + '<h3 style="margin:8px 0 2px">'+esc(last.sessionName)+(pr?' 🥇':'')+' <span class="pill" data-sw="'+pc+'">'+relTime(last.date)+'</span></h3>'
       + '<div class="ex-meta">'+esc(last.date)+(last.difficulty?' · difficulty '+last.difficulty+'/10':"")+(last.volume?' · '+last.volume.toLocaleString()+' kg':"")+(last.durationSec?' · ⏱ '+fmtDuration(last.durationSec):"")+garminStatus(last)+'</div>'
       + '</div>';
   } else {
@@ -2324,8 +2324,8 @@ function renderHome(){
     if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr);
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">🏃 Last run</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
-      + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill '+pc+'">'+relTime(lastRun.date)+'</span></h3>'
-      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'—')+garminStatus(lastRun)+'</div></div>';
+      + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(lastRun.date)+'</span></h3>'
+      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(lastRun)+'</div></div>';
   }
 
   if(bw.length>=2){
@@ -2336,7 +2336,7 @@ function renderHome(){
 
   html+='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
-            : '<div class="hint" style="margin:0">No goals set yet &mdash; add them via the gear menu so coaching can target them.</div>')
+            : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu so coaching can target them.</div>')
     + '</div>';
 
   // Coaching history — every past coach write, so improvement can be tracked over time.
@@ -2347,7 +2347,7 @@ function renderHome(){
           const parts=[];
           if(e.overall) parts.push('<div><b>Overall:</b> '+esc(e.overall)+'</div>');
           if(e.bySession) Object.keys(e.bySession).forEach(k=> parts.push('<div><b>'+esc(k)+':</b> '+esc(e.bySession[k])+'</div>'));
-          if(e.byExercise) Object.keys(e.byExercise).forEach(k=> parts.push('<div>'+esc(k)+' &mdash; '+esc(e.byExercise[k])+'</div>'));
+          if(e.byExercise) Object.keys(e.byExercise).forEach(k=> parts.push('<div>'+esc(k)+' - '+esc(e.byExercise[k])+'</div>'));
           return '<div class="hist-entry"><div class="ex-meta">'+esc(e.date||"")+'</div>'+(parts.join('')||'<div class="hint" style="margin:0">(no note)</div>')+'</div>';
         }).join('')
       + '</details>';
@@ -2417,6 +2417,8 @@ function renderSwatchPicker(container, selected){
   }).join("");
 }
 function readSwatchPicker(container){ const b=container.querySelector("button.sel"); return b?b.dataset.c:"navy"; }
+// Swatch key for a person by name, used to colour their "pill" badges throughout.
+function personSwatch(name){ const i=state.people.indexOf(name); return (i>=0 && state.colors[i]) || "navy"; }
 function wireSwatchPicker(container){
   container.onclick=e=>{
     const b=e.target.closest("button"); if(!b) return;
@@ -2470,7 +2472,7 @@ setTimeout(function(){
   if(!state.logs || !state.logs.length) return;
   var last = state.lastExportAt ? new Date(state.lastExportAt).getTime() : 0;
   var daysSince = (Date.now()-last)/86400000;
-  if(daysSince>30) toast("Haven't exported in a while — back up via gear → Export");
+  if(daysSince>30) toast("Haven't exported in a while - back up via gear → Export");
 }, 4000);
 
 if("serviceWorker" in navigator){
@@ -2493,12 +2495,12 @@ if("serviceWorker" in navigator){
 // Show the running app version (the shell cache name, e.g. "tt-v47") in Settings.
 function showAppVersion(){
   const el=document.getElementById("appVersion"); if(!el) return;
-  if(!window.caches){ el.textContent="—"; return; }
+  if(!window.caches){ el.textContent="-"; return; }
   caches.keys().then(keys=>{
     const v=keys.filter(k=>/^tt-v/.test(k)).sort((a,b)=>
       (parseInt(a.replace(/\D/g,""),10)||0)-(parseInt(b.replace(/\D/g,""),10)||0));
-    el.textContent = v.length ? v[v.length-1] : "—";
-  }).catch(()=>{ el.textContent="—"; });
+    el.textContent = v.length ? v[v.length-1] : "-";
+  }).catch(()=>{ el.textContent="-"; });
 }
 // Force the newest deployed version: drop the service worker + every cache, then
 // reload from the network. This is the reliable escape hatch for an installed

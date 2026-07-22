@@ -40,7 +40,7 @@
     <button class="icon-btn" id="settingsClose" title="Close (saves automatically)" aria-label="Close">&times;</button>
   </div>
   <div class="hint" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
-    <span>Version <b id="appVersion">…</b> &mdash; tap if the app looks out of date</span>
+    <span>Version <b id="appVersion">…</b> - tap if the app looks out of date</span>
     <button class="mini" id="updateNow">&#8635; Update now</button>
   </div>
   <div class="row" style="margin-bottom:14px">
@@ -53,7 +53,7 @@
   </label>
   <label class="fld" style="margin-bottom:12px" id="pWeightLab">Bodyweight (kg)<input id="pWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
   <label class="fld" style="margin-bottom:6px" id="pGoalsLab">Goals<textarea id="pGoals" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:56px"></textarea></label>
-  <div class="hint" style="margin-bottom:14px">For the selected person &mdash; switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
+  <div class="hint" style="margin-bottom:14px">For the selected person - switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
   <div class="sec-title" style="margin:4px 0 8px">💡 Improve the app</div>
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">➕ Add suggestion</button></div>
@@ -64,8 +64,8 @@
     <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
     <button class="btn btn-ghost grow" id="coachBriefBtn">&#128203; Coach brief</button>
   </div>
-  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device &mdash; use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
-  <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) &mdash; optional, free</div>
+  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
   <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
   <div class="row" style="margin-bottom:8px">
     <label class="fld grow">File path<input id="ghPath" type="text" placeholder="data.json" autocomplete="off"></label>
@@ -86,7 +86,7 @@
 
 <dialog id="importDlg"><div class="dlg-body">
   <h3>Import / merge data</h3>
-  <div class="hint" style="margin-bottom:10px">Pick an exported file, or paste its contents below. New sessions are added to this device &mdash; nothing already here is lost.</div>
+  <div class="hint" style="margin-bottom:10px">Pick an exported file, or paste its contents below. New sessions are added to this device - nothing already here is lost.</div>
   <input id="importFile" type="file" accept="application/json,.json" style="margin-bottom:10px;width:100%">
   <textarea id="importText" placeholder="&hellip;or paste exported data here" style="min-height:120px"></textarea>
   <label class="row" style="gap:7px;margin:10px 0;font-size:13px;color:var(--ink);font-weight:600">
@@ -100,7 +100,7 @@
 
 <dialog id="importSessionDlg"><div class="dlg-body">
   <h3>Import shared session</h3>
-  <div class="hint" style="margin-bottom:10px">Paste a workout someone shared with you (the code from their &#128279; Share button on a session in Program) &mdash; it's added as a new session here, no personal numbers included.</div>
+  <div class="hint" style="margin-bottom:10px">Paste a workout someone shared with you (the code from their &#128279; Share button on a session in Program) - it's added as a new session here, no personal numbers included.</div>
   <textarea id="importSessionText" placeholder="Paste the shared code here" style="min-height:110px"></textarea>
   <div class="row" style="justify-content:flex-end;margin-top:10px">
     <button class="btn btn-ghost" id="importSessionCancel">Cancel</button>
@@ -204,7 +204,7 @@
   <h3 id="exDlgTitle">Edit exercise</h3>
   <label class="fld" style="margin-bottom:9px">Exercise name<input id="exName" type="text" list="exNameList" autocomplete="off"></label>
   <datalist id="exNameList"></datalist>
-  <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 — or 40%x8, 60%x5"></label>
+  <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 - or 40%x8, 60%x5"></label>
   <label class="fld" style="margin-bottom:9px">Setup notes (optional)<textarea id="exNotes" placeholder="e.g. Seat height 4, pin 3, back-pad setting 2" style="min-height:48px"></textarea></label>
   <div class="row" style="margin-bottom:9px">
     <label class="fld grow">Target<input id="exTarget" type="text" placeholder="4x8-12"></label>
@@ -213,14 +213,14 @@
   <div class="row" style="margin-bottom:6px">
     <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
     <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
-    <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="—"></label>
+    <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="-"></label>
   </div>
   <div class="row" style="margin-bottom:14px;gap:6px">
     <span class="hint" style="margin:0">Presets:</span>
     <button type="button" class="mini" id="exPresetLift">Lifting</button>
     <button type="button" class="mini" id="exPresetRun">Running</button>
   </div>
-  <label class="fld" style="margin-bottom:14px">Works (optional &mdash; guessed from the name; tap to override)
+  <label class="fld" style="margin-bottom:14px">Works (optional - guessed from the name; tap to override)
     <div class="tagpick" id="exMuscles"></div>
   </label>
   <div class="row" style="justify-content:flex-end">
