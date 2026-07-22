@@ -46,8 +46,7 @@
   .people{display:flex;gap:6px;align-items:center}
   .ptoggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
   .ptoggle button{border:0;background:transparent;color:var(--muted);font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:14px}
-  .ptoggle button.active[data-p="0"]{background:var(--me);color:#fff}
-  .ptoggle button.active[data-p="1"]{background:var(--partner);color:#fff}
+  .ptoggle button.active{background:var(--brand);color:#fff}
   .icon-btn{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;border:1px solid var(--line);background:var(--card);border-radius:9px;width:36px;height:36px;cursor:pointer;font-size:16px;box-shadow:var(--shadow)}
   /* Bottom navigation bar: fixed to the viewport foot, like the mobile preview. */
   .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:2px;
