@@ -1123,7 +1123,8 @@ function saveSession(){
       tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
       if(has){ if(tr.classList.contains("wset")) warmup.push(rows.length); rows.push(vals); }
     });
-    if(rows.length){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup; entries.push(en); }
+    if(rows.length){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup;
+      if(ex.muscles&&ex.muscles.length) en.muscles=ex.muscles.slice(); entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
   var volume=0;
@@ -1586,8 +1587,25 @@ function openExDlg(sessionKey,ei){
   document.getElementById("exCol0").value=ex.cols[0];
   document.getElementById("exCol1").value=ex.cols[1];
   document.getElementById("exCol2").value=ex.cols[2]||"";
+  exMusclesTouched = false;
+  renderMuscleTags(document.getElementById("exMuscles"),
+    (ex.muscles&&ex.muscles.length) ? ex.muscles : classifyMuscles(ex.name));
   exDlg.showModal();
 }
+// Tracks whether the user has manually touched the muscle pills for the
+// exercise currently open in the dialog, so re-guessing on name changes
+// doesn't clobber a deliberate choice.
+let exMusclesTouched = false;
+document.getElementById("exMuscles").onclick=e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  exMusclesTouched = true;
+  b.classList.toggle("sel");
+};
+document.getElementById("exName").oninput=()=>{
+  if(exMusclesTouched) return;
+  renderMuscleTags(document.getElementById("exMuscles"),
+    classifyMuscles(document.getElementById("exName").value));
+};
 document.getElementById("exCancel").onclick=()=>exDlg.close();
 document.getElementById("exPresetLift").onclick=()=>{
   document.getElementById("exCol0").value="Weight (kg)";
@@ -1610,7 +1628,7 @@ document.getElementById("exSave").onclick=()=>{
     notes:document.getElementById("exNotes").value.trim(),
     target:document.getElementById("exTarget").value.trim()||"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
-    cols };
+    cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null) arr[exDlgCtx.ei]=ex; else arr.push(ex);
   save(); exDlg.close(); renderEdit(); toast("Saved");
@@ -1978,7 +1996,8 @@ function renderHelp(){
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
-      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings. Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search, or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+     +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
@@ -2028,6 +2047,18 @@ function muscleColor(c,max){
   var t=c/max, lo=[255,206,110], hi=[222,60,45];
   return "rgb("+lerp(lo[0],hi[0],t)+","+lerp(lo[1],hi[1],t)+","+lerp(lo[2],hi[2],t)+")";
 }
+const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",adductors:"Adductors",
+  calves:"Calves",chest:"Chest",delts:"Delts",triceps:"Triceps",lats:"Lats",traps:"Traps",
+  biceps:"Biceps",forearms:"Forearms",abs:"Abs",lowerback:"Lower back"};
+// Renders the exercise-dialog muscle-tag pills with `selected` pre-toggled.
+function renderMuscleTags(container, selected){
+  container.innerHTML = Object.keys(MUSCLE_LABELS).map(function(k){
+    return '<button type="button" data-m="'+k+'" class="'+(selected.indexOf(k)>=0?"sel":"")+'">'+MUSCLE_LABELS[k]+'</button>';
+  }).join("");
+}
+function readMuscleTags(container){
+  return Array.prototype.slice.call(container.querySelectorAll("button.sel")).map(function(b){ return b.dataset.m; });
+}
 function classifyMuscles(name){
   var n=String(name).toLowerCase(), m=[];
   function add(){for(var i=0;i<arguments.length;i++){if(m.indexOf(arguments[i])<0)m.push(arguments[i]);}}
@@ -2055,7 +2086,8 @@ function classifyMuscles(name){
 function muscleSetsFromEntries(entries){
   var m={};
   (entries||[]).forEach(function(en){
-    var ms=classifyMuscles(en.name||""); var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
+    var ms=(en.muscles&&en.muscles.length) ? en.muscles : classifyMuscles(en.name||"");
+    var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
     ms.forEach(function(mk){ m[mk]=(m[mk]||0)+sets; });
   });
   return m;
