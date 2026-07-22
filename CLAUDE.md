@@ -1,4 +1,4 @@
-# Training Tracker — working notes for Claude
+# Training Tracker - working notes for Claude
 
 A two-person workout + health tracker. Plain static site (no build step, no framework): serve the
 folder and it runs. Deployed on GitHub Pages. See `README.md` for the file layout and `docs/` for
@@ -9,7 +9,7 @@ feature proposals/specs.
 - **Ask before assuming on ambiguous requests.** If a feature request has more than one
   reasonable interpretation (scope, UI mechanism, what data it touches), use `AskUserQuestion`
   to clarify with Daniel before implementing or entering a plan, rather than guessing. Cheap
-  factual lookups don't need this — it's for the ones where guessing wrong means rework.
+  factual lookups don't need this - it's for the ones where guessing wrong means rework.
 - **Bump `CACHE_NAME` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
   bump, installed users keep the old files. Increment the `tt-vN` number.
@@ -24,9 +24,9 @@ feature proposals/specs.
   hardcode light hex values, and remember SVG `fill` presentation attributes don't accept `var()`
   (use a CSS class or inline `style.fill`).
 - **localStorage is the only store** (key `flLiveTracker_v1`). Data is keyed by person NAME, so
-  renames orphan history — acceptable, matches existing behaviour. Export/import merges by id
+  renames orphan history - acceptable, matches existing behaviour. Export/import merges by id
   (logs) and person+date (bodyweights); keep new data idempotent to merge.
-- **Commit per feature**, each verified in the browser, then **push** — `origin/main` is
+- **Commit per feature**, each verified in the browser, then **push** - `origin/main` is
   `Daniel0469/Training-Tracker` and pushing **auto-deploys** to GitHub Pages
   (https://daniel0469.github.io/Training-Tracker/). End commit messages with the Co-Authored-By
   trailer.
@@ -54,7 +54,7 @@ feature proposals/specs.
   `classifyMuscles` / `muscleColor`).
 - Importers: `importBodyweightCsv` (scale CSV), `importRunIntoCard` + `parseTcx`/`parseGpx` (runs).
 
-## Roadmap (not yet built — see `docs/hub-and-coaching.md` when it exists)
+## Roadmap (not yet built - see `docs/hub-and-coaching.md` when it exists)
 
 Free sync backend (GitHub-as-store), the health hub, and AI coaching (MCP server on the laptop,
 reading the shared data) are proposed but await Daniel's go-ahead. Automatic API-based coaching
