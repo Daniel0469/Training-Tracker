@@ -105,6 +105,8 @@
   table.rec th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:4px 8px;white-space:nowrap}
   table.rec td{padding:5px 8px;border-top:1px solid var(--line);white-space:nowrap}
   table.rec tbody tr:first-child td{border-top:0}
+  td.rpe-cell,th.rpe-cell{width:52px}
+  td.rpe-cell input{padding:7px 4px;text-align:center}
   td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
   td.done-cell,th.done-cell{width:38px;text-align:center;white-space:nowrap}
   td.done-cell input[type="checkbox"]{width:19px;height:19px;cursor:pointer;accent-color:var(--good)}

@@ -757,16 +757,17 @@ function captureDraft(){
   const entries=[]; let any=false;
   form.querySelectorAll(".ex").forEach(card=>{
     const ei=+card.dataset.ei;
-    const rows=[], done=[], warm=[];
+    const rows=[], done=[], warm=[], rpe=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let rowHas=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ vals.push(inp.value); if(inp.value!=="") rowHas=true; });
       const dn=tr.querySelector('[data-done]').checked;
       const wu=tr.classList.contains("wset");
-      rows.push(vals); done.push(dn); warm.push(wu);
-      if(rowHas||dn||wu) any=true;
+      const rpeInp=tr.querySelector('[data-rpe]'), rv=rpeInp?rpeInp.value:"";
+      rows.push(vals); done.push(dn); warm.push(wu); rpe.push(rv);
+      if(rowHas||dn||wu||rv!=="") any=true;
     });
-    entries[ei]={rows,done,warm};
+    entries[ei]={rows,done,warm,rpe};
     // A changed set count is worth persisting on its own, so sets you add or
     // remove survive a re-render even before anything has been typed.
     const exDef=((state.program.sessions[curSession]||{}).exercises||[])[ei];
@@ -812,6 +813,9 @@ function restoreDraft(){
         const cb=tr.querySelector('[data-done]');
         cb.checked=true; tr.classList.add("done");
         updateSetMedal(tr, ex, best);
+      }
+      if(d.rpe && d.rpe[i]){
+        const ri=tr.querySelector('[data-rpe]'); if(ri) ri.value=d.rpe[i];
       }
     });
   });
@@ -967,7 +971,8 @@ function setRowHtml(n,ex,prevCell){
     if(ci===paceIdx) attr += ' readonly';
     cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(c)+'"></td>';
   });
-  return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells
+  const rpeCell = lifting ? '<td class="rpe-cell"><input data-rpe type="number" inputmode="numeric" min="1" max="10" placeholder="RPE"></td>' : '';
+  return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells+rpeCell
     + '<td class="prev">'+prevCell+'</td>'
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
@@ -1037,6 +1042,7 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
     + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
+    + (isLifting(ex)?'<th class="rpe-cell">RPE</th>':'')
     + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button>'
@@ -1171,13 +1177,19 @@ function saveSession(){
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ex=sess.exercises[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
     const name=ex.name || card.dataset.name;
-    const rows=[], warmup=[];
+    const rows=[], warmup=[], rpe=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let has=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
-      if(has){ if(tr.classList.contains("wset")) warmup.push(rows.length); rows.push(vals); }
+      if(has){
+        if(tr.classList.contains("wset")) warmup.push(rows.length);
+        const rpeInp=tr.querySelector('[data-rpe]');
+        rpe.push(rpeInp?rpeInp.value.trim():"");
+        rows.push(vals);
+      }
     });
     if(rows.length){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup;
+      if(rpe.some(v=>v!=="")) en.rpe=rpe;
       if(ex.muscles&&ex.muscles.length) en.muscles=ex.muscles.slice(); entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
@@ -1343,7 +1355,11 @@ function entryDetailHtml(e){
       + '<div class="splits-wrap"><table class="splits">'+head+body+totals+'</table></div></td></tr>';
   }
   return '<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td><td>'
-    + e.rows.map((r,ri)=>{ const s=fmtRow(e.cols||[], r); return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s; }).join(" · ")+'</td></tr>';
+    + e.rows.map((r,ri)=>{
+        let s=fmtRow(e.cols||[], r);
+        if(e.rpe && e.rpe[ri]) s+=' @'+esc(e.rpe[ri]);
+        return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s;
+      }).join(" · ")+'</td></tr>';
 }
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
@@ -2152,7 +2168,8 @@ function renderHelp(){
      +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
-     +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.'));
+     +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
+     +p('Lifting exercises get an optional <b>RPE</b> column (1-10, same scale as the session difficulty rating below) - rate individual sets rather than just the whole session. Blank is fine if you don\'t use it; it shows in History next to the set it belongs to.'));
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
