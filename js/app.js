@@ -1801,7 +1801,14 @@ function saveSettingsPerson(){
   if(!Array.isArray(state.goals)) state.goals=["",""];
   if(!Array.isArray(state.colors)) state.colors=["",""];
   const nm=(document.getElementById("pName").value||"").trim();
-  if(nm) state.people[i]=nm;
+  if(nm && nm!==state.people[i]){
+    // Renaming an existing account orphans its history (data is keyed by
+    // name) - warn, same as the Delete-account confirm. A first-time name
+    // (state.people[i] currently empty) needs no warning - nothing to orphan.
+    const wasNamed=!!state.people[i];
+    if(!wasNamed || confirm("Rename "+state.people[i]+" to \""+nm+"\"? Future logs save under the new name - history logged under \""+state.people[i]+"\" stays saved but won't show as this account's anymore unless you rename back to it exactly."))
+      state.people[i]=nm;
+  }
   state.colors[i]=readSwatchPicker(document.getElementById("pColor"));
   state.weights[i]=(document.getElementById("pWeight").value||"").trim();
   state.goals[i]=(document.getElementById("pGoals").value||"").trim();
@@ -2138,7 +2145,7 @@ function renderHelp(){
   h+=card('1 &middot; Pick who you are',
       p('A brand-new install starts blank - no accounts, no program. <b>Create your account</b> with a name and a colour swatch to get going; nothing else is needed. A second person can join the same device later via <b>+ Add</b> next to the name toggle (or skip it and stay solo).')
      +p('Use the <b>name toggle</b> top-right to switch. Each account has its own colour, chosen at creation (or changed later in Settings) - the whole app\'s accent follows whoever\'s selected. The other account\'s colour is greyed out in the picker so you can\'t both end up looking the same. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
-     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
+     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title. Renaming an existing account <b>asks first</b>, since it orphans past history under the old name. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
 
   h+=card('2 &middot; Log a workout',
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
