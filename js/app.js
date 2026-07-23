@@ -511,6 +511,27 @@ function trainingDateStr(now){
   var m=d.getMonth()+1, day=d.getDate();
   return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
 }
+// Splits a session's exercises into render blocks: contiguous runs sharing a
+// groupId become {type:"group", groupId, eis:[...]}, everything else is
+// {type:"single", eis:[i]}. Shared by the Program editor and the Log form so
+// both agree on what counts as a superset - grouped members are always kept
+// adjacent (see move()/groupSelected()), so a simple contiguous scan suffices.
+function exerciseBlocks(exercises){
+  const blocks=[]; let i=0;
+  while(i<exercises.length){
+    const gid=exercises[i].groupId;
+    if(gid){
+      const eis=[i]; let j=i+1;
+      while(j<exercises.length && exercises[j].groupId===gid){ eis.push(j); j++; }
+      blocks.push({type:"group", groupId:gid, eis});
+      i=j;
+    } else {
+      blocks.push({type:"single", eis:[i]});
+      i++;
+    }
+  }
+  return blocks;
+}
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
 function orderedKeys(){
   return state.program.order.slice().sort(function(a,b){
@@ -909,10 +930,18 @@ function renderLog(){
   }
 
   html += '<div id="exForm">';
-  sess.exercises.forEach((ex,ei)=>{
-    const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
-    const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, prev&&prev.garmin) : "";
-    html += renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name),lastRun);
+  exerciseBlocks(sess.exercises).forEach(block=>{
+    const cardsHtml = block.eis.map(ei=>{
+      const ex=sess.exercises[ei];
+      const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
+      const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, prev&&prev.garmin) : "";
+      return renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name),lastRun);
+    }).join("");
+    // Grouped exercises get a wrapping .superset card; each inner .ex card is
+    // otherwise unchanged, so every existing per-card system (wireExCard,
+    // drafts, RPE, warm-ups) keeps working exactly as it does for a standalone
+    // exercise - see docs/PROJECT-STATUS.md "Next up" item 6 for why.
+    html += block.type==="group" ? '<div class="superset"><div class="superset-label">&#8646; Superset</div>'+cardsHtml+'</div>' : cardsHtml;
   });
   html += '</div>';
 
@@ -1592,8 +1621,24 @@ function drawBwChart(person){
   });
 }
 
+// "sessionKey:index" refs currently ticked for grouping - module-level so it
+// survives the re-renders triggered by ticking each checkbox; cleared once a
+// group is actually made, or implicitly stale (harmless) if you leave the tab.
+let selectedExRefs=new Set();
+function exRowHtml(k, ei, ex){
+  const ref=k+':'+ei;
+  return '<div class="ex"><div class="ex-head"><div class="row" style="gap:6px;align-items:baseline">'
+    + '<input type="checkbox" data-selex="'+ref+'" style="width:auto" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>'
+    + '<div><div class="ex-name">'+esc(ex.name)+'</div>'
+    + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div></div>'
+    + '<div class="row"><button class="mini" data-editex="'+ref+'">Edit</button>'
+    + '<button class="mini" data-upex="'+ref+'">&uarr;</button>'
+    + '<button class="mini" data-downex="'+ref+'">&darr;</button>'
+    + '<button class="mini" data-delex="'+ref+'" style="color:var(--bad)">&times;</button>'
+    + '</div></div></div>';
+}
 function renderEdit(){
-  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched.</div>'
+  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
     + '<div class="row" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
     + '<button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
   if(!orderedKeys().length){
@@ -1601,18 +1646,18 @@ function renderEdit(){
   }
   orderedKeys().forEach(k=>{
     const s=state.program.sessions[k];
+    const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
     html+='<div class="card"><div class="flex-between" style="margin-bottom:10px"><div>'
       + '<h3>'+esc(s.name)+'</h3><div class="ex-meta">'+esc(s.day)+'</div></div>'
-      + '<div class="row"><button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
+      + '<div class="row">'
+      + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
+      + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
       + '<button class="mini" data-addex="'+k+'">+ exercise</button></div></div>';
-    s.exercises.forEach((ex,ei)=>{
-      html+='<div class="ex"><div class="ex-head"><div><div class="ex-name">'+esc(ex.name)+'</div>'
-        + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div>'
-        + '<div class="row"><button class="mini" data-editex="'+k+':'+ei+'">Edit</button>'
-        + '<button class="mini" data-upex="'+k+':'+ei+'">&uarr;</button>'
-        + '<button class="mini" data-downex="'+k+':'+ei+'">&darr;</button>'
-        + '<button class="mini" data-delex="'+k+':'+ei+'" style="color:var(--bad)">&times;</button>'
-        + '</div></div></div>';
+    exerciseBlocks(s.exercises).forEach(block=>{
+      const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
+      html += block.type==="group"
+        ? '<div class="superset"><div class="superset-label">&#8646; Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
+        : rows;
     });
     html+='</div>';
   });
@@ -1622,12 +1667,23 @@ function renderEdit(){
   document.querySelectorAll("[data-delex]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.delex.split(":");
     if(confirm("Remove this exercise from the program?")){
-      state.program.sessions[a[0]].exercises.splice(+a[1],1); save(); renderEdit(); toast("Removed");
+      state.program.sessions[a[0]].exercises.splice(+a[1],1);
+      cleanupSoloGroups(a[0]);
+      save(); renderEdit(); toast("Removed");
     }
   });
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
+  document.querySelectorAll("[data-selex]").forEach(cb=>cb.onchange=()=>{
+    if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
+    renderEdit();
+  });
+  document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
+  document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
+    const a=b.dataset.ungroup.split(":");
+    ungroupExercises(a[0], a.slice(1).join(":"));
+  });
   document.getElementById("importSessionBtn").onclick=()=>importSessionDlg.showModal();
   document.getElementById("addSessionBtn").onclick=()=>{
     document.getElementById("sessName").value="";
@@ -1635,10 +1691,64 @@ function renderEdit(){
     sessionDlg.showModal();
   };
 }
+// A "group" of one exercise isn't a group - clear a groupId once only one
+// member of it is left (e.g. after deleting the exercise that was its pair).
+function cleanupSoloGroups(sessionKey){
+  const arr=state.program.sessions[sessionKey].exercises;
+  const counts={};
+  arr.forEach(ex=>{ if(ex.groupId) counts[ex.groupId]=(counts[ex.groupId]||0)+1; });
+  arr.forEach(ex=>{ if(ex.groupId && counts[ex.groupId]<2) delete ex.groupId; });
+}
+function groupSelected(sessionKey){
+  const refs=Array.from(selectedExRefs)
+    .filter(r=>r.startsWith(sessionKey+":"))
+    .map(r=>+r.split(":")[1]).sort((a,b)=>a-b);
+  if(refs.length<2) return;
+  const arr=state.program.sessions[sessionKey].exercises;
+  const gid="grp-"+Date.now();
+  const selectedSet=new Set(refs);
+  const members=refs.map(i=>arr[i]);
+  members.forEach(ex=>{ ex.groupId=gid; });
+  const before=arr.slice(0, refs[0]);
+  const after=arr.filter((ex,i)=> i>refs[0] && !selectedSet.has(i));
+  state.program.sessions[sessionKey].exercises=before.concat(members, after);
+  selectedExRefs.clear();
+  save(); renderEdit(); toast("Grouped as superset");
+}
+function ungroupExercises(sessionKey, groupId){
+  state.program.sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
+  save(); renderEdit(); toast("Ungrouped");
+}
+// Moves the contiguous block containing exercise `ref` (its whole superset
+// group if it's grouped, otherwise just itself) up/down past the adjacent
+// block, keeping grouped members adjacent - see exerciseBlocks().
 function move(ref,dir){
-  const a=ref.split(":"); const arr=state.program.sessions[a[0]].exercises;
-  const i=+a[1], j=i+dir; if(j<0||j>=arr.length) return;
-  const t=arr[i]; arr[i]=arr[j]; arr[j]=t; save(); renderEdit();
+  const a=ref.split(":"); const sessionKey=a[0];
+  const arr=state.program.sessions[sessionKey].exercises;
+  const i=+a[1];
+  const gid=arr[i].groupId;
+  let lo=i, hi=i;
+  if(gid){
+    while(lo>0 && arr[lo-1].groupId===gid) lo--;
+    while(hi<arr.length-1 && arr[hi+1].groupId===gid) hi++;
+  }
+  let oLo, oHi;
+  if(dir<0){
+    if(lo===0) return;
+    oHi=lo-1; oLo=oHi;
+    const ogid=arr[oHi].groupId;
+    if(ogid){ while(oLo>0 && arr[oLo-1].groupId===ogid) oLo--; }
+  } else {
+    if(hi===arr.length-1) return;
+    oLo=hi+1; oHi=oLo;
+    const ogid=arr[oLo].groupId;
+    if(ogid){ while(oHi<arr.length-1 && arr[oHi+1].groupId===ogid) oHi++; }
+  }
+  const thisBlock=arr.slice(lo,hi+1), otherBlock=arr.slice(oLo,oHi+1);
+  const start=Math.min(lo,oLo);
+  const newOrder = dir<0 ? thisBlock.concat(otherBlock) : otherBlock.concat(thisBlock);
+  arr.splice(start, thisBlock.length+otherBlock.length, ...newOrder);
+  save(); renderEdit();
 }
 
 // Common exercise names, so a brand-new account (no program, no logs yet) has
@@ -2169,7 +2279,8 @@ function renderHelp(){
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
-     +p('Lifting exercises get an optional <b>RPE</b> column (1-10, same scale as the session difficulty rating below) - rate individual sets rather than just the whole session. Blank is fine if you don\'t use it; it shows in History next to the set it belongs to.'));
+     +p('Lifting exercises get an optional <b>RPE</b> column (1-10, same scale as the session difficulty rating below) - rate individual sets rather than just the whole session. Blank is fine if you don\'t use it; it shows in History next to the set it belongs to.')
+     +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.'));
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
@@ -2195,6 +2306,7 @@ function renderHelp(){
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
+     +p('Tick the checkbox on 2+ exercises in the same session, then <b>&#8646; Group as superset</b>, to mark them as a superset/circuit - they\'re moved next to each other and shown in a bordered block on both this tab and the Log tab. <b>Ungroup</b> on the block splits them back into normal standalone exercises. Moving a grouped exercise up/down moves the whole block together; each exercise inside still logs completely normally.')
      +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
