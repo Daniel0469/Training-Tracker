@@ -213,14 +213,14 @@ The two "make it hands-free" jobs:
 Prioritised, scoped and sequenced by asking Daniel through each candidate area and each open design
 fork, rather than assuming. **Nothing here is started yet** - this is the plan, not a build log.
 
-**Explicitly not picked this round** (revisit later if priorities change): sleep/wellness
-check-in, auto weekly review, hands-free coaching (still deliberately held off - human reviews
-coaching first), starter program templates at account creation (stays blank, per the earlier
-decision - not reopened), injury/niggle log, colour-collision check on import, real PWA icons,
-CSV export of raw log data, History search by exercise name, streak/consistency tracker.
-**Flagged as bigger/riskier, not for this round:** accessibility pass, progress photos
-(`localStorage` doesn't scale to image blobs - would need IndexedDB or cloud-only storage),
-multi-week periodization/mesocycles (the most open-ended item considered).
+**Parked for later - still wanted, just not this round** (not "no," just "not yet" - come back to
+these): sleep/wellness check-in, auto weekly review, hands-free coaching (still deliberately held
+off - human reviews coaching first), starter program templates at account creation (stays blank,
+per the earlier decision - not reopened), injury/niggle log, colour-collision check on import,
+real PWA icons, CSV export of raw log data, History search by exercise name, streak/consistency
+tracker, accessibility pass, progress photos (`localStorage` doesn't scale to image blobs - would
+need IndexedDB or cloud-only storage), multi-week periodization/mesocycles (the most open-ended
+item considered).
 
 **Design principle across the health-feature items below:** make them **opt-in per person**, not
 forced on every account - a settings toggle per account for which of these are tracked/shown.
