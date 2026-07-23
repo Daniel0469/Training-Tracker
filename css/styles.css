@@ -69,6 +69,9 @@
   .ex{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:11px;background:var(--card-2)}
   .ex-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
   .ex-name{font-weight:700}
+  .superset{border-left:3px solid var(--brand);border-radius:11px;padding:10px 10px 0;margin-bottom:13px;background:var(--card-2)}
+  .superset .ex,.superset .card.ex{margin-bottom:10px}
+  .superset-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
   .ex-meta{font-size:12px;color:var(--muted)}
   .warmup{font-size:12px;color:var(--brand);background:var(--brand-soft);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
   /* Cardio-day banner at the top of a run session (auto-fill guidance). */
