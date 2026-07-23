@@ -1625,13 +1625,30 @@ function move(ref,dir){
   const t=arr[i]; arr[i]=arr[j]; arr[j]=t; save(); renderEdit();
 }
 
+// Common exercise names, so a brand-new account (no program, no logs yet) has
+// a real list to pick from instead of a dropdown that starts completely empty
+// and only grows once you've already typed something in yourself.
+const COMMON_EXERCISES = [
+  "Bench press","Incline bench press","Dumbbell bench press","Incline dumbbell press",
+  "Chest fly","Cable crossover","Push-up","Dips",
+  "Deadlift","Romanian deadlift","Pull-up","Chin-up","Lat pulldown","Barbell row",
+  "Dumbbell row","Seated cable row","Face pull",
+  "Squat","Front squat","Leg press","Leg extension","Leg curl","Lunge","Calf raise",
+  "Hip thrust","Hip abduction","Hip adduction",
+  "Overhead press","Dumbbell shoulder press","Lateral raise","Rear delt fly","Upright row",
+  "Bicep curl","Hammer curl","Tricep pushdown","Tricep extension","Skull crusher",
+  "Close-grip bench press",
+  "Plank","Crunch","Hanging leg raise","Russian twist","Sit-up",
+  "Running","Cycling","Rowing machine","Treadmill intervals","Elliptical"
+];
 let exDlgCtx=null;
 const exDlg=document.getElementById("exDlg");
-// Unique exercise names seen anywhere (program + logged history), so the Add/
-// Edit dialog can offer them as pick-from-list suggestions and avoid the
-// spelling variants that fragment history for the same movement.
+// Unique exercise names to offer as pick-from-list suggestions: common ones
+// plus anything seen in the program or logged history (so the Add/Edit dialog
+// avoids the spelling variants that fragment history for the same movement).
 function exerciseLibrary(){
   const set={};
+  COMMON_EXERCISES.forEach(n=>{ set[n]=true; });
   Object.keys(state.program.sessions).forEach(k=>{
     state.program.sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
   });
@@ -2150,7 +2167,7 @@ function renderHelp(){
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
-      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search, or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
