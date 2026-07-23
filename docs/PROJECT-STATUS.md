@@ -44,7 +44,12 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
 - **Settings** gained a **"What's not set up yet"** panel (cloud sync live-checked, Garmin
   auto-import, AI coaching - none of it is code-gated per account, all laptop-side setup) and a
   30-day stale-export reminder + `navigator.storage.persist()` request for local-only users.
-- `CACHE_NAME` is now `tt-v64`.
+- **Fixed the exercise-name dropdown being empty for any account with no history yet** - it only
+  ever sourced suggestions from the current program + logged history, so a brand-new blank account
+  had nothing to pick from. Seeded with a `COMMON_EXERCISES` list (48 common lifts/movements).
+- Planned and delivered three items from the "Next up" roadmap below: **rename-warning**, **RPE
+  per set**, and **superset/circuit grouping** (see the roadmap section for what shipped).
+- `CACHE_NAME` is now `tt-v68`.
 
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
@@ -226,12 +231,12 @@ item considered).
 forced on every account - a settings toggle per account for which of these are tracked/shown.
 
 ### Build order (effort-sized: S/M/L)
-1. **[S] Warn before a plain rename orphans history** - renaming an account in Settings today
-   silently disconnects it from past logs (documented, intentional behaviour) with no warning at
-   the point of doing it; the new Delete-account flow warns clearly, a plain rename should too, for
-   consistency. No dependencies - quick win, do first.
-2. **[S-M] RPE per set** - reuses the **existing 1-10 scale** (not a separate powerlifting-style
-   6-10 half-step scale), just applied per set instead of once per session. No dependencies.
+1. ✅ **[S] DONE - Warn before a plain rename orphans history.** Confirm before an existing
+   account's name changes, matching the Delete-account warning; a first-time name (new account)
+   still saves with no prompt.
+2. ✅ **[S-M] DONE - RPE per set**, reusing the existing 1-10 scale (not a separate powerlifting-
+   style 6-10 half-step scale) - a per-set input, lifting exercises only, stored as a sparse
+   `entry.rpe` array, shown in History, carried through drafts.
 3. **[M] Body measurements beyond weight** - folds into the existing **Body tab**, not a new top-
    level tab. New `state.measurements` entries (person, date, type, value) alongside the existing
    `state.bodyweights`; a type selector (waist/chest/arms/etc.) and a trend chart per type,
@@ -244,11 +249,13 @@ forced on every account - a settings toggle per account for which of these are t
    Works standalone whether or not the Home Hub ever gets built.
 5. **[S] Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`.
    **Depends on #4.** Mention in `docs/coaching-prompt.md` so the weekly chat actually uses it.
-6. **[L] Superset/circuit grouping** in the program editor - the biggest, most design-heavy item,
-   sequenced last on purpose. UX: **multi-select exercises + a "Group" button** (matches the
-   existing tap-to-select pattern used for warm-up-set flagging), storing a `groupId` on grouped
-   exercises within a session. The Log form then needs to render grouped exercises together and
-   log sets in alternating fashion - that's the hard part, not the program-editor side.
+6. ✅ **[L] DONE (scoped down) - Superset/circuit grouping.** Investigation found true round-by-
+   round interleaved entry would mean rebuilding per-exercise wiring (drafts, RPE, warm-ups,
+   notes, PR detection, muscle tagging) - Daniel picked the smaller, confirmed-safe scope instead:
+   **visual grouping only**. Program editor gets tick-to-select + "Group as superset"
+   (`groupId` field, `exerciseBlocks()` contiguous-run helper, group-aware `move()`); the Log form
+   wraps a grouped run's already-unmodified per-exercise cards in a bordered `.superset` block.
+   Zero changes needed to `saveSession`/`captureDraft`/`restoreDraft`/`wireExCard`.
 7. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
    server/Pi once the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the
    "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
