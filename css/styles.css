@@ -126,6 +126,7 @@
   .swatchpick{display:flex;gap:10px;flex-wrap:wrap}
   .swatchpick button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
   .swatchpick button.sel{border-color:var(--ink)}
+  .swatchpick button:disabled{opacity:.3;cursor:not-allowed}
   .swatchpick button[data-c="navy"]{background:var(--me)}
   .swatchpick button[data-c="purple"]{background:var(--partner)}
   .swatchpick button[data-c="teal"]{background:var(--sw-teal)}

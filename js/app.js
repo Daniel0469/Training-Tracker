@@ -659,7 +659,8 @@ function renderCreateAccount(slotIndex){
     + '</div></div>';
   document.getElementById("view").innerHTML=html;
   const colorEl=document.getElementById("caColor");
-  renderSwatchPicker(colorEl, slotIndex===1?"purple":"navy");
+  const otherColor = state.people[1-slotIndex] ? state.colors[1-slotIndex] : null;
+  renderSwatchPicker(colorEl, firstAvailableSwatch(otherColor), otherColor);
   wireSwatchPicker(colorEl);
   const reveal=()=>{
     document.getElementById("tabs").style.display="";
@@ -1706,7 +1707,8 @@ document.getElementById("settingsBtn").onclick=()=>{
   const i=state.activePerson;
   document.getElementById("setWho").textContent="· "+(state.people[i]||"");
   document.getElementById("pName").value=state.people[i]||"";
-  renderSwatchPicker(document.getElementById("pColor"), (state.colors&&state.colors[i])||"navy");
+  const otherColor = state.people[1-i] ? state.colors[1-i] : null;
+  renderSwatchPicker(document.getElementById("pColor"), (state.colors&&state.colors[i])||"navy", otherColor);
   wireSwatchPicker(document.getElementById("pColor"));
   document.getElementById("pWeight").value=(state.weights&&state.weights[i])||"";
   document.getElementById("pGoals").value=(state.goals&&state.goals[i])||"";
@@ -1767,7 +1769,12 @@ document.getElementById("sugSend").onclick=()=>{
 };
 // Auto-save the selected person's name / bodyweight / goals whenever the
 // dialog closes (X, Done, Esc or backdrop) — no explicit Save button.
+// Set right before a programmatic setDlg.close() that shouldn't trigger the
+// normal auto-save-on-close (e.g. deleteAccount(), which already made its own
+// change and would otherwise have the stale form fields overwrite it).
+let skipSettingsSave=false;
 function saveSettingsPerson(){
+  if(skipSettingsSave){ skipSettingsSave=false; return; }
   // Preserve any in-progress log entry: closing settings re-renders the view, and
   // without capturing first the half-filled form was wiped (“going into settings
   // then back to log clears the log”).
@@ -1807,6 +1814,14 @@ document.getElementById("resetProgram").onclick=()=>{
     state.program=clone(DEFAULT_PROGRAM); curSession=state.program.order[0];
     save(); setDlg.close(); renderView(); toast("Program reset");
   }
+};
+document.getElementById("deleteAccount").onclick=()=>{
+  const i=state.activePerson, nm=state.people[i];
+  if(!confirm("Remove "+possessive(nm)+" account from this device? Their logged history, bodyweight and coaching notes stay saved under \""+nm+"\" - re-adding an account with the exact same name later reconnects them - but they'll need to create an account again to log anything.")) return;
+  state.people[i]=""; state.colors[i]=""; state.weights[i]=""; state.goals[i]="";
+  save(); skipSettingsSave=true; setDlg.close();
+  renderPeople(); renderView();
+  toast(nm+"'s account removed");
 };
 
 const importDlg=document.getElementById("importDlg");
@@ -2105,8 +2120,8 @@ function renderHelp(){
 
   h+=card('1 &middot; Pick who you are',
       p('A brand-new install starts blank - no accounts, no program. <b>Create your account</b> with a name and a colour swatch to get going; nothing else is needed. A second person can join the same device later via <b>+ Add</b> next to the name toggle (or skip it and stay solo).')
-     +p('Use the <b>name toggle</b> top-right to switch. Each account has its own colour, chosen at creation (or changed later in Settings) - the whole app\'s accent follows whoever\'s selected. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
-     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title.'));
+     +p('Use the <b>name toggle</b> top-right to switch. Each account has its own colour, chosen at creation (or changed later in Settings) - the whole app\'s accent follows whoever\'s selected. The other account\'s colour is greyed out in the picker so you can\'t both end up looking the same. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
+     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
 
   h+=card('2 &middot; Log a workout',
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
@@ -2428,17 +2443,27 @@ const SWATCHES = {
 function swatchColor(key,dark){ const s=SWATCHES[key]||SWATCHES.navy; return dark?s.dark:s.light; }
 // Renders/reads a single-select colour-swatch picker (.swatchpick, styled in
 // css/styles.css). Shared by the Settings dialog and account creation.
-function renderSwatchPicker(container, selected){
+// `takenKey` (the other account's colour, if any) is greyed out and unclickable
+// so two accounts on one device can't end up visually indistinguishable.
+function renderSwatchPicker(container, selected, takenKey){
   container.innerHTML = Object.keys(SWATCHES).map(function(k){
-    return '<button type="button" data-c="'+k+'" class="'+(k===selected?"sel":"")+'" title="'+k.charAt(0).toUpperCase()+k.slice(1)+'"></button>';
+    const taken = takenKey && k===takenKey;
+    return '<button type="button" data-c="'+k+'" class="'+(k===selected?"sel":"")+'"'
+      + (taken?' disabled':'') + ' title="'+k.charAt(0).toUpperCase()+k.slice(1)+(taken?" (already used)":"")+'"></button>';
   }).join("");
 }
 function readSwatchPicker(container){ const b=container.querySelector("button.sel"); return b?b.dataset.c:"navy"; }
 // Swatch key for a person by name, used to colour their "pill" badges throughout.
 function personSwatch(name){ const i=state.people.indexOf(name); return (i>=0 && state.colors[i]) || "navy"; }
+// First swatch key not equal to `excludeKey` - a sensible default pre-selection
+// that never collides with the other account's colour.
+function firstAvailableSwatch(excludeKey){
+  const keys=Object.keys(SWATCHES);
+  return keys.find(k=>k!==excludeKey) || keys[0];
+}
 function wireSwatchPicker(container){
   container.onclick=e=>{
-    const b=e.target.closest("button"); if(!b) return;
+    const b=e.target.closest("button"); if(!b || b.disabled) return;
     container.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
     b.classList.add("sel");
   };
