@@ -6,13 +6,23 @@ user-facing "what's possible" list. The in-app **Guide** tab (`renderHelp` in `j
 same information framed as a how-to — keep both in step when a feature changes.
 
 ## In a sentence
-A shared workout + health tracker for two people (Daniel & Cerys). A static site — no account, no
-backend, works offline, installable to your phone's home screen. All data lives on the device
-(`localStorage`), with optional free cloud sync so both phones and a Claude coach stay in step.
+A workout + health tracker for up to two people sharing a device (built for Daniel & Cerys; anyone
+else creates their own local account, no login or backend involved). A static site - works
+offline, installable to your phone's home screen. All data lives on the device (`localStorage`),
+with optional free cloud sync so both phones and a Claude coach stay in step.
 
 ---
 
 ## What it can do
+
+### Accounts
+- A fresh install has **no accounts and no program** - a Create account screen (name + colour
+  swatch, picked from 6 presets) gates the app until at least one exists. A second account is
+  optional and skippable.
+- Colours are greyed out in the picker once the other account has them, so two accounts on one
+  device can't end up visually identical. Change your colour anytime in Settings.
+- **Delete this account** (Settings) frees the slot for someone else; your logged history stays
+  saved under your old name rather than being erased, same as renaming.
 
 ### Home
 - Opens here by default. At-a-glance hub for the selected person: today's session (with a **Log it**
@@ -21,8 +31,9 @@ backend, works offline, installable to your phone's home screen. All data lives 
   goals. Arrows jump to the full History / Body tabs.
 
 ### Log a workout
-- Pick who you are (blue/orange name toggle); everything logged belongs to the selected person.
-- **Switch person mid-entry without losing typed data** — handy for logging both people from one phone.
+- Pick who you are (name toggle, each account in its own chosen colour); everything logged belongs
+  to the selected person.
+- **Switch person mid-entry without losing typed data** - handy for logging both people from one phone.
 - Date auto-picks the right session for that weekday; a late-night session (before ~5am) counts as
   the **previous** training day.
 - Per-set **weight + reps** (numeric keypad on phones); first set's weight auto-fills the rest.
@@ -73,15 +84,23 @@ backend, works offline, installable to your phone's home screen. All data lives 
 ### Program editor
 - Add / edit / reorder / remove exercises; **name-suggestion library** avoids duplicate spellings.
 - Per exercise: target, warm-up (fixed or %), setup notes, Lifting/Running column presets, optional
-  3rd column. Program edits only affect **future** logging; past history is untouched.
-- **Reset program to default** (gear) restores default workouts and keeps your logs.
+  3rd column, and a **Works** muscle tag picker (auto-guessed from the name, editable) so an
+  unusual exercise name still shows correctly on the muscle heatmap.
+- **+ Add session** creates a brand-new workout day (name + weekday) - needed since a fresh account
+  starts with no sessions at all.
+- **Share** a session's exercise list (no personal numbers) via the phone's share sheet as a
+  paste-able code; **Import shared session** on another install adds it to that person's program.
+- Program edits only affect **future** logging; past history is untouched. **Reset program to
+  default** (gear) restores default workouts and keeps your logs.
 
 ### Data, backup & sync
 - Everything saves **on this device**. **Export** writes a full file; **Import / merge** on another
-  device merges by unique id (logs) and person+date (bodyweights) — no duplicates.
+  device merges by unique id (logs) and person+date (bodyweights) - no duplicates.
 - **Cloud sync (GitHub)** is optional and free: set a private repo + fine-grained token once, then it
   syncs **automatically** on open and after each save. Doubles as off-device backup; the token is
   stored only on the device and **never** included in exports.
+- The app requests **persistent storage** and nudges with a reminder if it's been 30+ days since
+  your last export - relevant if you're not using cloud sync, since local data is the only copy.
 - **Installable PWA** — Add to Home Screen and it works **offline**.
 
 ### Theme
@@ -94,7 +113,9 @@ backend, works offline, installable to your phone's home screen. All data lives 
 - **Data is keyed by person NAME.** Renaming a person **orphans** their history — by design.
 - **localStorage only.** Clearing the browser's site data wipes local history — keep cloud sync or
   regular exports as backup. Two devices only stay in step if cloud sync is on (or you import/export).
-- **Two people, fixed.** The app is built around Daniel & Cerys, not an arbitrary number of users.
+- **Up to two accounts per install, not arbitrary.** A fresh install starts blank - anyone creates
+  their own account (name + colour) - but one device is capped at two. A third person needs their
+  own separate install; this is a deliberate simplicity trade-off, not a technical ceiling.
 - **No Strava/Garmin live API.** Runs come in via **exported files** or the laptop-side Garmin sync
   — not a direct phone-to-Strava/Garmin API (Strava forbids feeding data to AI; Garmin's dev program
   is on hold). The Garmin auto-link only runs **while the laptop is on**.

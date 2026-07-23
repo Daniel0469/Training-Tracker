@@ -5,28 +5,50 @@ how it's set up, the decisions behind it, and what's left. Pair with `CLAUDE.md`
 the other `docs/`.
 
 ## What it is
-A two-person (Daniel & Cerys) workout + health tracker. Plain static site — HTML/CSS/vanilla JS,
-data in `localStorage` (key `flLiveTracker_v1`), Chart.js from CDN, no build step. Installable PWA,
-works offline. Growing into a shared health/fitness hub with Claude as coach.
+A workout + health tracker for up to two people sharing a device (built for Daniel & Cerys; a
+fresh install starts blank and anyone can create their own account). Plain static site - HTML/CSS/
+vanilla JS, data in `localStorage` (key `flLiveTracker_v1`), Chart.js from CDN, no build step.
+Installable PWA, works offline. Growing into a shared health/fitness hub with Claude as coach.
 
 ## Repos
 - **App:** https://github.com/Daniel0469/Training-Tracker  (this repo; deploy on GitHub Pages)
 - **Sync data (private):** https://github.com/Daniel0469/Training-Data  (holds `data.json` for cloud sync)
 
-## Status: where we are (2026-07-16)
+## Status: where we are (2026-07-23)
 **Live & set up:** app deployed on GitHub Pages → **https://daniel0469.github.io/Training-Tracker/**.
-Cloud **sync is working** (both Daniel + Cerys → `Training-Data/data.json`; store currently has
-~19 sessions across both). The **MCP coach is connected** in Claude Code (`.mcp.json` on this
-laptop, gitignored; `truststore` installed for SSL) and is **two-way** — it reads the data and can
-`write_coaching` notes that show in the app. Full inline **code review done**.
-- ⚠️ **After the last commit, restart Claude Code once** so the MCP server picks up the new
-  `write_coaching` tool. The read tools were already live.
-- Coaching now happens in a **separate Claude Code chat** — see `docs/coaching-prompt.md`. App
-  development continues in the main chat.
+Cloud **sync is working** (both Daniel + Cerys → `Training-Data/data.json`). The **MCP coach is
+connected** in Claude Code and is **two-way** - it reads the data and can `write_coaching` notes
+that show in the app. Coaching happens in a **separate Claude Code chat** - see
+`docs/coaching-prompt.md`. App development continues in the main chat.
 
-Done and committed: the original handoff backlog, all of backlog **item 3**, a batch of **additional
-fixes**, **Phase 1** (hub + coaching foundation) and **Phase 2** (analysis features). **Phase 3
-nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review** (then fix findings).
+**This session (2026-07-23):** made the app usable by someone other than Daniel/Cerys.
+- **Blank-slate onboarding:** a genuinely fresh install has no accounts and no program - a
+  **Create account** screen (name + colour swatch) gates the app until at least one exists; a
+  second account is optional and skippable ("just me for now"). Capped at 2 accounts per device
+  (not forced to 2) - a third person needs their own separate install, by design.
+- **Per-account colour**, replacing the old hardcoded Daniel-navy/Cerys-purple binary: 6 preset
+  swatches, applied app-wide (buttons, pills, focus rings) via a `data-color` attribute. The
+  picker disables/greys out whichever colour the other account already has, so two accounts can't
+  end up visually identical.
+- **Delete this account** (Settings) frees a slot; logged history stays under the old name rather
+  than being erased (same philosophy as renaming).
+- **Session sharing:** a Share button sends a session's exercise list (no personal numbers) via
+  the phone's native share sheet as a paste-able code; Import shared session adds it to another
+  install's program. Closed a related gap: Program previously had no way to create a brand-new
+  session at all, only edit existing ones (**+ Add session** now exists).
+- **Manual muscle tagging** on exercises (a "Works" picker), for names the auto-guess misses.
+- **Fixed a pre-existing bug:** Export/Import/Coach-brief were fully implemented in JS but had no
+  buttons anywhere in the UI - unreachable until this session.
+- **Fixed a dark-mode contrast bug:** the toast notification was white text on a near-white
+  background in dark mode (used `--ink`, which flips between themes, as a background).
+- **Settings** gained a **"What's not set up yet"** panel (cloud sync live-checked, Garmin
+  auto-import, AI coaching - none of it is code-gated per account, all laptop-side setup) and a
+  30-day stale-export reminder + `navigator.storage.persist()` request for local-only users.
+- `CACHE_NAME` is now `tt-v64`.
+
+Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
+coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
+kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
 
 ### Features built (high level)
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
@@ -72,7 +94,7 @@ nice-to-haves are explicitly NOT wanted.** Next up: a **full inline code review*
   cloud sync (`syncNow`/`mergeInData`/`exportPayload`/GitHub Contents API), `classifyMuscles`/
   `muscleColor`/`paintMuscleMap`. In-memory (not persisted): `formDrafts`, `sessionTimers`.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v25`.
+  change to a cached file.** Currently `tt-v64`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -185,6 +207,40 @@ The two "make it hands-free" jobs:
      and pulls the number out, rather than typing it. (Today's path is pasting the screenshot into
      Claude's vision; the hub goal is to do it in-app on the phone. Keep it dependency-light — see
      the scale decision below re: no heavy in-app OCR.)
+
+## Next up (agreed with Daniel, 2026-07-23)
+
+Prioritised by asking Daniel through each candidate area rather than assuming. Explicitly **not**
+picked this round: sleep/wellness check-in, auto weekly review, hands-free coaching (still
+deliberately held off - human reviews coaching first), starter program templates at account
+creation (stays blank, per the earlier decision - not reopened), injury/niggle log, colour-collision
+check on import, real PWA icons. Revisit any of these later if priorities change.
+
+**Design principle that applies across the health-feature items below:** make them **opt-in per
+person**, not forced on every account - a settings toggle per account for which of these are
+tracked/shown, not a blanket feature everyone gets whether they want it or not.
+
+Suggested order (dependencies noted; each stops for review per usual):
+1. **Nutrition UI** - daily kcal/protein targets + totals + trend chart, opt-in per account. Data
+   plumbing (`state.meals`, merge-by-id) already exists from the Home Hub prep work
+   (`docs/home-hub-link.md` item 2) - this is purely the missing display layer. Manual add/edit so
+   it works with the Home Hub off or not yet built.
+2. **Body measurements beyond weight** - waist/arms/etc. with their own trend charts, opt-in per
+   account, alongside the existing bodyweight tracking on the Body tab.
+3. **Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`,
+   depends on #1 existing. Mention in `docs/coaching-prompt.md` so the weekly chat actually uses it.
+4. **Superset/circuit grouping** in the program editor - exercises can be grouped together; today
+   every exercise in a session is standalone with no relationship between them.
+5. **RPE per set** - supplement (not necessarily replace) the current single per-session difficulty
+   rating with an effort rating per set, similar in spirit to the existing warm-up-set tap-to-flag.
+6. **Warn before a plain rename orphans history** - renaming an account in Settings today silently
+   disconnects it from past logs (documented, intentional behaviour) with no warning at the point
+   of doing it; the new Delete-account flow warns clearly, a plain rename should too, for
+   consistency.
+7. **Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home server/Pi once
+   the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the "only runs while the
+   laptop is on" caveat. **Blocked on that hardware existing** - not pure app-code work, revisit
+   when the Pi is up.
 
 ## Other open items
 - **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
