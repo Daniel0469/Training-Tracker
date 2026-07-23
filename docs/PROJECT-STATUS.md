@@ -210,37 +210,49 @@ The two "make it hands-free" jobs:
 
 ## Next up (agreed with Daniel, 2026-07-23)
 
-Prioritised by asking Daniel through each candidate area rather than assuming. Explicitly **not**
-picked this round: sleep/wellness check-in, auto weekly review, hands-free coaching (still
-deliberately held off - human reviews coaching first), starter program templates at account
-creation (stays blank, per the earlier decision - not reopened), injury/niggle log, colour-collision
-check on import, real PWA icons. Revisit any of these later if priorities change.
+Prioritised, scoped and sequenced by asking Daniel through each candidate area and each open design
+fork, rather than assuming. **Nothing here is started yet** - this is the plan, not a build log.
 
-**Design principle that applies across the health-feature items below:** make them **opt-in per
-person**, not forced on every account - a settings toggle per account for which of these are
-tracked/shown, not a blanket feature everyone gets whether they want it or not.
+**Explicitly not picked this round** (revisit later if priorities change): sleep/wellness
+check-in, auto weekly review, hands-free coaching (still deliberately held off - human reviews
+coaching first), starter program templates at account creation (stays blank, per the earlier
+decision - not reopened), injury/niggle log, colour-collision check on import, real PWA icons,
+CSV export of raw log data, History search by exercise name, streak/consistency tracker.
+**Flagged as bigger/riskier, not for this round:** accessibility pass, progress photos
+(`localStorage` doesn't scale to image blobs - would need IndexedDB or cloud-only storage),
+multi-week periodization/mesocycles (the most open-ended item considered).
 
-Suggested order (dependencies noted; each stops for review per usual):
-1. **Nutrition UI** - daily kcal/protein targets + totals + trend chart, opt-in per account. Data
-   plumbing (`state.meals`, merge-by-id) already exists from the Home Hub prep work
-   (`docs/home-hub-link.md` item 2) - this is purely the missing display layer. Manual add/edit so
-   it works with the Home Hub off or not yet built.
-2. **Body measurements beyond weight** - waist/arms/etc. with their own trend charts, opt-in per
-   account, alongside the existing bodyweight tracking on the Body tab.
-3. **Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`,
-   depends on #1 existing. Mention in `docs/coaching-prompt.md` so the weekly chat actually uses it.
-4. **Superset/circuit grouping** in the program editor - exercises can be grouped together; today
-   every exercise in a session is standalone with no relationship between them.
-5. **RPE per set** - supplement (not necessarily replace) the current single per-session difficulty
-   rating with an effort rating per set, similar in spirit to the existing warm-up-set tap-to-flag.
-6. **Warn before a plain rename orphans history** - renaming an account in Settings today silently
-   disconnects it from past logs (documented, intentional behaviour) with no warning at the point
-   of doing it; the new Delete-account flow warns clearly, a plain rename should too, for
-   consistency.
-7. **Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home server/Pi once
-   the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the "only runs while the
-   laptop is on" caveat. **Blocked on that hardware existing** - not pure app-code work, revisit
-   when the Pi is up.
+**Design principle across the health-feature items below:** make them **opt-in per person**, not
+forced on every account - a settings toggle per account for which of these are tracked/shown.
+
+### Build order (effort-sized: S/M/L)
+1. **[S] Warn before a plain rename orphans history** - renaming an account in Settings today
+   silently disconnects it from past logs (documented, intentional behaviour) with no warning at
+   the point of doing it; the new Delete-account flow warns clearly, a plain rename should too, for
+   consistency. No dependencies - quick win, do first.
+2. **[S-M] RPE per set** - reuses the **existing 1-10 scale** (not a separate powerlifting-style
+   6-10 half-step scale), just applied per set instead of once per session. No dependencies.
+3. **[M] Body measurements beyond weight** - folds into the existing **Body tab**, not a new top-
+   level tab. New `state.measurements` entries (person, date, type, value) alongside the existing
+   `state.bodyweights`; a type selector (waist/chest/arms/etc.) and a trend chart per type,
+   mirroring the bodyweight chart pattern. No dependencies.
+4. **[M-L] Nutrition UI** - also folds into the **Body tab**. Daily kcal/protein targets per
+   person (alongside the existing goals), a manual add/edit entry form (description + kcal +
+   protein, optional carbs/fat - matching the `meals` contract already defined for the Home Hub
+   link), and today's totals + a weekly trend chart. Data plumbing (`state.meals`, merge-by-id)
+   already exists (`docs/home-hub-link.md` item 2) - this is purely the missing display layer.
+   Works standalone whether or not the Home Hub ever gets built.
+5. **[S] Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`.
+   **Depends on #4.** Mention in `docs/coaching-prompt.md` so the weekly chat actually uses it.
+6. **[L] Superset/circuit grouping** in the program editor - the biggest, most design-heavy item,
+   sequenced last on purpose. UX: **multi-select exercises + a "Group" button** (matches the
+   existing tap-to-select pattern used for warm-up-set flagging), storing a `groupId` on grouped
+   exercises within a session. The Log form then needs to render grouped exercises together and
+   log sets in alternating fashion - that's the hard part, not the program-editor side.
+7. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
+   server/Pi once the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the
+   "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
+   above, revisit whenever the Pi is up.
 
 ## Other open items
 - **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
