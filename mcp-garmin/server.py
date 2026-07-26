@@ -468,6 +468,41 @@ def fill_pending(person, lookback=30):
             "unmatched": len(pending) - len(filled),
             "message": f"Linked {len(filled)} run(s). They show in the app after a sync."}
 
+def enrich_session(session_id, activity_id, person):
+    """Manually link one specific Garmin run to one specific already-logged session,
+    by id - for a session that has no way to be picked up by fill_pending (e.g. it
+    was saved before the app started setting garminWanted on a blank cardio save).
+    Reuses enrich_log(), the same merge fill_pending uses - never overwrites what was
+    typed, only fills gaps and adds the Garmin metrics."""
+    a, splits = fetch_activity(activity_id)
+    if not is_run(a):
+        return {"ok": False, "message": f"Activity {activity_id} is a "
+                f"'{activity_type(a) or 'non-run'}', not a run. Nothing linked."}
+    outcome = {}
+    def mutate(data):
+        logs = data.get("logs", [])
+        log = next((l for l in logs
+                    if l and str(l.get("id")) == str(session_id) and l.get("person") == person), None)
+        if log is None:
+            outcome["status"] = "not_found"
+            return None
+        if log.get("garminActivityId"):
+            outcome["status"] = "already_linked"
+            outcome["session"] = log.get("sessionName")
+            return None
+        enrich_log(log, a, splits)
+        outcome.update(status="linked", session=log.get("sessionName"), date=log.get("date"),
+                        added=list((log.get("garmin") or {}).keys()))
+        return outcome
+    _github_update(mutate, f"Link Garmin run {activity_id} to session {session_id} for {person}")
+    if outcome.get("status") == "not_found":
+        return {"ok": False, "message": f"No session {session_id} found for {person}."}
+    if outcome.get("status") == "already_linked":
+        return {"ok": True, "already_linked": True, "session": outcome["session"],
+                "message": "That session already has a linked Garmin run - nothing changed."}
+    return {"ok": True, "person": person, "session": outcome["session"], "date": outcome["date"],
+            "added": outcome["added"], "message": "Linked. They'll see it after tapping Sync now."}
+
 # ---------------------------------------------------------------- MCP wiring
 def _register(mcp):
     @mcp.tool()
@@ -506,6 +541,16 @@ def _register(mcp):
         splits if empty). Matches by date, never overwrites entered data. This is what the
         scheduled `--sync` runs; call it to fill on demand."""
         return json.dumps(fill_pending(person), indent=2)
+
+    @mcp.tool()
+    def garmin_enrich_session(session_id: str, activity_id: str, person: str) -> str:
+        """Manually link one specific Garmin run to one specific already-logged session
+        by id (find the id with the training-tracker `session`/recent-sessions tools,
+        and the activity_id with garmin_recent_runs). For a session fill_pending can't
+        reach - e.g. it was saved before the app started flagging blank cardio saves as
+        awaiting a run. Same never-overwrite merge as fill_pending; refuses if that
+        session already has a linked run."""
+        return json.dumps(enrich_session(session_id, activity_id, person), indent=2)
 
 # ---------------------------------------------------------------- CLI (login / selftest)
 def _login_interactive():
