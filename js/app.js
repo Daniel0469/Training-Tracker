@@ -458,6 +458,9 @@ function load(){
       if(!Array.isArray(s.colors)) s.colors=["navy","purple"];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
       if(!Array.isArray(s.coachingLog)) s.coachingLog=[];
+      // Garmin heart-rate zones, keyed by person name like `coaching`. Written by
+      // mcp-garmin (`--hrzones`), read-only in the app.
+      if(!s.hrZones || typeof s.hrZones!=="object") s.hrZones={};
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
       if(!Array.isArray(s.meals)) s.meals=[];
       if(!Array.isArray(s.bodyweights)){
@@ -490,7 +493,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], activePerson:0, program:{order:[], sessions:{}}, logs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -2001,7 +2004,7 @@ function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
-    bodyweights:state.bodyweights, program:state.program, logs:state.logs};
+    bodyweights:state.bodyweights, hrZones:state.hrZones, program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -2016,6 +2019,8 @@ function mergeInData(data, adoptConfig){
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
+  // Same per-person overwrite as coaching: Garmin is the source of truth for zones.
+  if(data.hrZones && typeof data.hrZones==="object"){ if(!state.hrZones) state.hrZones={}; Object.keys(data.hrZones).forEach(function(p){ state.hrZones[p]=data.hrZones[p]; }); }
   // Coaching history: union by id (every past coach write, so improvement can be tracked).
   if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
   // Improvement suggestions: union by id, and a "done" status wins from either
@@ -2288,7 +2293,8 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.'));
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+     +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. It appears once someone has run the Garmin zone sync on the laptop for you (<code>--hrzones</code>, see <code>mcp-garmin</code>); zones change rarely, so it doesn\'t need re-running often.'));
 
   h+=card('1 &middot; Pick who you are',
       p('A brand-new install starts blank - no accounts, no program. <b>Create your account</b> with a name and a colour swatch to get going; nothing else is needed. A second person can join the same device later via <b>+ Add</b> next to the name toggle (or skip it and stay solo).')
@@ -2466,6 +2472,29 @@ document.getElementById("saveDlgOk").onclick=function(){ document.getElementById
 // Home dashboard — the hub landing: greeting + today's session, coach card,
 // this-week stat tiles, last session, last run, bodyweight trend, goals.
 // Reuses existing helpers; links out to the detailed tabs.
+// The five Garmin HR training zones. Reference info (what each zone's bpm band is),
+// not time spent in them - written by mcp-garmin's `--hrzones` into state.hrZones,
+// keyed by person name. Renders nothing at all until that's been run for someone.
+const HR_ZONE_NAMES=["Warm up","Easy","Aerobic","Threshold","Maximum"];
+function hrZonesCardHtml(person){
+  const z=(state.hrZones&&state.hrZones[person])||null;
+  if(!z || !Array.isArray(z.floors) || z.floors.length<5) return "";
+  const stat=(lab,v)=> v==null?"":lab+' <b>'+esc(String(v))+'</b>';
+  const stats=[stat("Max",z.maxHr), stat("Resting",z.restingHr), stat("Threshold",z.thresholdHr)].filter(Boolean);
+  const rows=z.floors.map(function(lo,i){
+    // Each zone runs up to just under the next zone's floor; the top one runs to max HR.
+    const nextLo=z.floors[i+1];
+    const hi = nextLo!=null ? nextLo-1 : ((z.maxHr!=null && z.maxHr>lo) ? z.maxHr : null);
+    return '<div class="hrz-row"><span class="hrz-dot" data-z="'+(i+1)+'"></span>'
+      + '<span class="hrz-name">Z'+(i+1)+' <span class="hrz-sub">'+esc(HR_ZONE_NAMES[i])+'</span></span>'
+      + '<span class="hrz-range">'+esc(hi!=null ? lo+"-"+hi : lo+"+")+' bpm</span></div>';
+  }).join("");
+  return '<div class="card"><div class="sec-title" style="margin:0 0 6px">❤️ Heart rate zones</div>'
+    + (stats.length?'<div class="ex-meta" style="margin-bottom:8px">'+stats.join(' · ')+' bpm</div>':'')
+    + rows
+    + '<div class="hint" style="margin-top:6px">From Garmin'
+    + (z.updated?' · updated '+esc(relTime(String(z.updated).slice(0,10))):'')+'</div></div>';
+}
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
@@ -2534,6 +2563,8 @@ function renderHome(){
       + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(lastRun.date)+'</span></h3>'
       + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(lastRun)+'</div></div>';
   }
+
+  html += hrZonesCardHtml(p);
 
   if(bw.length>=2){
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">⚖️ Bodyweight trend</div>'

@@ -468,6 +468,53 @@ def fill_pending(person, lookback=30):
             "unmatched": len(pending) - len(filled),
             "message": f"Linked {len(filled)} run(s). They show in the app after a sync."}
 
+def fetch_hr_zones():
+    """The person's configured heart-rate zones from Garmin: max / resting / lactate
+    threshold HR plus the five zone floors. Reference data (not per-activity) - one
+    DEFAULT entry unless sport-specific zones have been set up, in which case DEFAULT
+    still wins as the general-purpose one."""
+    rows = garmin_client().connectapi("/biometric-service/heartRateZones/") or []
+    row = next((r for r in rows if str(r.get("sport") or "").upper() == "DEFAULT"), None)
+    if row is None:
+        row = rows[0] if rows else None
+    if not row:
+        return None
+    floors = [row.get("zone%dFloor" % i) for i in range(1, 6)]
+    if any(f is None for f in floors):
+        return None
+    def _int(v):
+        n = _num(v)
+        return int(n) if n is not None else None
+    z = {"floors": [int(f) for f in floors],
+         "maxHr": _int(row.get("maxHeartRateUsed")),
+         "restingHr": _int(row.get("restingHeartRateUsed")),
+         "thresholdHr": _int(row.get("lactateThresholdHeartRateUsed")),
+         "method": row.get("trainingMethod"),
+         "updated": datetime.datetime.now().isoformat(timespec="seconds")}
+    return {k: v for k, v in z.items() if v is not None}
+
+# Fields that decide whether the stored zones are actually stale (`updated` always
+# differs, so comparing the whole dict would rewrite the store on every run).
+_HRZ_KEYS = ("floors", "maxHr", "restingHr", "thresholdHr", "method")
+
+def sync_hr_zones(person):
+    """Fetch `person`'s Garmin heart-rate zones and store them for the app to show on
+    Home. No-ops (no write, no commit) when nothing has changed since last time."""
+    z = fetch_hr_zones()
+    if not z:
+        return {"ok": False, "message": "Garmin returned no heart-rate zone configuration."}
+    def mutate(data):
+        zones = data.setdefault("hrZones", {})
+        cur = zones.get(person) or {}
+        if all(cur.get(k) == z.get(k) for k in _HRZ_KEYS):
+            return None                       # unchanged - skip the write entirely
+        zones[person] = z
+        return z
+    changed = _github_update(mutate, f"Update {person}'s Garmin heart-rate zones")
+    return {"ok": True, "person": person, "zones": z, "changed": bool(changed),
+            "message": ("Stored. They'll see it after tapping Sync now."
+                        if changed else "Already up to date - nothing written.")}
+
 def enrich_session(session_id, activity_id, person):
     """Manually link one specific Garmin run to one specific already-logged session,
     by id - for a session that has no way to be picked up by fill_pending (e.g. it
@@ -543,6 +590,13 @@ def _register(mcp):
         return json.dumps(fill_pending(person), indent=2)
 
     @mcp.tool()
+    def garmin_hr_zones(person: str) -> str:
+        """Fetch `person`'s configured Garmin heart-rate zones (max / resting / lactate
+        threshold HR and the five zone floors) and store them, so the app can show them
+        on the Home tab. Safe to re-run: only writes when something actually changed."""
+        return json.dumps(sync_hr_zones(person), indent=2)
+
+    @mcp.tool()
     def garmin_enrich_session(session_id: str, activity_id: str, person: str) -> str:
         """Manually link one specific Garmin run to one specific already-logged session
         by id (find the id with the training-tracker `session`/recent-sessions tools,
@@ -609,6 +663,20 @@ def _sync(args):
                          "e.g. `python server.py --sync training-garmin`.")
     print(json.dumps(fill_pending(person), indent=2))
 
+def _hrzones(args):
+    """`--hrzones [server-name]`: store the person's Garmin heart-rate zones so the app
+    can show them on Home. Deliberately NOT folded into `--sync`: zones change rarely,
+    and --sync is built to stay cheap by not contacting Garmin when nothing's pending.
+    Run occasionally (or schedule weekly) rather than hourly."""
+    if args:
+        _load_server_env(args[0])
+        _ensure_ca_bundle()
+    person = os.environ.get("TT_PERSON")
+    if not person:
+        raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
+                         "e.g. `python server.py --hrzones training-garmin`.")
+    print(json.dumps(sync_hr_zones(person), indent=2))
+
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
         fx = json.load(fh)
@@ -635,6 +703,8 @@ if __name__ == "__main__":
         _login_interactive(); sys.exit(0)
     if len(sys.argv) >= 2 and sys.argv[1] == "--sync":
         _sync(sys.argv[2:]); sys.exit(0)
+    if len(sys.argv) >= 2 and sys.argv[1] == "--hrzones":
+        _hrzones(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         _selftest(sys.argv[2]); sys.exit(0)
     from mcp.server.fastmcp import FastMCP
