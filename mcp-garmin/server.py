@@ -230,12 +230,15 @@ def _is_run_entry(e):
 def _entry_has_rows(e):
     return any(any(str(v).strip() for v in (row or [])) for row in (e.get("rows") or []))
 
-def enrich_log(log, a, splits):
+def enrich_log(log, a, splits, zone_secs=None):
     """Attach Garmin's extra info to an already-logged session, without overwriting
-    what the person entered. Fills splits only if the run entry was left empty."""
+    what the person entered. Fills splits only if the run entry was left empty.
+    `zone_secs` (from fetch_hr_zone_times) adds time-in-HR-zone when available."""
     log["garminActivityId"] = a.get("activityId")
     log["garminWanted"] = False
     metrics = activity_metrics(a)
+    if zone_secs:
+        metrics["hr_zone_secs"] = zone_secs
     if metrics:
         log["garmin"] = metrics
     run_entry = next((e for e in log.get("entries", []) if _is_run_entry(e)), None)
@@ -437,7 +440,7 @@ def fill_pending(person, lookback=30):
             splits = garmin_client().get_activity_splits(aid)
         except Exception:
             splits = {}
-        matches[str(l.get("id"))] = (a, splits)
+        matches[str(l.get("id"))] = (a, splits, fetch_hr_zone_times(aid))
         used.add(aid)
     if not matches:
         return {"ok": True, "person": person, "filled": 0, "details": [], "unmatched": len(pending),
@@ -453,11 +456,11 @@ def fill_pending(person, lookback=30):
             m = matches.get(str(l.get("id")))
             if not m:
                 continue
-            a, splits = m
+            a, splits, zsecs = m
             aid = a.get("activityId")
             if aid in taken:
                 continue
-            enrich_log(l, a, splits)
+            enrich_log(l, a, splits, zsecs)
             taken.add(aid)
             done.append({"session": l.get("sessionName"), "date": l.get("date"),
                          "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
@@ -467,6 +470,24 @@ def fill_pending(person, lookback=30):
     return {"ok": True, "person": person, "filled": len(filled), "details": filled,
             "unmatched": len(pending) - len(filled),
             "message": f"Linked {len(filled)} run(s). They show in the app after a sync."}
+
+def fetch_hr_zone_times(activity_id):
+    """Seconds spent in each of the five HR zones during one activity, as [Z1..Z5].
+    Returns None when the watch logged no HR for it (no strap / wrist data), so
+    callers can just leave the field off rather than storing a row of zeros."""
+    try:
+        rows = garmin_client().get_activity_hr_in_timezones(activity_id) or []
+    except Exception:
+        return None
+    secs = {}
+    for r in rows:
+        n = r.get("zoneNumber")
+        if n is None:
+            continue
+        secs[int(n)] = int(round(_num(r.get("secsInZone")) or 0))
+    if not any(secs.values()):
+        return None
+    return [secs.get(i, 0) for i in range(1, 6)]
 
 def fetch_hr_zones():
     """The person's configured heart-rate zones from Garmin: max / resting / lactate
@@ -515,6 +536,38 @@ def sync_hr_zones(person):
             "message": ("Stored. They'll see it after tapping Sync now."
                         if changed else "Already up to date - nothing written.")}
 
+def backfill_hr_zone_times(person, limit=50):
+    """Add time-in-HR-zone to runs that were linked before that field existed. Garmin
+    calls happen up front, outside the write, so a retry never re-fetches them."""
+    data, _sha, _url, _token = _github_read_with_sha()
+    todo = [l for l in data.get("logs", [])
+            if l and l.get("person") == person and l.get("garminActivityId")
+            and not (l.get("garmin") or {}).get("hr_zone_secs")][:limit]
+    fetched = {}
+    for l in todo:
+        z = fetch_hr_zone_times(l.get("garminActivityId"))
+        if z:
+            fetched[str(l.get("id"))] = z
+    if not fetched:
+        return {"ok": True, "person": person, "filled": 0,
+                "message": f"No runs needed zone times ({len(todo)} checked)."}
+    def mutate(data):
+        done = []
+        for l in data.get("logs", []):
+            z = fetched.get(str(l.get("id")))
+            if not z:
+                continue
+            g = l.setdefault("garmin", {})
+            if g.get("hr_zone_secs"):
+                continue                       # another run of this job got there first
+            g["hr_zone_secs"] = z
+            done.append({"session": l.get("sessionName"), "date": l.get("date")})
+        return done or None
+    filled = _github_update(
+        mutate, lambda f: f"Backfill HR zone times on {len(f)} of {person}'s runs") or []
+    return {"ok": True, "person": person, "filled": len(filled), "details": filled,
+            "message": f"Added zone times to {len(filled)} run(s)."}
+
 def enrich_session(session_id, activity_id, person):
     """Manually link one specific Garmin run to one specific already-logged session,
     by id - for a session that has no way to be picked up by fill_pending (e.g. it
@@ -525,6 +578,7 @@ def enrich_session(session_id, activity_id, person):
     if not is_run(a):
         return {"ok": False, "message": f"Activity {activity_id} is a "
                 f"'{activity_type(a) or 'non-run'}', not a run. Nothing linked."}
+    zsecs = fetch_hr_zone_times(activity_id)
     outcome = {}
     def mutate(data):
         logs = data.get("logs", [])
@@ -537,7 +591,7 @@ def enrich_session(session_id, activity_id, person):
             outcome["status"] = "already_linked"
             outcome["session"] = log.get("sessionName")
             return None
-        enrich_log(log, a, splits)
+        enrich_log(log, a, splits, zsecs)
         outcome.update(status="linked", session=log.get("sessionName"), date=log.get("date"),
                         added=list((log.get("garmin") or {}).keys()))
         return outcome
@@ -591,10 +645,12 @@ def _register(mcp):
 
     @mcp.tool()
     def garmin_hr_zones(person: str) -> str:
-        """Fetch `person`'s configured Garmin heart-rate zones (max / resting / lactate
-        threshold HR and the five zone floors) and store them, so the app can show them
-        on the Home tab. Safe to re-run: only writes when something actually changed."""
-        return json.dumps(sync_hr_zones(person), indent=2)
+        """Refresh `person`'s configured Garmin heart-rate zones (max / resting / lactate
+        threshold HR and the five zone floors) shown on the app's Home tab, and backfill
+        time-in-zone onto any already-linked runs missing it. Safe to re-run: both halves
+        no-op when nothing changed."""
+        return json.dumps({"zones": sync_hr_zones(person),
+                           "run_zone_backfill": backfill_hr_zone_times(person)}, indent=2)
 
     @mcp.tool()
     def garmin_enrich_session(session_id: str, activity_id: str, person: str) -> str:
@@ -664,10 +720,11 @@ def _sync(args):
     print(json.dumps(fill_pending(person), indent=2))
 
 def _hrzones(args):
-    """`--hrzones [server-name]`: store the person's Garmin heart-rate zones so the app
-    can show them on Home. Deliberately NOT folded into `--sync`: zones change rarely,
-    and --sync is built to stay cheap by not contacting Garmin when nothing's pending.
-    Run occasionally (or schedule weekly) rather than hourly."""
+    """`--hrzones [server-name]`: refresh the person's Garmin heart-rate zones (shown on
+    Home) and backfill time-in-zone onto any already-linked runs missing it. Deliberately
+    NOT folded into `--sync`: zones barely ever change, and --sync stays cheap by not
+    contacting Garmin when nothing's pending. Run it after changing zones on Garmin;
+    both halves no-op when there's nothing to do, so re-running is free."""
     if args:
         _load_server_env(args[0])
         _ensure_ca_bundle()
@@ -675,7 +732,8 @@ def _hrzones(args):
     if not person:
         raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
                          "e.g. `python server.py --hrzones training-garmin`.")
-    print(json.dumps(sync_hr_zones(person), indent=2))
+    print(json.dumps({"zones": sync_hr_zones(person),
+                      "run_zone_backfill": backfill_hr_zone_times(person)}, indent=2))
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:

@@ -1077,8 +1077,8 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
     + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
     + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
-    + (isLifting(ex) ? '<div class="row" style="margin-top:6px;align-items:center;gap:6px">'
-        + '<span class="hint" style="margin:0">RPE</span><div class="diff" data-exrpe>'
+    + (isLifting(ex) ? '<div class="row" style="margin-top:6px;align-items:center;gap:6px;flex-wrap:nowrap">'
+        + '<span class="hint" style="margin:0;flex:none">RPE</span><div class="diff diff-sm" data-exrpe>'
         + [1,2,3,4,5,6,7,8,9,10].map(n=>'<button type="button" data-d="'+n+'">'+n+'</button>').join("")
         + '</div></div>' : '')
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
@@ -1422,7 +1422,8 @@ function drawHist(who){
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
-      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)+'</div></div>';
+      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)
+      + hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+'</div></div>';
   }).join("");
   justSavedId=null;
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
@@ -1960,10 +1961,16 @@ function saveSettingsPerson(){
     if(!wasNamed || confirm("Rename "+state.people[i]+" to \""+nm+"\"? Future logs save under the new name - history logged under \""+state.people[i]+"\" stays saved but won't show as this account's anymore unless you rename back to it exactly."))
       state.people[i]=nm;
   }
+  const prevWeight=(state.weights[i]||"").trim();
   state.colors[i]=readSwatchPicker(document.getElementById("pColor"));
   state.weights[i]=(document.getElementById("pWeight").value||"").trim();
   state.goals[i]=(document.getElementById("pGoals").value||"").trim();
-  const kg=parseFloat(state.weights[i]); if(!isNaN(kg)) addBodyweight(state.people[i], todayStr(), kg);
+  // Only record a bodyweight when the number was actually edited. This used to run on
+  // every settings close, so merely opening Settings on a new day stamped that day with
+  // the unchanged weight and the trend chart gained a flat point daily. Weigh-ins should
+  // come from a deliberate entry - here, the Body tab, or a scale import.
+  const kg=parseFloat(state.weights[i]);
+  if(!isNaN(kg) && state.weights[i]!==prevWeight) addBodyweight(state.people[i], todayStr(), kg);
   save(); renderPeople(); renderView();
 }
 setDlg.addEventListener("close", saveSettingsPerson);
@@ -2269,7 +2276,12 @@ function syncNow(quiet){
   return ghGetFile(cfg).then(function(remote){
     let merged={added:0,updated:0};
     if(remote.exists && remote.json){ merged=mergeInData(remote.json, false); save(); } // keep pulled data even if the push fails
-    return ghPutFile(cfg, JSON.stringify(exportPayload(),null,2), remote.exists?remote.sha:null)
+    // Push our state over the remote rather than replacing the file outright, so
+    // top-level keys this version doesn't know about survive. Without this, a phone
+    // running an older build silently deletes any field added since (hrZones, and
+    // whatever the Home Hub writes later) just by syncing.
+    const payload=Object.assign({}, (remote.exists&&remote.json)||{}, exportPayload());
+    return ghPutFile(cfg, JSON.stringify(payload,null,2), remote.exists?remote.sha:null)
       .then(function(res){
         cfg.sha=res&&res.content&&res.content.sha; saveSyncCfg(cfg);
         save(); renderPeople(); renderView();
@@ -2294,7 +2306,8 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. It appears once someone has run the Garmin zone sync on the laptop for you (<code>--hrzones</code>, see <code>mcp-garmin</code>); zones change rarely, so it doesn\'t need re-running often.'));
+     +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
+     +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> fills in the zone bar on any past runs missing it. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
 
   h+=card('1 &middot; Pick who you are',
       p('A brand-new install starts blank - no accounts, no program. <b>Create your account</b> with a name and a colour swatch to get going; nothing else is needed. A second person can join the same device later via <b>+ Add</b> next to the name toggle (or skip it and stay solo).')
@@ -2495,6 +2508,24 @@ function hrZonesCardHtml(person){
     + '<div class="hint" style="margin-top:6px">From Garmin'
     + (z.updated?' · updated '+esc(relTime(String(z.updated).slice(0,10))):'')+'</div></div>';
 }
+// Stacked bar of where a run's time actually sat across the HR zones (seconds per
+// zone, Z1..Z5, from Garmin - see mcp-garmin fetch_hr_zone_times). Complements the
+// zone-range card above: that says what the bands are, this says which you were in.
+function hrZoneBarHtml(secs){
+  if(!Array.isArray(secs)) return "";
+  const total=secs.reduce(function(t,s){ return t+(s||0); },0);
+  if(total<=0) return "";
+  const bar=secs.map(function(s,i){
+    return (s>0) ? '<span class="hrzbar-seg" data-z="'+(i+1)+'" style="width:'+(s/total*100).toFixed(2)+'%"'
+      + ' title="Z'+(i+1)+' '+esc(HR_ZONE_NAMES[i])+' · '+esc(fmtDuration(s))+'"></span>' : '';
+  }).join("");
+  let top=0;
+  secs.forEach(function(s,i){ if((s||0)>(secs[top]||0)) top=i; });
+  return '<div class="hrzbar">'+bar+'</div>'
+    + '<div class="ex-meta" style="margin-top:5px">Mostly <b>Z'+(top+1)+' '+esc(HR_ZONE_NAMES[top])+'</b> · '
+    + esc(fmtDuration(secs[top]))+' of '+esc(fmtDuration(total))
+    + ' ('+Math.round(secs[top]/total*100)+'%)</div>';
+}
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
@@ -2561,7 +2592,8 @@ function renderHome(){
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">🏃 Last run</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
       + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(lastRun.date)+'</span></h3>'
-      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(lastRun)+'</div></div>';
+      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(lastRun)+'</div>'
+      + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
   }
 
   html += hrZonesCardHtml(p);

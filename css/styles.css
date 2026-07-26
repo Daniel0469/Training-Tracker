@@ -126,6 +126,10 @@
   .diff{display:flex;gap:5px;flex-wrap:wrap}
   .diff button{border:1px solid var(--line);background:var(--input-bg);border-radius:8px;width:38px;height:34px;cursor:pointer;font-weight:700;color:var(--muted)}
   .diff button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+  /* Per-exercise RPE picker: ten buttons have to fit one line on a phone, so they
+     share the width instead of wrapping like the wider session-difficulty picker. */
+  .diff.diff-sm{flex:1 1 auto;flex-wrap:nowrap;gap:3px;min-width:0}
+  .diff.diff-sm button{width:auto;flex:1 1 0;min-width:0;height:30px;font-size:12.5px;padding:0}
   .tagpick{display:flex;gap:5px;flex-wrap:wrap}
   .tagpick button{border:1px solid var(--line);background:var(--input-bg);border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:600;font-size:12.5px;color:var(--muted)}
   .tagpick button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
@@ -147,6 +151,13 @@
   .hrz-dot[data-z="3"]{background:var(--hrz3)}
   .hrz-dot[data-z="4"]{background:var(--hrz4)}
   .hrz-dot[data-z="5"]{background:var(--hrz5)}
+  .hrzbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--line);margin-top:9px}
+  .hrzbar-seg{display:block;height:100%}
+  .hrzbar-seg[data-z="1"]{background:var(--hrz1)}
+  .hrzbar-seg[data-z="2"]{background:var(--hrz2)}
+  .hrzbar-seg[data-z="3"]{background:var(--hrz3)}
+  .hrzbar-seg[data-z="4"]{background:var(--hrz4)}
+  .hrzbar-seg[data-z="5"]{background:var(--hrz5)}
   .hrz-name{font-size:13px;font-weight:700}
   .hrz-sub{font-weight:500;color:var(--muted)}
   .hrz-range{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
