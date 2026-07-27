@@ -284,11 +284,41 @@ def get_running_form(data, person):
                          "avg_hr": g.get("avg_hr"), "max_hr": g.get("max_hr"),
                          "hr_zone_secs": g.get("hr_zone_secs")})
     runs.sort(key=lambda r: r.get("date") or "")
+    # Interval / speed work: not distance+time entries, so they're not "runs", but they
+    # are the hard efforts a 5k estimate most needs. Values are passed through verbatim
+    # under the person's own column names - see interval_units_warning below.
+    intervals = []
+    for l in data.get("logs", []):
+        if not l or l.get("person") != person:
+            continue
+        for e in (l.get("entries") or []):
+            if _is_run_entry(e):
+                continue
+            cols = [str(c) for c in (e.get("cols") or [])]
+            if not any(("pace" in c.lower() or "speed" in c.lower()) for c in cols):
+                continue
+            rows = e.get("rows") or []
+            if not any(any(str(v).strip() for v in (r or [])) for r in rows):
+                continue
+            g = l.get("garmin") or {}
+            intervals.append({"date": l.get("date"), "session": l.get("sessionName"),
+                              "exercise": e.get("name"), "target": None,
+                              "columns": cols, "rows": rows,
+                              "avg_hr": g.get("avg_hr"), "hr_zone_secs": g.get("hr_zone_secs")})
+    intervals.sort(key=lambda r: r.get("date") or "")
     preds = (data.get("racePredictions") or {}).get(person) or {}
     return {
         "person": person,
         "runs": runs,
         "run_count": len(runs),
+        "interval_sessions": intervals,
+        "interval_units_warning": (
+            "Interval values are passed through EXACTLY as typed, under the person's own "
+            "column names. A column called 'pace' may actually hold treadmill SPEED in km/h "
+            "(e.g. 12 means 12 km/h = 5:00/km), not minutes per km - reading it the wrong "
+            "way round gives a wildly wrong estimate. Work out which from context (a 'hard' "
+            "value LOWER than the 'easy' one means minutes per km; higher means km/h), and "
+            "if it's still ambiguous, ask rather than guessing."),
         "hr_zones": (data.get("hrZones") or {}).get(person) or None,
         "garmin_race_predictions_sec": {k: v for k, v in preds.items() if k in
                                         ("5k", "10k", "half", "marathon")} or None,
