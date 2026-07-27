@@ -230,10 +230,35 @@ def _is_run_entry(e):
 def _entry_has_rows(e):
     return any(any(str(v).strip() for v in (row or [])) for row in (e.get("rows") or []))
 
-def enrich_log(log, a, splits, zone_secs=None):
+def _run_cols(rows):
+    """Column labels for a run entry - HR only when the watch actually recorded it."""
+    has_hr = any(len(r) > 3 and r[3] != "" for r in rows)
+    return ["Distance (km)", "Time", "Pace"] + (["HR"] if has_hr else [])
+
+def _program_run_slot(program, session_key, log):
+    """Where a missing run entry belongs in a logged session: the program's own name
+    for the running exercise, plus the index to insert it at so it keeps its place in
+    the exercise order rather than being tacked on the end. Falls back to appending
+    under a generic name when the program has no running exercise to go by."""
+    sess = ((program or {}).get("sessions") or {}).get(session_key) or {}
+    exs = sess.get("exercises") or []
+    run_i = next((i for i, e in enumerate(exs) if _is_run_entry(e)), None)
+    if run_i is None:
+        return "Run", None
+    before = {e.get("name") for e in exs[:run_i] if e.get("name")}
+    idx = 0
+    for e in (log.get("entries") or []):
+        if e.get("name") not in before:
+            break
+        idx += 1
+    return exs[run_i].get("name") or "Run", idx
+
+def enrich_log(log, a, splits, zone_secs=None, program=None):
     """Attach Garmin's extra info to an already-logged session, without overwriting
-    what the person entered. Fills splits only if the run entry was left empty.
-    `zone_secs` (from fetch_hr_zone_times) adds time-in-HR-zone when available."""
+    what the person entered. Fills splits only if the run entry was left empty, and
+    recreates that entry entirely when the session hasn't got one (see below).
+    `zone_secs` (from fetch_hr_zone_times) adds time-in-HR-zone when available;
+    `program` places a recreated run entry in the right spot in the exercise order."""
     log["garminActivityId"] = a.get("activityId")
     log["garminWanted"] = False
     metrics = activity_metrics(a)
@@ -242,11 +267,20 @@ def enrich_log(log, a, splits, zone_secs=None):
     if metrics:
         log["garmin"] = metrics
     run_entry = next((e for e in log.get("entries", []) if _is_run_entry(e)), None)
-    if run_entry is not None and not _entry_has_rows(run_entry):
+    if run_entry is None:
+        # No run entry to fill: sessions saved before the app kept a blank one lost it
+        # at save time, so the run only ever showed as the Garmin summary line. Put it
+        # back where the program says it belongs, as if it had been logged by hand.
         rows = splits_to_rows_hr(splits, a)
         if rows:
-            has_hr = any(len(r) > 3 and r[3] != "" for r in rows)
-            run_entry["cols"] = ["Distance (km)", "Time", "Pace"] + (["HR"] if has_hr else [])
+            name, idx = _program_run_slot(program, log.get("sessionKey"), log)
+            entries = log.setdefault("entries", [])
+            entries.insert(len(entries) if idx is None else idx,
+                           {"name": name, "cols": _run_cols(rows), "rows": rows})
+    elif not _entry_has_rows(run_entry):
+        rows = splits_to_rows_hr(splits, a)
+        if rows:
+            run_entry["cols"] = _run_cols(rows)
             run_entry["rows"] = rows
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
@@ -460,7 +494,7 @@ def fill_pending(person, lookback=30):
             aid = a.get("activityId")
             if aid in taken:
                 continue
-            enrich_log(l, a, splits, zsecs)
+            enrich_log(l, a, splits, zsecs, data.get("program"))
             taken.add(aid)
             done.append({"session": l.get("sessionName"), "date": l.get("date"),
                          "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
@@ -568,6 +602,44 @@ def backfill_hr_zone_times(person, limit=50):
     return {"ok": True, "person": person, "filled": len(filled), "details": filled,
             "message": f"Added zone times to {len(filled)} run(s)."}
 
+def backfill_run_entries(person, limit=50):
+    """Restore the run on linked cardio sessions that have no run entry at all. Those
+    predate the app keeping a blank one on save, so the run showed only as the Garmin
+    summary line rather than in the exercise list. Garmin calls happen up front, so a
+    write retry never re-fetches them."""
+    data, _sha, _url, _token = _github_read_with_sha()
+    todo = [l for l in data.get("logs", [])
+            if l and l.get("person") == person and l.get("garminActivityId")
+            and not any(_is_run_entry(e) for e in (l.get("entries") or []))][:limit]
+    fetched = {}
+    for l in todo:
+        try:
+            a, splits = fetch_activity(l.get("garminActivityId"))
+        except Exception:
+            continue
+        rows = splits_to_rows_hr(splits, a)
+        if rows:
+            fetched[str(l.get("id"))] = rows
+    if not fetched:
+        return {"ok": True, "person": person, "filled": 0,
+                "message": f"No sessions needed their run restoring ({len(todo)} checked)."}
+    def mutate(data):
+        done = []
+        for l in data.get("logs", []):
+            rows = fetched.get(str(l.get("id")))
+            if not rows or any(_is_run_entry(e) for e in (l.get("entries") or [])):
+                continue                       # gone, or another run of this job did it
+            name, idx = _program_run_slot(data.get("program"), l.get("sessionKey"), l)
+            entries = l.setdefault("entries", [])
+            entries.insert(len(entries) if idx is None else idx,
+                           {"name": name, "cols": _run_cols(rows), "rows": rows})
+            done.append({"session": l.get("sessionName"), "date": l.get("date"), "added_as": name})
+        return done or None
+    filled = _github_update(
+        mutate, lambda f: f"Restore the run entry on {len(f)} of {person}'s cardio session(s)") or []
+    return {"ok": True, "person": person, "filled": len(filled), "details": filled,
+            "message": f"Restored the run on {len(filled)} session(s)."}
+
 def enrich_session(session_id, activity_id, person):
     """Manually link one specific Garmin run to one specific already-logged session,
     by id - for a session that has no way to be picked up by fill_pending (e.g. it
@@ -591,7 +663,7 @@ def enrich_session(session_id, activity_id, person):
             outcome["status"] = "already_linked"
             outcome["session"] = log.get("sessionName")
             return None
-        enrich_log(log, a, splits, zsecs)
+        enrich_log(log, a, splits, zsecs, data.get("program"))
         outcome.update(status="linked", session=log.get("sessionName"), date=log.get("date"),
                         added=list((log.get("garmin") or {}).keys()))
         return outcome
@@ -650,7 +722,8 @@ def _register(mcp):
         time-in-zone onto any already-linked runs missing it. Safe to re-run: both halves
         no-op when nothing changed."""
         return json.dumps({"zones": sync_hr_zones(person),
-                           "run_zone_backfill": backfill_hr_zone_times(person)}, indent=2)
+                           "run_zone_backfill": backfill_hr_zone_times(person),
+                           "run_entry_backfill": backfill_run_entries(person)}, indent=2)
 
     @mcp.tool()
     def garmin_enrich_session(session_id: str, activity_id: str, person: str) -> str:
@@ -733,7 +806,8 @@ def _hrzones(args):
         raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
                          "e.g. `python server.py --hrzones training-garmin`.")
     print(json.dumps({"zones": sync_hr_zones(person),
-                      "run_zone_backfill": backfill_hr_zone_times(person)}, indent=2))
+                      "run_zone_backfill": backfill_hr_zone_times(person),
+                      "run_entry_backfill": backfill_run_entries(person)}, indent=2))
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
