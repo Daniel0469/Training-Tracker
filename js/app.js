@@ -932,7 +932,7 @@ function renderLog(){
 
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
   if((sess.exercises||[]).some(e=>isRunning(e))){
-    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - the run\'s distance, splits, pace &amp; ♥ HR fill in automatically once it syncs. Otherwise type the splits below, or <b>⬆ import</b> a file.</div>';
+    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>';
   }
 
   html += '<div id="exForm">';
@@ -2329,6 +2329,7 @@ function renderHelp(){
 
   h+=card('4 &middot; Cardio &amp; running',
       p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs; the run starts as a single blank row and shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
+     +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
 
