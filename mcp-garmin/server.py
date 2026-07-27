@@ -271,12 +271,16 @@ def enrich_log(log, a, splits, zone_secs=None, program=None):
         # No run entry to fill: sessions saved before the app kept a blank one lost it
         # at save time, so the run only ever showed as the Garmin summary line. Put it
         # back where the program says it belongs, as if it had been logged by hand.
-        rows = splits_to_rows_hr(splits, a)
-        if rows:
-            name, idx = _program_run_slot(program, log.get("sessionKey"), log)
-            entries = log.setdefault("entries", [])
-            entries.insert(len(entries) if idx is None else idx,
-                           {"name": name, "cols": _run_cols(rows), "rows": rows})
+        # Only when the program HAS a running exercise for this session, though: an
+        # interval session ("Hard pace"/"Easy pace" columns) links to Garmin too but
+        # has no run entry to restore, and inventing one would add an exercise that
+        # was never done - its paces are typed in by hand.
+        name, idx = _program_run_slot(program, log.get("sessionKey"), log)
+        if idx is not None:
+            rows = splits_to_rows_hr(splits, a)
+            if rows:
+                log.setdefault("entries", []).insert(
+                    idx, {"name": name, "cols": _run_cols(rows), "rows": rows})
     elif not _entry_has_rows(run_entry):
         rows = splits_to_rows_hr(splits, a)
         if rows:

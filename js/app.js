@@ -557,6 +557,12 @@ function isLifting(ex){ return /kg|assist/i.test(ex.cols[0]) && /rep/i.test(ex.c
 // A running exercise carries both a distance and a time column (any order),
 // which lets us auto-compute pace. Rows are splits.
 function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(c=>/time/i.test(c)); }
+// Does a Garmin activity correspond to this exercise? Every run does, but so does
+// an interval piece whose columns are paces rather than distance+time - those are
+// still recorded on the watch. Kept separate from isRunning() on purpose: that one
+// drives pace auto-compute, splits and the run importer, which only make sense for
+// a real distance+time entry. This one only decides "expect a Garmin activity".
+function isGarminCardio(ex){ return isRunning(ex) || ex.garminRun===true; }
 function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
 function parseTimeToMin(s){
   s=String(s).trim(); if(!s) return NaN;
@@ -936,6 +942,10 @@ function renderLog(){
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
   if((sess.exercises||[]).some(e=>isRunning(e))){
     html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>';
+  } else if((sess.exercises||[]).some(e=>isGarminCardio(e))){
+    // Interval-style cardio: the person types their own paces, so Garmin only adds
+    // the measurements it alone knows (HR, zones, calories) - it never overwrites.
+    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
   }
 
   html += '<div id="exForm">';
@@ -1259,9 +1269,11 @@ function saveSession(){
   const durationSec = timerElapsed(getTimer());
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
     entries, feedback, difficulty, volume, durationSec };
-  // Cardio/running session: flag it so the Garmin sync (laptop) can link the run's
-  // extra data (HR, cadence, elevation, splits…). Cleared once linked; see mcp-garmin.
-  if(entries.some(en=>isRunning(en))) log.garminWanted=true;
+  // Cardio session: flag it so the Garmin sync (laptop) can link the activity's extra
+  // data (HR, zones, cadence, calories, and splits when the run row was left blank).
+  // Checks the PROGRAM, not the saved entries, because an interval exercise carries a
+  // garminRun flag that the logged entry doesn't. Cleared once linked; see mcp-garmin.
+  if((sess.exercises||[]).some(e=>isGarminCardio(e))) log.garminWanted=true;
   state.logs.push(log); save();
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
@@ -1818,6 +1830,7 @@ function openExDlg(sessionKey,ei){
   document.getElementById("exCol0").value=ex.cols[0];
   document.getElementById("exCol1").value=ex.cols[1];
   document.getElementById("exCol2").value=ex.cols[2]||"";
+  document.getElementById("exGarmin").checked = ex.garminRun===true;
   exMusclesTouched = false;
   renderMuscleTags(document.getElementById("exMuscles"),
     (ex.muscles&&ex.muscles.length) ? ex.muscles : classifyMuscles(ex.name));
@@ -1860,6 +1873,7 @@ document.getElementById("exSave").onclick=()=>{
     target:document.getElementById("exTarget").value.trim()||"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
+  if(document.getElementById("exGarmin").checked) ex.garminRun=true;
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
@@ -2335,6 +2349,7 @@ function renderHelp(){
 
   h+=card('4 &middot; Cardio &amp; running',
       p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs; the run starts as a single blank row and shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
+     +p('<b>Interval / speed sessions</b> work slightly differently: you type your own <b>hard and easy paces</b>, and Garmin adds only what it alone measures - <b>♥ HR, heart-rate zones and calories</b> - without overwriting anything you entered. That works because the exercise is ticked <b>⌚ Garmin records this</b> in Edit Program (real distance+time runs are detected automatically; tick it for cardio logged as paces instead). These hard efforts are also the most valuable data for your <b>🏁 Estimated 5k</b>.')
      +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
