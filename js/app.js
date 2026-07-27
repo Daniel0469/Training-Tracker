@@ -461,6 +461,9 @@ function load(){
       // Garmin heart-rate zones, keyed by person name like `coaching`. Written by
       // mcp-garmin (`--hrzones`), read-only in the app.
       if(!s.hrZones || typeof s.hrZones!=="object") s.hrZones={};
+      // Garmin's own race-time predictions, keyed by person. Input for the coach's
+      // 5k estimate (and the unreviewed fallback on Home), never edited in the app.
+      if(!s.racePredictions || typeof s.racePredictions!=="object") s.racePredictions={};
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
       if(!Array.isArray(s.meals)) s.meals=[];
       if(!Array.isArray(s.bodyweights)){
@@ -493,7 +496,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
@@ -2011,7 +2014,8 @@ function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
-    bodyweights:state.bodyweights, hrZones:state.hrZones, program:state.program, logs:state.logs};
+    bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
+    program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -2028,6 +2032,7 @@ function mergeInData(data, adoptConfig){
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
   // Same per-person overwrite as coaching: Garmin is the source of truth for zones.
   if(data.hrZones && typeof data.hrZones==="object"){ if(!state.hrZones) state.hrZones={}; Object.keys(data.hrZones).forEach(function(p){ state.hrZones[p]=data.hrZones[p]; }); }
+  if(data.racePredictions && typeof data.racePredictions==="object"){ if(!state.racePredictions) state.racePredictions={}; Object.keys(data.racePredictions).forEach(function(p){ state.racePredictions[p]=data.racePredictions[p]; }); }
   // Coaching history: union by id (every past coach write, so improvement can be tracked).
   if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
   // Improvement suggestions: union by id, and a "done" status wins from either
@@ -2307,6 +2312,7 @@ function renderHelp(){
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
+     +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
 
   h+=card('1 &middot; Pick who you are',
@@ -2527,6 +2533,35 @@ function hrZoneBarHtml(secs){
     + esc(fmtDuration(secs[top]))+' of '+esc(fmtDuration(total))
     + ' ('+Math.round(secs[top]/total*100)+'%)</div>';
 }
+// Estimated 5k. Normally the coach's considered figure (written via write_coaching's
+// five_k), which weighs Garmin's race prediction against the runs actually logged.
+// Until the coach has looked, Garmin's own prediction shows instead - clearly marked
+// unreviewed, because that model runs optimistic without hard efforts to learn from.
+function fiveKCardHtml(person){
+  const est=((state.coaching&&state.coaching[person])||{}).fiveK;
+  const pred=(state.racePredictions&&state.racePredictions[person])||null;
+  let time, pace, basis, conf, when;
+  if(est && est.time){
+    time=est.time;
+    pace=est.pace||"";
+    basis=est.basis||"";
+    conf=(est.confidence||"").toLowerCase();
+    when=est.updated ? "Coach · "+relTime(String(est.updated).slice(0,10)) : "From your coach";
+  } else if(pred && pred["5k"]){
+    time=fmtDuration(pred["5k"]);
+    pace=fmtDuration(pred["5k"]/5);
+    basis="Garmin's own prediction - your coach hasn't reviewed this against your logged runs yet.";
+    conf="unreviewed";
+    when=pred.updated ? "Garmin · "+relTime(String(pred.updated).slice(0,10)) : "From Garmin";
+  } else return "";
+  return '<div class="card"><div class="flex-between" style="align-items:baseline">'
+    + '<div class="sec-title" style="margin:0">🏁 Estimated 5k</div>'
+    + (conf?'<span class="conf" data-c="'+esc(conf)+'">'+esc(conf)+(conf==="unreviewed"?"":" confidence")+'</span>':'')
+    + '</div>'
+    + '<div class="fivek">'+esc(time)+(pace?'<span class="sub"> · '+esc(pace)+' /km</span>':'')+'</div>'
+    + (basis?'<div class="ex-meta" style="margin-top:2px">'+esc(basis)+'</div>':'')
+    + '<div class="hint" style="margin-top:5px">'+esc(when)+'</div></div>';
+}
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
@@ -2597,6 +2632,7 @@ function renderHome(){
       + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
   }
 
+  html += fiveKCardHtml(p);
   html += hrZonesCardHtml(p);
 
   if(bw.length>=2){

@@ -151,6 +151,12 @@
   .hrz-dot[data-z="3"]{background:var(--hrz3)}
   .hrz-dot[data-z="4"]{background:var(--hrz4)}
   .hrz-dot[data-z="5"]{background:var(--hrz5)}
+  .fivek{font-size:26px;font-weight:800;letter-spacing:-.01em;margin-top:6px}
+  .fivek .sub{font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .conf{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:20px;white-space:nowrap;background:var(--line);color:var(--muted)}
+  .conf[data-c="high"]{background:var(--hrz2);color:#fff}
+  .conf[data-c="medium"]{background:var(--hrz3);color:#fff}
+  .conf[data-c="low"]{background:var(--hrz4);color:#fff}
   .hrzbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--line);margin-top:9px}
   .hrzbar-seg{display:block;height:100%}
   .hrzbar-seg[data-z="1"]{background:var(--hrz1)}

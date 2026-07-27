@@ -43,6 +43,16 @@ the prompt below.
 >   next time", a form cue, or a "back off if it hurts"). Aim to leave one on every exercise you can.
 > - `overall` = *optional* general note shown on every session — use it only for something that
 >   isn't session-specific; otherwise lean on `by_session`.
+> - `five_k` = the **🏁 Estimated 5k** card on their Home tab, as
+>   `{ "time": "24:30", "pace": "4:54", "basis": "…", "confidence": "low|medium|high" }`.
+>   **Call `running_form(person)` first** — it returns every logged run (distance, pace, avg HR,
+>   seconds per HR zone), their HR zones, and Garmin's own race prediction. Treat Garmin's number
+>   as **input, not the answer**: it comes from a VO₂max model and reads optimistic when there's
+>   little hard running logged. Equally, a naive Riegel extrapolation
+>   (`T2 = T1 × (D2/D1)^1.06`) of an *easy Zone-2* run reads far too slow, because easy pace is
+>   well off race pace. Weigh both, say plainly in `basis` what you used, and keep `confidence`
+>   at **low** until there's a hard effort or time trial to go on. **Re-write it whenever a new
+>   run changes the picture** — it's stale otherwise, and the card shows when it was last updated.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **Style:** specific over generic; tie advice to their goals, recent numbers, and their stated
@@ -62,6 +72,7 @@ the prompt below.
 - "Is Daniel's squat progressing? Chart it and push a cue."
 - "Set a cue on Lateral raise for both — Cerys flagged form."
 - "Clear Daniel's coaching for a fresh week." *(the coach can overwrite `overall`/cues)*
+- "Re-check Daniel's estimated 5k after that run." *(`running_form` → `write_coaching(five_k=…)`)*
 
 ## Notes
 - Coaching **replaces/merges** per person each time you write — writing a new `overall` overwrites

@@ -548,6 +548,46 @@ def fetch_hr_zones():
          "updated": datetime.datetime.now().isoformat(timespec="seconds")}
     return {k: v for k, v in z.items() if v is not None}
 
+def fetch_race_predictions():
+    """Garmin's own race-time predictions in seconds, from its VO2max model. Objective
+    input for the coach's 5k estimate - it is NOT displayed raw as fact, because the
+    model runs optimistic when there's little hard running to go on."""
+    try:
+        rp = garmin_client().get_race_predictions() or {}
+    except Exception:
+        return None
+    out = {}
+    for key, field in (("5k", "time5K"), ("10k", "time10K"),
+                       ("half", "timeHalfMarathon"), ("marathon", "timeMarathon")):
+        v = _num(rp.get(field))
+        if v:
+            out[key] = int(v)
+    if not out:
+        return None
+    if rp.get("calendarDate"):
+        out["calendarDate"] = rp["calendarDate"]
+    out["updated"] = datetime.datetime.now().isoformat(timespec="seconds")
+    return out
+
+_RACE_KEYS = ("5k", "10k", "half", "marathon")
+
+def sync_race_predictions(person):
+    """Store Garmin's race predictions for the coach to reason from. No-ops when the
+    numbers haven't moved, so re-running never writes a pointless commit."""
+    rp = fetch_race_predictions()
+    if not rp:
+        return {"ok": False, "message": "Garmin returned no race predictions."}
+    def mutate(data):
+        preds = data.setdefault("racePredictions", {})
+        cur = preds.get(person) or {}
+        if all(cur.get(k) == rp.get(k) for k in _RACE_KEYS):
+            return None
+        preds[person] = rp
+        return rp
+    changed = _github_update(mutate, f"Update {person}'s Garmin race predictions")
+    return {"ok": True, "person": person, "predictions": rp, "changed": bool(changed),
+            "message": "Stored." if changed else "Already up to date - nothing written."}
+
 # Fields that decide whether the stored zones are actually stale (`updated` always
 # differs, so comparing the whole dict would rewrite the store on every run).
 _HRZ_KEYS = ("floors", "maxHr", "restingHr", "thresholdHr", "method")
@@ -722,6 +762,7 @@ def _register(mcp):
         time-in-zone onto any already-linked runs missing it. Safe to re-run: both halves
         no-op when nothing changed."""
         return json.dumps({"zones": sync_hr_zones(person),
+                           "race_predictions": sync_race_predictions(person),
                            "run_zone_backfill": backfill_hr_zone_times(person),
                            "run_entry_backfill": backfill_run_entries(person)}, indent=2)
 
@@ -806,6 +847,7 @@ def _hrzones(args):
         raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
                          "e.g. `python server.py --hrzones training-garmin`.")
     print(json.dumps({"zones": sync_hr_zones(person),
+                      "race_predictions": sync_race_predictions(person),
                       "run_zone_backfill": backfill_hr_zone_times(person),
                       "run_entry_backfill": backfill_run_entries(person)}, indent=2))
 

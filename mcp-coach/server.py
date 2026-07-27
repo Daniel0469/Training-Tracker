@@ -112,16 +112,21 @@ def _today():
     import datetime
     return datetime.date.today().isoformat()
 
-def set_coaching(person, overall="", by_exercise=None, by_session=None):
+def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
-    `by_exercise` maps exercise name -> a short next-step cue. All are merged into
-    any existing coaching. Shows in the app on Home + the log form after the person syncs."""
+    `by_exercise` maps exercise name -> a short next-step cue; `five_k` is the
+    estimated-5k card. All are merged into any existing coaching. Shows in the app on
+    Home + the log form after the person syncs."""
     def mutate(data):
         coaching = data.get("coaching") or {}
         entry = coaching.get(person) or {}
         if overall:
             entry["overall"] = overall
+        if five_k:
+            fk = dict(five_k)
+            fk["updated"] = _today()
+            entry["fiveK"] = fk
         if by_session:
             merged = dict(entry.get("bySession") or {})
             merged.update(by_session)
@@ -141,6 +146,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None):
         if overall: rec["overall"] = overall
         if by_session: rec["bySession"] = dict(by_session)
         if by_exercise: rec["byExercise"] = dict(by_exercise)
+        if five_k: rec["fiveK"] = dict(five_k)
         if len(rec) > 3:                  # something beyond id/date/person was written
             hist.append(rec)
             data["coachingLog"] = hist
@@ -240,6 +246,56 @@ def get_bodyweight(data, person):
     bws.sort(key=lambda b: b.get("date", ""))
     return [{"date": b.get("date"), "kg": b.get("kg")} for b in bws]
 
+def _is_run_entry(e):
+    """A running entry carries both a distance and a time column (same test as
+    isRunning in js/app.js and _is_run_entry in mcp-garmin)."""
+    cols = e.get("cols") or []
+    return (any("dist" in str(c).lower() for c in cols)
+            and any("time" in str(c).lower() for c in cols))
+
+def _mmss(sec):
+    sec = round(sec or 0)
+    m, s = divmod(int(sec), 60)
+    return f"{m}:{s:02d}"
+
+def get_running_form(data, person):
+    """Raw material for estimating a 5k: every logged run, the person's Garmin HR zones,
+    Garmin's race predictions, and whatever estimate is currently on their Home tab."""
+    runs = []
+    for l in data.get("logs", []):
+        if not l or l.get("person") != person:
+            continue
+        for e in (l.get("entries") or []):
+            if not _is_run_entry(e):
+                continue
+            km = 0.0
+            for r in (e.get("rows") or []):
+                try:
+                    km += float(str(r[0]).strip())
+                except (TypeError, ValueError, IndexError):
+                    pass
+            if km <= 0:
+                continue
+            g = l.get("garmin") or {}
+            sec = l.get("durationSec") or 0
+            runs.append({"date": l.get("date"), "session": l.get("sessionName"),
+                         "distance_km": round(km, 2), "duration_sec": sec,
+                         "pace_per_km": _mmss((sec / km)) if sec and km else None,
+                         "avg_hr": g.get("avg_hr"), "max_hr": g.get("max_hr"),
+                         "hr_zone_secs": g.get("hr_zone_secs")})
+    runs.sort(key=lambda r: r.get("date") or "")
+    preds = (data.get("racePredictions") or {}).get(person) or {}
+    return {
+        "person": person,
+        "runs": runs,
+        "run_count": len(runs),
+        "hr_zones": (data.get("hrZones") or {}).get(person) or None,
+        "garmin_race_predictions_sec": {k: v for k, v in preds.items() if k in
+                                        ("5k", "10k", "half", "marathon")} or None,
+        "garmin_predictions_updated": preds.get("updated"),
+        "current_estimate": ((data.get("coaching") or {}).get(person) or {}).get("fiveK"),
+    }
+
 def get_suggestions(data, include_done=False):
     subs = data.get("suggestions") or []
     return [s for s in subs if include_done or s.get("status") != "done"]
@@ -324,16 +380,37 @@ def _register(mcp):
         return json.dumps(get_coaching_history(load_data(), person, limit), indent=2)
 
     @mcp.tool()
+    def running_form(person: str) -> str:
+        """Everything needed to estimate `person`'s 5k: every logged run (date, distance,
+        duration, pace, avg HR, seconds per HR zone), their Garmin HR zones, Garmin's own
+        race predictions, and the 5k estimate currently showing in the app.
+
+        Garmin's prediction is INPUT, not the answer - it comes from a VO2max model and
+        runs optimistic when someone has little hard running logged. Weigh it against the
+        actual runs: easy Zone-2 runs understate race pace, so a naive Riegel
+        extrapolation (T2 = T1 x (D2/D1)^1.06) of an easy run reads far too slow. Land on
+        a considered figure, and be honest in `basis`/`confidence` about how thin the
+        evidence is. Write it with write_coaching(five_k=...)."""
+        return json.dumps(get_running_form(load_data(), person), indent=2)
+
+    @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
-                       by_session: dict | None = None) -> str:
+                       by_session: dict | None = None, five_k: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
         `by_exercise` = {exact exercise name: a concrete next step} shown on that exercise
         (e.g. "hit 5x5 @100 — add 2.5kg next time"). Give one per exercise you have advice on.
         `overall` = an optional general note shown on every session.
+        `five_k` = the estimated-5k card on Home, as
+        {"time": "24:30", "pace": "4:54", "basis": "one line on what it's from",
+         "confidence": "low" | "medium" | "high"}. Read running_form(person) first - it
+        explains how to weigh Garmin's prediction against the actual logged runs. Say
+        plainly in `basis` what it rests on; use "low" while there's no hard effort or
+        time trial to go on. Re-write it whenever a new run changes the picture.
         All merge into existing coaching. They see it after tapping Sync now."""
-        return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {}), indent=2)
+        return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
+                                       five_k or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
