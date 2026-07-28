@@ -1144,6 +1144,10 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
       + '</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
     + warmupHtml
     + (running && lastRun ? '<div class="recent">🏃 Last run: <b>'+esc(lastRun)+'</b></div>' : "")
+    // Saved machine settings read out in place - no point hiding the seat height
+    // behind a tap when you're stood at the machine. The 🔧 still opens the
+    // editor (which replaces this line while it's open).
+    + '<div class="notes" data-exnotes-view'+(ex.notes?'':' hidden')+'>&#128295; '+esc(ex.notes||"")+'</div>'
     + '<div class="notes-wrap" data-notes-wrap hidden>'
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
       + '</div>'
@@ -1252,11 +1256,25 @@ function wireExCard(card, ex){
   const notesEl=card.querySelector("[data-exnotes]");
   const notesWrap=card.querySelector("[data-notes-wrap]");
   const notesBtn=card.querySelector("[data-exnotes-toggle]");
+  const notesView=card.querySelector("[data-exnotes-view]");
+  // The read-out line and the editor are the same information, so only one of
+  // them is on screen at a time.
+  const showView=()=>{
+    if(!notesView) return;
+    notesView.innerHTML="&#128295; "+esc(ex.notes||"");
+    if(ex.notes) notesView.removeAttribute("hidden"); else notesView.setAttribute("hidden","");
+  };
   if(notesBtn && notesWrap){
     notesBtn.onclick=()=>{
       const opening=notesWrap.hasAttribute("hidden");
-      if(opening){ notesWrap.removeAttribute("hidden"); if(notesEl) notesEl.focus(); }
-      else notesWrap.setAttribute("hidden","");
+      if(opening){
+        notesWrap.removeAttribute("hidden");
+        if(notesView) notesView.setAttribute("hidden","");
+        if(notesEl) notesEl.focus();
+      } else {
+        notesWrap.setAttribute("hidden","");
+        showView();
+      }
       notesBtn.setAttribute("aria-expanded", opening?"true":"false");
     };
   }
@@ -2404,7 +2422,7 @@ function renderHelp(){
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
-     +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
+     +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('Lifting exercises get an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')

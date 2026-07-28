@@ -86,6 +86,9 @@
   .wrench:hover,.wrench[aria-expanded="true"],.wrench.has{opacity:1}
   .notes-wrap{margin-bottom:7px}
   .notes-wrap[hidden]{display:none}
+  /* .notes sets display:block, which beats the browser's [hidden] rule - both
+     the read-out line and the editor need this to actually disappear. */
+  .notes[hidden]{display:none}
   textarea.notes{width:100%;font-family:inherit;line-height:1.35;resize:vertical;min-height:24px;overflow:hidden}
   textarea.notes::placeholder{color:#a89a60;opacity:1}
   :root[data-theme="dark"] textarea.notes::placeholder{color:#8a7f4e}
