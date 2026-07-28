@@ -438,12 +438,13 @@ let activeTab = "home";
 let curSession = state.program.order[0];
 let curDate = trainingDateStr();
 let justSavedId = null;
-// In-memory, per person+session drafts of the in-progress log form, so
-// switching person (or session) mid-entry doesn't wipe unsaved sets. Lets
-// both people log from one phone. Not persisted: a page reload clears them.
+// Per person+session drafts of the in-progress log form, so switching person
+// (or session) mid-entry doesn't wipe unsaved sets. Lets both people log from
+// one phone. Persisted (see loadDrafts) so a mid-workout reload keeps them.
 let formDrafts = {};
-// Per person+session workout timers (same keying as formDrafts). Also
-// in-memory: a page reload clears them.
+// Per person+session workout timers (same keying as formDrafts), persisted
+// alongside the drafts. Elapsed time is wall-clock, so a timer left running
+// keeps counting across a reload exactly as it does across a backgrounded app.
 let sessionTimers = {};
 let timerInterval = null;
 
@@ -499,6 +500,37 @@ function load(){
   return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+// ---- In-progress log form (drafts + timers) ----
+// Kept in their own localStorage key, never in the export/sync payload: an
+// unsaved half-entered form is this device's work-in-progress, not shared data.
+// These used to be memory-only, which is why entries "cleared randomly during a
+// workout" - a phone that backgrounds the app long enough for the browser to
+// discard the page reloads into an empty form. Anything older than a session's
+// worth of hours is dropped rather than resurfacing days later.
+const DRAFT_KEY = KEY + "_drafts";
+const DRAFT_TTL_MS = 12*60*60*1000;
+function loadDrafts(){
+  try{
+    const d=JSON.parse(localStorage.getItem(DRAFT_KEY));
+    if(d && d.savedAt && (Date.now()-d.savedAt) < DRAFT_TTL_MS)
+      return {drafts:d.drafts||{}, timers:d.timers||{}};
+  }catch(e){}
+  return {drafts:{}, timers:{}};
+}
+function saveDrafts(){
+  try{
+    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length){
+      localStorage.removeItem(DRAFT_KEY); return;
+    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers}));
+  }catch(e){}
+}
+// Restored here rather than where they're declared: DRAFT_KEY isn't initialised
+// yet at that point (const, same script).
+const restoredDrafts = loadDrafts();
+formDrafts = restoredDrafts.drafts;
+sessionTimers = restoredDrafts.timers;
 
 function toast(msg){
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
@@ -780,6 +812,20 @@ function relTime(dateStr){
 }
 
 function draftKey(){ return state.people[state.activePerson]+"|"+curSession; }
+// Typing doesn't re-render, so nothing used to reach localStorage between the
+// explicit capture points (tab/person/session switch) - a phone that discarded
+// the page mid-set lost that set. Debounced so it's one write per pause, not
+// one per keystroke.
+let draftSaveTimer=null;
+function scheduleDraftSave(){
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer=setTimeout(()=>{ draftSaveTimer=null; captureDraft(); }, 700);
+}
+function flushDraftSave(){ clearTimeout(draftSaveTimer); draftSaveTimer=null; captureDraft(); }
+// Last chance to keep the form: iOS discards backgrounded pages without warning,
+// and pagehide/hidden is the only notice we get before it happens.
+window.addEventListener("pagehide", flushDraftSave);
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushDraftSave(); });
 // Read the live log form into formDrafts under the current person+session,
 // or drop the draft if nothing has been entered. Call before any action that
 // re-renders the form (person/session/date change, tab switch).
@@ -815,6 +861,7 @@ function captureDraft(){
   if(difficulty!=null||feedback.trim()!=="") any=true;
   const key=draftKey();
   if(any) formDrafts[key]={entries,difficulty,feedback}; else delete formDrafts[key];
+  saveDrafts();
 }
 // Re-apply a saved draft onto the freshly-rendered form. Returns true if one
 // was restored. Runs after the form is wired so added rows get their handlers.
@@ -875,15 +922,17 @@ function startTimer(){
   const key=draftKey();
   const t=sessionTimers[key] || {elapsedSec:0, running:false, lastStart:0};
   if(!t.running){ t.running=true; t.lastStart=Date.now(); sessionTimers[key]=t; }
+  saveDrafts();
   ensureTimerTick(); updateTimerUI();
 }
 function pauseTimer(){
   const t=sessionTimers[draftKey()]; if(!t||!t.running) return;
   t.elapsedSec += (Date.now()-t.lastStart)/1000; t.running=false;
+  saveDrafts();
   updateTimerUI();
 }
 function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) pauseTimer(); else startTimer(); }
-function resetTimer(){ delete sessionTimers[draftKey()]; updateTimerUI(); }
+function resetTimer(){ delete sessionTimers[draftKey()]; saveDrafts(); updateTimerUI(); }
 // Auto-start on the first bit of data entered, but never fight a deliberate
 // pause: only starts when no timer has ever been created for this key.
 function startTimerIfIdle(){ if(!sessionTimers[draftKey()]) startTimer(); }
@@ -993,13 +1042,14 @@ function renderLog(){
     if(ex) wireExCard(card, ex);
   });
   document.getElementById("saveSession").onclick=saveSession;
-  document.getElementById("clearForm").onclick=()=>{ delete formDrafts[draftKey()]; renderView(); };
+  document.getElementById("clearForm").onclick=()=>{ delete formDrafts[draftKey()]; saveDrafts(); renderView(); };
   document.getElementById("timerToggle").onclick=toggleTimer;
   document.getElementById("timerReset").onclick=resetTimer;
-  const startOnEntry=()=>startTimerIfIdle();
+  const startOnEntry=()=>{ startTimerIfIdle(); scheduleDraftSave(); };
   const form=document.getElementById("exForm");
   form.addEventListener("input", startOnEntry);
   form.addEventListener("change", startOnEntry);
+  document.getElementById("feedback").addEventListener("input", scheduleDraftSave);
   restoreDraft();
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ex=sess.exercises[+card.dataset.ei];
@@ -1277,6 +1327,7 @@ function saveSession(){
   state.logs.push(log); save();
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
+  saveDrafts();
   justSavedId=log.id;
   switchTab("history", true); // draft just cleared above — don't re-capture it
   showSaveSummary(volume, prs, entries);
@@ -2303,6 +2354,10 @@ function syncNow(quiet){
     return ghPutFile(cfg, JSON.stringify(payload,null,2), remote.exists?remote.sha:null)
       .then(function(res){
         cfg.sha=res&&res.content&&res.content.sha; saveSyncCfg(cfg);
+        // A sync can land mid-workout (adding a suggestion, saving machine
+        // settings and the on-open pull all trigger one), and the re-render
+        // below rebuilds the log form - capture what's typed first or it's gone.
+        captureDraft();
         save(); renderPeople(); renderView();
         setSyncStatus("Synced "+new Date().toLocaleTimeString()+" · +"+merged.added+" new, "+merged.updated+" updated");
         if(!quiet) toast("Synced"); else if(merged.added||merged.updated) toast("Synced · "+(merged.added+merged.updated)+" update"+(merged.added+merged.updated===1?"":"s")+" pulled");
@@ -2341,7 +2396,8 @@ function renderHelp(){
      +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('Lifting exercises get an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
-     +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.'));
+     +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
+     +p('<b>Your entry is kept safe.</b> What you\'ve typed is stored on the device as you go, so nothing is lost by leaving the app, switching person, a sync landing mid-set, or your phone dropping the page and reloading it - come back and the sets (and the running timer) are still there. It\'s cleared once you save the session, tap <b>Clear</b>, or leave it more than about 12 hours.'));
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
