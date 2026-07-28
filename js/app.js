@@ -1059,13 +1059,24 @@ function renderLog(){
   if(getTimer().running) ensureTimerTick();
 }
 
+// Which on-screen keyboard a column asks for. This used to be decided per
+// exercise - only a lifting exercise got a keypad - so any other numeric column
+// popped the full text keyboard mid-set ("lunges comes up with keyboard instead
+// of numpad": its second column is Distance (m), not Reps). Decided per column
+// name instead. Times (mm:ss) and free text still need real letters/colons.
+function colInputMode(col){
+  const c=String(col||"");
+  if(/time|pace|note|comment/i.test(c)) return "";
+  if(/kg|weight|dist|km|level|speed|incline|%/i.test(c)) return "decimal";
+  if(/rep|hr|bpm|cal|min|sec|watt|rpm|cadence|count|step|round/i.test(c)) return "numeric";
+  return "";
+}
 function setRowHtml(n,ex,prevCell){
-  const lifting = isLifting(ex);
   const paceIdx = isRunning(ex) ? colIndex(ex,/pace/i) : -1;
   let cells="";
   ex.cols.forEach((c,ci)=>{
-    let attr="";
-    if(lifting) attr = (ci===0 ? ' inputmode="decimal"' : ' inputmode="numeric"');
+    const im=colInputMode(c);
+    let attr = im ? ' inputmode="'+im+'"' : "";
     if(ci===paceIdx) attr += ' readonly';
     cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(c)+'"></td>';
   });
@@ -2391,7 +2402,7 @@ function renderHelp(){
 
   h+=card('2 &middot; Log a workout',
       p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
-     +p('Type <b>weight</b> and <b>reps</b> per set (phones show a number pad). Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
+     +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('Tap the <b>🔧</b> next to an exercise name to open its <b>machine settings</b> (seat height, pins). You can edit them <b>mid-session</b> and they\'re saved to the program for next time; the wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
