@@ -51,6 +51,20 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   per set**, and **superset/circuit grouping** (see the roadmap section for what shipped).
 - `CACHE_NAME` is now `tt-v68`.
 
+**Backlog session (2026-07-28)** — six in-app suggestions cleared, all deployed:
+- **Log form no longer loses entries.** A sync landing mid-workout re-rendered the form without
+  capturing it (that's the "adding a suggestion resets the workout entries" report), and drafts were
+  memory-only so a phone discarding the page reloaded into an empty form (the "cleared randomly"
+  one). Drafts + timers now persist (see the file map) and every re-render path captures first.
+- **Number pad on every numeric column** (`colInputMode`), not just lifting ones — lunges'
+  *Distance (m)* used to pop the text keyboard. *Time*/*Pace*/*Notes* deliberately still don't.
+- **🔧 machine settings are shown on the exercise** when set, instead of only after tapping.
+- **Per-session 🔥 warm-up / 🧊 cool-down notes** (`session.warmupNote`/`cooldownNote`), written in
+  the Program editor, shown as cards either side of the exercises on Log, included in a shared
+  session.
+- Still open, awaiting Daniel's decision: **temporary per-session exercise swap** (Tom's suggestion)
+  and **how weight is entered for bodyweight/assisted exercises** — see "Next up".
+
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
 kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
@@ -97,9 +111,11 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   `parseRange`, `bestWeightSoFar`/`personPRs`/`personRecords` (warm-up-aware), `epley`, `fmtRow`,
   `addBodyweight`, `importBodyweightCsv`, `parseTcx`/`parseGpx`/`importRunIntoCard`, `coachBrief`,
   cloud sync (`syncNow`/`mergeInData`/`exportPayload`/GitHub Contents API), `classifyMuscles`/
-  `muscleColor`/`paintMuscleMap`. In-memory (not persisted): `formDrafts`, `sessionTimers`.
+  `muscleColor`/`paintMuscleMap`. `formDrafts` + `sessionTimers` (the in-progress log form) persist
+  to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
+  after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v64`.
+  change to a cached file.** Currently `tt-v80`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -256,7 +272,23 @@ forced on every account - a settings toggle per account for which of these are t
    (`groupId` field, `exerciseBlocks()` contiguous-run helper, group-aware `move()`); the Log form
    wraps a grouped run's already-unmodified per-exercise cards in a bordered `.superset` block.
    Zero changes needed to `saveSession`/`captureDraft`/`restoreDraft`/`wireExCard`.
-7. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
+7. **[undecided - from the backlog, 2026-07-28] Temporary edit to a single session.** Tom's
+   suggestion: you can't swap or add an exercise for *today only* when the gym is busy or something
+   hurts - the only way to change a session is to edit the program permanently. Options to pick
+   between: (a) **swap** an exercise on the Log tab for today only, (b) **+ add an exercise for
+   today**, (c) both, behind a per-card ⋯ menu. Log entries already store their own `name`+`cols`,
+   so the saved data handles it; the work is in the Log form (drafts are keyed by exercise index,
+   and the Last column / coach cue / muscle tags all look up by the program's exercise). **M.**
+8. **[undecided - from the backlog, 2026-07-28] Weight entry on bodyweight / assisted exercises.**
+   Today a pull-up column is literally `Added/Assist (kg)`, so 30 could mean 30kg of help or 30kg
+   hung off a belt - and everything downstream (volume, PRs, e1RM, the 🥇 medal) assumes bigger =
+   better, which is backwards for assistance. Bodyweight-only movements score 0 volume and never
+   track a PR. Suggested shape: a **load type per exercise** - normal / bodyweight+added / assisted
+   - with volume and PRs computed from the person's bodyweight (already stored) plus or minus the
+   number typed. Touches `bestWeightSoFar`, `personPRs`/`personRecords`, `epley`, the volume sum and
+   `updateSetMedal`. **M**, and it changes how past logs are scored, so worth agreeing the rules
+   first.
+9. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
    server/Pi once the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the
    "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
    above, revisit whenever the Pi is up.
