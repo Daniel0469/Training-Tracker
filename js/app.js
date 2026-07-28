@@ -851,8 +851,12 @@ function captureDraft(){
     entries[ei]={rows,done,warm,rpe};
     // A changed set count is worth persisting on its own, so sets you add or
     // remove survive a re-render even before anything has been typed.
+    // Runs deliberately render one blank split row whatever the program says
+    // (renderExForm), so compare against what was rendered, not ex.sets - or an
+    // untouched cardio session counts as a draft and gets stored for nothing.
     const exDef=((state.program.sessions[curSession]||{}).exercises||[])[ei];
-    if(exDef && rows.length!==Math.max(1, exDef.sets||1)) any=true;
+    const shownRows = exDef ? (isRunning(exDef) ? 1 : Math.max(1, exDef.sets||1)) : 0;
+    if(exDef && rows.length!==shownRows) any=true;
   });
   const sel=document.querySelector("#diff button.sel");
   const difficulty=sel?+sel.dataset.d:null;
