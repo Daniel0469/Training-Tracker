@@ -34,9 +34,17 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - Pick who you are (name toggle, each account in its own chosen colour); everything logged belongs
   to the selected person.
 - **Switch person mid-entry without losing typed data** - handy for logging both people from one phone.
+- **An unsaved entry survives anything short of saving it:** it's kept on the device as you type, so
+  leaving the app, a background sync landing, or the phone reloading the page mid-workout doesn't
+  clear the form (the running timer comes back too). Dropped after ~12 hours.
+- A session can show its own **🔥 warm-up** and **🧊 cool-down** notes above and below the exercises
+  (written per session in the Program editor).
+- Saved **🔧 machine settings** are shown on the exercise, not hidden behind the wrench.
 - Date auto-picks the right session for that weekday; a late-night session (before ~5am) counts as
   the **previous** training day.
-- Per-set **weight + reps** (numeric keypad on phones); first set's weight auto-fills the rest.
+- Per-set **weight + reps**; first set's weight auto-fills the rest. Phones get a **numeric keypad**
+  on any column that takes a number (including e.g. *Distance (m)* or *Min*), and the full keyboard
+  on ones that need it (*Time*, *Pace*, *Notes*).
 - **Done checkbox** per set: fills empty reps to the top of the target range and shows a gold
   **🥇 PR medal** live if the weight beats your best.
 - **Last** column shows what that person did last time (relative time; hover for the date); a
@@ -88,6 +96,8 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   unusual exercise name still shows correctly on the muscle heatmap.
 - **+ Add session** creates a brand-new workout day (name + weekday) - needed since a fresh account
   starts with no sessions at all.
+- Per session: free-text **🔥 warm-up / mobility** and **🧊 cool-down** notes, shown as cards either
+  side of the exercises on the Log tab and included when the session is shared.
 - **Share** a session's exercise list (no personal numbers) via the phone's share sheet as a
   paste-able code; **Import shared session** on another install adds it to that person's program.
 - Program edits only affect **future** logging; past history is untouched. **Reset program to

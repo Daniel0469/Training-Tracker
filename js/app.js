@@ -997,6 +997,13 @@ function renderLog(){
     html += '<div class="cardio-note">⌚ <b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
   }
 
+  // The session's own warm-up / cool-down notes (Program tab) bracket the
+  // exercises, in the order you actually do them.
+  if(sess.warmupNote){
+    html += '<div class="card"><div class="sec-title">&#128293; Warm-up</div>'
+      + '<div style="white-space:pre-wrap">'+esc(sess.warmupNote)+'</div></div>';
+  }
+
   html += '<div id="exForm">';
   exerciseBlocks(sess.exercises).forEach(block=>{
     const cardsHtml = block.eis.map(ei=>{
@@ -1012,6 +1019,11 @@ function renderLog(){
     html += block.type==="group" ? '<div class="superset"><div class="superset-label">&#8646; Superset</div>'+cardsHtml+'</div>' : cardsHtml;
   });
   html += '</div>';
+
+  if(sess.cooldownNote){
+    html += '<div class="card"><div class="sec-title">&#129482; Cool-down</div>'
+      + '<div style="white-space:pre-wrap">'+esc(sess.cooldownNote)+'</div></div>';
+  }
 
   html += '<div class="card"><div class="sec-title">How did the session feel?</div>'
     + '<div class="row" style="margin-bottom:10px"><div class="grow">'
@@ -1270,7 +1282,7 @@ function wireExCard(card, ex){
       if(opening){
         notesWrap.removeAttribute("hidden");
         if(notesView) notesView.setAttribute("hidden","");
-        if(notesEl) notesEl.focus();
+        if(notesEl){ autoGrow(notesEl); notesEl.focus(); }
       } else {
         notesWrap.setAttribute("hidden","");
         showView();
@@ -1279,6 +1291,7 @@ function wireExCard(card, ex){
     };
   }
   if(notesEl){
+    notesEl.addEventListener("input", ()=>autoGrow(notesEl));
     notesEl.addEventListener("change", ()=>{
       const v=notesEl.value.trim();
       if(v===(ex.notes||"")) return;
@@ -1750,8 +1763,35 @@ function exRowHtml(k, ei, ex){
     + '<button class="mini" data-delex="'+ref+'" style="color:var(--bad)">&times;</button>'
     + '</div></div></div>';
 }
+// Per-session warm-up/mobility and cool-down notes, edited in the Program tab
+// and read on the Log tab (see renderLog). Free text on purpose - it's "3 min
+// cross-trainer then shoulder mobility", not something to model as exercises.
+// Collapsed unless the session already has one, matching the 🔧 settings rule:
+// what exists is on screen, what doesn't stays out of the way.
+// .notes textareas are `overflow:hidden`, so anything past the visible rows was
+// invisible while typing it. Grow to fit instead. No-ops while hidden
+// (scrollHeight is 0) - call it again when the textarea is revealed.
+function autoGrow(ta){
+  if(!ta || !ta.scrollHeight) return;
+  ta.style.height="auto";
+  // scrollHeight is content+padding; under border-box the borders need adding
+  // back or the last line sits a couple of pixels under the edge.
+  ta.style.height=(ta.scrollHeight + (ta.offsetHeight-ta.clientHeight))+"px";
+}
+function sessNotesHtml(k, s){
+  const wu=s.warmupNote||"", cd=s.cooldownNote||"";
+  const has=!!(wu||cd);
+  return '<div class="row" style="margin:-2px 0 9px">'
+    + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(has?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down</button></div>'
+    + '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+    + '<label class="fld" style="margin-bottom:8px">&#128293; Warm-up / mobility'
+      + '<textarea class="notes" data-sessnote="warmupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 3 min cross-trainer, then shoulder mobility">'+esc(wu)+'</textarea></label>'
+    + '<label class="fld">&#129482; Cool-down'
+      + '<textarea class="notes" data-sessnote="cooldownNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 5 min easy bike, hamstring + hip flexor stretches">'+esc(cd)+'</textarea></label>'
+    + '</div>';
+}
 function renderEdit(){
-  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
+  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, note a session warm-up / cool-down, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
     + '<div class="row" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
     + '<button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
   if(!orderedKeys().length){
@@ -1765,7 +1805,8 @@ function renderEdit(){
       + '<div class="row">'
       + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
       + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
-      + '<button class="mini" data-addex="'+k+'">+ exercise</button></div></div>';
+      + '<button class="mini" data-addex="'+k+'">+ exercise</button></div></div>'
+      + sessNotesHtml(k, s);
     exerciseBlocks(s.exercises).forEach(block=>{
       const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
       html += block.type==="group"
@@ -1792,6 +1833,29 @@ function renderEdit(){
     if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
     renderEdit();
   });
+  document.querySelectorAll("[data-sessnotes]").forEach(b=>b.onclick=()=>{
+    const wrap=document.querySelector('[data-sessnotes-wrap="'+b.dataset.sessnotes+'"]');
+    if(!wrap) return;
+    const opening=wrap.hasAttribute("hidden");
+    if(opening){
+      wrap.removeAttribute("hidden");
+      wrap.querySelectorAll("textarea").forEach(autoGrow);
+    } else wrap.setAttribute("hidden","");
+    b.setAttribute("aria-expanded", opening?"true":"false");
+  });
+  // Saved on blur rather than per keystroke, same as the exercise 🔧 settings.
+  document.querySelectorAll("[data-sessnote]").forEach(ta=>{
+    autoGrow(ta);
+    ta.addEventListener("input", ()=>autoGrow(ta));
+  });
+  document.querySelectorAll("[data-sessnote]").forEach(ta=>ta.addEventListener("change",()=>{
+    const sess=state.program.sessions[ta.dataset.sesskey]; if(!sess) return;
+    const field=ta.dataset.sessnote, v=ta.value.trim();
+    if(v===(sess[field]||"")) return;
+    if(v) sess[field]=v; else delete sess[field];
+    save(); autoSync();
+    toast(field==="warmupNote" ? "Warm-up note saved" : "Cool-down note saved");
+  }));
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.ungroup.split(":");
@@ -2296,7 +2360,11 @@ document.getElementById("coachBriefBtn").onclick=()=>exportCoachBrief();
 function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-+|-+$)/g,"") || "session"; }
 function sessionShareCode(sessionKey){
   const s=state.program.sessions[sessionKey];
+  // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
+  // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  if(s.warmupNote) payload.warmupNote=s.warmupNote;
+  if(s.cooldownNote) payload.cooldownNote=s.cooldownNote;
   return b64encode(JSON.stringify(payload));
 }
 function shareSession(sessionKey){
@@ -2323,6 +2391,8 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   let key=slugify(payload.name), n=2;
   while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
   state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
+  if(payload.cooldownNote) state.program.sessions[key].cooldownNote=String(payload.cooldownNote);
   state.program.order.push(key);
   save(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
   toast("Added "+(payload.name||"session"));
@@ -2452,6 +2522,7 @@ function renderHelp(){
   h+=card('7 &middot; Edit the program',
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
+     +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
      +p('Tick the checkbox on 2+ exercises in the same session, then <b>&#8646; Group as superset</b>, to mark them as a superset/circuit - they\'re moved next to each other and shown in a bordered block on both this tab and the Log tab. <b>Ungroup</b> on the block splits them back into normal standalone exercises. Moving a grouped exercise up/down moves the whole block together; each exercise inside still logs completely normally.')
