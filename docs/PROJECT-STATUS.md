@@ -62,8 +62,10 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
 - **Per-session 🔥 warm-up / 🧊 cool-down notes** (`session.warmupNote`/`cooldownNote`), written in
   the Program editor, shown as cards either side of the exercises on Log, included in a shared
   session.
-- Still open, awaiting Daniel's decision: **temporary per-session exercise swap** (Tom's suggestion)
-  and **how weight is entered for bodyweight/assisted exercises** — see "Next up".
+- Then, after Daniel picked between the options: **➕ Add an exercise for today** (Tom's suggestion -
+  add rather than swap) and **per-exercise load types** so bodyweight and assisted movements score
+  by what they actually load. Both shipped the same day — see "Build order remaining" items 7 & 8.
+  `CACHE_NAME` is now `tt-v82`.
 
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
@@ -115,7 +117,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v80`.
+  change to a cached file.** Currently `tt-v82`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -272,22 +274,22 @@ forced on every account - a settings toggle per account for which of these are t
    (`groupId` field, `exerciseBlocks()` contiguous-run helper, group-aware `move()`); the Log form
    wraps a grouped run's already-unmodified per-exercise cards in a bordered `.superset` block.
    Zero changes needed to `saveSession`/`captureDraft`/`restoreDraft`/`wireExCard`.
-7. **[undecided - from the backlog, 2026-07-28] Temporary edit to a single session.** Tom's
-   suggestion: you can't swap or add an exercise for *today only* when the gym is busy or something
-   hurts - the only way to change a session is to edit the program permanently. Options to pick
-   between: (a) **swap** an exercise on the Log tab for today only, (b) **+ add an exercise for
-   today**, (c) both, behind a per-card ⋯ menu. Log entries already store their own `name`+`cols`,
-   so the saved data handles it; the work is in the Log form (drafts are keyed by exercise index,
-   and the Last column / coach cue / muscle tags all look up by the program's exercise). **M.**
-8. **[undecided - from the backlog, 2026-07-28] Weight entry on bodyweight / assisted exercises.**
-   Today a pull-up column is literally `Added/Assist (kg)`, so 30 could mean 30kg of help or 30kg
-   hung off a belt - and everything downstream (volume, PRs, e1RM, the 🥇 medal) assumes bigger =
-   better, which is backwards for assistance. Bodyweight-only movements score 0 volume and never
-   track a PR. Suggested shape: a **load type per exercise** - normal / bodyweight+added / assisted
-   - with volume and PRs computed from the person's bodyweight (already stored) plus or minus the
-   number typed. Touches `bestWeightSoFar`, `personPRs`/`personRecords`, `epley`, the volume sum and
-   `updateSetMedal`. **M**, and it changes how past logs are scored, so worth agreeing the rules
-   first.
+7. ✅ **[M] DONE (2026-07-28) - Add an exercise for today only.** Tom's suggestion. Daniel chose
+   *add* over *swap* (adding covers it - you just leave the one you skipped blank). The existing
+   exercise dialog opens in a today-only mode; the result goes into `formExtras`, persisted with
+   the drafts and never into `state.program`. `logExercises()` (program exercises + today's extras)
+   is what every `data-ei` on the log form indexes into, so extras get drafts, RPE, warm-ups, PR
+   medals and Garmin detection for free. Dashed card + "Today only" pill, ✕ to drop it (shifts the
+   draft entries), and the save popup offers **Add to program** for any that were logged.
+8. ✅ **[M] DONE (2026-07-28) - Bodyweight / assisted exercises score by real load.** Per-exercise
+   `load` (`"bw"` = bodyweight×`bwPct`% + typed, `"assist"` = bodyweight − typed, absent = normal),
+   set in the exercise dialog, which also renames the column Added/Assist. Everything scoring-
+   related goes through `setLoad()`: `bestWeightSoFar`, `personPRs`, `personRecords`, save-time
+   volume + PR detection, `updateSetMedal`, the progress chart. Bodyweight is taken **as at the
+   session date** (`bodyweightOn`); entries are stamped with their load type on save, and older
+   unstamped ones fall back to the program definition by name, so flagging an exercise re-scores
+   its history. **Saved per-session volume totals are deliberately left as logged** (Daniel's call)
+   - records/PRs recompute live, History's per-session number doesn't move.
 9. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
    server/Pi once the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the
    "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
