@@ -74,6 +74,8 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   detail, delete.
 - **Progress:** current **bests** (weight, reps, estimated 1RM per exercise), then a chart of your
   top set for any exercise over time with both people on one graph and a top-weight vs Est. 1RM toggle.
+- Bodyweight and assisted movements are scored as what they actually load: bests show the real
+  figure with a "your bodyweight + 10 added" / "82 − 30 assist" breakdown underneath.
 
 ### Body, goals & bodyweight
 - Bodyweight over time with a trend chart; add by hand or **⬆ Import from scale (CSV)** (e.g.
@@ -99,6 +101,11 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   unusual exercise name still shows correctly on the muscle heatmap.
 - **+ Add session** creates a brand-new workout day (name + weekday) - needed since a fresh account
   starts with no sessions at all.
+- Per exercise, **what the first column means**: a normal weight, **your bodyweight + added**
+  (pull-up, dip, press-up - with a *% of bodyweight* for movements that only lift part of you), or
+  **bodyweight − the machine's assistance**, where *less* help scores as the better set. Volume, PRs,
+  e1RM and 🥇 medals all use the real load, worked out from your bodyweight **as at that session's
+  date**. Turning it on re-scores records live; volume already saved on past sessions is left alone.
 - Per session: free-text **🔥 warm-up / mobility** and **🧊 cool-down** notes, shown as cards either
   side of the exercises on the Log tab and included when the session is shared.
 - **Share** a session's exercise list (no personal numbers) via the phone's share sheet as a

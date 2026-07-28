@@ -63,6 +63,9 @@
   .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
   .card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:15px;margin-bottom:13px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  /* display:flex above beats the browser's [hidden] rule, so hiding a .row
+     needs saying explicitly (same trap as .notes / .notes-wrap). */
+  .row[hidden]{display:none}
   label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
   select,input,textarea{font:inherit;color:var(--ink);background:var(--input-bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none;transition:border-color .15s,box-shadow .15s}
   select:focus,input:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}

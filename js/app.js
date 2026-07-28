@@ -504,7 +504,69 @@ function load(){
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
   return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
+
+// ---- Bodyweight & assisted movements ----
+// A pull-up's real load isn't the number you type: it's your own bodyweight,
+// plus anything hung off a belt or minus however much the machine is helping.
+// Without this, everything downstream (volume, PRs, e1RM, the 🥇 medal) reads a
+// bigger typed number as better - exactly backwards for assistance - and a
+// bodyweight-only movement scores zero volume and never tracks a best.
+//   ex.load  = "bw"     -> bodyweight + what you type
+//            = "assist" -> bodyweight - what you type
+//            (absent)   -> normal, the typed number IS the load
+//   ex.bwPct = the share of bodyweight the movement actually lifts (pull-up
+//              100, press-up ~65), so volume stays believable.
+// Name -> program exercise, so a set logged before the flag existed still gets
+// scored by how that exercise is defined today. Rebuilt whenever state is saved.
+let progExIndex=null;
+function programExerciseByName(name){
+  if(!progExIndex){
+    progExIndex={};
+    Object.keys((state.program&&state.program.sessions)||{}).forEach(function(k){
+      ((state.program.sessions[k].exercises)||[]).forEach(function(ex){
+        if(ex && ex.name && !progExIndex[ex.name]) progExIndex[ex.name]=ex;
+      });
+    });
+  }
+  return progExIndex[name]||null;
+}
+function loadTypeOf(e){
+  if(!e) return "";
+  if(e.load) return e.load;
+  const def=programExerciseByName(e.name);
+  return (def && def.load) || "";
+}
+function loadPctOf(e){
+  const src = (e && e.load) ? e : programExerciseByName(e && e.name);
+  const pct = src && src.bwPct;
+  return (pct && pct>0) ? Math.min(100, pct) : 100;
+}
+// Bodyweight as at a session's date: the nearest weigh-in on or before it (so
+// old sessions stay scored at the weight you actually were), else the earliest
+// one after, else the current figure from Settings.
+function bodyweightOn(person, date){
+  const list=bwFor(person);
+  let best=null;
+  for(let i=0;i<list.length;i++){ if(list[i].date<=date) best=list[i]; else break; }
+  if(!best && list.length) best=list[0];
+  if(best) return best.kg;
+  const pi=state.people.indexOf(person);
+  const w=parseFloat(pi>=0 ? state.weights[pi] : NaN);
+  return isNaN(w) ? null : w;
+}
+// What one set actually loaded, in kg. Takes either a logged entry or a program
+// exercise - both carry the load flags.
+function setLoad(e, typed, person, date){
+  const type=loadTypeOf(e);
+  const v=parseFloat(typed);
+  if(!type) return v;
+  const bw=bodyweightOn(person, date);
+  if(bw==null) return v; // never weighed in: nothing better to do than take the number typed
+  const own=bw*(loadPctOf(e)/100);
+  const add=isNaN(v)?0:v;
+  return Math.max(0, type==="assist" ? own-add : own+add);
+}
 
 // ---- In-progress log form (drafts + timers) ----
 // Kept in their own localStorage key, never in the export/sync payload: an
@@ -764,7 +826,7 @@ function bestWeightSoFar(person, exerciseName){
   state.logs.filter(function(l){return l.person===person;}).forEach(function(l){
     var e=(l.entries||[]).find(function(x){return x.name===exerciseName;}); if(!e) return;
     var wu=e.warmup||[];
-    e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]); if(!isNaN(w)&&w>best) best=w; });
+    e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=setLoad(e, r[0], person, l.date); if(!isNaN(w)&&w>best) best=w; });
   });
   return best;
 }
@@ -1133,9 +1195,12 @@ function recentNote(person, ex, prev){
   if(!isLifting(ex)) return "";
   const rec=latestEntryAnywhere(person, ex.name);
   if(!rec || (prev && rec.log.id===prev.id)) return "";
+  // Best set by what it actually loaded, but shown as what was typed - this is a
+  // cue for what to key in next time, not a scoreboard.
   let top=null, tw=-Infinity;
-  rec.entry.rows.forEach(r=>{ const w=parseFloat(r[0]); if(!isNaN(w)&&w>tw){tw=w;top=r;} });
+  rec.entry.rows.forEach(r=>{ const w=setLoad(rec.entry, r[0], person, rec.log.date); if(!isNaN(w)&&w>tw){tw=w;top=r;} });
   if(!top) return "";
+  if(top[0]==="" || top[0]==null) return "";
   return 'Most recent: <b>'+esc(top[0])+' kg'+(top[1]!==""&&top[1]!=null?' × '+esc(top[1]):"")+'</b> · '
     + relTime(rec.log.date)+' ('+esc(rec.log.sessionName)+')';
 }
@@ -1248,7 +1313,7 @@ function cardBestWeight(ex){
 function updateSetMedal(tr, ex, best){
   const medal=tr.querySelector("[data-medal]");
   if(!medal) return;
-  const w=parseFloat(tr.querySelector('[data-c="0"]').value);
+  const w=setLoad(ex, tr.querySelector('[data-c="0"]').value, state.people[state.activePerson], curDate);
   // Warm-up sets never earn a PR medal.
   medal.hidden = !(isLifting(ex) && !tr.classList.contains("wset") && !isNaN(w) && best>-Infinity && w>best);
 }
@@ -1393,21 +1458,24 @@ function saveSession(){
     // only if the entry (and garminWanted below) actually exists to fill.
     if(rows.length || isRunning(ex)){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup;
       if(rpeSel) en.rpe=rpeSel.dataset.d;
+      // Stamp the load type onto the entry so it scores the same for ever, even
+      // if the exercise is later re-flagged or dropped from the program.
+      if(ex.load){ en.load=ex.load; if(ex.bwPct) en.bwPct=ex.bwPct; }
       if(ex.muscles&&ex.muscles.length) en.muscles=ex.muscles.slice(); entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
   var volume=0;
-  entries.forEach(function(en){ var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=parseFloat(r[0]), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
+  entries.forEach(function(en){ var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=setLoad(en, r[0], person, date), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
   volume=Math.round(volume);
   var prs=[];
   entries.forEach(function(en){
     if(!isLifting(en)) return; // col-0 is only a weight (kg) for lifting entries
     var wu=en.warmup||[];
-    var ws=en.rows.map(function(r,ri){return wu.indexOf(ri)>=0?NaN:parseFloat(r[0]);}).filter(function(v){return !isNaN(v);});
+    var ws=en.rows.map(function(r,ri){return wu.indexOf(ri)>=0?NaN:setLoad(en, r[0], person, date);}).filter(function(v){return !isNaN(v);});
     if(!ws.length) return;
     var thisMax=Math.max.apply(null,ws);
     var prevBest=bestWeightSoFar(person,en.name);
-    if(prevBest>-Infinity && thisMax>prevBest){ en.pr=thisMax; prs.push({name:en.name,weight:thisMax}); }
+    if(prevBest>-Infinity && thisMax>prevBest){ en.pr=Math.round(thisMax*10)/10; prs.push({name:en.name,weight:en.pr}); }
   });
   const durationSec = timerElapsed(getTimer());
   const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
@@ -1604,6 +1672,20 @@ function drawHist(who){
 }
 
 let chart=null;
+// "82 kg" on its own is a puzzle for a pull-up - show the sum behind a
+// bodyweight or assisted best. Empty for a normal loaded exercise.
+function loadBreakdown(r){
+  if(!r || !r.load || r.bw==null) return "";
+  const pct=r.pct||100;
+  const own=Math.round(r.bw*(pct/100)*10)/10;
+  const part=pct<100;
+  const you = part ? pct+"% of you = "+own : String(own);
+  const typed=isNaN(r.typed)?0:r.typed;
+  let txt;
+  if(r.load==="assist") txt = typed>0 ? you+" &minus; "+typed+" assist" : (part?you:"your bodyweight, unassisted");
+  else txt = typed>0 ? you+" + "+typed+" added" : (part?you:"your bodyweight");
+  return '<div class="ex-meta">'+txt+'</div>';
+}
 function renderProgress(){
   const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
   if(!allEx.length){
@@ -1618,7 +1700,7 @@ function renderProgress(){
   if(recNames.length){
     recTable='<div class="sets-wrap"><table class="rec"><thead><tr><th>Exercise</th><th>Best</th><th>Reps</th><th>e1RM</th><th>When</th></tr></thead><tbody>'
       + recNames.map(function(n){ const r=recs[n]; const e=epley(r.kg, r.reps);
-          return '<tr><td>'+esc(n)+'</td><td><b>'+r.kg+' kg</b></td><td>'+(r.reps!=null?r.reps:"–")+'</td><td>'+(isNaN(e)?"–":Math.round(e)+" kg")+'</td><td class="ex-meta">'+relTime(r.date)+'</td></tr>'; }).join("")
+          return '<tr><td>'+esc(n)+'</td><td><b>'+(Math.round(r.kg*10)/10)+' kg</b>'+loadBreakdown(r)+'</td><td>'+(r.reps!=null?r.reps:"–")+'</td><td>'+(isNaN(e)?"–":Math.round(e)+" kg")+'</td><td class="ex-meta">'+relTime(r.date)+'</td></tr>'; }).join("")
       + '</tbody></table></div>';
   } else {
     recTable='<div class="hint">No lifting bests for '+esc(p)+' yet.</div>';
@@ -1645,7 +1727,7 @@ function drawChart(){
     const pts=state.logs.filter(l=>l.person===p)
       .map(l=>{ const e=(l.entries||[]).find(x=>x.name===name); if(!e) return null;
         const wu=e.warmup||[]; const vals=[];
-        e.rows.forEach((r,ri)=>{ if(wu.indexOf(ri)>=0) return; const w=parseFloat(r[0]); if(isNaN(w)) return;
+        e.rows.forEach((r,ri)=>{ if(wu.indexOf(ri)>=0) return; const w=setLoad(e, r[0], p, l.date); if(isNaN(w)) return;
           if(metric==="e1rm"){ const v=epley(w,parseInt(r[1],10)); if(!isNaN(v)) vals.push(v); } else vals.push(w); });
         if(!vals.length) return null; return {x:l.date,y:Math.round(Math.max.apply(null,vals)*10)/10}; })
       .filter(Boolean).sort((a,b)=>a.x<b.x?-1:1);
@@ -2039,6 +2121,9 @@ function openExDlg(sessionKey,ei,todayOnly){
   document.getElementById("exCol1").value=ex.cols[1];
   document.getElementById("exCol2").value=ex.cols[2]||"";
   document.getElementById("exGarmin").checked = ex.garminRun===true;
+  document.getElementById("exLoad").value = ex.load || "";
+  document.getElementById("exBwPct").value = ex.bwPct || 100;
+  syncLoadFields();
   exMusclesTouched = false;
   renderMuscleTags(document.getElementById("exMuscles"),
     (ex.muscles&&ex.muscles.length) ? ex.muscles : classifyMuscles(ex.name));
@@ -2057,6 +2142,22 @@ document.getElementById("exName").oninput=()=>{
   if(exMusclesTouched) return;
   renderMuscleTags(document.getElementById("exMuscles"),
     classifyMuscles(document.getElementById("exName").value));
+};
+// The % row only makes sense for a bodyweight movement (an assisted one is
+// always all of you, minus the help), and the first column gets named for what
+// the number means - "Added/Assist (kg)" was the ambiguity that started this.
+function syncLoadFields(){
+  document.getElementById("exBwPctRow").hidden = document.getElementById("exLoad").value!=="bw";
+}
+// Only on a deliberate change, never on open - re-titling someone's column just
+// because they looked at the exercise would be rude.
+document.getElementById("exLoad").onchange=()=>{
+  syncLoadFields();
+  const load=document.getElementById("exLoad").value;
+  const col0=document.getElementById("exCol0");
+  const generic=/^(weight \(kg\)|added\/assist \(kg\)|added \(kg\)|assist \(kg\)|)$/i.test(col0.value.trim());
+  if(!generic) return; // a label someone wrote themselves is left alone
+  col0.value = load==="bw" ? "Added (kg)" : load==="assist" ? "Assist (kg)" : "Weight (kg)";
 };
 document.getElementById("exCancel").onclick=()=>exDlg.close();
 document.getElementById("exPresetLift").onclick=()=>{
@@ -2082,6 +2183,14 @@ document.getElementById("exSave").onclick=()=>{
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
   if(document.getElementById("exGarmin").checked) ex.garminRun=true;
+  const load=document.getElementById("exLoad").value;
+  if(load){
+    ex.load=load;
+    if(load==="bw"){
+      const pct=Math.max(1, Math.min(100, +document.getElementById("exBwPct").value||100));
+      if(pct!==100) ex.bwPct=pct;
+    }
+  }
   // Today only: straight into the log form's extras, never into the program.
   if(exDlgCtx.todayOnly){
     ex.todayOnly=true;
@@ -2312,7 +2421,7 @@ function personPRs(person){
     (l.entries||[]).forEach(function(e){
       if(!isLifting(e)) return;
       const wu=e.warmup||[];
-      let top=-Infinity; e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; const w=parseFloat(r[0]); if(!isNaN(w)&&w>top) top=w; });
+      let top=-Infinity; e.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; const w=setLoad(e, r[0], person, l.date); if(!isNaN(w)&&w>top) top=w; });
       if(top>-Infinity && (!(e.name in best) || top>best[e.name].kg)) best[e.name]={kg:top, date:l.date};
     });
   });
@@ -2330,9 +2439,13 @@ function personRecords(person){
       const wu=e.warmup||[];
       e.rows.forEach(function(r,ri){
         if(wu.indexOf(ri)>=0) return;
-        const w=parseFloat(r[0]), reps=parseInt(r[1],10);
+        const w=setLoad(e, r[0], person, l.date), reps=parseInt(r[1],10);
         if(isNaN(w)) return;
-        if(!(e.name in best) || w>best[e.name].kg) best[e.name]={kg:w, reps:isNaN(reps)?null:reps, date:l.date};
+        // `typed`/`bw` are kept so the Records table can show where a
+        // bodyweight or assisted figure came from.
+        if(!(e.name in best) || w>best[e.name].kg)
+          best[e.name]={kg:w, reps:isNaN(reps)?null:reps, date:l.date,
+            load:loadTypeOf(e), typed:parseFloat(r[0]), bw:bodyweightOn(person,l.date), pct:loadPctOf(e)};
       });
     });
   });
@@ -2598,6 +2711,8 @@ function renderHelp(){
       p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
+     +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
+     +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); the volume total already saved against past sessions is left as it was logged. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
      +p('Tick the checkbox on 2+ exercises in the same session, then <b>&#8646; Group as superset</b>, to mark them as a superset/circuit - they\'re moved next to each other and shown in a bordered block on both this tab and the Log tab. <b>Ungroup</b> on the block splits them back into normal standalone exercises. Moving a grouped exercise up/down moves the whole block together; each exercise inside still logs completely normally.')
