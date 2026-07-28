@@ -446,6 +446,11 @@ let formDrafts = {};
 // alongside the drafts. Elapsed time is wall-clock, so a timer left running
 // keeps counting across a reload exactly as it does across a backgrounded app.
 let sessionTimers = {};
+// Exercises added to today's log only (gym busy, something hurts, swapped a
+// movement) - same person+session keying, and deliberately NOT written into
+// state.program: the program is the plan, this is what actually happened.
+// Cleared when the session is saved; the save summary offers to promote one.
+let formExtras = {};
 let timerInterval = null;
 
 function load(){
@@ -514,16 +519,16 @@ function loadDrafts(){
   try{
     const d=JSON.parse(localStorage.getItem(DRAFT_KEY));
     if(d && d.savedAt && (Date.now()-d.savedAt) < DRAFT_TTL_MS)
-      return {drafts:d.drafts||{}, timers:d.timers||{}};
+      return {drafts:d.drafts||{}, timers:d.timers||{}, extras:d.extras||{}};
   }catch(e){}
-  return {drafts:{}, timers:{}};
+  return {drafts:{}, timers:{}, extras:{}};
 }
 function saveDrafts(){
   try{
-    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length){
+    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length){
       localStorage.removeItem(DRAFT_KEY); return;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers}));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers, extras:formExtras}));
   }catch(e){}
 }
 // Restored here rather than where they're declared: DRAFT_KEY isn't initialised
@@ -531,6 +536,7 @@ function saveDrafts(){
 const restoredDrafts = loadDrafts();
 formDrafts = restoredDrafts.drafts;
 sessionTimers = restoredDrafts.timers;
+formExtras = restoredDrafts.extras;
 
 function toast(msg){
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
@@ -812,6 +818,17 @@ function relTime(dateStr){
 }
 
 function draftKey(){ return state.people[state.activePerson]+"|"+curSession; }
+// The exercise list the Log form works from: the session's programmed exercises
+// followed by anything added for today only. Every `data-ei` on the log form
+// indexes into THIS, not state.program - so the extras get set rows, drafts,
+// warm-up flags, RPE and PR medals with no special-casing anywhere else.
+function logExercises(){
+  const sess=state.program.sessions[curSession]||{};
+  return (sess.exercises||[]).concat(formExtras[draftKey()]||[]);
+}
+function programExCount(){
+  return (((state.program.sessions[curSession]||{}).exercises)||[]).length;
+}
 // Typing doesn't re-render, so nothing used to reach localStorage between the
 // explicit capture points (tab/person/session switch) - a phone that discarded
 // the page mid-set lost that set. Debounced so it's one write per pause, not
@@ -854,7 +871,7 @@ function captureDraft(){
     // Runs deliberately render one blank split row whatever the program says
     // (renderExForm), so compare against what was rendered, not ex.sets - or an
     // untouched cardio session counts as a draft and gets stored for nothing.
-    const exDef=((state.program.sessions[curSession]||{}).exercises||[])[ei];
+    const exDef=logExercises()[ei];
     const shownRows = exDef ? (isRunning(exDef) ? 1 : Math.max(1, exDef.sets||1)) : 0;
     if(exDef && rows.length!==shownRows) any=true;
   });
@@ -872,11 +889,11 @@ function captureDraft(){
 function restoreDraft(){
   const draft=formDrafts[draftKey()];
   if(!draft) return false;
-  const sess=state.program.sessions[curSession];
+  const exs=logExercises();
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ei=+card.dataset.ei;
     const d=draft.entries[ei]; if(!d) return;
-    const ex=sess.exercises[ei]; if(!ex) return;
+    const ex=exs[ei]; if(!ex) return;
     const tb=card.querySelector("tbody");
     const best=cardBestWeight(ex);
     while(tb.rows.length<d.rows.length){
@@ -992,10 +1009,13 @@ function renderLog(){
       + '</div>';
   }
 
+  // Programmed exercises plus anything added for today only.
+  const exs = logExercises();
+
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
-  if((sess.exercises||[]).some(e=>isRunning(e))){
+  if(exs.some(e=>isRunning(e))){
     html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>';
-  } else if((sess.exercises||[]).some(e=>isGarminCardio(e))){
+  } else if(exs.some(e=>isGarminCardio(e))){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
     // the measurements it alone knows (HR, zones, calories) - it never overwrites.
     html += '<div class="cardio-note">⌚ <b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
@@ -1009,9 +1029,9 @@ function renderLog(){
   }
 
   html += '<div id="exForm">';
-  exerciseBlocks(sess.exercises).forEach(block=>{
+  exerciseBlocks(exs).forEach(block=>{
     const cardsHtml = block.eis.map(ei=>{
-      const ex=sess.exercises[ei];
+      const ex=exs[ei];
       const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
       const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, prev&&prev.garmin) : "";
       return renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name),lastRun);
@@ -1023,6 +1043,10 @@ function renderLog(){
     html += block.type==="group" ? '<div class="superset"><div class="superset-label">&#8646; Superset</div>'+cardsHtml+'</div>' : cardsHtml;
   });
   html += '</div>';
+
+  html += '<div class="row" style="margin:-3px 0 13px;align-items:center">'
+    + '<button class="mini" id="addTodayEx">&#10133; Add an exercise for today</button>'
+    + '<span class="hint" style="margin:0;flex:1">Machine taken, or swapping something? Just this session - your program stays as it is.</span></div>';
 
   if(sess.cooldownNote){
     html += '<div class="card"><div class="sec-title">&#129482; Cool-down</div>'
@@ -1054,9 +1078,12 @@ function renderLog(){
     if(tb.rows.length>1){ tb.deleteRow(tb.rows.length-1); }
   });
   document.getElementById("exForm").querySelectorAll(".ex").forEach(card=>{
-    const ex=sess.exercises[+card.dataset.ei];
+    const ex=exs[+card.dataset.ei];
     if(ex) wireExCard(card, ex);
   });
+  document.getElementById("exForm").querySelectorAll("[data-delextra]").forEach(b=>b.onclick=()=>removeTodayExercise(+b.dataset.delextra));
+  // Capture first: saving the dialog re-renders the form.
+  document.getElementById("addTodayEx").onclick=()=>{ captureDraft(); openExDlg(curSession, null, true); };
   document.getElementById("saveSession").onclick=saveSession;
   document.getElementById("clearForm").onclick=()=>{ delete formDrafts[draftKey()]; saveDrafts(); renderView(); };
   document.getElementById("timerToggle").onclick=toggleTimer;
@@ -1068,7 +1095,7 @@ function renderLog(){
   document.getElementById("feedback").addEventListener("input", scheduleDraftSave);
   restoreDraft();
   document.querySelectorAll("#exForm .ex").forEach(card=>{
-    const ex=sess.exercises[+card.dataset.ei];
+    const ex=exs[+card.dataset.ei];
     if(ex) updateWarmup(card, ex);
   });
   updateTimerUI();
@@ -1154,10 +1181,13 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
   const warmupHtml = ex.warmup
     ? '<div class="warmup">Warm-up: <span data-warmup>'+esc(computeWarmupText(ex.warmup, lastTop>-Infinity?lastTop:null))+'</span></div>'
     : "";
-  return '<div class="card ex" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
+  return '<div class="card ex'+(ex.todayOnly?" ex-today":"")+'" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
       + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">&#128295;</button>'
-      + '</div><div class="ex-meta">'+esc(ex.target)+'</div></div>'
+      + (ex.todayOnly?'<span class="pill today-pill">Today only</span>':'')
+      + '</div><div class="ex-meta">'+esc(ex.target)
+      + (ex.todayOnly?' <button type="button" class="mini" data-delextra="'+ei+'" title="Remove from today">&#10005;</button>':'')
+      + '</div></div>'
     + warmupHtml
     + (running && lastRun ? '<div class="recent">🏃 Last run: <b>'+esc(lastRun)+'</b></div>' : "")
     // Saved machine settings read out in place - no point hiding the seat height
@@ -1180,9 +1210,25 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
     + (isRunning(ex)?'<button class="mini" data-runimport style="margin-left:auto">⬆ Import run (TCX/GPX)</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
     + '</div></div>';
 }
+// Drop a today-only exercise again (added by mistake, or the machine freed up).
+// The draft's entries are indexed by the same `ei` space, so they have to shift
+// with it or every card after this one would show the wrong sets back.
+function removeTodayExercise(ei){
+  captureDraft();
+  const key=draftKey();
+  const arr=formExtras[key]||[];
+  const idx=ei-programExCount();
+  if(idx<0 || idx>=arr.length) return;
+  const name=arr[idx].name;
+  arr.splice(idx,1);
+  if(!arr.length) delete formExtras[key];
+  const d=formDrafts[key];
+  if(d && Array.isArray(d.entries)) d.entries.splice(ei,1);
+  saveDrafts(); renderView(); toast("Removed "+name+" from today");
+}
 function addSetRow(btn){
   const card=btn.closest(".ex"); const ei=+card.dataset.ei;
-  const ex=state.program.sessions[curSession].exercises[ei];
+  const ex=logExercises()[ei];
   const tb=card.querySelector("tbody");
   tb.insertAdjacentHTML("beforeend", setRowHtml(tb.rows.length+1, ex, "-"));
   const tr=tb.rows[tb.rows.length-1];
@@ -1320,6 +1366,7 @@ function wireExCard(card, ex){
 
 function saveSession(){
   const sess=state.program.sessions[curSession];
+  const exs=logExercises();
   const person=state.people[state.activePerson];
   const prev=latestLog(person,curSession);
   const date=document.getElementById("logDate").value || todayStr();
@@ -1328,7 +1375,7 @@ function saveSession(){
   const feedback=document.getElementById("feedback").value.trim();
   const entries=[];
   document.querySelectorAll("#exForm .ex").forEach(card=>{
-    const ex=sess.exercises[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
+    const ex=exs[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
     const name=ex.name || card.dataset.name;
     const rows=[], warmup=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
@@ -1367,16 +1414,23 @@ function saveSession(){
     entries, feedback, difficulty, volume, durationSec };
   // Cardio session: flag it so the Garmin sync (laptop) can link the activity's extra
   // data (HR, zones, cadence, calories, and splits when the run row was left blank).
-  // Checks the PROGRAM, not the saved entries, because an interval exercise carries a
-  // garminRun flag that the logged entry doesn't. Cleared once linked; see mcp-garmin.
-  if((sess.exercises||[]).some(e=>isGarminCardio(e))) log.garminWanted=true;
+  // Checks the exercise definitions, not the saved entries, because an interval
+  // exercise carries a garminRun flag that the logged entry doesn't. Cleared once
+  // linked; see mcp-garmin.
+  if(exs.some(e=>isGarminCardio(e))) log.garminWanted=true;
   state.logs.push(log); save();
+  // Anything added for today that was actually logged is offered to the program
+  // on the save popup - grab it before the form's extras are cleared.
+  const loggedNames={}; entries.forEach(function(en){ loggedNames[en.name]=true; });
+  const promotable=(formExtras[draftKey()]||[]).filter(function(ex){ return loggedNames[ex.name]; });
+  const promoteKey=curSession;
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
+  delete formExtras[draftKey()];
   saveDrafts();
   justSavedId=log.id;
   switchTab("history", true); // draft just cleared above — don't re-capture it
-  showSaveSummary(volume, prs, entries);
+  showSaveSummary(volume, prs, entries, promotable, promoteKey);
   autoSync(); // push this session to the shared store automatically (if sync is set up)
 }
 
@@ -1962,14 +2016,20 @@ function exerciseLibrary(){
   state.logs.forEach(l=>(l.entries||[]).forEach(e=>{ if(e.name) set[e.name]=true; }));
   return Object.keys(set).sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1);
 }
-function openExDlg(sessionKey,ei){
-  exDlgCtx={sessionKey,ei};
+// todayOnly: the same dialog, but the result goes into today's log form instead
+// of the program (see the exSave handler).
+function openExDlg(sessionKey,ei,todayOnly){
+  exDlgCtx={sessionKey,ei,todayOnly:!!todayOnly};
   const editing = ei!=null;
   const ex = editing? state.program.sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
   document.getElementById("exNameList").innerHTML =
     exerciseLibrary().map(n=>'<option value="'+esc(n)+'"></option>').join("");
-  document.getElementById("exDlgTitle").textContent= editing?"Edit exercise":"Add exercise";
+  document.getElementById("exDlgTitle").textContent =
+    todayOnly ? "Add an exercise for today" : (editing?"Edit exercise":"Add exercise");
+  const todayHint=document.getElementById("exTodayHint");
+  if(todayHint) todayHint.hidden=!todayOnly;
+  document.getElementById("exSave").textContent = todayOnly ? "Add for today" : "Save exercise";
   document.getElementById("exName").value=ex.name;
   document.getElementById("exWarmup").value=ex.warmup||"";
   document.getElementById("exNotes").value=ex.notes||"";
@@ -2022,6 +2082,16 @@ document.getElementById("exSave").onclick=()=>{
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
   if(document.getElementById("exGarmin").checked) ex.garminRun=true;
+  // Today only: straight into the log form's extras, never into the program.
+  if(exDlgCtx.todayOnly){
+    ex.todayOnly=true;
+    const key=draftKey();
+    if(!formExtras[key]) formExtras[key]=[];
+    formExtras[key].push(ex);
+    saveDrafts(); exDlg.close(); renderView();
+    toast("Added "+ex.name+" for today");
+    return;
+  }
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
@@ -2500,6 +2570,7 @@ function renderHelp(){
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('Lifting exercises get an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
+     +p('<b>&#10133; Add an exercise for today</b> (under the last exercise) covers the gym being busy, a niggle, or just fancying something else - it logs exactly like a normal exercise but shows a dashed <b>Today only</b> card, and your <b>program is untouched</b>. Tap the <b>&#10005;</b> on the card to drop it again. When you save, the popup offers to <b>add it to the program</b> if you want to keep it.')
      +p('<b>Your entry is kept safe.</b> What you\'ve typed is stored on the device as you go, so nothing is lost by leaving the app, switching person, a sync landing mid-set, or your phone dropping the page and reloading it - come back and the sets (and the running timer) are still there. It\'s cleared once you save the session, tap <b>Clear</b>, or leave it more than about 12 hours.'));
 
   h+=card('3 &middot; Time it, rate it, save',
@@ -2641,7 +2712,19 @@ function paintMuscleMap(svgEl, museSets){
   });
   return maxc;
 }
-function showSaveSummary(volume, prs, entries){
+// One-tap "that swap was a keeper" - copies a today-only exercise into the
+// program for next time. Strips the todayOnly marker so it becomes a normal
+// programmed exercise.
+function promoteTodayExercise(sessionKey, ex, btn){
+  const sess=state.program.sessions[sessionKey];
+  if(!sess){ toast("That session no longer exists"); return; }
+  const def=clone(ex); delete def.todayOnly;
+  sess.exercises.push(def);
+  save(); autoSync();
+  btn.disabled=true; btn.textContent="Added ✓";
+  toast("Added "+def.name+" to "+sess.name);
+}
+function showSaveSummary(volume, prs, entries, promotable, promoteKey){
   var prHtml = prs.length
     ? prs.map(function(pr){return '<div style="background:#fff7e0;border:1px solid #f0dca0;border-radius:8px;padding:6px 10px;margin:6px 0;font-size:13.5px;font-weight:700;color:#8a6d1a">🥇 New PR &middot; '+esc(pr.name)+' &middot; '+pr.weight+' kg</div>';}).join("")
     : '';
@@ -2660,6 +2743,23 @@ function showSaveSummary(volume, prs, entries){
   if(paintMuscleMap(document.getElementById("muscleSvg"), muscleSets)>0) wrap.style.display="";
   else wrap.style.display="none";
   document.getElementById("savePRs").innerHTML=prHtml;
+  const promoteEl=document.getElementById("savePromote");
+  const extras=promotable||[];
+  const sess=state.program.sessions[promoteKey];
+  if(promoteEl){
+    promoteEl.innerHTML = (extras.length && sess)
+      ? '<div class="hint" style="margin:10px 0 6px">Added just for today. Keep '
+        + (extras.length===1?'it':'them')+' in <b>'+esc(sess.name)+'</b> from now on?</div>'
+        + extras.map(function(ex,i){
+            return '<div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px">'
+              + '<span style="font-size:13px">'+esc(ex.name)+'</span>'
+              + '<button class="mini" data-promote="'+i+'">&#10133; Add to program</button></div>';
+          }).join("")
+      : '';
+    promoteEl.querySelectorAll("[data-promote]").forEach(function(b){
+      b.onclick=function(){ promoteTodayExercise(promoteKey, extras[+b.dataset.promote], b); };
+    });
+  }
   document.getElementById("saveDlg").showModal();
 }
 document.getElementById("saveDlgOk").onclick=function(){ document.getElementById("saveDlg").close(); };

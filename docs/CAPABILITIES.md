@@ -37,6 +37,9 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **An unsaved entry survives anything short of saving it:** it's kept on the device as you type, so
   leaving the app, a background sync landing, or the phone reloading the page mid-workout doesn't
   clear the form (the running timer comes back too). Dropped after ~12 hours.
+- **➕ Add an exercise for today** - swap in a movement for this session only (busy gym, a niggle)
+  without editing the program. It logs like any other exercise, shows as a dashed *Today only* card,
+  and the save popup offers to add it to the program if it turns out to be a keeper.
 - A session can show its own **🔥 warm-up** and **🧊 cool-down** notes above and below the exercises
   (written per session in the Program editor).
 - Saved **🔧 machine settings** are shown on the exercise, not hidden behind the wrench.

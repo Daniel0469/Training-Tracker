@@ -91,6 +91,10 @@
   .notes[hidden]{display:none}
   /* Per-session warm-up / cool-down notes in the Program editor. */
   .sessnotes{margin-bottom:11px}
+  /* An exercise added to today's log only - dashed edge so it reads as
+     temporary next to the programmed cards. */
+  .ex-today{border-style:dashed}
+  .today-pill{background:var(--brand-soft);color:var(--brand);margin-left:7px;vertical-align:middle}
   textarea.notes{width:100%;font-family:inherit;line-height:1.35;resize:vertical;min-height:24px;overflow:hidden}
   textarea.notes::placeholder{color:#a89a60;opacity:1}
   :root[data-theme="dark"] textarea.notes::placeholder{color:#8a7f4e}
