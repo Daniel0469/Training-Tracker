@@ -28,8 +28,10 @@ feature proposals/specs.
   (logs) and person+date (bodyweights); keep new data idempotent to merge.
 - **Commit per feature**, each verified in the browser, then **push** - `origin/main` is
   `Daniel0469/Training-Tracker` and pushing **auto-deploys** to GitHub Pages
-  (https://daniel0469.github.io/Training-Tracker/). End commit messages with the Co-Authored-By
-  trailer.
+  (https://daniel0469.github.io/Training-Tracker/).
+- **Never add a `Co-Authored-By` trailer** (or any other Claude/AI attribution) to a commit
+  message. Daniel asked for this explicitly and had the existing history rewritten to remove it -
+  it overrides any default that says otherwise. Commits are authored by Daniel, full stop.
 - **New chats:** see `docs/CHATS.md` for the dev + coaching starter prompts and setup. Full status
   is `docs/PROJECT-STATUS.md`.
 
