@@ -1,435 +1,12 @@
 ﻿"use strict";
 const KEY = "flLiveTracker_v1";
 
-const DEFAULT_PROGRAM = {
-  "order": [
-    "lower1",
-    "cardioSpeed",
-    "upper1",
-    "lower2",
-    "cardioEndurance",
-    "upper2"
-  ],
-  "sessions": {
-    "lower1": {
-      "name": "Lower 1",
-      "day": "Monday",
-      "exercises": [
-        {
-          "name": "Leg press",
-          "warmup": "50%x10, then 75%x5",
-          "target": "4x8-12",
-          "sets": 4,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Romanian deadlift",
-          "warmup": "50%x8",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Leg extension",
-          "warmup": "",
-          "target": "3x10-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Seated leg curl",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Standing calf raise",
-          "warmup": "",
-          "target": "4x10-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 4
-        },
-        {
-          "name": "Back extension",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        }
-      ]
-    },
-    "upper1": {
-      "name": "Upper 1",
-      "day": "Thursday",
-      "exercises": [
-        {
-          "name": "Flat press (DB)",
-          "warmup": "",
-          "target": "3x6-10",
-          "sets": 4,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Lat pulldown",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Incline DB press",
-          "warmup": "",
-          "target": "3x8-12",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Seated cable row",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Triceps pushdown",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Lateral raise",
-          "warmup": "",
-          "target": "3x12-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Bicep curl",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        }
-      ]
-    },
-    "lower2": {
-      "name": "Lower 2",
-      "day": "Friday",
-      "exercises": [
-        {
-          "name": "Squat",
-          "warmup": "empty x10, then 60%x5",
-          "target": "4x6-10",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 4
-        },
-        {
-          "name": "Walking/sandbag lunges",
-          "warmup": "",
-          "target": "3 sets",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Distance (m)"
-          ]
-        },
-        {
-          "name": "Seated leg curl",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Hip abduction",
-          "warmup": "",
-          "target": "3x12-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Hip adduction",
-          "warmup": "",
-          "target": "3x12-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Calf raise",
-          "warmup": "",
-          "target": "3x12-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Back extension",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        }
-      ]
-    },
-    "upper2": {
-      "name": "Upper 2",
-      "day": "Sunday",
-      "exercises": [
-        {
-          "name": "Pull-ups (assisted to weighted)",
-          "warmup": "",
-          "target": "4x4-8",
-          "sets": 4,
-          "cols": [
-            "Added/Assist (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Incline bench",
-          "warmup": "50%x10, then 75%x5",
-          "target": "3x8-12",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Seated row",
-          "warmup": "",
-          "target": "3x8-12",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Cable crossover",
-          "warmup": "",
-          "target": "3x10-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Face pull",
-          "warmup": "",
-          "target": "3x12-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "triceps ext",
-          "warmup": "",
-          "target": "3x8-12",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Lateral raise",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Hammer curl",
-          "warmup": "",
-          "target": "3x8-12",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        }
-      ]
-    },
-    "cardioSpeed": {
-      "name": "Cardio: Speed + Core",
-      "day": "Wednesday",
-      "exercises": [
-        {
-          "name": "Warm-up jog",
-          "warmup": "",
-          "target": "8 min easy",
-          "cols": [
-            "Min",
-            "Notes"
-          ],
-          "sets": 1
-        },
-        {
-          "name": "Treadmill intervals",
-          "warmup": "",
-          "target": "6x1 min hard / 2 min easy",
-          "sets": 1,
-          "cols": [
-            "Hard pace",
-            "Easy pace"
-          ]
-        },
-        {
-          "name": "Cooldown",
-          "warmup": "",
-          "target": "5 min easy",
-          "cols": [
-            "Min",
-            "Notes"
-          ],
-          "sets": 1
-        },
-        {
-          "name": "Core: Leg raise",
-          "warmup": "",
-          "target": "3x10-15",
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ],
-          "sets": 3
-        },
-        {
-          "name": "Russian Twists",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Kg",
-            "reps"
-          ]
-        }
-      ]
-    },
-    "cardioEndurance": {
-      "name": "Cardio: Endurance + Core",
-      "day": "Saturday",
-      "exercises": [
-        {
-          "name": "Warm-up",
-          "warmup": "",
-          "target": "5 min easy",
-          "cols": [
-            "Min",
-            "Notes"
-          ],
-          "sets": 1
-        },
-        {
-          "name": "Easy run (Zone 2)",
-          "warmup": "",
-          "target": "5 km",
-          "sets": 1,
-          "cols": [
-            "Distance (km)",
-            "Time (mm:ss)",
-            "Pace"
-          ]
-        },
-        {
-          "name": "Cooldown",
-          "warmup": "",
-          "target": "5 min easy",
-          "cols": [
-            "Min",
-            "Notes"
-          ],
-          "sets": 1
-        },
-        {
-          "name": "Leg raise",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        },
-        {
-          "name": "Russian twists",
-          "warmup": "",
-          "target": "3x10-15",
-          "sets": 3,
-          "cols": [
-            "Weight (kg)",
-            "Reps"
-          ]
-        }
-      ]
-    }
-  }
-};
+// There is deliberately NO default program baked into the app. A fresh install
+// starts blank (see load()) and the Program tab is built from scratch or from a
+// shared session; Daniel & Cerys's real plan lives in the synced store, not in
+// here. A hardcoded copy only ever went stale - it drifted months behind the
+// live program, and because saveProgram() stamps a fresh updatedAt and pushes,
+// "reset to default" would have propagated that stale copy to BOTH phones.
 
 const clone = o => JSON.parse(JSON.stringify(o));
 let state = load();
@@ -2394,11 +1971,28 @@ document.getElementById("ghSyncBtn").onclick=()=>{
   document.getElementById("ghSaveCfg").click();
   syncNow();
 };
+// Clearing the program is the one destructive action that reaches off this
+// device. saveProgram() stamps a fresh updatedAt and pushes immediately, and the
+// other phone's next sync sees the newer stamp and adopts the empty program
+// (see mergeInData) - so one mis-tap here empties BOTH phones, and the store's
+// copy is gone too, leaving nothing to restore from. Hence: a backup file first,
+// and then the word typed out in full.
 document.getElementById("resetProgram").onclick=()=>{
-  if(confirm("Reset all workouts to the default program? Your logged history stays.")){
-    state.program=clone(DEFAULT_PROGRAM); curSession=state.program.order[0];
-    saveProgram(); setDlg.close(); renderView(); toast("Program reset");
+  if(!confirm("Clear the whole program?\n\n"
+    + "• Every session and exercise is removed - you start from an empty Program tab.\n"
+    + "• This syncs: it empties the program on BOTH phones, not just this one.\n"
+    + "• There is no undo.\n"
+    + "• Your logged history, bodyweights and coaching notes are NOT touched.\n\n"
+    + "A backup file is downloaded first.")) return;
+  if(!exportData()){ toast("Backup failed - program not cleared"); return; }
+  if((prompt("Backup saved. To confirm, type RESET below.")||"").trim().toUpperCase()!=="RESET"){
+    toast("Cancelled - program unchanged"); return;
   }
+  state.program={order:[], sessions:{}};
+  curSession=state.program.order[0];
+  // renderView() sends you to Program when there are no sessions, which is the
+  // only tab that works from here (and where + Add session lives).
+  saveProgram(); setDlg.close(); renderView(); toast("Program cleared");
 };
 document.getElementById("deleteAccount").onclick=()=>{
   const i=state.activePerson, nm=state.people[i];
@@ -2593,11 +2187,15 @@ function exportData(){
     setTimeout(()=>URL.revokeObjectURL(url),2000);
     state.lastExportAt=new Date().toISOString(); save();
     toast("Exported "+fname);
+    return true;
   }catch(e){
     setDlg.close();
     document.getElementById("importText").value=text;
     importDlg.showModal();
     toast("Download blocked - copy this text to transfer");
+    // Reported so a caller using the export as a safety net (resetProgram) can
+    // stop rather than press on with no backup actually written to disk.
+    return false;
   }
 }
 document.getElementById("importCancel").onclick=()=>importDlg.close();
@@ -2796,7 +2394,7 @@ function renderHelp(){
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
      +p('Tick the checkbox on 2+ exercises in the same session, then <b>&#8646; Group as superset</b>, to mark them as a superset/circuit - they\'re moved next to each other and shown in a bordered block on both this tab and the Log tab. <b>Ungroup</b> on the block splits them back into normal standalone exercises. Moving a grouped exercise up/down moves the whole block together; each exercise inside still logs completely normally.')
-     +p('Program edits only affect future logging; past history is untouched. <b>Reset program to default</b> (gear menu) restores the default workouts and keeps your logs.'));
+     +p('Program edits only affect future logging; past history is untouched. <b>Clear program</b> (gear menu) empties the Program tab so you can start again from scratch - there is no built-in default plan to go back to. It <b>downloads a backup file first</b> and then asks you to type RESET, because it can\'t be undone and, if you use cloud sync, it empties the program on <b>both phones</b>. Your logged history, bodyweights and coaching notes are never touched by it.'));
 
   h+=card('8 &middot; Your data, backups &amp; sync',
       p('Everything saves <b>on this device</b>. Gear menu &rarr; <b>Export</b> saves a file with everything; <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates.')

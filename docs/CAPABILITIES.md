@@ -113,8 +113,10 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   side of the exercises on the Log tab and included when the session is shared.
 - **Share** a session's exercise list (no personal numbers) via the phone's share sheet as a
   paste-able code; **Import shared session** on another install adds it to that person's program.
-- Program edits only affect **future** logging; past history is untouched. **Reset program to
-  default** (gear) restores default workouts and keeps your logs.
+- Program edits only affect **future** logging; past history is untouched. **Clear program** (gear)
+  empties the Program tab to start again - there is no built-in default plan. It downloads a backup
+  first and asks you to type RESET, since it can't be undone and, with sync on, it empties the
+  program on **both phones**. Logs, bodyweights and coaching notes are untouched.
 
 ### Data, backup & sync
 - Everything saves **on this device**. **Export** writes a full file; **Import / merge** on another
