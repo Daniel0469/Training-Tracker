@@ -67,6 +67,27 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   by what they actually load. Both shipped the same day — see "Build order remaining" items 7 & 8.
   `CACHE_NAME` is now `tt-v82`.
 
+**Warm-up/cool-down rollout + program sync (2026-07-29):**
+- **The program now syncs** (`saveProgram()` stamps `program.updatedAt` and pushes immediately;
+  `mergeInData` adopts the store's copy only when it's newer, and never mid-workout while a draft
+  is open). Before this a sync only ever *pushed* the program, so each phone kept a drifting copy
+  and the store held whichever synced last. Devices with no sync configured are unaffected, so
+  separate installs (Tom's, with his own program) cannot be reached by it. `CACHE_NAME` → tt-v83.
+- **Daniel & Cerys's real program updated in the store** from the warm-up/cool-down document:
+  `warmupNote`/`cooldownNote` on all six sessions (Tuesday's rest/mobility day deliberately left
+  out of the app), the document's ramp sets on Leg press / Squat / Bench press, and the adductor
+  traffic-light + red-flag block on both lower days. Cerys's PAILs/RAILs and hip-flexor-stretch
+  exclusions are written inline in the shared notes (notes are per session, not per person).
+- **Exercise names tidied, in the program and in past logs** (agreed pair by pair with Daniel):
+  Calf raise → Standing calf raise, Seated row → Seated cable row, triceps ext → Triceps pushdown,
+  Russian Twists → Russian twists (+ its `Kg`/`reps` columns), Incline bench → Incline bench press
+  (kept separate from Incline DB press). **Flat press (DB) deliberately NOT merged into Bench
+  press** - it's a genuine dumbbell→barbell switch, so merging would put dumbbell loads under a
+  barbell PR. Treadmill intervals columns settled on `Hard/Easy speed (km/h)`, and Cerys's 01/07
+  row (entered the columns the wrong way round) corrected to 10/6 on Daniel's instruction.
+- The one-off script is `scratchpad/apply_program.py` (idempotent, writes a data.json backup first).
+- **Still open:** the `Pull-ups (assisted to weighted)` load type is unset - see "Other open items".
+
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
 kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
@@ -300,7 +321,16 @@ forced on every account - a settings toggle per account for which of these are t
   `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*`).
 - **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
   (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
-- **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker.
+- **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker. Still
+  empty for both as of 2026-07-29.
+- **`Pull-ups (assisted to weighted)` has no load type set** — the column is still
+  `Added/Assist (kg)`, so its PRs read a bigger number as better even though more assistance is
+  worse. Needs Daniel to pick: `load:"bw"` (bodyweight + added, type assistance as a negative,
+  covers both regimes in one exercise) or split into two exercises. Left alone deliberately —
+  it changes how past sets score.
+- **The two cardio sessions still carry `Warm-up jog` / `Warm-up` / `Cooldown` as logged
+  exercises**, which now duplicate the session's warm-up and cool-down note cards. Ask Daniel
+  whether to remove them from the program (their logged history would stay).
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
 - **PWA icons:** replace placeholder `icons/` with real branding when available.
 - Done: code review, GitHub Pages deploy, auto-sync, MCP coach (read + write), in-app suggestions.
