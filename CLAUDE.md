@@ -6,10 +6,12 @@ feature proposals/specs.
 
 ## Conventions (please follow on every change)
 
-- **Ask before assuming on ambiguous requests.** If a feature request has more than one
-  reasonable interpretation (scope, UI mechanism, what data it touches), use `AskUserQuestion`
-  to clarify with Daniel before implementing or entering a plan, rather than guessing. Cheap
-  factual lookups don't need this - it's for the ones where guessing wrong means rework.
+- **Always ask questions and agree a plan before implementing.** Investigate first (read the code
+  and the real data), then put the open decisions to Daniel with `AskUserQuestion` - scope, UI
+  mechanism, what data it touches, how a change reaches the phones - and only build once he's
+  answered. Default to asking: if a request has more than one reasonable reading, guessing wrong
+  means rework and, worse, silent changes to real training data. State your recommendation with
+  each option so answering is quick. Cheap factual lookups don't need this.
 - **Bump `CACHE_NAME` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
   bump, installed users keep the old files. Increment the `tt-vN` number.
