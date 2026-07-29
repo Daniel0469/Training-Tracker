@@ -1903,6 +1903,11 @@ function drawBwChart(person){
 // survives the re-renders triggered by ticking each checkbox; cleared once a
 // group is actually made, or implicitly stale (harmless) if you leave the tab.
 let selectedExRefs=new Set();
+// Which Program sessions are expanded. Starts empty - everything collapsed - so
+// the tab opens as a short index of the week. In memory rather than saved, so
+// it survives the tab's own re-renders and a trip to another tab, and resets to
+// all-collapsed next time the app is opened.
+let openSessions=new Set();
 function exRowHtml(k, ei, ex){
   const ref=k+':'+ei;
   return '<div class="ex"><div class="ex-head"><div class="row" style="gap:6px;align-items:baseline">'
@@ -1943,7 +1948,7 @@ function sessNotesHtml(k, s){
     + '</div>';
 }
 function renderEdit(){
-  let html='<div class="card"><div class="hint">Edit any session below - rename exercises, change targets, add warm-up notes, note a session warm-up / cool-down, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
+  let html='<div class="card"><div class="hint">Tap a session to open it - rename exercises, change targets, add warm-up notes, note a session warm-up / cool-down, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
     + '<div class="row" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
     + '<button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
   if(!orderedKeys().length){
@@ -1952,22 +1957,39 @@ function renderEdit(){
   orderedKeys().forEach(k=>{
     const s=state.program.sessions[k];
     const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
-    html+='<div class="card"><div class="flex-between" style="margin-bottom:10px"><div>'
-      + '<h3>'+esc(s.name)+'</h3><div class="ex-meta">'+esc(s.day)+'</div></div>'
-      + '<div class="row">'
-      + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
-      + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
-      + '<button class="mini" data-addex="'+k+'">+ exercise</button></div></div>'
-      + sessNotesHtml(k, s);
-    exerciseBlocks(s.exercises).forEach(block=>{
-      const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
-      html += block.type==="group"
-        ? '<div class="superset"><div class="superset-label">&#8646; Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
-        : rows;
-    });
+    // Collapsed by default so the tab is a short scannable index of the week;
+    // openSessions remembers what you opened across re-renders (editing an
+    // exercise re-renders the whole tab and would otherwise shut the session
+    // you're working in) and resets on reload.
+    const open=openSessions.has(k);
+    const n=s.exercises.length;
+    html+='<div class="card sess'+(open?' open':'')+'">'
+      + '<button type="button" class="sess-head" data-sesstoggle="'+esc(k)+'" aria-expanded="'+(open?"true":"false")+'">'
+        + '<span class="sess-caret">&#9656;</span>'
+        + '<span class="sess-title"><span class="sess-name">'+esc(s.name)+'</span>'
+          + '<span class="ex-meta">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")+'</span></span>'
+      + '</button>';
+    if(open){
+      html+='<div class="row" style="justify-content:flex-end;margin:2px 0 10px">'
+        + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
+        + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
+        + '<button class="mini" data-addex="'+k+'">+ exercise</button></div>'
+        + sessNotesHtml(k, s);
+      exerciseBlocks(s.exercises).forEach(block=>{
+        const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
+        html += block.type==="group"
+          ? '<div class="superset"><div class="superset-label">&#8646; Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
+          : rows;
+      });
+    }
     html+='</div>';
   });
   document.getElementById("view").innerHTML=html;
+  document.querySelectorAll("[data-sesstoggle]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.sesstoggle;
+    if(openSessions.has(k)) openSessions.delete(k); else openSessions.add(k);
+    renderEdit();
+  });
   document.querySelectorAll("[data-addex]").forEach(b=>b.onclick=()=>openExDlg(b.dataset.addex,null));
   document.querySelectorAll("[data-editex]").forEach(b=>b.onclick=()=>{ const a=b.dataset.editex.split(":"); openExDlg(a[0],+a[1]); });
   document.querySelectorAll("[data-delex]").forEach(b=>b.onclick=()=>{
@@ -2736,7 +2758,8 @@ function renderHelp(){
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
 
   h+=card('7 &middot; Edit the program',
-      p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+      p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
+     +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')

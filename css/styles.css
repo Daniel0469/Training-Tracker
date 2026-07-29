@@ -94,6 +94,15 @@
   .notes[hidden]{display:none}
   /* Per-session warm-up / cool-down notes in the Program editor. */
   .sessnotes{margin-bottom:11px}
+  /* Program tab: sessions collapse to a one-line index of the week. */
+  .card.sess{padding-top:6px;padding-bottom:6px}
+  .card.sess.open{padding-bottom:12px}
+  .sess-head{display:flex;align-items:center;gap:10px;width:100%;padding:8px 0;background:none;border:0;
+    text-align:left;cursor:pointer;color:var(--ink);font:inherit}
+  .sess-caret{color:var(--muted);font-size:13px;line-height:1;transition:transform .15s;flex:none}
+  .card.sess.open .sess-caret{transform:rotate(90deg)}
+  .sess-title{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .sess-name{font-weight:700;font-size:16px}
   /* An exercise added to today's log only - dashed edge so it reads as
      temporary next to the programmed cards. */
   .ex-today{border-style:dashed}

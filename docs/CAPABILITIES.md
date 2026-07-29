@@ -95,6 +95,9 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   changed and whether the numbers improved.
 
 ### Program editor
+- Sessions are **collapsed by default** - one line each (name, day, exercise count) so the week fits
+  on a screen. Tap to open, as many at once as you like; they stay open while the app is running and
+  reset to closed on reload.
 - Add / edit / reorder / remove exercises; **name-suggestion library** avoids duplicate spellings.
 - Per exercise: target, warm-up (fixed or %), setup notes, Lifting/Running column presets, optional
   3rd column, and a **Works** muscle tag picker (auto-guessed from the name, editable) so an
