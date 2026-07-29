@@ -116,6 +116,11 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 ### Data, backup & sync
 - Everything saves **on this device**. **Export** writes a full file; **Import / merge** on another
   device merges by unique id (logs) and person+date (bodyweights) - no duplicates.
+- **The program syncs as well as the data.** Everyone on the same store shares one plan: a program
+  edit is pushed immediately and adopted by the other phone when it's newer than that phone's own
+  copy, so nothing is replaced by an older version. It won't swap the plan over mid-workout - a
+  session with sets already typed keeps its exercise list until it's saved. A device with no cloud
+  sync configured keeps its own program and is unaffected.
 - **Cloud sync (GitHub)** is optional and free: set a private repo + fine-grained token once, then it
   syncs **automatically** on open and after each save. Doubles as off-device backup; the token is
   stored only on the device and **never** included in exports.

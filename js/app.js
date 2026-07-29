@@ -505,6 +505,18 @@ function load(){
   return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
+// Both people train the same plan, so the program is shared - but a plain sync
+// only ever pushed it, never pulled one down, which left each phone with its own
+// drifting copy and the store holding whichever synced last. Every program edit
+// now stamps `updatedAt` and pushes straight away; a sync adopts the store's
+// copy only when it is genuinely newer (see mergeInData), so an edit made on one
+// phone is never replaced by an older one from the other. Devices with no sync
+// configured are untouched by all of this - autoSync no-ops without a repo+token.
+function saveProgram(){
+  if(state.program) state.program.updatedAt=new Date().toISOString();
+  save();
+  autoSync();
+}
 
 // ---- Bodyweight & assisted movements ----
 // A pull-up's real load isn't the number you type: it's your own bodyweight,
@@ -1410,7 +1422,7 @@ function wireExCard(card, ex){
     notesEl.addEventListener("change", ()=>{
       const v=notesEl.value.trim();
       if(v===(ex.notes||"")) return;
-      ex.notes=v; save(); autoSync();
+      ex.notes=v; saveProgram();
       if(notesBtn) notesBtn.classList.toggle("has", !!v); // wrench stays lit when settings are saved
       toast("Machine settings saved");
     });
@@ -1963,7 +1975,7 @@ function renderEdit(){
     if(confirm("Remove this exercise from the program?")){
       state.program.sessions[a[0]].exercises.splice(+a[1],1);
       cleanupSoloGroups(a[0]);
-      save(); renderEdit(); toast("Removed");
+      saveProgram(); renderEdit(); toast("Removed");
     }
   });
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
@@ -1993,7 +2005,7 @@ function renderEdit(){
     const field=ta.dataset.sessnote, v=ta.value.trim();
     if(v===(sess[field]||"")) return;
     if(v) sess[field]=v; else delete sess[field];
-    save(); autoSync();
+    saveProgram();
     toast(field==="warmupNote" ? "Warm-up note saved" : "Cool-down note saved");
   }));
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
@@ -2030,11 +2042,11 @@ function groupSelected(sessionKey){
   const after=arr.filter((ex,i)=> i>refs[0] && !selectedSet.has(i));
   state.program.sessions[sessionKey].exercises=before.concat(members, after);
   selectedExRefs.clear();
-  save(); renderEdit(); toast("Grouped as superset");
+  saveProgram(); renderEdit(); toast("Grouped as superset");
 }
 function ungroupExercises(sessionKey, groupId){
   state.program.sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
-  save(); renderEdit(); toast("Ungrouped");
+  saveProgram(); renderEdit(); toast("Ungrouped");
 }
 // Moves the contiguous block containing exercise `ref` (its whole superset
 // group if it's grouped, otherwise just itself) up/down past the adjacent
@@ -2065,7 +2077,7 @@ function move(ref,dir){
   const start=Math.min(lo,oLo);
   const newOrder = dir<0 ? thisBlock.concat(otherBlock) : otherBlock.concat(thisBlock);
   arr.splice(start, thisBlock.length+otherBlock.length, ...newOrder);
-  save(); renderEdit();
+  saveProgram(); renderEdit();
 }
 
 // Common exercise names, so a brand-new account (no program, no logs yet) has
@@ -2211,7 +2223,7 @@ document.getElementById("exSave").onclick=()=>{
     arr[exDlgCtx.ei]=ex;
   } else arr.push(ex);
   cleanupSoloGroups(exDlgCtx.sessionKey);
-  save(); exDlg.close(); renderEdit(); toast("Saved");
+  saveProgram(); exDlg.close(); renderEdit(); toast("Saved");
 };
 
 const setDlg=document.getElementById("settingsDlg");
@@ -2338,7 +2350,7 @@ document.getElementById("ghSyncBtn").onclick=()=>{
 document.getElementById("resetProgram").onclick=()=>{
   if(confirm("Reset all workouts to the default program? Your logged history stays.")){
     state.program=clone(DEFAULT_PROGRAM); curSession=state.program.order[0];
-    save(); setDlg.close(); renderView(); toast("Program reset");
+    saveProgram(); setDlg.close(); renderView(); toast("Program reset");
   }
 };
 document.getElementById("deleteAccount").onclick=()=>{
@@ -2402,6 +2414,22 @@ function mergeInData(data, adoptConfig){
       if(byM[m.id]!=null){ state.meals[byM[m.id]]=m; updated++; }
       else { byM[m.id]=state.meals.length; state.meals.push(m); added++; }
     });
+  }
+  // Program: shared between both people, so take the store's copy when it is
+  // newer than this device's (saveProgram stamps every edit). A phone that has
+  // never stamped its own takes the incoming one; if neither side carries a
+  // stamp nothing changes, which is exactly how this behaved before.
+  if(!adoptConfig && data.program && data.program.sessions){
+    const mine=(state.program&&state.program.updatedAt)||"";
+    const theirs=data.program.updatedAt||"";
+    // Never swap the plan out from under a workout in progress: the log form
+    // indexes exercises by position, so a different list would rearrange sets
+    // already typed. It adopts on the next sync once the session is saved.
+    const busy = activeTab==="log" && !!formDrafts[draftKey()];
+    if(theirs && theirs>mine && !busy){
+      state.program=clone(data.program);
+      updated++;
+    }
   }
   if(adoptConfig){
     if(data.program&&data.program.sessions) state.program=clone(data.program);
@@ -2581,7 +2609,7 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
   if(payload.cooldownNote) state.program.sessions[key].cooldownNote=String(payload.cooldownNote);
   state.program.order.push(key);
-  save(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
+  saveProgram(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
   toast("Added "+(payload.name||"session"));
 };
 const sessionDlg=document.getElementById("sessionDlg");
@@ -2594,7 +2622,7 @@ document.getElementById("sessSave").onclick=()=>{
   while(state.program.sessions[key]){ key=slugify(name)+"-"+n; n++; }
   state.program.sessions[key]={name, day, exercises:[]};
   state.program.order.push(key);
-  save(); sessionDlg.close(); renderEdit();
+  saveProgram(); sessionDlg.close(); renderEdit();
   toast("Added "+name);
 };
 
@@ -2721,6 +2749,7 @@ function renderHelp(){
   h+=card('8 &middot; Your data, backups &amp; sync',
       p('Everything saves <b>on this device</b>. Gear menu &rarr; <b>Export</b> saves a file with everything; <b>Import / merge</b> on another device adds it in, merged by unique ID so nothing duplicates.')
      +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu once. After that it syncs <b>automatically</b> - when you open the app and after every save - so both of you stay up to date and your coach sees new sessions without you doing anything. (<b>Sync now</b> is still there for a manual pull.) It doubles as an off-device <b>backup</b>; the token is stored only on this device and never included in exports.')
+     +p('<b>The program syncs too.</b> Everyone sharing a store trains the same plan, so an edit in <b>Program</b> - a new exercise, a warm-up note, a reorder - goes up straight away and lands on the other phone next time it syncs. The most recent edit wins, so nothing you change gets replaced by an older copy, and it never swaps the plan over <b>mid-workout</b>: if you\'ve got sets typed in, it waits until you\'ve saved. Devices without cloud sync set up keep their own program entirely.')
      +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.')
      +p('Gear menu &rarr; <b>What\'s not set up yet</b> lists anything that needs laptop-side setup (cloud sync, Garmin auto-import, AI coaching) and what it takes - none of it is tied to a particular account, so any account can get the same thing the same way.'));
 
@@ -2835,7 +2864,7 @@ function promoteTodayExercise(sessionKey, ex, btn){
   if(!sess){ toast("That session no longer exists"); return; }
   const def=clone(ex); delete def.todayOnly;
   sess.exercises.push(def);
-  save(); autoSync();
+  saveProgram();
   btn.disabled=true; btn.textContent="Added ✓";
   toast("Added "+def.name+" to "+sess.name);
 }
