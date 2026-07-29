@@ -86,7 +86,16 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   barbell PR. Treadmill intervals columns settled on `Hard/Easy speed (km/h)`, and Cerys's 01/07
   row (entered the columns the wrong way round) corrected to 10/6 on Daniel's instruction.
 - The one-off script is `scratchpad/apply_program.py` (idempotent, writes a data.json backup first).
-- **Still open:** the `Pull-ups (assisted to weighted)` load type is unset - see "Other open items".
+- **`Pull-ups (assisted to weighted)` is now `load:"assist"`** with columns `Assist (kg)` / `Reps` -
+  0 typed means that person's full bodyweight, anything typed is help coming off. Matches every set
+  already logged (Daniel 4.5 → 0, Cerys 36 → 32, both progressing downward), and the entries are
+  stamped so they keep scoring that way. Daniel's best correctly flipped to **78.4 kg unassisted**
+  (2026-07-13) instead of the 4.5 kg-assisted set. **Cerys's does not score yet - she has no
+  bodyweight on record at all** (no weigh-ins, blank in Settings), so `setLoad` falls back to the
+  typed number and her best still reads 36 kg. Verified it self-corrects the moment she records
+  one. Script: `scratchpad/apply_pullups.py`.
+- **Program tab sessions collapse** (one row each: name, day, exercise count; `openSessions` in
+  memory, all closed on reload). `CACHE_NAME` → tt-v84.
 
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
@@ -323,11 +332,9 @@ forced on every account - a settings toggle per account for which of these are t
   (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
 - **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker. Still
   empty for both as of 2026-07-29.
-- **`Pull-ups (assisted to weighted)` has no load type set** — the column is still
-  `Added/Assist (kg)`, so its PRs read a bigger number as better even though more assistance is
-  worse. Needs Daniel to pick: `load:"bw"` (bodyweight + added, type assistance as a negative,
-  covers both regimes in one exercise) or split into two exercises. Left alone deliberately —
-  it changes how past sets score.
+- **Cerys has no bodyweight recorded** (0 weigh-ins, blank in Settings) — needed for her pull-up
+  scoring to work at all, and for any future bodyweight/assisted exercise. One entry on the Body
+  tab fixes it retrospectively, since bodyweight is looked up per session date.
 - **The two cardio sessions still carry `Warm-up jog` / `Warm-up` / `Cooldown` as logged
   exercises**, which now duplicate the session's warm-up and cool-down note cards. Ask Daniel
   whether to remove them from the program (their logged history would stay).
