@@ -97,6 +97,27 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
 - **Program tab sessions collapse** (one row each: name, day, exercise count; `openSessions` in
   memory, all closed on reload). `CACHE_NAME` → tt-v84.
 
+**Backlog batch 29 Jul, cleared 2026-07-30** (`docs/BACKLOG.md` sections A, B, C - **D still open**):
+- **RPE now covers running**, not just lifting: the gate widened to
+  `isLifting(ex) || isGarminCardio(ex)`, which picks up Treadmill intervals and Easy run (Zone 2)
+  and skips the `Min`/`Notes` warm-up and cool-down rows. All the RPE plumbing was already
+  type-agnostic. `tt-v86`.
+- **The goals box grows to fit** (in-app suggestion `1785353252857`). It was the `#pGoals` textarea
+  in the gear menu, not the display - reuses the existing `autoGrow()` helper. `tt-v87`.
+- **`DEFAULT_PROGRAM` deleted (429 lines) and "Reset program to default" became "Clear program".**
+  The hardcoded default had drifted months behind the real program and, since it was only reachable
+  from Reset, its only remaining effect would have been destructive: `saveProgram()` stamps a fresh
+  `updatedAt` and pushes, so `mergeInData` on the other phone would have adopted the stale copy.
+  There is now **no default program at all** - a fresh install starts blank (as it already did) and
+  Clear program empties it, after downloading a backup and asking for `RESET` to be typed.
+  `exportData()` returns success/failure so a blocked download aborts the clear. `tt-v88`.
+- **Cardio: Speed + Core warm-up/cool-down edits** from the 29 Jul session feedback, applied to the
+  live store (`scratchpad/apply_cardiospeed.py`, idempotent, backs up `data.json` first). Worth
+  knowing for next time: **the mobility work is `warmupNote`/`cooldownNote` free text, not
+  exercises**, so all nine were text edits to two blocks. Scoped to that one session on Daniel's
+  instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
+  and the other five were left alone.
+
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
 kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
@@ -147,7 +168,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v82`.
+  change to a cached file.** Currently `tt-v88`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -330,8 +351,8 @@ forced on every account - a settings toggle per account for which of these are t
   `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*`).
 - **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
   (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
-- **Set goals** for both people in the app (gear → goals) — blank makes coaching weaker. Still
-  empty for both as of 2026-07-29.
+- **Set goals** — **Daniel's are now set** (sub-20 5k, 100kg bench, 200kg squat, 200kg deadlift, as
+  of 2026-07-30). **Cerys's are still blank**, which makes her coaching weaker.
 - **Cerys has no bodyweight recorded** (0 weigh-ins, blank in Settings) — needed for her pull-up
   scoring to work at all, and for any future bodyweight/assisted exercise. One entry on the Body
   tab fixes it retrospectively, since bodyweight is looked up per session date.
@@ -346,5 +367,11 @@ forced on every account - a settings toggle per account for which of these are t
 ## Dev notes
 - Serve any static way; a **no-cache dev server** avoids the browser HTTP/bfcache serving stale
   css/js (send `Cache-Control: no-store`; navigate to a fresh `?v=N` URL to bust bfcache).
-- Verify features in-browser (light + dark, no console errors). Commit per feature; end messages
-  with the Co-Authored-By trailer.
+- Verify features in-browser (light + dark, no console errors). Commit per feature. **Never add a
+  `Co-Authored-By` trailer or any other AI attribution** - Daniel asked for this explicitly and had
+  the existing history rewritten to remove it. (This line used to say the opposite, contradicting
+  `CLAUDE.md`.)
+- **Beware `\n` and `\'` inside a Bash heredoc** when scripting edits to `js/app.js`: the escapes
+  get eaten and you end up with real newlines inside a JS string literal, i.e. a parse error the
+  service worker will then happily cache. Use the Edit/Write tools for anything with backslashes,
+  and if the app suddenly has no globals, clear the SW caches before debugging anything else.
