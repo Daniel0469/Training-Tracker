@@ -2287,7 +2287,16 @@ document.getElementById("settingsBtn").onclick=()=>{
   renderNotSetupList();
   showAppVersion();
   setDlg.showModal();
+  // Only once the dialog is actually on screen - autoGrow reads scrollHeight,
+  // which is 0 while it's still hidden.
+  autoGrow(document.getElementById("pGoals"));
 };
+// Goals are a list, not a sentence ("squat 100kg, sub-25 5k, stay injury-free"),
+// but the box was a fixed two rows with the overflow hidden, so anything past
+// the second line scrolled out of sight as you typed it. Grow to fit, same as
+// the warm-up/cool-down and machine-settings notes. The inline min-height stays
+// as the floor so an empty box doesn't collapse to one line.
+document.getElementById("pGoals").addEventListener("input", function(){ autoGrow(this); });
 // What this device/account doesn't have set up yet, vs. what Daniel & Cerys
 // already have running. None of it is code-gated per account - it's all
 // laptop-side setup (MCP servers, tokens) any account can get the same way.
