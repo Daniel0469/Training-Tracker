@@ -531,15 +531,26 @@ function saveProgram(){
 //              100, press-up ~65), so volume stays believable.
 // Name -> program exercise, so a set logged before the flag existed still gets
 // scored by how that exercise is defined today. Rebuilt whenever state is saved.
+// The same name can be set up two different ways in two sessions - Tom's
+// "Back extension" is a bodyweight movement on his upper day and a loaded one
+// on his leg day. Taking the first match would then score an unstamped set by
+// the wrong definition, so a name whose definitions disagree resolves to
+// nothing and the set is read as the plain number typed. Stamped entries are
+// unaffected - they carry their own load type.
 let progExIndex=null;
 function programExerciseByName(name){
   if(!progExIndex){
     progExIndex={};
+    const clash={};
     Object.keys((state.program&&state.program.sessions)||{}).forEach(function(k){
       ((state.program.sessions[k].exercises)||[]).forEach(function(ex){
-        if(ex && ex.name && !progExIndex[ex.name]) progExIndex[ex.name]=ex;
+        if(!ex || !ex.name) return;
+        const seen=progExIndex[ex.name];
+        if(!seen){ progExIndex[ex.name]=ex; return; }
+        if((seen.load||"")!==(ex.load||"") || (seen.bwPct||100)!==(ex.bwPct||100)) clash[ex.name]=true;
       });
     });
+    Object.keys(clash).forEach(function(n){ progExIndex[n]=null; });
   }
   return progExIndex[name]||null;
 }
@@ -2396,7 +2407,11 @@ function exportPayload(){
 // bodyweights by person+date (both idempotent). Config (program/people/
 // weights/goals) is only replaced when adopting; otherwise empty goals are
 // filled from the incoming copy so each person's goal propagates.
-function mergeInData(data, adoptConfig){
+// fromSync: only a cloud sync adopts a newer shared program automatically. A
+// manual file import must not - it has its own "adopt" tick box, and quietly
+// overriding it would replace the program of whoever opened someone else's
+// export just to merge a few sessions in.
+function mergeInData(data, adoptConfig, fromSync){
   let added=0, updated=0;
   if(Array.isArray(data.logs)){
     var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
@@ -2441,7 +2456,7 @@ function mergeInData(data, adoptConfig){
   // newer than this device's (saveProgram stamps every edit). A phone that has
   // never stamped its own takes the incoming one; if neither side carries a
   // stamp nothing changes, which is exactly how this behaved before.
-  if(!adoptConfig && data.program && data.program.sessions){
+  if(fromSync && !adoptConfig && data.program && data.program.sessions){
     const mine=(state.program&&state.program.updatedAt)||"";
     const theirs=data.program.updatedAt||"";
     // Never swap the plan out from under a workout in progress: the log form
@@ -2681,7 +2696,7 @@ function syncNow(quiet){
   setSyncStatus("Syncing…");
   return ghGetFile(cfg).then(function(remote){
     let merged={added:0,updated:0};
-    if(remote.exists && remote.json){ merged=mergeInData(remote.json, false); save(); } // keep pulled data even if the push fails
+    if(remote.exists && remote.json){ merged=mergeInData(remote.json, false, true); save(); } // keep pulled data even if the push fails
     // Push our state over the remote rather than replacing the file outright, so
     // top-level keys this version doesn't know about survive. Without this, a phone
     // running an older build silently deletes any field added since (hrZones, and
