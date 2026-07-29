@@ -6,3 +6,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 .mcp.json
+# The one-off data scripts in scratchpad/ back data.json up next to themselves.
+# Those backups are both people's full training data and this repo is public.
+scratchpad/data-backup-*.json
+_devfixture.json
