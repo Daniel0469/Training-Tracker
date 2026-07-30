@@ -1195,6 +1195,47 @@ function parseClock(s){
 // from manual entry). Used by both the collapsed summary and the splits table.
 function isSplitRow(r, di){ const d=parseFloat(r[di]); return isNaN(d) || d>0; }
 // Distance · time · avg pace · ♥ HR for one run entry (0-distance laps skipped).
+// An interval piece is cardio the watch records but that isn't a distance+time
+// run - treadmill reps logged as speeds. The program marks those with garminRun
+// (see isGarminCardio), but a *logged* entry never carries that flag, so resolve
+// it back to the program definition by name - the same fallback loadTypeOf uses.
+function isIntervalEntry(e){
+  if(!e || isRunning(e)) return false;
+  const def=programExerciseByName(e.name);
+  return !!(def && def.garminRun===true);
+}
+// Fastest single split, as m:ss per km. Computed from each row's own distance
+// and time rather than the Pace column, which is only filled in for rows the
+// app or the importer got to. Partial last splits are fine - a half km in half
+// the time is the same pace - but zero-distance rows would divide by zero.
+function bestPaceFromEntry(e){
+  if(!e) return "";
+  const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i);
+  if(di<0||ti<0) return "";
+  let best=null;
+  (e.rows||[]).forEach(r=>{
+    const km=parseFloat(r[di]), sec=parseClock(r[ti]);
+    if(isNaN(km)||km<=0||sec==null||sec<=0) return;
+    const pace=(sec/60)/km;
+    if(best==null||pace<best) best=pace;
+  });
+  return best==null ? "" : fmtPace(best)+"/km";
+}
+// Hardest effort in an interval entry: the biggest number in its first column,
+// which is the "hard" one (Hard speed (km/h) / Easy speed (km/h)). The column's
+// own label supplies the unit, so this reads correctly whatever it's measured in.
+function bestSpeedFromEntry(e){
+  if(!e||!e.cols||!e.cols.length) return "";
+  let best=null;
+  (e.rows||[]).forEach(r=>{
+    const v=parseFloat(r&&r[0]);
+    if(isNaN(v)||v<=0) return;
+    if(best==null||v>best) best=v;
+  });
+  if(best==null) return "";
+  const unit=(String(e.cols[0]).match(/\(([^)]+)\)/)||[])[1]||"";
+  return best+(unit?" "+unit:"");
+}
 function runSummaryFromEntry(e, garmin){
   if(!e) return "";
   const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i);
@@ -2342,7 +2383,7 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b> and <b>last run</b>, your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace or speed, ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
@@ -2559,7 +2600,8 @@ function showSaveSummary(volume, prs, entries, promotable, promoteKey){
 document.getElementById("saveDlgOk").onclick=function(){ document.getElementById("saveDlg").close(); };
 
 // Home dashboard — the hub landing: greeting + today's session, coach card,
-// this-week stat tiles, last session, last run, bodyweight trend, goals.
+// this-week stat tiles, last session, last Zone 2 run, last intervals,
+// bodyweight trend, goals.
 // Reuses existing helpers; links out to the detailed tabs.
 // The five Garmin HR training zones. Reference info (what each zone's bpm band is),
 // not time spent in them - written by mcp-garmin's `--hrzones` into state.hrZones,
@@ -2641,6 +2683,7 @@ function renderHome(){
   const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
   const last=pLogs[0];
   const lastRun=pLogs.find(l=>(l.entries||[]).some(e=>isRunning(e)));
+  const lastIntervals=pLogs.find(l=>(l.entries||[]).some(e=>isIntervalEntry(e)));
   const bw=bwFor(p);
   const latest=bw.length? bw[bw.length-1] : null;
   let bwDelta="";
@@ -2686,19 +2729,41 @@ function renderHome(){
     html+='<div class="card empty">No sessions logged yet.<br>Tap <b>Log it</b> on <b>Home</b> to record your first one.</div>';
   }
 
+  // The two cardio sessions are different jobs and read completely differently,
+  // so they get a card each. One combined "last run" only ever showed whichever
+  // came last - and worse, it could never show the intervals at all, because it
+  // keyed on isRunning() (distance + time) and treadmill reps are logged as
+  // speeds. Daniel's interval sessions, HR data and all, were invisible here.
+  const cardioCard=(log, entry, title, lead)=>{
+    const g=log.garmin||{};
+    const bits=[];
+    if(lead) bits.push(lead);
+    // Garmin's moving time, not the session timer: this card is about the run,
+    // and everything beside it (HR, the zone bar) already is. The timer covers
+    // the whole gym session, so on a cardio+core day it read 1:12:33 next to an
+    // 18:31 zone bar. Falls back to the timer when there's no watch data.
+    if(g.moving_time) bits.push('⏱ '+g.moving_time);
+    else if(log.durationSec) bits.push('⏱ '+fmtDuration(log.durationSec));
+    if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr+' avg');
+    if(g.max_hr!=null) bits.push(g.max_hr+' max');
+    return '<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+title+'</div>'
+      + '<button class="mini" data-home-go="history">History →</button></div>'
+      + '<h3 style="margin:8px 0 2px">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
+      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(log)+'</div>'
+      + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
+  };
+
   if(lastRun){
     const runEntry=(lastRun.entries||[]).find(e=>isRunning(e));
     const km=(runEntry.rows||[]).reduce((t,r)=>t+(parseFloat(r[0])||0),0);
-    const g=lastRun.garmin||{};
-    const bits=[];
-    if(km) bits.push((Math.round(km*100)/100)+' km');
-    if(lastRun.durationSec) bits.push('⏱ '+fmtDuration(lastRun.durationSec));
-    if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr);
-    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">🏃 Last run</div>'
-      + '<button class="mini" data-home-go="history">History →</button></div>'
-      + '<h3 style="margin:8px 0 2px">'+esc(lastRun.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(lastRun.date)+'</span></h3>'
-      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(lastRun)+'</div>'
-      + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
+    const best=bestPaceFromEntry(runEntry);
+    const lead=[km?(Math.round(km*100)/100)+' km':'', best?'best '+best:''].filter(Boolean).join(' · ');
+    html+=cardioCard(lastRun, runEntry, '🏃 Last Zone 2 run', lead);
+  }
+  if(lastIntervals){
+    const ivEntry=(lastIntervals.entries||[]).find(e=>isIntervalEntry(e));
+    const best=bestSpeedFromEntry(ivEntry);
+    html+=cardioCard(lastIntervals, ivEntry, '⚡ Last intervals', best?'best '+best:'');
   }
 
   html += fiveKCardHtml(p);
