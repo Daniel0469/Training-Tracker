@@ -116,10 +116,11 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   speeds - **could never appear on Home at all**, Garmin HR and all. Classified by exercise shape,
   not session name: `isIntervalEntry()` resolves a logged entry back to its program definition by
   name to read `garminRun` (logged entries don't carry that flag), the same fallback `loadTypeOf()`
-  uses. Both cards show best pace / best speed, avg **and max** HR, and the zone bar. Duration now
+  uses. Both cards show best pace / best speed, avg **and max** HR (❤ red for the average, 🧡 orange
+  for the peak, following the zone palette), and the zone bar. Duration now
   prefers Garmin's `moving_time` over the session timer - the timer covers the whole gym session, so
   a cardio+core day read 1:12:33 beside an 18:31 zone bar. That also makes Cerys's 26 Jul card show
-  Garmin's 4:26 rather than the stored 48s (see the duration item in `docs/BACKLOG.md`). `tt-v89`.
+  Garmin's 4:26 rather than the stored 48s (see the duration item in `docs/BACKLOG.md`). `tt-v90`.
 - **Cardio: Speed + Core warm-up/cool-down edits** from the 29 Jul session feedback, applied to the
   live store (`scratchpad/apply_cardiospeed.py`, idempotent, backs up `data.json` first). Worth
   knowing for next time: **the mobility work is `warmupNote`/`cooldownNote` free text, not
@@ -177,7 +178,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v89`.
+  change to a cached file.** Currently `tt-v90`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,

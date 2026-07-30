@@ -2744,8 +2744,11 @@ function renderHome(){
     // 18:31 zone bar. Falls back to the timer when there's no watch data.
     if(g.moving_time) bits.push('⏱ '+g.moving_time);
     else if(log.durationSec) bits.push('⏱ '+fmtDuration(log.durationSec));
+    // Red heart for the average, orange for the peak - the same direction the
+    // zone palette runs (--hrz2 green through --hrz4 orange to --hrz5 red), so
+    // the hotter number reads as the hotter colour rather than needing the label.
     if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr+' avg');
-    if(g.max_hr!=null) bits.push(g.max_hr+' max');
+    if(g.max_hr!=null) bits.push('🧡 '+g.max_hr+' max');
     return '<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+title+'</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
       + '<h3 style="margin:8px 0 2px">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
