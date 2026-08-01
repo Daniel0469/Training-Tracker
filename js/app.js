@@ -1222,8 +1222,12 @@ function bestPaceFromEntry(e){
   return best==null ? "" : fmtPace(best)+"/km";
 }
 // Hardest effort in an interval entry: the biggest number in its first column,
-// which is the "hard" one (Hard speed (km/h) / Easy speed (km/h)). The column's
-// own label supplies the unit, so this reads correctly whatever it's measured in.
+// which is the "hard" one (Hard speed (km/h) / Easy speed (km/h)). Reported as a
+// pace, because the Zone 2 card beside it on Home reports one - a treadmill
+// speed and a run pace are the same thing measured two ways, and comparing them
+// shouldn't mean doing 60/x in your head. Only km/h converts (60/x is only right
+// for that); the column's own label supplies the unit, and anything else - mph,
+// a machine "level", no unit at all - falls back to the raw number as before.
 function bestSpeedFromEntry(e){
   if(!e||!e.cols||!e.cols.length) return "";
   let best=null;
@@ -1233,7 +1237,8 @@ function bestSpeedFromEntry(e){
     if(best==null||v>best) best=v;
   });
   if(best==null) return "";
-  const unit=(String(e.cols[0]).match(/\(([^)]+)\)/)||[])[1]||"";
+  const unit=((String(e.cols[0]).match(/\(([^)]+)\)/)||[])[1]||"").trim();
+  if(/^km\s*\/\s*h$/i.test(unit)) return fmtPace(60/best)+"/km";
   return best+(unit?" "+unit:"");
 }
 function runSummaryFromEntry(e, garmin){
@@ -2383,7 +2388,7 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace or speed, ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));

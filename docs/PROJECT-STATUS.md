@@ -116,7 +116,7 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   speeds - **could never appear on Home at all**, Garmin HR and all. Classified by exercise shape,
   not session name: `isIntervalEntry()` resolves a logged entry back to its program definition by
   name to read `garminRun` (logged entries don't carry that flag), the same fallback `loadTypeOf()`
-  uses. Both cards show best pace / best speed, avg **and max** HR (❤ red for the average, 🧡 orange
+  uses. Both cards show best pace, avg **and max** HR (❤ red for the average, 🧡 orange
   for the peak, following the zone palette), and the zone bar. Duration now
   prefers Garmin's `moving_time` over the session timer - the timer covers the whole gym session, so
   a cardio+core day read 1:12:33 beside an 18:31 zone bar. That also makes Cerys's 26 Jul card show
@@ -127,6 +127,13 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   exercises**, so all nine were text edits to two blocks. Scoped to that one session on Daniel's
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
+
+**2026-08-01 — ⚡ Last intervals reports a pace, not a speed.** The two Home cardio cards sat side by
+side reporting the same thing in different units (`best 13 km/h` vs `best 5:22/km`), so comparing
+them meant doing 60/x in your head. `bestSpeedFromEntry()` now converts when the column's unit is
+km/h (`Hard speed (km/h)` → `best 4:37/km`); **any other unit still falls back to the raw number**
+(mph, a machine `(level)`, no unit at all) since 60/x is only right for km/h. Daniel picked pace
+alone over showing both. In-app suggestions backlog was empty this session. `CACHE_NAME` → tt-v91.
 
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
@@ -178,7 +185,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v90`.
+  change to a cached file.** Currently `tt-v91`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
