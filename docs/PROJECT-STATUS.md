@@ -135,6 +135,28 @@ km/h (`Hard speed (km/h)` → `best 4:37/km`); **any other unit still falls back
 (mph, a machine `(level)`, no unit at all) since 60/x is only right for km/h. Daniel picked pace
 alone over showing both. In-app suggestions backlog was empty this session. `CACHE_NAME` → tt-v91.
 
+**2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
+app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
+cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
+heaviest session comes off two rest days; Lower 1 (leg press/RDL) took Friday.
+- **Six sessions into five slots, so both cardio sessions share Wednesday** and alternate week to
+  week - speed one week, Zone 2 the next. `sessionForDate()` takes the *first* Wednesday key in
+  `program.order`, so **`order` is what makes Speed + Core the one the app auto-opens**; Endurance
+  is one tap down the Log session list. A line at the top of each cardio `warmupNote` says so and
+  points at Home's ⚡/🏃 cards for which you did last. Verified in-browser that every weekday
+  resolves right, both Wednesdays list in order, and Sat/Sun fall back to Monday's session in the
+  dropdown (nothing is auto-logged).
+- **Nothing renamed** - session names key `coaching.bySession` and are stamped onto every logged
+  entry, so renaming would split History and orphan the coach's notes. Days are labels only; past
+  sessions keep the day they were actually done on.
+- Script: `scratchpad/apply_weekdays.py` (idempotent, checks each session's *expected* current day
+  before moving it, backs up data.json first).
+- **Open, for Daniel:** the old **Tuesday rest/mobility day** is now Upper 1 - if that mobility work
+  still wants a home it needs a weekend slot (it was never in the app, so nothing broke). And the
+  **Garmin Task Scheduler jobs still cover the old cardio days** (hourly Wed + Sat, plus 00:00-05:00
+  Thu + Sun): Wednesday is still right, the Sat/Sun windows are now dead weight - harmless, since
+  the job no-ops when nothing is pending, but worth trimming next time they're touched.
+
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
 kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
