@@ -1292,6 +1292,53 @@ function entryDetailHtml(e){
         return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s;
       }).join(" · ")+'</td></tr>';
 }
+// Your own notes on a logged session. These used to be write-once - the only
+// place to type one was the log form, before saving - so remembering something
+// afterwards had nowhere to go. Editable here instead, saved on blur like the
+// Program tab's warm-up / cool-down notes. The read-out and the editor swap
+// places; the read-out is always rendered (hidden when empty) so there's
+// something to reveal after a note is added to a session that had none.
+function histNoteHtml(l){
+  const fb=l.feedback||"";
+  return '<div class="fb" data-fbview="'+l.id+'"'+(fb?"":" hidden")+'>&#128221; '+esc(fb)+'</div>'
+    + '<div class="notes-wrap" data-fbwrap="'+l.id+'" hidden>'
+      + '<textarea class="notes" data-fbta="'+l.id+'" rows="2" placeholder="e.g. Right knee tight on squats. Felt strong today.">'+esc(fb)+'</textarea></div>'
+    + '<div class="row" style="justify-content:flex-end;margin-top:7px">'
+      + '<button class="mini" data-fbedit="'+l.id+'">&#128221; '+(fb?"Edit note":"Add a note")+'</button></div>';
+}
+function wireHistNotes(){
+  const logById=id=>state.logs.filter(l=>String(l.id)===String(id))[0];
+  const commit=ta=>{
+    const log=logById(ta.dataset.fbta); if(!log) return false;
+    const v=ta.value.trim();
+    if(v===(log.feedback||"")) return false;
+    if(v) log.feedback=v; else delete log.feedback;
+    save(); return true;
+  };
+  document.querySelectorAll("[data-fbta]").forEach(ta=>{
+    ta.addEventListener("input",()=>autoGrow(ta));
+    ta.addEventListener("change",()=>{ if(commit(ta)) toast("Note saved"); });
+  });
+  document.querySelectorAll("[data-fbedit]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.fbedit;
+    const wrap=document.querySelector('[data-fbwrap="'+id+'"]');
+    const view=document.querySelector('[data-fbview="'+id+'"]');
+    const ta=wrap&&wrap.querySelector("textarea");
+    if(!wrap||!ta||!view) return;
+    if(wrap.hasAttribute("hidden")){
+      wrap.removeAttribute("hidden"); view.setAttribute("hidden","");
+      autoGrow(ta); ta.focus();
+      b.textContent="✓ Done";
+    } else {
+      if(commit(ta)) toast("Note saved");
+      wrap.setAttribute("hidden","");
+      const fb=(logById(id)||{}).feedback||"";
+      view.innerHTML="&#128221; "+esc(fb);
+      if(fb) view.removeAttribute("hidden"); else view.setAttribute("hidden","");
+      b.innerHTML="&#128221; "+(fb?"Edit note":"Add a note");
+    }
+  });
+}
 function drawHist(who){
   let logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   if(who!=="all") logs=logs.filter(l=>l.person===who);
@@ -1307,10 +1354,11 @@ function drawHist(who){
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
-      + (l.feedback?'<div class="fb">📝 '+esc(l.feedback)+'</div>':"")+garminLine(l)
+      + histNoteHtml(l)+garminLine(l)
       + hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+'</div></div>';
   }).join("");
   justSavedId=null;
+  wireHistNotes();
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
     const d=document.getElementById("d"+b.dataset.toggle);
     d.classList.toggle("open"); b.textContent=d.classList.contains("open")?"Hide":"View";
@@ -2422,6 +2470,7 @@ function renderHelp(){
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
+     +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away, and it\'s the same note the coach reads.')
      +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
