@@ -261,6 +261,61 @@ def get_session(data, session_id):
             return l
     return {"error": f"No session with id {session_id}"}
 
+def _bodyweight_on(data, person, date):
+    """Bodyweight as at a session date - the same rule as bodyweightOn in js/app.js:
+    the most recent weigh-in on or before that date, else the earliest on record,
+    else the figure in Settings."""
+    bws = sorted((b for b in data.get("bodyweights", []) if b.get("person") == person),
+                 key=lambda b: b.get("date") or "")
+    best = None
+    for b in bws:
+        if (b.get("date") or "") <= (date or ""):
+            best = b
+        else:
+            break
+    if best is None and bws:
+        best = bws[0]
+    if best is not None:
+        return _num(best.get("kg"))
+    people = data.get("people") or []
+    if person in people:
+        i = people.index(person)
+        w = (data.get("weights") or [])
+        return _num(w[i]) if i < len(w) else None
+    return None
+
+def _load_def(data, entry, session_key):
+    """A logged entry is stamped with its load type on save, but older ones aren't -
+    fall back to the program's exercise of the same name, exactly as loadTypeOf does
+    in js/app.js."""
+    if entry.get("load"):
+        return entry.get("load"), _num(entry.get("bwPct")) or 100
+    sessions = (data.get("program") or {}).get("sessions") or {}
+    candidates = [sessions[session_key]] if session_key in sessions else list(sessions.values())
+    for s in candidates:
+        for ex in (s.get("exercises") or []):
+            if ex.get("name") == entry.get("name") and ex.get("load"):
+                return ex.get("load"), _num(ex.get("bwPct")) or 100
+    return None, 100
+
+def _set_load(data, entry, typed, person, date, session_key):
+    """What one set actually loaded, in kg. Mirrors setLoad in js/app.js: a bodyweight
+    movement adds your own weight, an assisted one subtracts the machine's help - so
+    LESS assistance scores HIGHER, which is the whole point. Without this the coach
+    read Cerys's pull-up as 36kg and getting worse, when her assist dropping 36 -> 32
+    is her only stated goal getting closer."""
+    v = _num(typed)
+    load, pct = _load_def(data, entry, session_key)
+    if not load:
+        return v
+    bw = _bodyweight_on(data, person, date)
+    if bw is None:
+        return v            # never weighed in: nothing better than the typed number
+    own = bw * (pct / 100.0)
+    if load == "assist":
+        return own - (v or 0)
+    return own + (v or 0)
+
 def get_prs(data, person):
     best = {}
     for l in _person_logs(data, person):
@@ -272,13 +327,21 @@ def get_prs(data, person):
             for ri, row in enumerate(e.get("rows", [])):
                 if ri in warm:
                     continue
-                w = _num(row[0]) if row else None
+                w = _set_load(data, e, row[0] if row else None, person,
+                              l.get("date"), l.get("sessionKey"))
                 if w is not None and (top is None or w > top):
                     top = w
             if top is not None:
                 name = e.get("name")
                 if name not in best or top > best[name]["kg"]:
-                    best[name] = {"kg": top, "date": l.get("date")}
+                    rec = {"kg": round(top, 1), "date": l.get("date")}
+                    load, pct = _load_def(data, e, l.get("sessionKey"))
+                    if load:
+                        # Say so, or "43.8 kg" on a pull-up is a puzzle.
+                        rec["scoring"] = ("bodyweight%s plus what was added" if load == "bw"
+                                          else "bodyweight%s minus the machine's help") % (
+                                              "" if pct == 100 else " x %g%%" % pct)
+                    best[name] = rec
     return best
 
 def get_bodyweight(data, person):
@@ -397,14 +460,24 @@ def resolve_suggestion(sid):
     return {"ok": True, "id": sid}
 
 def get_progress(data, person, exercise):
+    """Top set per session over time. Scored through _set_load, so a bodyweight or
+    assisted movement trends by what it actually loaded rather than by the number
+    typed - otherwise an assisted pull-up appears to go backwards as it improves."""
     pts = []
     for l in _person_logs(data, person):
         for e in l.get("entries", []):
             if e.get("name") != exercise:
                 continue
-            vals = [_num(r[0]) for r in e.get("rows", []) if r and _num(r[0]) is not None]
+            warm = set(e.get("warmup") or [])
+            vals = []
+            for ri, r in enumerate(e.get("rows", [])):
+                if ri in warm or not r:
+                    continue
+                v = _set_load(data, e, r[0], person, l.get("date"), l.get("sessionKey"))
+                if v is not None:
+                    vals.append(v)
             if vals:
-                pts.append({"date": l.get("date"), "top": max(vals)})
+                pts.append({"date": l.get("date"), "top": round(max(vals), 1)})
     pts.sort(key=lambda p: p["date"])
     return pts
 
