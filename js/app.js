@@ -697,6 +697,24 @@ function updateTimerUI(){
   if(btn) btn.textContent = t.running ? "Pause" : (t.elapsedSec>0 ? "Resume" : "Start");
 }
 
+// Has anyone ever coached this install? Used to keep coaching-specific copy off
+// the screen of someone who has no coach - the features are all opt-in and
+// laptop-side, so a plain local install should never be told about plumbing it
+// hasn't got.
+// Has this install ever had a Garmin activity linked, or zones pulled? Same idea
+// as hasCoaching: don't describe kit they haven't got.
+function hasGarmin(){
+  if(Object.keys(state.hrZones||{}).length) return true;
+  return state.logs.some(l=>l && (l.garminActivityId || l.garminWanted || l.garmin));
+}
+function hasCoaching(){
+  const c=state.coaching||{};
+  return Object.keys(c).some(k=>{
+    const e=c[k]||{};
+    return e.overall || e.fiveK || e.nextCardio
+      || Object.keys(e.bySession||{}).length || Object.keys(e.byExercise||{}).length;
+  });
+}
 function renderLog(){
   const p = state.people[state.activePerson];
   const opts = orderedKeys().map(k=>{
@@ -750,11 +768,19 @@ function renderLog(){
   const exs = logExercises();
 
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
+  // Unless nothing here has ever been near a watch, in which case leading with
+  // "if you wear your Garmin" is telling someone about kit they haven't got -
+  // the manual route is their route, so it goes first and the watch isn't
+  // mentioned at all.
   if(exs.some(e=>isRunning(e))){
-    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>';
-  } else if(exs.some(e=>isGarminCardio(e))){
+    html += hasGarmin()
+      ? '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>'
+      : '<div class="cardio-note">🏃 <b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>⬆ import</b> a TCX/GPX from Garmin or Strava instead.</div>';
+  } else if(exs.some(e=>isGarminCardio(e)) && hasGarmin()){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
     // the measurements it alone knows (HR, zones, calories) - it never overwrites.
+    // Nothing useful to say here without a watch: you just type your paces in, and
+    // the columns already say that.
     html += '<div class="cardio-note">⌚ <b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
   }
 
@@ -796,7 +822,11 @@ function renderLog(){
     + '<div class="diff" id="diff">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-d="'+n+'">'+n+'</button>').join("")+'</div>'
     + '</div></div>'
     + '<label class="fld">Your own notes (optional)<textarea id="feedback" placeholder="e.g. Right knee tight on squats. Felt strong today."></textarea></label>'
-    + '<div class="hint">🧠 Coaching notes show at the top and on each exercise after a sync.</div></div>'
+    // Only worth saying to someone who actually has a coach. On an install with
+    // no coaching and no cloud sync it promised a feature that was never coming,
+    // and pointed at a "sync" that isn't set up.
+    + (hasCoaching() ? '<div class="hint">🧠 Coaching notes show at the top and on each exercise after a sync.</div>' : '')
+    + '</div>'
     + '<div class="row" style="justify-content:flex-end;margin-bottom:30px">'
     + '<button class="btn btn-ghost" id="clearForm">Clear</button>'
     + '<button class="btn btn-primary" id="saveSession">Save session &check;</button></div>';
@@ -3022,7 +3052,7 @@ function renderHome(){
 
   html+='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
-            : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu so coaching can target them.</div>')
+            : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu'+(hasCoaching()?' so coaching can target them':'')+'.</div>')
     + '</div>';
 
   // Coaching history — every past coach write, so improvement can be tracked over time.
