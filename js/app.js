@@ -238,6 +238,12 @@ function exerciseBlocks(exercises){
   }
   return blocks;
 }
+// A session's `day` is a label plus these two lookups, nothing more. Anything
+// that isn't a weekday name - "Optional" - falls through to 99 below, so it
+// sorts to the bottom of the list, and can never match in sessionForDate, so
+// the calendar never opens it for you. That's what "optional" means here: it
+// exists in the program and you can pick it any day you fancy it, but it isn't
+// part of the week and nothing nags you about it.
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
 function orderedKeys(){
   return state.program.order.slice().sort(function(a,b){
@@ -2486,6 +2492,7 @@ function renderHelp(){
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
+     +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
      +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); the volume total already saved against past sessions is left as it was logged. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')
@@ -2748,13 +2755,21 @@ function renderHome(){
   const coach=(state.coaching&&state.coaching[p])||{};
   const goal=(state.goals&&state.goals[state.activePerson])||"";
   const sess=state.program.sessions[curSession];
+  // This card follows curSession (so Log it → takes you where you were), but it
+  // used to call that "today's session" unconditionally - pick anything else on
+  // the Log tab and Home would insist that was today. Only claim it's today's
+  // when the calendar agrees. Matters most for an Optional session, which the
+  // calendar deliberately never picks, and on Sat/Sun, where nothing is
+  // scheduled and curSession is just a fallback.
+  const todayKey=sessionForDate(trainingDateStr());
+  const isToday=!!todayKey && curSession===todayKey;
   let niceDate; try{ niceDate=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}); }catch(e){ niceDate=todayStr(); }
 
   let html='<div class="card">'
     + '<div class="sec-title" style="margin:0">👋 '+esc(possessive(p))+' hub</div>'
     + '<div class="home-greet">'+esc(niceDate)+'</div>'
     + '<div class="flex-between" style="align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">'
-    + '<div>Today’s session: <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
+    + '<div>'+(isToday?'Today’s session':'Selected session')+': <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div></div>';
 
