@@ -147,8 +147,19 @@
      rather than three different widths. */
   .mini.ico{min-width:32px;padding:5px}
   /* Action rows sit right, against the card edge, on every level of the Program
-     tab: the top card, a session's own actions, and each exercise. */
-  .row.actions{justify-content:flex-end;gap:6px}
+     tab and on a History session: the top card, a session's own actions, and
+     each exercise/log row.
+     nowrap + flex:none is the important bit. .row inherits flex-wrap:wrap, so a
+     long exercise or session name that wrapped onto a second line stole the
+     width these buttons needed and one of them dropped underneath the others -
+     Delete under View in History, x under the arrows in Program. The buttons
+     now hold their line and the TEXT beside them is what gives way (see
+     .row-grow below). */
+  .row.actions{justify-content:flex-end;gap:6px;flex-wrap:nowrap;flex:0 0 auto}
+  /* The title/description side of those rows. min-width:0 lets a flex item
+     shrink below its content width, which is what allows the text to wrap
+     instead of shoving the buttons. */
+  .row-grow{flex:1 1 auto;min-width:0}
   .btn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;font-size:15px}
   .btn-primary{background:var(--brand);color:#fff}
   .btn-primary:hover{background:#235ad0}

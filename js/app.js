@@ -1353,10 +1353,10 @@ function drawHist(who){
     const open = l.id===justSavedId;
     const rows=(l.entries||[]).map(entryDetailHtml).join("");
     const rs=runSummary(l);
-    return '<div class="log-item"><div class="log-row"><div>'
+    return '<div class="log-item"><div class="log-row"><div class="row-grow">'
       + '<h3>'+esc(l.sessionName)+' <span class="pill" data-sw="'+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
       + '<div class="ex-meta">'+esc(l.date)+(rs?' · '+esc(rs):"")+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
-      + '<div class="row"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
+      + '<div class="row actions"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
       + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
@@ -1603,9 +1603,9 @@ let selectedExRefs=new Set();
 let openSessions=new Set();
 function exRowHtml(k, ei, ex){
   const ref=k+':'+ei;
-  return '<div class="ex"><div class="ex-head"><div class="row" style="gap:6px;align-items:baseline">'
-    + '<input type="checkbox" data-selex="'+ref+'" style="width:auto" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>'
-    + '<div><div class="ex-name">'+esc(ex.name)+'</div>'
+  return '<div class="ex"><div class="ex-head"><div class="row row-grow" style="gap:6px;align-items:baseline;flex-wrap:nowrap">'
+    + '<input type="checkbox" data-selex="'+ref+'" style="width:auto;flex:none" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>'
+    + '<div style="min-width:0"><div class="ex-name">'+esc(ex.name)+'</div>'
     + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div></div>'
     + '<div class="row actions"><button class="mini" data-editex="'+ref+'">Edit</button>'
     + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
@@ -2511,7 +2511,7 @@ function renderHelp(){
   h+=card('Quick tips',
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
-     +p('&bull; Export regularly as a backup, and to keep both of you in sync.')
+     +p('&bull; No cloud sync? Export regularly as a backup, and to keep both of you in sync. With sync on, that\'s already handled - every save pushes a full copy off-device.')
      +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.'));
 
   document.getElementById("view").innerHTML=h;
@@ -2994,8 +2994,13 @@ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().c
 // Nudge toward a manual backup if it's been a long time (or never) since the
 // last Export and there's actually something to lose. Delayed so it doesn't
 // collide with the sync-status toast from autoSync() above.
+// Skipped entirely when cloud sync is set up: every save already pushes a full
+// copy to the GitHub store, so the data IS backed up off-device and the nudge
+// was telling you to fix a problem you don't have.
 setTimeout(function(){
   if(!state.logs || !state.logs.length) return;
+  var sc=loadSync();
+  if(sc.repo && sc.token) return;
   var last = state.lastExportAt ? new Date(state.lastExportAt).getTime() : 0;
   var daysSince = (Date.now()-last)/86400000;
   if(daysSince>30) toast("Haven't exported in a while - back up via gear → Export");
