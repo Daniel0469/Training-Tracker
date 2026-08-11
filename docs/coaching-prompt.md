@@ -38,8 +38,8 @@ the prompt below.
 > it tracking toward their stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
-> `write_coaching(person, overall, by_exercise, by_session)`. Prefer **session-specific** and
-> **per-exercise** coaching over a single generic note:
+> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio)`. Prefer
+> **session-specific** and **per-exercise** coaching over a single generic note:
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
 >   you have advice on (e.g. `"Lower 2"`, `"Cardio: Speed + Core"`). Use the **exact** session names
 >   from their program. Shown on Home (today's) and at the top of that session on the Log tab.

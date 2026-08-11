@@ -399,6 +399,16 @@ The two "make it hands-free" jobs:
        parse reliably, which is the main argument for Claude's vision instead.
      - **Still standing:** no heavy in-app OCR (Tesseract.js is a 2-15MB wasm dependency against a
        codebase whose only dependency is Chart.js) — see the scale decision below.
+     - **Routes already ruled out, don't retry them:** 1byone has **no web portal and no public
+       API** (mobile app only), so nobody can log in and read it — not Claude, not a script. The
+       app *does* sync to **Apple Health / Google Fit / Fitbit**, and Garmin exposes exactly the
+       readout wanted (`get_body_composition` → weight, BMI, body fat, body water, bone mass,
+       muscle mass, physique rating, visceral fat, metabolic age) — but **Garmin will not pull
+       weight from Apple Health** (Daniel confirmed, 2026-08-11), so that chain is dead. Verified
+       separately that Daniel's Garmin holds **0 body-composition measurements** for May–Aug 2026.
+     - **Cheapest thing to retry first:** the 1byone **CSV export**, which the app documents as
+       including BMI and water weight. It's recorded as "doesn't work", but that's an old note —
+       and `importBodyweightCsv` already exists, so widening it past date+weight would be small.
      - **Open schema, deliberately:** because Claude reads whatever labels are on the screenshot,
        the record should be `{person, date, metrics:{label:{value,unit}}}` rather than a fixed
        column list — nobody has to enumerate the scale's readout up front, and it adapts per model.
