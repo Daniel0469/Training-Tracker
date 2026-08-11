@@ -170,8 +170,33 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   claimed "this is the speed week" - never true of a *session*, only of a given Wednesday, so
   whichever one you opened insisted it was the right one. Only the first paragraph changed; the
   mobility work below it is untouched (verified by diff).
-- **Still open:** `docs/session-tab-and-body-merge.md` is a written-up plan awaiting go-ahead
-  (in-app suggestion `1786450461111`, deliberately left unresolved until it's built).
+- **Session is a tab again; Body moved into Progress** (behind a 🏋 Lifts / ⚖ Body toggle). The log
+  form had no bottom-bar slot and was only reachable via Home's "Log it", so checking History
+  mid-workout cost three taps to get back. Internal tab key stays `"log"` (four draft-capture
+  gates depend on it); `"body"` survives as a route so Home's arrow and old persisted state still
+  resolve. No data-model change. `docs/session-tab-and-body-merge.md` was the plan.
+- **Coach now scores bodyweight/assisted lifts like the app does.** `get_prs`/`get_progress` read
+  the raw first column, so Cerys's pull-up showed the coach **36 kg and falling** (her assist
+  dropping 36→32) when it is **47.8 kg and rising** - and "unassisted pull up" is one of her two
+  goals. Daniel's read 4.5 instead of 78.4. `bodyweightOn`/`loadTypeOf`/`setLoad` ported to Python.
+- **Cerys's 1 Aug was three logs**, saved in one go with the pieces apart: Garmin link + splits on
+  one, difficulty + her shin note on another, one empty. The two unlinked ones could never clear
+  (the matcher won't reuse an activity id), so they sat "awaiting run" forever. Merged onto the
+  linked log (`scratchpad/apply_mergedupes.py`, swept the whole store - this was the only case).
+  Root cause is that cardio sessions are deliberately saveable while empty; Daniel chose **no**
+  duplicate-save guard for now.
+- **Interval structure backfilled** onto both 29 Jul sessions (`scratchpad/apply_intervalbackfill.py`)
+  - neither the sync nor `garmin_enrich_session` can reach an already-linked session.
+- **Audited the app for an install with no Garmin, no coach and no cloud sync.** Nothing was
+  broken; three bits of copy promised features that user will never have (the log form's coaching
+  hint, Home's goals hint, and the cardio banner leading with "if you wear your Garmin"). All now
+  gated on new `hasCoaching()` / `hasGarmin()` read-only helpers. `CACHE_NAME` → tt-v100.
+- **Cerys's goals and bodyweight ARE set** (`unassisted pull up`, `hyrox`; 79.8 kg on 2026-08-01) -
+  earlier notes in this file saying otherwise were stale.
+- **The Garmin Sat/Sun Task Scheduler windows stay** - Daniel's call: they now cover the optional
+  weekend session. Not dead weight.
+- **Still open:** nothing from this session. Next natural step is a coaching chat to write the
+  first ⚡ Next cardio cards.
 
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
