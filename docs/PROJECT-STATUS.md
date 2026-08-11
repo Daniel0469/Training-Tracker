@@ -135,6 +135,38 @@ km/h (`Hard speed (km/h)` → `best 4:37/km`); **any other unit still falls back
 (mph, a machine `(level)`, no unit at all) since 60/x is only right for km/h. Daniel picked pace
 alone over showing both. In-app suggestions backlog was empty this session. `CACHE_NAME` → tt-v91.
 
+**2026-08-11 — cardio gets a coach, a stated limiter, and honest interval data.** Backlog: notes
+are now editable after saving (from History), Program-tab buttons are uniform, and the wrap bug
+behind "the buttons still aren't uniform" is fixed - `.row` inherits `flex-wrap:wrap`, so a long
+title stole the buttons' width and pushed Delete under View. The 30-day export nudge is skipped
+when cloud sync is on (sync already backs up off-device); it still fires for local-only installs.
+- **`day: "Optional"` sessions** sit outside the week: never auto-opened, never "today's session",
+  sorted last, picked by hand. Used for the new **Weekend run (optional)** - Garmin-tracked, no
+  target, no progression, deliberately skippable (`scratchpad/apply_weekendrun.py`). Optional
+  sessions open with a **📅 Last time** card, since they can be weeks apart. Also fixed: Home
+  called *any* selected session "Today's session".
+- **The coach assigns the next cardio session.** `write_coaching(next_cardio={session,focus,why})`,
+  per person, shows as **⚡ Next cardio** on Home + that session's log. While live it *decides*
+  which session `sessionForDate()` opens on Wednesday; it's spent as soon as any cardio is logged,
+  then greys to "done". With no live card the app now **genuinely alternates** (the one you did
+  least recently) instead of always taking `program.order[0]`.
+- **`limiters[person][session]`** - what Daniel & Cerys *say* is holding a session back, in their
+  words, kept apart from the coach's read of the numbers. New `limiters()` / `write_limiter()` MCP
+  tools; the coach reads them first. Recorded 11 Aug (`scratchpad/apply_limiters.py`): Daniel
+  hasn't found his top working speed (building up, not overshooting) and is limited by run
+  length/time; Cerys has found her top speed, and **Zone 2 is a walk for her, not a run**.
+- **Interval structure is read off the Garmin trace** (`detect_intervals` in `mcp-garmin`). Laps
+  can't do it (a treadmill auto-laps every 1 km, swallowing whole reps), but the per-second speed
+  trace can. Verified: Daniel 29 Jul → 6 × ~58s / ~122s recovery, exactly what he typed; Cerys →
+  5, her last 47s, which is right (hers was cut short) and was recorded nowhere else. Zone 2 and
+  run/walk sessions correctly return `None`. **Structure only** - treadmill speed is
+  wrist-estimated and read 10-15% high, so typed speeds stay the record. Exposed to the coach as
+  `actual_structure`. `CACHE_NAME` → tt-v98. **Needs a Claude Code restart** for the new MCP tools.
+- **Still open:** Daniel said he'd "adjusted program to allow longer run" but the Endurance target
+  is still `5 km` in the store - confirm what it should be. The two cardio warm-up notes still
+  describe the alternation as something you track by hand off Home's ⚡/🏃 cards; the app now does
+  it. `docs/session-tab-and-body-merge.md` is a written-up plan awaiting go-ahead.
+
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
 cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
