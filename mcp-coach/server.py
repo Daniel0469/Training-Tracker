@@ -112,11 +112,13 @@ def _today():
     import datetime
     return datetime.date.today().isoformat()
 
-def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None):
+def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
+                 next_cardio=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> a short next-step cue; `five_k` is the
-    estimated-5k card. All are merged into any existing coaching. Shows in the app on
+    estimated-5k card; `next_cardio` assigns which cardio session comes next and
+    what to do in it. All are merged into any existing coaching. Shows in the app on
     Home + the log form after the person syncs."""
     def mutate(data):
         coaching = data.get("coaching") or {}
@@ -127,6 +129,10 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
             fk = dict(five_k)
             fk["updated"] = _today()
             entry["fiveK"] = fk
+        if next_cardio:
+            nc = dict(next_cardio)
+            nc["updated"] = _today()
+            entry["nextCardio"] = nc
         if by_session:
             merged = dict(entry.get("bySession") or {})
             merged.update(by_session)
@@ -147,6 +153,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         if by_session: rec["bySession"] = dict(by_session)
         if by_exercise: rec["byExercise"] = dict(by_exercise)
         if five_k: rec["fiveK"] = dict(five_k)
+        if next_cardio: rec["nextCardio"] = dict(next_cardio)
         if len(rec) > 3:                  # something beyond id/date/person was written
             hist.append(rec)
             data["coachingLog"] = hist
@@ -154,6 +161,39 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
     _github_update(mutate, f"Coaching update for {person}")
     return {"ok": True, "person": person,
             "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+
+def get_limiters(data, person=None):
+    """What the athletes SAY is holding each session back, in their own words.
+
+    Deliberately separate from `coaching` (which is the coach writing to them)
+    and from anything derived from the numbers. A limiter is the thing the coach
+    would otherwise have to guess at and would probably guess wrong: "top working
+    speed not found yet, building up" is not visible in a HR trace, and neither
+    is "Zone 2 is a walk, not a run". Read these BEFORE interpreting the data -
+    they say which lever is actually available.
+
+    Shape: limiters[person][exact session name] = "free text".
+    """
+    lim = data.get("limiters") or {}
+    if person:
+        return {"person": person, "limiters": lim.get(person) or {}}
+    return lim
+
+def set_limiter(person, session, text):
+    """Record (or clear, with an empty string) what's holding a session back for
+    one person. Written when the athlete tells you, not inferred by you."""
+    def mutate(data):
+        lim = data.get("limiters") or {}
+        entry = dict(lim.get(person) or {})
+        if str(text).strip():
+            entry[session] = str(text).strip()
+        else:
+            entry.pop(session, None)
+        lim[person] = entry
+        data["limiters"] = lim
+        return True
+    _github_update(mutate, f"Limiter for {person} / {session}")
+    return {"ok": True, "person": person, "session": session}
 
 def get_coaching_history(data, person, limit=10):
     log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
@@ -424,8 +464,29 @@ def _register(mcp):
         return json.dumps(get_running_form(load_data(), person), indent=2)
 
     @mcp.tool()
+    def limiters(person: str = "") -> str:
+        """What Daniel and Cerys SAY is holding each session back, in their own words.
+        Read this before you interpret anyone's numbers - it tells you which lever is
+        actually available, and it is not derivable from the data. "Top working speed
+        not found yet, building up" and "Zone 2 is a walk, not a run" both look like
+        the same flat HR trace, and they need opposite advice.
+
+        Where a limiter contradicts what you would have concluded from the numbers,
+        the limiter wins - it is the athlete's own account. Say so plainly in your
+        coaching rather than quietly overriding it. Omit `person` for everyone."""
+        return json.dumps(get_limiters(load_data(), person or None), indent=2)
+
+    @mcp.tool()
+    def write_limiter(person: str, session: str, text: str) -> str:
+        """Record what's holding a session back for one person, in their words - use the
+        EXACT session name. Only when they tell you; never your own inference (that is
+        what your coaching notes are for). Empty `text` clears it."""
+        return json.dumps(set_limiter(person, session, text), indent=2)
+
+    @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
-                       by_session: dict | None = None, five_k: dict | None = None) -> str:
+                       by_session: dict | None = None, five_k: dict | None = None,
+                       next_cardio: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
@@ -438,9 +499,19 @@ def _register(mcp):
         explains how to weigh Garmin's prediction against the actual logged runs. Say
         plainly in `basis` what it rests on; use "low" while there's no hard effort or
         time trial to go on. Re-write it whenever a new run changes the picture.
+        `next_cardio` = which cardio session they should do NEXT and what to do in it, as
+        {"session": "Cardio: Speed + Core", "focus": "4 x 3 min @ 12 km/h, 3 min easy
+         between", "why": "one line of reasoning"}. `session` must be an EXACT session
+        name from their program. This is not just a note: the app opens that session on
+        their cardio day instead of falling back to the automatic alternation, so only
+        name a session you actually want them doing. It is per person, so Daniel and
+        Cerys can get different numbers for the same session - read limiters(person)
+        first, because the two of them are usually limited by different things. The card
+        marks itself done once they log a cardio session, and the app returns to
+        alternating on its own until you write a new one.
         All merge into existing coaching. They see it after tapping Sync now."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
-                                       five_k or None), indent=2)
+                                       five_k or None, next_cardio or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:

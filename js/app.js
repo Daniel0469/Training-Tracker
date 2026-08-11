@@ -48,6 +48,10 @@ function load(){
       // 5k estimate (and the unreviewed fallback on Home), never edited in the app.
       if(!s.racePredictions || typeof s.racePredictions!=="object") s.racePredictions={};
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
+      // What each person says is holding a session back, keyed person -> session
+      // name. Written by the coach when they tell it (mcp-coach write_limiter),
+      // read-only in the app.
+      if(!s.limiters || typeof s.limiters!=="object") s.limiters={};
       if(!Array.isArray(s.meals)) s.meals=[];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
@@ -79,7 +83,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -257,7 +261,56 @@ function sessionForDate(dstr){
   var wd=new Date(dstr+"T12:00:00").getDay();
   var names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   var target=names[wd];
-  return state.program.order.filter(function(k){return String(state.program.sessions[k].day||"").toLowerCase()===target;})[0];
+  var keys=state.program.order.filter(function(k){return String(state.program.sessions[k].day||"").toLowerCase()===target;});
+  if(keys.length<2) return keys[0];
+  // More than one session on this weekday - the two cardio sessions share
+  // Wednesday. Which one is it today?
+  //   1. the coach's assignment, if it's still live (see nextCardioCard)
+  //   2. otherwise alternate: whichever of them you did NOT do last
+  //   3. otherwise program.order decides, as it always did
+  var live=liveNextCardio();
+  if(live){
+    var picked=keys.filter(function(k){ return state.program.sessions[k].name===live.session; })[0];
+    if(picked) return picked;
+  }
+  var alt=alternatedKey(keys);
+  return alt || keys[0];
+}
+// Of several sessions sharing a day, the one whose turn it is: the one you did
+// least recently. Previously order[0] always won, so the alternation was a
+// convention you had to remember and a skipped week silently flipped it.
+function alternatedKey(keys){
+  var p=state.people[state.activePerson];
+  var names={};
+  keys.forEach(function(k){ names[state.program.sessions[k].name]=k; });
+  var seen={}, logs=state.logs.filter(function(l){ return l.person===p; })
+    .sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:b.id-a.id; });
+  // Newest first, so the first time we meet a name is the last time it was done.
+  logs.forEach(function(l){ if(names[l.sessionName] && !(l.sessionName in seen)) seen[l.sessionName]=l.date; });
+  // Anything never done comes first - that's the one that's overdue.
+  var never=keys.filter(function(k){ return !(state.program.sessions[k].name in seen); });
+  if(never.length) return never[0];
+  var oldest=null;
+  keys.forEach(function(k){
+    var d=seen[state.program.sessions[k].name];
+    if(oldest===null || d<seen[state.program.sessions[oldest].name]) oldest=k;
+  });
+  return oldest;
+}
+// The coach's next-cardio assignment, or null once it's been used up. It's spent
+// the moment a cardio session is logged on or after the day it was written: the
+// advice was for that session, and leaving it up would have a fortnight-old
+// prescription still choosing which session Wednesday opens.
+function liveNextCardio(){
+  var p=state.people[state.activePerson];
+  var nc=((state.coaching&&state.coaching[p])||{}).nextCardio;
+  if(!nc || !nc.session || !nc.updated) return null;
+  var since=String(nc.updated).slice(0,10);
+  var done=state.logs.some(function(l){
+    if(l.person!==p || String(l.date)<since) return false;
+    return (l.entries||[]).some(function(e){ return isRunning(e)||isIntervalEntry(e); });
+  });
+  return done ? null : nc;
 }
 function isLifting(ex){ return /kg|assist/i.test(ex.cols[0]) && /rep/i.test(ex.cols[1]); }
 // A running exercise carries both a distance and a time column (any order),
@@ -675,6 +728,20 @@ function renderLog(){
     html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap"><b>'+esc(sess.name)+':</b> '+esc(sessNote)+'</div>'
       + '</div>';
+  }
+
+  // The coach's cardio assignment, on the session it's about - that's where you
+  // read it, standing at the treadmill, rather than having to go back to Home.
+  const nc=(coach.nextCardio&&sess&&coach.nextCardio.session===sess.name)?nextCardioCardHtml(p):"";
+  html += nc;
+
+  // What this person said is holding this session back. Their words, not the
+  // coach's read of the numbers - see limiters() in mcp-coach/server.py.
+  const limiter=((state.limiters&&state.limiters[p])||{})[sess?sess.name:""]||"";
+  if(limiter){
+    html += '<div class="card"><div class="sec-title">&#128681; What\'s holding this back</div>'
+      + '<div style="white-space:pre-wrap">'+esc(limiter)+'</div>'
+      + '<div class="hint" style="margin-top:5px">'+esc(possessive(p))+' own words. Your coach reads this before the numbers.</div></div>';
   }
 
   html += lastTimeHtml(sess, prev);
@@ -2139,7 +2206,7 @@ function exportPayload(){
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    program:state.program, logs:state.logs};
+    limiters:state.limiters, program:state.program, logs:state.logs};
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -2161,6 +2228,8 @@ function mergeInData(data, adoptConfig, fromSync){
   // Same per-person overwrite as coaching: Garmin is the source of truth for zones.
   if(data.hrZones && typeof data.hrZones==="object"){ if(!state.hrZones) state.hrZones={}; Object.keys(data.hrZones).forEach(function(p){ state.hrZones[p]=data.hrZones[p]; }); }
   if(data.racePredictions && typeof data.racePredictions==="object"){ if(!state.racePredictions) state.racePredictions={}; Object.keys(data.racePredictions).forEach(function(p){ state.racePredictions[p]=data.racePredictions[p]; }); }
+  // Limiters: authored centrally like coaching, so incoming wins per person.
+  if(data.limiters && typeof data.limiters==="object"){ if(!state.limiters) state.limiters={}; Object.keys(data.limiters).forEach(function(p){ state.limiters[p]=data.limiters[p]; }); }
   // Coaching history: union by id (every past coach write, so improvement can be tracked).
   if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
   // Improvement suggestions: union by id, and a "done" status wins from either
@@ -2513,7 +2582,9 @@ function renderHelp(){
       p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.'));
+     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
+     +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something. When two cardio sessions share a day, your coach can <b>assign</b> which one is next and what to do in it - and the app then <b>opens that one</b> for you, instead of guessing. It\'s <b>per person</b>, so you and your partner can get different numbers for the same session. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app goes back to <b>alternating on its own</b> - whichever of the two you did least recently - until your coach writes a new one. You can always pick the other session from the list anyway; it\'s a default, not a lock.')
+     +p('<b>&#128681; What\'s holding this back</b> shows on a session when you\'ve told your coach what\'s limiting it - "haven\'t found my top working speed yet", "Zone 2 is a walk for me, not a run". It\'s in <b>your</b> words, kept apart from the coach\'s own read of your numbers, and it\'s the first thing the coach checks - because two people can produce the same heart-rate trace for completely opposite reasons.'));
 
   h+=card('7 &middot; Edit the program',
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
@@ -2764,6 +2835,29 @@ function fiveKCardHtml(person){
     + (basis?'<div class="ex-meta" style="margin-top:2px">'+esc(basis)+'</div>':'')
     + '<div class="hint" style="margin-top:5px">'+esc(when)+'</div></div>';
 }
+// The coach's next-cardio assignment. Unlike the other coach notes this one
+// isn't only advice - while it's live it decides which cardio session the app
+// opens on a day two of them share (see sessionForDate). Once a cardio session
+// has been logged it stays on screen but goes quiet, so you can still see what
+// was asked for without a fortnight-old prescription still driving the app.
+function nextCardioCardHtml(person){
+  const nc=((state.coaching&&state.coaching[person])||{}).nextCardio;
+  if(!nc || !nc.session) return "";
+  const live=!!liveNextCardio();
+  const when=nc.updated ? "Coach · "+relTime(String(nc.updated).slice(0,10)) : "From your coach";
+  return '<div class="card coach-card'+(live?'':' spent')+'">'
+    + '<div class="flex-between" style="align-items:baseline">'
+      + '<div class="sec-title" style="margin:0">&#9889; Next cardio</div>'
+      + '<span class="conf" data-c="'+(live?'assigned':'done')+'">'+(live?'assigned':'done')+'</span>'
+    + '</div>'
+    + '<h3 style="margin:8px 0 2px">'+esc(nc.session)+'</h3>'
+    + (nc.focus?'<div style="white-space:pre-wrap">'+esc(nc.focus)+'</div>':'')
+    + (nc.why?'<div class="ex-meta" style="margin-top:4px">'+esc(nc.why)+'</div>':'')
+    + '<div class="hint" style="margin-top:5px">'+esc(when)
+      + (live?' · this is the one the app will open for you'
+             :' · done - the app is back to alternating until your coach looks again')+'</div>'
+    + '</div>';
+}
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
@@ -2799,6 +2893,8 @@ function renderHome(){
     + '<div>'+(isToday?'Today’s session':'Selected session')+': <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div></div>';
+
+  html += nextCardioCardHtml(p);
 
   const coachSessNote=(coach.bySession && sess && coach.bySession[sess.name])||"";
   if(coachSessNote){

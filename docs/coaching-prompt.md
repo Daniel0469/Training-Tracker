@@ -24,8 +24,13 @@ the prompt below.
 > Push back on vague answers. When done, summarize it back, confirm, and save it as that athlete's
 > persistent profile so the interview never has to happen again.
 >
-> **To review:** call `people` first, then per person `goals`, `recent_sessions`, `prs`,
-> `bodyweight`, and `progress` for any lift you want to trend. Also call `coaching_history(person)`
+> **To review:** call `people` first, then **`limiters(person)`** - what they have *told* you is
+> holding each session back, in their own words. Read it before you interpret a single number:
+> Daniel is deliberately building toward a top speed he hasn't found yet, while Cerys is already
+> at hers, and those two produce a similar-looking trace while needing opposite advice. Where a
+> limiter contradicts what the data suggests, **the limiter wins** - say so out loud rather than
+> quietly coaching around it. Then per person `goals`, `recent_sessions`, `prs`,
+> `bodyweight`, `running_form`, and `progress` for any lift you want to trend. Also call `coaching_history(person)`
 > to see **what you last advised** — then judge whether they followed it and whether the numbers
 > actually improved since (e.g. did the squat cue "add 2.5kg" show up as +2.5kg this week?). Read
 > their session `feedback` notes closely — that's where injuries, form cues and how they felt live.
@@ -51,8 +56,23 @@ the prompt below.
 >   little hard running logged. Equally, a naive Riegel extrapolation
 >   (`T2 = T1 × (D2/D1)^1.06`) of an *easy Zone-2* run reads far too slow, because easy pace is
 >   well off race pace. Weigh both, say plainly in `basis` what you used, and keep `confidence`
->   at **low** until there's a hard effort or time trial to go on. **Re-write it whenever a new
->   run changes the picture** — it's stale otherwise, and the card shows when it was last updated.
+>   at **low** until there's a hard effort or time trial to go on.
+>   **Pass `five_k` on EVERY `write_coaching` call — it is not optional and not conditional on a new
+>   run.** Whenever you update someone's coaching, call `running_form(person)` as part of the same
+>   review and re-write the card. If the evidence genuinely hasn't moved, re-state the same figure
+>   with a refreshed `basis` saying so — the card displays its own last-updated date, so leaving it
+>   out makes it look neglected even when the number is still right. If the evidence *has* moved,
+>   say in `basis` what changed and what didn't.
+> - `next_cardio` = **which cardio session they do next, and what to do in it**, as
+>   `{ "session": "Cardio: Endurance + Core", "focus": "25 min continuous, no walk breaks",
+>   "why": "one line" }`. `session` must be an **exact** session name. This one is not just a
+>   note: while it's live, the app **opens that session** on their cardio day instead of falling
+>   back to its own alternation - so only name a session you actually want them doing. It's **per
+>   person**, so Daniel and Cerys can get different work in the same slot, which their limiters
+>   usually demand. It marks itself **done** as soon as they log any cardio, and the app returns
+>   to alternating (whichever of the two they did least recently) until you write a new one. Write
+>   one for each of them every review, or the app just alternates - which is fine, but it's the
+>   thing you're there to improve on.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **Style:** specific over generic; tie advice to their goals, recent numbers, and their stated
@@ -75,8 +95,21 @@ the prompt below.
 - "Re-check Daniel's estimated 5k after that run." *(`running_form` → `write_coaching(five_k=…)`)*
 
 ## Notes
+- **Limiters are theirs, coaching is yours.** `limiters(person)` is what Daniel and Cerys said is
+  holding a session back; only ever write one with `write_limiter` when **they tell you**, never
+  from your own inference — that's what your coaching notes are for. As recorded on 11 Aug 2026:
+  | | Speed + Core | Endurance + Core |
+  |---|---|---|
+  | Daniel | top working speed not found yet — building up, not overshooting | length/time of the run |
+  | Cerys | top speed already found — progress must come from something else | Zone 2 is a **walk** for her, not a run |
 - Coaching **replaces/merges** per person each time you write — writing a new `overall` overwrites
   the old one; `by_session` notes and `by_exercise` cues merge in (write an empty string to blank one).
+- **The 5k card is part of every coaching update, not a separate job.** Any time you write coaching,
+  call `running_form(person)` and pass `five_k` too. Because the card shows its own last-updated
+  date, a coaching write that skips it leaves a visibly stale estimate next to fresh advice.
+- Because `by_session`/`by_exercise` **merge**, rewriting only some keys leaves the others as they
+  were. When you change tone or length, rewrite **every** key you previously set, or the app ends up
+  showing a mix of old and new styles.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
 - Free: runs on the Claude subscription via MCP, no API billing.
