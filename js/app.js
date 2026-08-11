@@ -48,6 +48,8 @@ function load(){
       // 5k estimate (and the unreviewed fallback on Home), never edited in the app.
       if(!s.racePredictions || typeof s.racePredictions!=="object") s.racePredictions={};
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
+      // Ids of sessions deleted here, so a sync can't bring them back. See tombstoneLog.
+      if(!Array.isArray(s.deletedLogs)) s.deletedLogs=[];
       // What each person says is holding a session back, keyed person -> session
       // name. Written by the coach when they tell it (mcp-coach write_limiter),
       // read-only in the app.
@@ -83,7 +85,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -1509,7 +1511,9 @@ function drawHist(who){
   });
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
     if(confirm("Delete this session?")){
-      state.logs=state.logs.filter(l=>l.id!=b.dataset.del); save(); drawHist(who); toast("Deleted");
+      // Tombstone, don't just filter - and push it, so the delete reaches the
+      // other phone instead of being undone by its next sync.
+      tombstoneLog(b.dataset.del); save(); drawHist(who); toast("Deleted"); autoSync();
     }
   });
 }
@@ -2280,7 +2284,19 @@ function exportPayload(){
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, program:state.program, logs:state.logs};
+    limiters:state.limiters, program:state.program, logs:state.logs,
+    deletedLogs:state.deletedLogs};
+}
+// Logs union by id in mergeInData, so a plain delete only lasts until the other
+// phone pushes its copy back - Cerys's three 1 Aug cardio saves were merged and
+// removed centrally and were back within a sync. The id is the tombstone: it's
+// kept for ever, re-asserted on every push, and blocks the re-add. Same trick as
+// the "done" flag on suggestions (see renderSuggestions).
+function isDeletedLog(id){ return (state.deletedLogs||[]).some(function(d){ return String(d)===String(id); }); }
+function tombstoneLog(id){
+  if(!Array.isArray(state.deletedLogs)) state.deletedLogs=[];
+  if(!isDeletedLog(id)) state.deletedLogs.push(id);
+  state.logs=state.logs.filter(function(l){ return l && String(l.id)!==String(id); });
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -2292,9 +2308,12 @@ function exportPayload(){
 // export just to merge a few sessions in.
 function mergeInData(data, adoptConfig, fromSync){
   let added=0, updated=0;
+  // Replay the other device's deletions BEFORE the union below, or a log it deleted
+  // and we still hold gets treated as ours and pushed straight back.
+  if(Array.isArray(data.deletedLogs)) data.deletedLogs.forEach(tombstoneLog);
   if(Array.isArray(data.logs)){
     var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
-    data.logs.forEach(function(l){ if(!l) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
+    data.logs.forEach(function(l){ if(!l || isDeletedLog(l.id)) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
   }
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
@@ -2652,6 +2671,7 @@ function renderHelp(){
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away, and it\'s the same note the coach reads.')
+     +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
      +p('<b>Progress</b> has two halves, switched at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
