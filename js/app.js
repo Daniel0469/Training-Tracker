@@ -677,6 +677,8 @@ function renderLog(){
       + '</div>';
   }
 
+  html += lastTimeHtml(sess, prev);
+
   // Programmed exercises plus anything added for today only.
   const exs = logExercises();
 
@@ -1263,6 +1265,31 @@ function runSummaryFromEntry(e, garmin){
 function runSummary(l){
   const e=(l.entries||[]).find(x=>isRunning(x)); if(!e) return null;
   return runSummaryFromEntry(e, l.garmin) || null;
+}
+// "Last time you did this one" card, shown at the top of an OPTIONAL session's
+// log form. A scheduled session comes round every week, so the per-exercise
+// Last column is enough context; an optional one might be three weeks apart,
+// and by then "what did I actually do?" isn't a number you remember. Deliberately
+// a read-out and not a target - the whole point of an optional session is that
+// there's nothing to beat.
+function lastTimeHtml(sess, prev){
+  if(!sess || String(sess.day||"").toLowerCase()!=="optional") return "";
+  if(!prev){
+    return '<div class="cardio-note">&#128197; <b>First time for '+esc(sess.name)+'.</b> Nothing to match - '
+      + 'just do what you fancy and it\'ll be here for reference next time.</div>';
+  }
+  const bits=[];
+  const rs=runSummary(prev);
+  if(rs) bits.push(rs);
+  const g=prev.garmin||{};
+  if(g.max_hr!=null) bits.push("🧡 "+g.max_hr+" max");
+  if(prev.volume) bits.push(prev.volume.toLocaleString()+" kg");
+  if(prev.durationSec) bits.push("⏱ "+fmtDuration(prev.durationSec));
+  if(prev.difficulty) bits.push("difficulty "+prev.difficulty+"/10");
+  return '<div class="cardio-note">&#128197; <b>Last time</b> · '+esc(relTime(prev.date))+' ('+esc(prev.date)+')'
+    + (bits.length?'<div style="margin-top:4px">'+bits.map(esc).join(' · ')+'</div>':'')
+    + (prev.feedback?'<div class="ex-meta" style="margin-top:4px">📝 '+esc(prev.feedback)+'</div>':'')
+    + '</div>';
 }
 // One entry's detail row. Runs render as a proper splits table (per-lap
 // distance/time/pace/HR) with a totals line; everything else stays a compact
@@ -2492,7 +2519,7 @@ function renderHelp(){
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
-     +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped.')
+     +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
      +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); the volume total already saved against past sessions is left as it was logged. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')
