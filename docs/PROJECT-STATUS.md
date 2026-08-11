@@ -185,6 +185,20 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   linked log (`scratchpad/apply_mergedupes.py`, swept the whole store - this was the only case).
   Root cause is that cardio sessions are deliberately saveable while empty; Daniel chose **no**
   duplicate-save guard for now.
+  **This did not hold - see the tombstone entry below.** The merge pushed fine (the keeper still
+  carries the note and difficulty it took from a sibling) but the two dropped logs were back in the
+  store by 12 Aug: a phone that still had them re-added them on its next sync.
+- **Deleting a session sticks now (`deletedLogs` tombstones).** `mergeInData` unions logs by id and
+  `syncNow` pushes merged local state over the remote, so nothing could express "this is gone on
+  purpose" - a deleted log came back from whichever device still held it. That also meant
+  **History's Delete button had never worked across devices** and didn't survive the next sync even
+  locally. `state.deletedLogs` holds the ids: skipped on the way in, replayed from an incoming
+  payload, re-asserted on every push. Exactly the trick `suggestions` already used with `status:
+  "done"`. Delete now calls `tombstoneLog()` + `autoSync()`. Verified both directions through the
+  import path against a reproduced three-log store. `CACHE_NAME` → tt-v101. **Both phones need
+  tt-v101 before a delete sticks on the other one** - an older build will keep re-adding its copy.
+  Same latent bug still exists for **bodyweights** (merged by person+date, deleted with a plain
+  filter at `renderBody`); not fixed, nobody has hit it.
 - **Interval structure backfilled** onto both 29 Jul sessions (`scratchpad/apply_intervalbackfill.py`)
   - neither the sync nor `garmin_enrich_session` can reach an already-linked session.
 - **Audited the app for an install with no Garmin, no coach and no cloud sync.** Nothing was
@@ -195,8 +209,11 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   earlier notes in this file saying otherwise were stale.
 - **The Garmin Sat/Sun Task Scheduler windows stay** - Daniel's call: they now cover the optional
   weekend session. Not dead weight.
-- **Still open:** nothing from this session. Next natural step is a coaching chat to write the
-  first ⚡ Next cardio cards.
+- **Still open:** the two 1 Aug duplicate rows are still in the store - Daniel deletes them in the
+  app once both phones are on tt-v101. Daniel also has a **200kg deadlift goal with no deadlift
+  anywhere in the program**; the coach wrote him a `Deadlift` note with nothing to attach it to.
+  Goals changed to `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`, so the old
+  85kg bodyweight target is gone from the list - unconfirmed whether that's deliberate.
 
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
