@@ -376,13 +376,35 @@ The two "make it hands-free" jobs:
      last session (with 🥇 + Garmin status), last run (km/time/HR), a bodyweight-trend mini-chart,
      and goals. Reuses existing helpers; arrows jump to History/Body. Verified light+dark, nav works,
      no console errors. `.tile`/`.tiles` CSS themed via vars. `CACHE_NAME` → tt-v31; Guide updated.
-   - **Scale input via phone screenshot (come back to when building the hub):** Daniel logs
-     bodyweight by taking a **screenshot of his scale app on the phone**. Add an in-app flow to
-     input a bodyweight (and later other body metrics) **from a screenshot on the phone** — e.g. a
-     "read from screenshot" button on the Body tab that lets him attach/paste the scale screenshot
-     and pulls the number out, rather than typing it. (Today's path is pasting the screenshot into
-     Claude's vision; the hub goal is to do it in-app on the phone. Keep it dependency-light — see
-     the scale decision below re: no heavy in-app OCR.)
+   - **Scale input via phone screenshot — PARKED for the hub (re-confirmed 2026-08-11).** Daniel
+     logs bodyweight from a **screenshot of his scale app**, and wants the screenshot to capture
+     **more than bodyweight** (body fat, muscle mass, water, etc. — the whole readout). Designed
+     this out on 11 Aug and then parked the capture half: it stays the **hub's** job, as
+     `docs/home-hub-link.md` already assigns it. **Don't redesign it from scratch next time** —
+     the findings below are settled:
+     - **Daniel's preferred shape:** upload the screenshot from the phone → Claude reads it on the
+       laptop → metrics land in the app. **Verified viable end to end**: `mcp.server.fastmcp.Image`
+       takes raw `bytes` + `format`, so an MCP tool can hand Claude the image and its vision reads
+       it. Upload rides the existing sync token via the GitHub Contents API.
+     - **Three costs, all real:** (1) it is **not instant** — nothing happens until someone opens a
+       Claude chat, so the app needs a *"⏳ waiting to be read"* state mirroring `garminWanted`;
+       (2) **git keeps every blob forever**, so the repo only grows (~150KB compressed × 2 people ×
+       ~2/week ≈ 30MB/year; sync is unaffected, it fetches only `data.json`); (3) it **needs cloud
+       sync configured**, so a local-only install can't use it and still needs typed entry.
+     - **A fourth mechanism nobody had considered, worth revisiting:** don't read the image at all —
+       **the phone already has OCR**. iOS Live Text / Android Lens select-and-copy the text out of
+       the screenshot; the app then parses *pasted text* with a regex, like `importBodyweightCsv`
+       already does for CSV. No dependency, offline, on-phone, and robust to the scale app
+       redesigning. Its weakness is that OS-OCR ordering of ~10 labelled values can be messy to
+       parse reliably, which is the main argument for Claude's vision instead.
+     - **Still standing:** no heavy in-app OCR (Tesseract.js is a 2-15MB wasm dependency against a
+       codebase whose only dependency is Chart.js) — see the scale decision below.
+     - **Open schema, deliberately:** because Claude reads whatever labels are on the screenshot,
+       the record should be `{person, date, metrics:{label:{value,unit}}}` rather than a fixed
+       column list — nobody has to enumerate the scale's readout up front, and it adapts per model.
+     - **Bodyweight must keep living in `state.bodyweights`** whatever gets built. `setLoad`,
+       `personRecords`, Home's tiles and the coach all read it; a new metrics record writes
+       *through* to `addBodyweight` rather than forking it.
 
 ## Next up (agreed with Daniel, 2026-07-23)
 

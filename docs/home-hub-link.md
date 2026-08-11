@@ -28,7 +28,22 @@ Phase 1 already is one.
 | **Meal display** | a simple "logged today" list | ✅ daily totals vs targets, trends, History |
 | **Coaching context** | — | ✅ meals feed the MCP coach alongside training |
 | **Bodyweight capture** | ✅ scale-screenshot read (phone camera) | manual entry (as today) |
-| **Bodyweight display** | one tile | ✅ Body tab, trend chart, goals |
+| **Body-metrics capture** | ✅ the whole scale readout, not just weight | manual entry |
+| **Bodyweight display** | one tile | ✅ Body pane of Progress, trend chart, goals |
+
+**Re-confirmed 2026-08-11.** Daniel asked for scale-screenshot capture in *this* app, we designed
+it, and he parked it back here — capture stays the hub's job. He also widened it: he wants the
+screenshot to yield **the whole readout** (body fat, muscle mass, water, …), not just the weight,
+because that is the point of using the scale's own app.
+
+The design work is done and recorded in `PROJECT-STATUS.md` (→ hub → *Scale input via phone
+screenshot*). Read it before building this — it settles the mechanism, the three costs, the
+open-schema record shape, and a fourth approach (parse OS-OCR text rather than the image) that had
+not been considered. The load-bearing check is already verified: `mcp.server.fastmcp.Image` accepts
+raw bytes, so an MCP tool can hand Claude the screenshot for its vision to read.
+
+**Whatever the hub captures, bodyweight still writes to `state.bodyweights`** in this app's store —
+`setLoad`, records, Home's tiles and the coach all depend on it.
 
 Rationale: the hub is doing phone-camera work anyway; this app owns everything that needs training
 context. Nutrition is on this app's roadmap already (`PROJECT-STATUS.md` → hub → nutrition), so
