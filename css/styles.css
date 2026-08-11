@@ -136,8 +136,19 @@
   td.done-cell input[type="checkbox"]{width:19px;height:19px;cursor:pointer;accent-color:var(--good)}
   tr.done td{background:#eaf7ee}
   .medal{margin-left:3px;font-size:14px}
-  .mini{border:1px solid var(--line);background:var(--input-bg);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+  /* One button shape everywhere. inline-flex + min-height so a text button, an
+     emoji one and a bare arrow all come out the same height and line up on a
+     row - they used to differ by a few px depending on their glyph. */
+  .mini{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;
+    border:1px solid var(--line);background:var(--input-bg);border-radius:8px;padding:5px 9px;
+    cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
   .mini:hover{border-color:var(--brand);color:var(--brand)}
+  /* Icon-only buttons (↑ ↓ ×) - square, so the cluster reads as one control
+     rather than three different widths. */
+  .mini.ico{min-width:32px;padding:5px}
+  /* Action rows sit right, against the card edge, on every level of the Program
+     tab: the top card, a session's own actions, and each exercise. */
+  .row.actions{justify-content:flex-end;gap:6px}
   .btn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;font-size:15px}
   .btn-primary{background:var(--brand);color:#fff}
   .btn-primary:hover{background:#235ad0}

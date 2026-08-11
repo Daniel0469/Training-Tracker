@@ -1601,10 +1601,10 @@ function exRowHtml(k, ei, ex){
     + '<input type="checkbox" data-selex="'+ref+'" style="width:auto" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>'
     + '<div><div class="ex-name">'+esc(ex.name)+'</div>'
     + '<div class="ex-meta">'+esc(ex.target)+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · 🔧 setup':"")+'</div></div></div>'
-    + '<div class="row"><button class="mini" data-editex="'+ref+'">Edit</button>'
-    + '<button class="mini" data-upex="'+ref+'">&uarr;</button>'
-    + '<button class="mini" data-downex="'+ref+'">&darr;</button>'
-    + '<button class="mini" data-delex="'+ref+'" style="color:var(--bad)">&times;</button>'
+    + '<div class="row actions"><button class="mini" data-editex="'+ref+'">Edit</button>'
+    + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
+    + '<button class="mini ico" data-downex="'+ref+'" title="Move down" aria-label="Move down">&darr;</button>'
+    + '<button class="mini ico" data-delex="'+ref+'" style="color:var(--bad)" title="Remove" aria-label="Remove">&times;</button>'
     + '</div></div></div>';
 }
 // Per-session warm-up/mobility and cool-down notes, edited in the Program tab
@@ -1625,9 +1625,7 @@ function autoGrow(ta){
 function sessNotesHtml(k, s){
   const wu=s.warmupNote||"", cd=s.cooldownNote||"";
   const has=!!(wu||cd);
-  return '<div class="row" style="margin:-2px 0 9px">'
-    + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(has?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down</button></div>'
-    + '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+  return '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
     + '<label class="fld" style="margin-bottom:8px">&#128293; Warm-up / mobility'
       + '<textarea class="notes" data-sessnote="warmupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 3 min cross-trainer, then shoulder mobility">'+esc(wu)+'</textarea></label>'
     + '<label class="fld">&#129482; Cool-down'
@@ -1636,7 +1634,7 @@ function sessNotesHtml(k, s){
 }
 function renderEdit(){
   let html='<div class="card"><div class="hint">Tap a session to open it - rename exercises, change targets, add warm-up notes, note a session warm-up / cool-down, add or remove movements. Changes apply to future logging; past history is untouched. Tick 2+ exercises in the same session to group them as a superset/circuit.</div>'
-    + '<div class="row" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
+    + '<div class="row actions" style="margin-top:10px"><button class="mini" id="addSessionBtn">&#10133; Add session</button>'
     + '<button class="mini" id="importSessionBtn">&#128229; Import shared session</button></div></div>';
   if(!orderedKeys().length){
     html+='<div class="card empty">No sessions yet.<br>Tap <b>+ Add session</b> above to create your first workout day.</div>';
@@ -1657,10 +1655,15 @@ function renderEdit(){
           + '<span class="ex-meta">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")+'</span></span>'
       + '</button>';
     if(open){
-      html+='<div class="row" style="justify-content:flex-end;margin:2px 0 10px">'
+      // One right-aligned row of session actions. The warm-up/cool-down toggle
+      // used to sit on its own left-aligned row underneath, which put a
+      // left/right zigzag between the session actions above it and the
+      // per-exercise actions below.
+      html+='<div class="row actions" style="margin:2px 0 10px">'
         + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
+        + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote)?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down</button>'
         + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
-        + '<button class="mini" data-addex="'+k+'">+ exercise</button></div>'
+        + '<button class="mini" data-addex="'+k+'">&#10133; Exercise</button></div>'
         + sessNotesHtml(k, s);
       exerciseBlocks(s.exercises).forEach(block=>{
         const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
