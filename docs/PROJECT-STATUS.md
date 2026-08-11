@@ -162,10 +162,16 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   run/walk sessions correctly return `None`. **Structure only** - treadmill speed is
   wrist-estimated and read 10-15% high, so typed speeds stay the record. Exposed to the coach as
   `actual_structure`. `CACHE_NAME` → tt-v98. **Needs a Claude Code restart** for the new MCP tools.
-- **Still open:** Daniel said he'd "adjusted program to allow longer run" but the Endurance target
-  is still `5 km` in the store - confirm what it should be. The two cardio warm-up notes still
-  describe the alternation as something you track by hand off Home's ⚡/🏃 cards; the app now does
-  it. `docs/session-tab-and-body-merge.md` is a written-up plan awaiting go-ahead.
+- **The Endurance target stays `5 km`.** "Adjusted program to allow longer run" meant the **Mon-Fri
+  5-day week** itself - the restructure leaves more energy for a longer cardio run. It was not a
+  request to change the target, and it wasn't changed. Don't reopen this.
+- **Both cardio warm-up notes rewritten** (`scratchpad/apply_cardionotes.py`): the old first line
+  told you to track the alternation yourself off Home's ⚡/🏃 cards, which the app now does, and
+  claimed "this is the speed week" - never true of a *session*, only of a given Wednesday, so
+  whichever one you opened insisted it was the right one. Only the first paragraph changed; the
+  mobility work below it is untouched (verified by diff).
+- **Still open:** `docs/session-tab-and-body-merge.md` is a written-up plan awaiting go-ahead
+  (in-app suggestion `1786450461111`, deliberately left unresolved until it's built).
 
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
