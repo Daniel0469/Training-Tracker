@@ -1499,10 +1499,35 @@ function loadBreakdown(r){
   else txt = typed>0 ? you+" + "+typed+" added" : (part?you:"your bodyweight");
   return '<div class="ex-meta">'+txt+'</div>';
 }
+// Progress holds two panes: Lifts (records + the exercise chart) and Body
+// (goals, bodyweight, its trend). Body used to be its own bottom-bar tab; it
+// moved in here so the fifth slot could go to Session, which had no tab at all
+// and was only reachable via Home's "Log it". Stacked into one page it would
+// have been a records table, a chart, goals, an entry form, a second chart and
+// a list - two and a half phone screens before the bodyweight box you opened it
+// for - so they're behind a toggle. Also keeps one Chart.js instance live at a
+// time. Resets to Lifts on reload, like openSessions in the Program tab.
+let progressPane="lifts";
+function progressTabsHtml(){
+  return '<div class="card pane-card"><div class="ptoggle pane-toggle">'
+    + ['lifts','body'].map(k=>'<button type="button" data-pane="'+k+'"'
+        + (progressPane===k?' class="active"':'')+'>'+(k==="lifts"?"🏋 Lifts":"⚖ Body")+'</button>').join("")
+    + '</div></div>';
+}
+function wirePaneToggle(){
+  document.querySelectorAll("[data-pane]").forEach(b=>b.onclick=()=>{
+    if(progressPane===b.dataset.pane) return;
+    progressPane=b.dataset.pane;
+    renderProgress();
+  });
+}
 function renderProgress(){
+  if(progressPane==="body") return renderBody();
   const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
   if(!allEx.length){
-    document.getElementById("view").innerHTML='<div class="card empty">Log a few sessions and your progress charts will appear here.</div>';
+    document.getElementById("view").innerHTML=progressTabsHtml()
+      +'<div class="card empty">Log a few sessions and your progress charts will appear here.</div>';
+    wirePaneToggle();
     return;
   }
   const p=state.people[state.activePerson];
@@ -1518,7 +1543,7 @@ function renderProgress(){
   } else {
     recTable='<div class="hint">No lifting bests for '+esc(p)+' yet.</div>';
   }
-  document.getElementById("view").innerHTML='<div class="card">'
+  document.getElementById("view").innerHTML=progressTabsHtml()+'<div class="card">'
     + '<div class="sec-title">🏅 Records - '+esc(p)+' <span class="pill" data-sw="'+pc+'">current bests</span></div>'
     + recTable + '</div>'
     + '<div class="card">'
@@ -1528,6 +1553,7 @@ function renderProgress(){
     + '<label class="fld" style="width:150px">Metric<select id="progMetric"><option value="weight">Top-set weight</option><option value="e1rm">Est. 1RM</option></select></label></div>'
     + '<div class="hint" style="margin-bottom:10px">Per session, for both people. Warm-up sets are excluded.</div>'
     + '<div class="chart-box"><canvas id="progChart"></canvas></div></div>';
+  wirePaneToggle();
   document.getElementById("progEx").onchange=drawChart;
   document.getElementById("progMetric").onchange=drawChart;
   drawChart();
@@ -1632,7 +1658,10 @@ function renderBody(){
   const latest=latestBw(p);
   const pc = personSwatch(p);
   const goal=(state.goals&&state.goals[state.activePerson])||"";
-  let html='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
+  // Body is the second pane of the Progress tab, so it carries the same toggle.
+  // Reached directly (Home's ⚖ arrow), it sets progressPane itself first.
+  let html=progressTabsHtml()
+    + '<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
             : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu.</div>')
     + '</div>';
@@ -1656,6 +1685,7 @@ function renderBody(){
     html+='<div class="card empty">No bodyweight logged for '+esc(p)+' yet.<br>Add one above, or import from your scale app.</div>';
   }
   document.getElementById("view").innerHTML=html;
+  wirePaneToggle();
 
   document.getElementById("bwAdd").onclick=()=>{
     const kg=parseFloat(document.getElementById("bwKg").value);
@@ -2556,6 +2586,7 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b> and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
@@ -2566,7 +2597,7 @@ function renderHelp(){
      +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title. Renaming an existing account <b>asks first</b>, since it orphans past history under the old name. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
 
   h+=card('2 &middot; Log a workout',
-      p('From <b>Home</b>, tap <b>Log it →</b> to open the log, then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day.')
+      p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
@@ -2591,11 +2622,11 @@ function renderHelp(){
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away, and it\'s the same note the coach reads.')
-     +p('<b>Progress</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise) at the top, then charts your top set for any exercise over time with both people on one graph.'));
+     +p('<b>Progress</b> has two halves, switched at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
-      p('The <b>Body</b> tab tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
-     +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body tab and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
+      p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
+     +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something. When two cardio sessions share a day, your coach can <b>assign</b> which one is next and what to do in it - and the app then <b>opens that one</b> for you, instead of guessing. It\'s <b>per person</b>, so you and your partner can get different numbers for the same session. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app goes back to <b>alternating on its own</b> - whichever of the two you did least recently - until your coach writes a new one. You can always pick the other session from the list anyway; it\'s a default, not a lock.')
@@ -3034,24 +3065,36 @@ function renderView(){
   if(!state.people[0] && !state.people[1]){ renderCreateAccount(0); return; }
   // No sessions yet: force Program, since Home/Log/History/Progress all assume
   // a real curSession. Self-corrects the moment a first session is added.
-  if(!state.program.order.length) activeTab="edit";
+  // No sessions yet: nothing to log, chart or review, so Program is the only
+  // useful place. syncTabButtons keeps the bar honest about the redirect -
+  // otherwise tapping Session on a blank install lit Session and showed Program.
+  if(!state.program.order.length){ activeTab="edit"; syncTabButtons(); }
   if(!state.program.sessions[curSession]) curSession=state.program.order[0];
   if(activeTab==="home") renderHome();
   else if(activeTab==="log") renderLog();
   else if(activeTab==="history") renderHistory();
   else if(activeTab==="progress") renderProgress();
-  else if(activeTab==="body") renderBody();
+  // "body" is no longer a tab of its own - it's the Body pane of Progress. Kept
+  // as a route so an old persisted tab value, or Home's ⚖ arrow, still lands
+  // somewhere sensible instead of a blank view.
+  else if(activeTab==="body"){ activeTab="progress"; progressPane="body"; renderProgress(); syncTabButtons(); }
   else if(activeTab==="edit") renderEdit();
   else if(activeTab==="help") renderHelp();
 }
 
-// Switch section. Works even for views without a bottom-bar tab (Log, Guide):
-// Log is reached via Home's "Log it", Guide via Settings. skipCapture is used
-// right after saving, when the draft has just been cleared on purpose.
+// Light up whichever bottom-bar button matches the active tab. Separate from
+// switchTab because renderView can redirect (body -> progress) after the button
+// has already been set, and the Guide has no button at all.
+function syncTabButtons(){
+  document.querySelectorAll("#tabs button").forEach(function(x){ x.classList.toggle("active", x.dataset.tab===activeTab); });
+}
+// Switch section. Works even for views without a bottom-bar tab (the Guide,
+// reached from Settings). skipCapture is used right after saving, when the
+// draft has just been cleared on purpose.
 function switchTab(tab, skipCapture){
   if(!skipCapture) captureDraft();
   activeTab=tab;
-  document.querySelectorAll("#tabs button").forEach(function(x){ x.classList.toggle("active", x.dataset.tab===tab); });
+  syncTabButtons();
   renderView();
 }
 

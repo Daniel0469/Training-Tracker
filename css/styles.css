@@ -50,6 +50,12 @@
   .ptoggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
   .ptoggle button{border:0;background:transparent;color:var(--muted);font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;font-size:14px}
   .ptoggle button.active{background:var(--brand);color:#fff}
+  /* Progress tab's Lifts/Body switch. Same control as the person toggle in the
+     header, but it spans the card so it reads as a section switch rather than a
+     stray pair of buttons. */
+  .card.pane-card{padding:8px}
+  .ptoggle.pane-toggle{display:flex;width:100%;box-shadow:none;border:0;background:transparent;padding:0}
+  .ptoggle.pane-toggle button{flex:1;padding:9px 10px}
   .icon-btn{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;border:1px solid var(--line);background:var(--card);border-radius:9px;width:36px;height:36px;cursor:pointer;font-size:16px;box-shadow:var(--shadow)}
   /* Bottom navigation bar: fixed to the viewport foot, like the mobile preview. */
   .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:2px;
