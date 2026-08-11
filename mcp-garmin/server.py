@@ -253,6 +253,108 @@ def _program_run_slot(program, session_key, log):
         idx += 1
     return exs[run_i].get("name") or "Run", idx
 
+def fetch_detail_series(activity_id, max_points=2000):
+    """Per-second (elapsed, speed m/s, HR) samples - the data behind Garmin Connect's
+    own pace/HR charts. Returns [] if unavailable; every caller treats it as optional."""
+    try:
+        d = garmin_client().get_activity_details(activity_id, maxchart=max_points, maxpoly=0)
+    except Exception:
+        return []
+    descs = d.get("metricDescriptors") or []
+    idx = {m.get("key"): m.get("metricsIndex") for m in descs}
+    ti, si, hi = idx.get("sumElapsedDuration"), idx.get("directSpeed"), idx.get("directHeartRate")
+    if ti is None or si is None:
+        return []
+    out = []
+    for m in d.get("activityDetailMetrics") or []:
+        v = m.get("metrics") or []
+        def at(i):
+            return v[i] if i is not None and i < len(v) else None
+        t, s, h = at(ti), at(si), at(hi)
+        if t is None or s is None:
+            continue
+        out.append((float(t), float(s) * 3.6, h))
+    return out
+
+def detect_intervals(series, min_rep_sec=20, merge_gap_sec=15):
+    """Recover the rep structure of an interval session from its speed trace.
+
+    Garmin's LAPS cannot do this: a treadmill session auto-laps every 1km, and six
+    1-minute reps at 13 km/h are ~217m each, so several reps and their recoveries
+    land inside one lap. The per-second trace can - on a treadmill the belt holds a
+    constant speed through a rep, so the trace is close to a square wave.
+
+    Threshold at the midpoint of the session's own speed range, take contiguous
+    runs above it, then MERGE blocks separated by less than `merge_gap_sec`. That
+    merge is not cosmetic: verified against Cerys's 29 Jul session, where her last
+    rep sagged below the threshold mid-way (she was ten minutes into Zone 4/5 and
+    hanging on) and split into a 4s and a 30s fragment. Without merging she reads
+    as 5 reps when she did 6.
+
+    Reports the STRUCTURE only - rep count, how long each rep was, how long the
+    recoveries were. Deliberately not the speed: treadmill pace is estimated from
+    the wrist, and on the two sessions checked it read 10-15% above what was
+    actually typed in (Daniel typed 13 km/h, the trace says ~14.5). What the person
+    typed stays the truth for speed.
+    """
+    pts = [(t, kmh) for t, kmh, _h in series if kmh is not None]
+    if len(pts) < 30:
+        return None
+    speeds = [p[1] for p in pts]
+    lo, hi = min(speeds), max(speeds)
+    if hi - lo < 3:                 # a steady run, not an interval session
+        return None
+    thr = lo + (hi - lo) * 0.5
+    blocks = []
+    cur = None
+    for t, kmh in pts:
+        if kmh >= thr:
+            if cur is None:
+                cur = [t, t]
+            else:
+                cur[1] = t
+        elif cur is not None:
+            blocks.append(cur)
+            cur = None
+    if cur:
+        blocks.append(cur)
+    merged = []
+    for b in blocks:
+        if merged and b[0] - merged[-1][1] <= merge_gap_sec:
+            merged[-1][1] = b[1]
+        else:
+            merged.append(list(b))
+    reps = [b for b in merged if b[1] - b[0] >= min_rep_sec]
+    if len(reps) < 2:
+        return None
+    rep_secs = [int(round(b[1] - b[0])) for b in reps]
+    # Reps are prescribed, so they come out roughly equal. A run/walk session
+    # oscillates too, but raggedly - checked against Daniel's 4 Jul Zone 2
+    # (28s to 356s, ratio 12.7) and Cerys's 1 Aug (29s to 155s, ratio 5.3),
+    # against 1.15 and 1.26 for their two real interval sessions. Anything
+    # above 2 is someone running and walking, not doing reps. enrich_log only
+    # calls this for interval-shaped sessions anyway; this makes the function
+    # safe to call on its own.
+    if max(rep_secs) > 2 * max(1, min(rep_secs)):
+        return None
+    recoveries = [int(round(reps[i + 1][0] - reps[i][1])) for i in range(len(reps) - 1)]
+    # Garmin downsamples the trace for shorter activities (Cerys's 18-minute
+    # session came back as 161 samples, ~7s apart, against 1429 at 1s for
+    # Daniel's 24 minutes), so rep edges are only as sharp as the sampling.
+    span = pts[-1][0] - pts[0][0]
+    res = round(span / max(1, len(pts) - 1), 1)
+    return {
+        "reps": len(reps),
+        "rep_secs": rep_secs,
+        "rep_sec_avg": int(round(sum(rep_secs) / len(rep_secs))),
+        "recovery_secs": recoveries,
+        "recovery_sec_avg": int(round(sum(recoveries) / len(recoveries))) if recoveries else None,
+        "sample_sec": res,
+        "source": "derived from the Garmin speed trace; structure only, "
+                  "the typed speeds are the record for speed. Rep edges are "
+                  "accurate to about the sample interval (sample_sec).",
+    }
+
 def enrich_log(log, a, splits, zone_secs=None, program=None):
     """Attach Garmin's extra info to an already-logged session, without overwriting
     what the person entered. Fills splits only if the run entry was left empty, and
@@ -288,6 +390,13 @@ def enrich_log(log, a, splits, zone_secs=None, program=None):
             run_entry["rows"] = rows
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
+    # Interval sessions only - one without a run entry, i.e. reps typed as speeds.
+    # A steady Zone 2 run has no structure worth recovering, and detect_intervals
+    # returns None for one anyway.
+    if run_entry is None and log.get("garmin"):
+        iv = detect_intervals(fetch_detail_series(a.get("activityId")))
+        if iv:
+            log["garmin"]["intervals"] = iv
     return log
 
 def _start_dt(a):

@@ -344,7 +344,12 @@ def get_running_form(data, person):
             intervals.append({"date": l.get("date"), "session": l.get("sessionName"),
                               "exercise": e.get("name"), "target": None,
                               "columns": cols, "rows": rows,
-                              "avg_hr": g.get("avg_hr"), "hr_zone_secs": g.get("hr_zone_secs")})
+                              "avg_hr": g.get("avg_hr"), "hr_zone_secs": g.get("hr_zone_secs"),
+                              # What they ACTUALLY did, read off the watch's speed
+                              # trace rather than typed - see detect_intervals in
+                              # mcp-garmin/server.py. This is how you check whether a
+                              # prescription was followed.
+                              "actual_structure": g.get("intervals")})
     intervals.sort(key=lambda r: r.get("date") or "")
     preds = (data.get("racePredictions") or {}).get(person) or {}
     return {
@@ -352,6 +357,16 @@ def get_running_form(data, person):
         "runs": runs,
         "run_count": len(runs),
         "interval_sessions": intervals,
+        "actual_structure_note": (
+            "`actual_structure` on an interval session is derived from the watch's per-second "
+            "speed trace, NOT from what was typed: rep count, how long each rep lasted, how long "
+            "the recoveries were. Use it to check whether a prescription was actually followed. "
+            "On 29 Jul 2026 Daniel's came back 6 reps of ~58s on a 3-minute cycle - exactly the "
+            "prescribed 6x1min hard / 2min easy - while Cerys's came back 5, her last one 47s "
+            "instead of ~58; she cut it short, and the typed row did not record that. Structure "
+            "ONLY: the speeds in `rows` remain the record for speed, because treadmill pace is "
+            "wrist-estimated and read 10-15% high on both sessions checked. Absent on sessions "
+            "logged before this existed, and on any session done without the watch."),
         "interval_units_warning": (
             "Interval values are passed through EXACTLY as typed, under the person's own "
             "column names. A column called 'pace' may actually hold treadmill SPEED in km/h "

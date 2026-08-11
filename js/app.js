@@ -1250,7 +1250,21 @@ function garminLine(l){
   if(g.moving_time) bits.push("moving "+g.moving_time);
   if(g.training_effect!=null) bits.push("TE "+g.training_effect);
   if(g.vo2max!=null) bits.push("VO₂ "+g.vo2max);
-  return bits.length? '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")+'</div>' : "";
+  const iv=intervalStructureText(l.garmin);
+  return (bits.length||iv)? '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")
+    + (iv?'<div style="margin-top:4px">'+esc(iv)+'</div>':"")+'</div>' : "";
+}
+// The reps you actually did, read off the watch's speed trace rather than typed.
+// Garmin's laps can't show this - a treadmill auto-laps every 1km, so several
+// 1-minute reps and their recoveries land inside a single lap - but the
+// per-second trace can, because the belt holds a steady speed through a rep.
+// Structure only: treadmill speed is wrist-estimated and reads high, so what you
+// typed stays the record for speed. Derived by mcp-garmin (detect_intervals).
+function intervalStructureText(g){
+  const iv=g&&g.intervals; if(!iv||!iv.reps) return "";
+  let s=iv.reps+" × "+fmtMmSs(iv.rep_sec_avg)+" hard";
+  if(iv.recovery_sec_avg) s+=", "+fmtMmSs(iv.recovery_sec_avg)+" easy between";
+  return "reps on the watch: "+s;
 }
 function garminStatus(l){
   if(l.garminActivityId) return ' · ⌚ Garmin';
@@ -2571,7 +2585,8 @@ function renderHelp(){
      +p('<b>Interval / speed sessions</b> work slightly differently: you type your own <b>hard and easy paces</b>, and Garmin adds only what it alone measures - <b>♥ HR, heart-rate zones and calories</b> - without overwriting anything you entered. That works because the exercise is ticked <b>⌚ Garmin records this</b> in Edit Program (real distance+time runs are detected automatically; tick it for cardio logged as paces instead). These hard efforts are also the most valuable data for your <b>🏁 Estimated 5k</b>.')
      +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
-     +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)'));
+     +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)')
+     +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 0:58 hard, 2:02 easy between" - by reading the speed trace off your watch. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap), and it\'s <b>structure only</b>: the speeds <b>you</b> typed stay the record for speed, because treadmill pace is estimated from your wrist and reads high. It means your coach can see whether the session you were set is the session you did - including when you had to cut one short.'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
@@ -2948,6 +2963,7 @@ function renderHome(){
       + '<button class="mini" data-home-go="history">History →</button></div>'
       + '<h3 style="margin:8px 0 2px">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
       + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(log)+'</div>'
+      + (intervalStructureText(g)?'<div class="ex-meta" style="margin-top:3px">⚙ '+esc(intervalStructureText(g))+'</div>':'')
       + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
   };
 
