@@ -210,10 +210,16 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
 - **The Garmin Sat/Sun Task Scheduler windows stay** - Daniel's call: they now cover the optional
   weekend session. Not dead weight.
 - **Still open:** the two 1 Aug duplicate rows are still in the store - Daniel deletes them in the
-  app once both phones are on tt-v101. Daniel also has a **200kg deadlift goal with no deadlift
-  anywhere in the program**; the coach wrote him a `Deadlift` note with nothing to attach it to.
-  Goals changed to `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`, so the old
-  85kg bodyweight target is gone from the list - unconfirmed whether that's deliberate.
+  app once both phones are on tt-v101.
+- **Both Lower sessions overrun.** 11 Aug: Daniel and Cerys each took 89 min on Lower 2, both wrote
+  "taking too long", and both left the **third set blank on the same three exercises** (leg curl,
+  hip abduction, hip adduction). Coached fix is order, not content: 3 working squat sets, then
+  abduction/adduction supersetted. The same thing is why **Daniel's deadlift has never been logged**
+  - it IS in Lower 1 (an earlier note here wrongly said it was missing from the program), it's just
+  always last, and 20 Jul was already 6 exercises / 75 min / difficulty 9. Told to move it first.
+- **Goal priority, from Daniel 12 Aug:** the **85kg bodyweight target is background, not a focus** -
+  don't coach toward it and don't read a flat scale as a problem. Live focus is
+  `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`.
 
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
