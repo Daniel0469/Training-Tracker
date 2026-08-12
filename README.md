@@ -18,6 +18,10 @@ GitHub Pages.
 - `docs/CHATS.md` - **starter prompts for new dev + coaching chats** and how to give them context.
 - `docs/github-sync-setup.md` - one-time setup for the free GitHub cloud sync / backup.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
+- `mcp-garmin/` - a local MCP server that reads your runs from Garmin Connect and attaches what the
+  watch recorded to the session you logged: heart rate and zones, **per-rep interval detail**,
+  running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
+  field, and which two are permanently blank on a treadmill (VO₂max, training status) and why.
 - `docs/coaching-prompt.md` - starter prompt for a dedicated Claude Code coaching chat.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
@@ -30,6 +34,13 @@ python -m http.server 8080
 ```
 then open `http://localhost:8080`. (Opening `index.html` directly via `file://` mostly works,
 but the service worker won't register outside an http(s)/localhost context.)
+
+For development, prefer `python scratchpad/devserver.py 8081`: it sends `Cache-Control: no-store`
+(so edits aren't masked by the HTTP cache) and gzips text. The gzip is not just a nicety - `js/app.js`
+is ~210KB and was arriving **truncated** every few loads, which looks like the app being broken
+rather than a failed download, because a truncated script parses to nothing and every global in it
+silently disappears. If that ever happens, note that the service worker is cache-first and will keep
+serving the broken copy at an identical byte count: clear its caches before debugging anything else.
 
 ## Deploying
 Push to GitHub and enable Pages on the repo (serve from the root of the default branch, or

@@ -221,6 +221,79 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   don't coach toward it and don't read a flat scale as a problem. Live focus is
   `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`.
 
+**2026-08-12 — surveyed everything Garmin holds, then extracted the useful half.** Backlog: the
+session notes box at the bottom of the log form now grows to fit (it was the only textarea without
+`autoGrow`), and **RPE reaches lunges** - the gate was `isLifting || isGarminCardio`, both of which
+need a Reps or a Time column, so `Walking/sandbag lunges` (Weight + Distance) had none. Now
+`ratesRpe()`, a blocklist: everything except the free-text `Min`/`Notes` warm-up and cool-down rows,
+which was already the old gate's stated intent. `tt-v102`.
+
+- **What Garmin actually has, for both of them** (`scratchpad/probe_garmin*.py`, read-only, keep
+  them - they save re-deriving this). Daniel: Forerunner 255 Music. Cerys: Vívoactive 5.
+- **The whole wellness half is empty because neither of them wears the watch except to train.**
+  Daniel logs 64-218 steps/day and has sleep for **one night in fourteen** (30 Jul); no HRV, no
+  Body Battery, no training readiness. **Don't go looking again** - it's a wear-time fact, not a
+  missing feature. Daniel says he'll start wearing it overnight, so the plumbing is built (below).
+- **VO₂max has never had a value for either of them, and won't on a treadmill** - Garmin only
+  estimates it from outdoor GPS runs. Checked back 400 days. The `vo2max` key costs nothing and
+  starts working the day someone runs outside. Same root cause as Garmin's **training status saying
+  "DETRAINING" with ACWR 0.0**: five gym sessions a week never reach the watch, so its load metrics
+  are misleading rather than merely thin. **Deliberately not extracted.**
+- **Body composition / weigh-ins: still zero.** Confirms the parked scale work; nothing changed.
+- **The find: Garmin's own run/walk split detection gives per-rep data.** `get_activity_typed_splits`
+  returns RWD_RUN / RWD_WALK / RWD_STAND blocks, and the RUN blocks *are* the reps - something laps
+  can't do (a treadmill auto-laps every 1 km, swallowing several reps). Each rep now carries
+  distance, duration, average speed, pace, avg + max HR, cadence and power, plus the recovery after
+  it: duration, average speed, and the **lowest** HR reached (from the per-second trace - the walk
+  splits only hold an average, which is useless when the block starts at 155 bpm). Verified: 6 reps
+  for Daniel, 5 for Cerys on 29 Jul, matching both the typed rows and the old heuristic.
+- **Corrects a standing claim in this file:** "treadmill speed reads 10-15% high, structure only"
+  was measuring the trace's **peak**. The rep **average** is 13.1 km/h against Daniel's typed 13.
+  Per-rep speed is therefore stored and shown. The typed value is still the record, and per Daniel's
+  call Garmin **fills the interval entry only when it was left blank** (guarded on the column really
+  being km/h). Cerys's 29 Jul is the case that makes keeping both worthwhile: she typed a flat
+  **11 km/h** and actually ran **13.5 / 12.5 / 14.1 / 13.1 / 10.2** - a 28% fade at 175-180 bpm
+  against a 192 max, recorded nowhere else.
+- **Derived, and trended in the app:** cardiac **drift** (Daniel 29 Jul: 130 → 139 bpm across reps
+  at the same speed), **HR recovery** between reps (avg 35 bpm, best 44), **consistency** (spread of
+  rep speeds) and **fade** (last rep vs best). Drift is only computed when the first and last rep
+  were within 10% on speed; otherwise `drift_skipped` says why, because subtracting HRs across two
+  different speeds measures someone slowing down. **Efficiency factor** is taken over the *running
+  blocks only* - a whole-activity average moves when someone walks more - and already shows a real
+  trend: Daniel's Zone 2 EF went **0.90 (4 Jul) → 1.10 (25 Jul) → 1.21 (1 Aug)**.
+- **Also now extracted** (all from responses already fetched, so no extra Garmin calls): min HR,
+  running dynamics (ground contact, vertical oscillation and ratio, stride length, steps), running
+  power (avg/max/normalised + power zones, Daniel only - the Vívoactive records none), training
+  load, anaerobic effect and effect label, intensity minutes, sweat loss, and **the RPE and Feel
+  they gave the watch** (Daniel rated 29 Jul 8/10 and 1 Aug 3/10 - the app never knew).
+- **`garmin_refresh_metrics(person)` / `--refresh`** reaches **already-linked** sessions, which
+  neither `--sync` nor `garmin_enrich_session` can (both skip anything with a `garminActivityId` -
+  right for linking, wrong for adding fields to old links). Ran it: all 8 linked sessions enriched,
+  typed rows untouched. Metrics **merge** rather than replace, so a failed sub-fetch can't drop a
+  stored field.
+- **New Progress ▸ 🏃 Run pane** (third toggle): 5k estimate, a trend chart whose metric list
+  **builds itself from the data** (a metric nobody has a value for isn't offered, so it can't lead
+  to an empty chart; pace is always offered since a hand-typed run has it), and every running
+  session expanding to the per-rep table. Axes reverse where lower is better. Gated on running data
+  existing, **not** on Garmin: a lifting-only install keeps the old two-way toggle. `tt-v103`.
+- **💤 Sleep & recovery card + `--wellness` / `garmin_wellness`**, per Daniel's instruction to build
+  it but show **nothing** with zero data - "important, and should be taken into consideration on how
+  the app looks for everyone with every feature". No empty card, no "not set up" copy.
+  **A guard worth keeping:** a night with no sleep is dropped even when Garmin offers other numbers,
+  because its "resting" HR is the lowest it saw all day - the first run stored three rows whose only
+  field was a resting HR of **70, 80 and 91**, which are warm-up minimums, against the **52**
+  measured on the one real night. `scratchpad/apply_dropbogusrhr.py` cleared them. `tt-v104`.
+- **The coach's note was telling it to discard rep speed** - rewritten, with both 29 Jul sessions
+  worked through, plus `actual_reps`, efficiency, form/power and watch RPE now passed through.
+- **Dev server was corrupting verification:** `js/app.js` (~210KB) arrived truncated every few loads
+  over HTTP/1.0, and the cache-first service worker then served the broken copy at an identical byte
+  count on every reload. Now HTTP/1.1 + gzip (~72KB). **The identical size on repeat loads is the
+  tell** - clear the SW caches first, as `CLAUDE.md` says.
+- **Still open, for Daniel:** the three remaining in-app suggestions (exercise timer, longer
+  per-exercise coaching notes, coach-pushed suggestions behind approval) - all need a decision, see
+  the bottom of this file. And a **Claude Code restart** is needed for `garmin_refresh_metrics`,
+  `garmin_wellness` and the coach's new fields.
+
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
 cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
@@ -258,7 +331,10 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
 - **History:** **This-week summary** (volume + muscle heatmap + weekly-volume bar chart), full
   session list, filter/expand/delete.
 - **Progress:** **Records table** (current bests: weight/reps/**e1RM**/date) + exercise chart with
-  a **top-weight vs Est. 1RM** metric toggle.
+  a **top-weight vs Est. 1RM** metric toggle. Plus a **🏃 Run** pane (5k estimate, a self-building
+  trend picker across pace/HR/efficiency/drift/HR-recovery/consistency/cadence/stride/ground-contact/
+  power/load/watch-RPE, and every run expanding to its **per-rep table**) - shown only when there's
+  running data.
 - **Body:** per-person **goals**, **bodyweight history** + trend chart + **scale CSV import**
   (1byone-style, auto-detects date/weight columns, lb→kg).
 - **Save popup:** volume + fun comparison, PR medals, redrawn **muscle map** heatmap.
@@ -284,22 +360,33 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   --muted/--line/--brand/--brand-soft/--musc-*`).
 - `js/app.js` — single module. State + migration (`load`/`save`; `state = {people, weights, goals,
   bodyweights, activePerson, program, logs, theme}`). Tabs render into `#view`: `renderLog`,
-  `renderHistory`(+week summary), `renderProgress`(+records), `renderBody`, `renderEdit`,
-  `renderHelp`. Key helpers: `esc`, `possessive`, `relTime`, `weekMonday`, `isLifting`, `isRunning`,
+  `renderHistory`(+week summary), `renderProgress`(+records), `renderRun`, `renderBody`,
+  `renderEdit`, `renderHelp` - the last three are the `progressPane` toggle inside Progress
+  (`progressPanes()` drops 🏃 Run when there's no running data).
+  Key helpers: `esc`, `possessive`, `relTime`, `weekMonday`, `isLifting`, `isRunning`, `ratesRpe`,
   `parseRange`, `bestWeightSoFar`/`personPRs`/`personRecords` (warm-up-aware), `epley`, `fmtRow`,
   `addBodyweight`, `importBodyweightCsv`, `parseTcx`/`parseGpx`/`importRunIntoCard`, `coachBrief`,
   cloud sync (`syncNow`/`mergeInData`/`exportPayload`/GitHub Contents API), `classifyMuscles`/
-  `muscleColor`/`paintMuscleMap`. `formDrafts` + `sessionTimers` (the in-progress log form) persist
+  `muscleColor`/`paintMuscleMap`, and the Garmin read side (`garminLine`, `intervalStructureText`,
+  `repTableHtml`, `RUN_METRICS`/`drawRunChart`, `recoveryCardHtml`, `hrZonesCardHtml`). `formDrafts` + `sessionTimers` (the in-progress log form) persist
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v91`.
+  change to a cached file.** Currently `tt-v104`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
   `sample-activity.json`). Reads runs from Garmin Connect + imports one into the shared store;
   maps a Garmin activity → the app's run-log shape. Same stdlib GitHub read/write as `mcp-coach`;
-  `garminconnect` imported lazily so `--selftest` runs without it.
+  `garminconnect` imported lazily so `--selftest` runs without it. Extraction lives in
+  `activity_metrics` / `reps_from_typed_splits` / `rep_derived` / `activity_efficiency`;
+  `fetch_activity_extras` gathers the per-activity Garmin calls **once, up front**, because a store
+  write can retry and must never re-fetch. CLI: `--sync` (hourly, cheap), `--hrzones`, `--refresh`
+  (already-linked sessions), `--wellness` (overnight). What each field means is documented in
+  `mcp-garmin/README.md` → *What gets attached to a session*.
+- `scratchpad/probe_garmin{,2,3}.py` — read-only surveys of what a Garmin account actually holds.
+  Worth keeping: they're how the wear-time and VO₂max dead ends above were established, and re-running
+  one is cheaper than re-deriving it. Their output is gitignored (heart rates, profile ids).
 - `docs/` — `github-sync-setup.md`, `running-import.md`, `hub-and-coaching.md`, this file.
 - `sample-daniel.json` / `sample-cerys.json` — **gitignored** real exports, local test fixtures only.
 
@@ -503,9 +590,32 @@ forced on every account - a settings toggle per account for which of these are t
    "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
    above, revisit whenever the Pi is up.
 
+## Open in-app suggestions awaiting Daniel's decision (as of 2026-08-12)
+Two were auto-applied on 12 Aug (notes box grows, RPE on lunges) and marked done. These three need a
+call from Daniel before anything is built - each has more than one reasonable reading:
+- **"add an optional exercise timer"** (`1786488191424`). Ambiguous, and it brushes against a
+  decision already made: the Phase 3 **rest timer is explicitly NOT wanted**. An *exercise* timer is
+  plausibly a different thing - a count-up/count-down for a held movement (plank, a timed carry) -
+  which the program can't currently express, since those are logged as reps. Ask which he means
+  before touching it; don't resurrect the rest timer by accident.
+- **"have longer coaching notes for each exercise"** (`1786488544590`). **Not a display bug** -
+  checked: `.coach` has `white-space:pre-wrap` and no clamp, so a long note already renders in full
+  over multiple lines. So this is either (a) the coach being too terse, which is a change to
+  `write_coaching`'s tool description and `docs/coaching-prompt.md`, not app code, or (b) a request
+  for a second, longer per-exercise field distinct from the one-line cue. (a) is free; (b) is a
+  data-model change.
+- **"coach should be able to push suggestions aswell - put behind for me to agree before applied"**
+  (`1786491755166`). The biggest of the three and genuinely new: the coach proposing *program*
+  changes (reorder Lower 1 so the deadlift is first, drop an exercise, change a target) that land in
+  the app as pending items Daniel approves or rejects, rather than being written straight into
+  `state.program`. Note this is exactly the human-gate pattern the automation section below already
+  argues for, and there's a precedent to copy in `suggestions` + `deletedLogs` (a synced list with a
+  status). Needs a design pass on where approval lives and what a proposal can touch.
+
 ## Other open items
 - **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
-  `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*`).
+  `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*` -
+  most recently `garmin_refresh_metrics` and `garmin_wellness`, added 12 Aug).
 - **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
   (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
 - **Set goals** — **Daniel's are now set** (sub-20 5k, 100kg bench, 200kg squat, 200kg deadlift, as
