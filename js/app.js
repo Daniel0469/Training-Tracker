@@ -1282,32 +1282,79 @@ function drawWeekChart(person){
   });
 }
 // The extra info Garmin adds to a linked cardio session (see mcp-garmin). Themed box.
+// Every line here is skipped when the field is absent, which is what keeps one box
+// readable across two different watches and a hand-typed session: Daniel's
+// Forerunner adds power and ground contact, Cerys's Vivoactive doesn't record
+// either, and VO₂max has never appeared for either of them (Garmin only estimates
+// it outdoors, and the running is all treadmill).
 function garminLine(l){
   const g=l.garmin; if(!g) return "";
   const bits=[];
   if(g.avg_hr!=null) bits.push("avg HR "+g.avg_hr);
   if(g.max_hr!=null) bits.push("max "+g.max_hr);
+  if(g.min_hr!=null) bits.push("min "+g.min_hr);
   if(g.cadence_spm!=null) bits.push("cadence "+g.cadence_spm+" spm");
   if(g.elevation_gain_m!=null) bits.push("+"+g.elevation_gain_m+" m");
   if(g.calories!=null) bits.push(g.calories+" kcal");
   if(g.moving_time) bits.push("moving "+g.moving_time);
-  if(g.training_effect!=null) bits.push("TE "+g.training_effect);
+  if(g.training_effect!=null) bits.push("TE "+g.training_effect
+    + (g.effect_label?" ("+g.effect_label.toLowerCase()+")":""));
   if(g.vo2max!=null) bits.push("VO₂ "+g.vo2max);
+  // Form and output, on their own line - it's a different kind of information from
+  // the effort summary above and reads better split than in one long run-on.
+  const form=[];
+  if(g.stride_length_cm!=null) form.push("stride "+g.stride_length_cm+" cm");
+  if(g.ground_contact_ms!=null) form.push("ground contact "+g.ground_contact_ms+" ms");
+  if(g.vertical_oscillation_cm!=null) form.push("bounce "+g.vertical_oscillation_cm+" cm");
+  if(g.avg_power_w!=null) form.push("power "+g.avg_power_w+" W"
+    + (g.max_power_w!=null?" (max "+g.max_power_w+")":""));
+  const eff=g.efficiency||{};
+  if(eff.watts_per_kg!=null) form.push(eff.watts_per_kg+" W/kg");
+  if(eff.ef!=null) form.push("efficiency "+eff.ef);
+  // What they told the watch afterwards, kept visibly separate from anything
+  // measured - it's the one number here that's an opinion.
+  const said=[];
+  if(g.watch_rpe!=null) said.push("RPE "+g.watch_rpe+"/10");
+  if(g.watch_feel) said.push("felt "+g.watch_feel);
+  if(g.training_load!=null) said.push("load "+g.training_load);
   const iv=intervalStructureText(l.garmin);
-  return (bits.length||iv)? '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")
-    + (iv?'<div style="margin-top:4px">'+esc(iv)+'</div>':"")+'</div>' : "";
+  if(!(bits.length||form.length||said.length||iv)) return "";
+  const row=(txt,pre)=>txt?'<div style="margin-top:4px">'+pre+esc(txt)+'</div>':"";
+  return '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")
+    + row(form.join(" · "),"")
+    + row(said.join(" · "),"🗣 ")
+    + row(iv,"")+'</div>';
 }
-// The reps you actually did, read off the watch's speed trace rather than typed.
-// Garmin's laps can't show this - a treadmill auto-laps every 1km, so several
-// 1-minute reps and their recoveries land inside a single lap - but the
-// per-second trace can, because the belt holds a steady speed through a rep.
-// Structure only: treadmill speed is wrist-estimated and reads high, so what you
-// typed stays the record for speed. Derived by mcp-garmin (detect_intervals).
+// The reps you actually did, read off the watch rather than typed. Garmin's laps
+// can't show this - a treadmill auto-laps every 1km, so several 1-minute reps and
+// their recoveries land inside a single lap.
+//
+// Two sources, and the better one wins. `reps` is Garmin's own run/walk split
+// detection, which gives each rep individually along with the drift and recovery
+// numbers below. `intervals` is the older speed-trace heuristic, kept because it's
+// the only source when Garmin didn't segment the activity; it clips the belt's ramp
+// up and down, so its reps read ~10s shorter. Per-rep detail is in the 🏃 Run pane;
+// this is the one-line version for a History card.
 function intervalStructureText(g){
-  const iv=g&&g.intervals; if(!iv||!iv.reps) return "";
-  let s=iv.reps+" × "+fmtMmSs(iv.rep_sec_avg)+" hard";
-  if(iv.recovery_sec_avg) s+=", "+fmtMmSs(iv.recovery_sec_avg)+" easy between";
-  return "reps on the watch: "+s;
+  const reps=g&&g.reps, iv=g&&g.intervals;
+  let s="";
+  if(reps && (reps.reps||[]).length){
+    const rs=reps.reps;
+    const avg=a=>Math.round(a.reduce((t,n)=>t+n,0)/a.length);
+    s=rs.length+" × "+fmtMmSs(avg(rs.map(r=>r.sec)))+" hard";
+    const recs=rs.map(r=>r.recovery_sec).filter(v=>v!=null);
+    if(recs.length) s+=", "+fmtMmSs(avg(recs))+" easy between";
+  } else if(iv && iv.reps){
+    s=iv.reps+" × "+fmtMmSs(iv.rep_sec_avg)+" hard";
+    if(iv.recovery_sec_avg) s+=", "+fmtMmSs(iv.recovery_sec_avg)+" easy between";
+  } else return "";
+  const d=(reps||{}).derived||{};
+  const extra=[];
+  if(d.drift_bpm!=null) extra.push("drift "+(d.drift_bpm>0?"+":"")+d.drift_bpm+" bpm");
+  if(d.hr_recovery_bpm!=null) extra.push("recovery −"+d.hr_recovery_bpm+" bpm");
+  if(d.consistency_pct!=null) extra.push(d.consistency_pct+"% spread");
+  if(d.fade_pct!=null) extra.push("fade "+d.fade_pct+"%");
+  return "reps on the watch: "+s+(extra.length?" · "+extra.join(" · "):"");
 }
 function garminStatus(l){
   if(l.garminActivityId) return ' · ⌚ Garmin';
@@ -1553,10 +1600,17 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like openSessions in the Program tab.
 let progressPane="lifts";
+const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", body:"⚖ Body"};
+// 🏃 Run only joins the toggle once there's running data to put in it, so a
+// lifting-only install sees the same two-way toggle it always did rather than a
+// third tab of empty cards.
+function progressPanes(){
+  return hasRunData() ? ["lifts","run","body"] : ["lifts","body"];
+}
 function progressTabsHtml(){
   return '<div class="card pane-card"><div class="ptoggle pane-toggle">'
-    + ['lifts','body'].map(k=>'<button type="button" data-pane="'+k+'"'
-        + (progressPane===k?' class="active"':'')+'>'+(k==="lifts"?"🏋 Lifts":"⚖ Body")+'</button>').join("")
+    + progressPanes().map(k=>'<button type="button" data-pane="'+k+'"'
+        + (progressPane===k?' class="active"':'')+'>'+PANE_LABELS[k]+'</button>').join("")
     + '</div></div>';
 }
 function wirePaneToggle(){
@@ -1567,7 +1621,11 @@ function wirePaneToggle(){
   });
 }
 function renderProgress(){
+  // A pane can go away under you: the Run one disappears if the last run is
+  // deleted, and progressPane is remembered across renders.
+  if(progressPanes().indexOf(progressPane)<0) progressPane="lifts";
   if(progressPane==="body") return renderBody();
+  if(progressPane==="run") return renderRun();
   const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
   if(!allEx.length){
     document.getElementById("view").innerHTML=progressTabsHtml()
@@ -1629,6 +1687,168 @@ function drawChart(){
         y:{beginAtZero:false,title:{display:true,text:metric==="e1rm"?"Est. 1RM (kg)":"Top-set weight",color:tickCol},
           ticks:{color:tickCol},grid:{color:gridCol}}},
       plugins:{legend:{position:"top",labels:{color:tickCol}}}}
+  });
+}
+
+// ---------------------------------------------------------------- Progress ▸ 🏃 Run
+// Everything here is gated on data existing, not on Garmin being configured: a
+// person who types their runs in by hand gets the pace chart and the session list,
+// and every Garmin-only metric drops out of the picker on its own. An install with
+// no running at all never sees the pane (see hasRunData) - the toggle stays two-way,
+// exactly as it was.
+function hasRunData(){
+  return state.logs.some(l=>l && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e)) || l.garmin));
+}
+function runLogsFor(person){
+  return state.logs.filter(l=>l && l.person===person
+      && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e)) || l.garmin))
+    .slice().sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
+}
+// The per-rep block mcp-garmin derives from Garmin's run/walk splits, and the trend
+// numbers computed from it. Absent on a steady run, and on anything logged by hand.
+function repsOf(l){ return ((l&&l.garmin)||{}).reps || null; }
+function repDerivedOf(l){ return (repsOf(l)||{}).derived || {}; }
+// Fastest pace in a session, in SECONDS per km, so it can be plotted. Mirrors what
+// bestPaceFromEntry and bestSpeedFromEntry show as text: a distance+time run uses
+// its quickest split, an interval piece converts its hardest km/h. Per-rep speed
+// from the watch is only used when nothing was typed, matching how the stored data
+// treats the two.
+function bestPaceSec(l){
+  const run=(l.entries||[]).find(e=>isRunning(e));
+  if(run){
+    const di=colIndex(run,/dist/i), ti=colIndex(run,/time/i);
+    let best=null;
+    if(di>=0&&ti>=0) (run.rows||[]).forEach(r=>{
+      const km=parseFloat(r[di]), sec=parseClock(r[ti]);
+      if(isNaN(km)||km<=0||sec==null||sec<=0) return;
+      const p=sec/km; if(best==null||p<best) best=p;
+    });
+    if(best!=null) return Math.round(best);
+  }
+  const iv=(l.entries||[]).find(e=>isIntervalEntry(e));
+  if(iv && iv.cols && /km\s*\/\s*h/i.test(String(iv.cols[0]))){
+    let top=null;
+    (iv.rows||[]).forEach(r=>{ const v=parseFloat(r&&r[0]); if(!isNaN(v)&&v>0&&(top==null||v>top)) top=v; });
+    if(top!=null) return Math.round(3600/top);
+  }
+  const d=repDerivedOf(l);
+  if(d.kmh_best) return Math.round(3600/d.kmh_best);
+  return null;
+}
+// Each entry: how to read the number off a session, and how to label it. `reverse`
+// flips the axis so "better" is always up - for pace, lower is faster.
+const RUN_METRICS={
+  pace:{label:"Best pace", axis:"Pace per km", reverse:true, pace:true, pick:bestPaceSec},
+  avg_hr:{label:"Average HR", axis:"bpm", pick:l=>(l.garmin||{}).avg_hr},
+  ef:{label:"Efficiency (pace per beat)", axis:"m/min per bpm", pick:l=>((l.garmin||{}).efficiency||{}).ef},
+  drift:{label:"Cardiac drift", axis:"bpm, first rep to last", reverse:true, pick:l=>repDerivedOf(l).drift_bpm},
+  recovery:{label:"HR recovery", axis:"bpm dropped between reps", pick:l=>repDerivedOf(l).hr_recovery_bpm},
+  consistency:{label:"Rep consistency", axis:"% spread (lower is even)", reverse:true, pick:l=>repDerivedOf(l).consistency_pct},
+  cadence:{label:"Cadence", axis:"steps per minute", pick:l=>(l.garmin||{}).cadence_spm},
+  stride:{label:"Stride length", axis:"cm", pick:l=>(l.garmin||{}).stride_length_cm},
+  gct:{label:"Ground contact", axis:"ms", reverse:true, pick:l=>(l.garmin||{}).ground_contact_ms},
+  power:{label:"Average power", axis:"watts", pick:l=>(l.garmin||{}).avg_power_w},
+  load:{label:"Training load", axis:"Garmin training load", pick:l=>(l.garmin||{}).training_load},
+  watch_rpe:{label:"Effort you reported", axis:"RPE 1-10, from the watch", reverse:true, pick:l=>(l.garmin||{}).watch_rpe}
+};
+// Only offer a metric somebody actually has data for, so the picker never leads to
+// an empty chart. Pace stays regardless - it's the one metric a hand-typed run has.
+function runMetricKeys(){
+  return Object.keys(RUN_METRICS).filter(k=> k==="pace"
+    || state.people.some(p=> runLogsFor(p).some(l=> RUN_METRICS[k].pick(l)!=null)));
+}
+let runMetric="pace";
+function renderRun(){
+  const p=state.people[state.activePerson];
+  const logs=runLogsFor(p);
+  const keys=runMetricKeys();
+  if(runMetric!=="pace" && keys.indexOf(runMetric)<0) runMetric="pace";
+  let html=progressTabsHtml()+fiveKCardHtml(p);
+  html+='<div class="card">'
+    + '<div class="row" style="margin-bottom:12px">'
+    + '<label class="fld grow" style="max-width:280px">Trend<select id="runMetric">'
+    + keys.map(k=>'<option value="'+k+'"'+(k===runMetric?' selected':'')+'>'+esc(RUN_METRICS[k].label)+'</option>').join("")
+    + '</select></label></div>'
+    + '<div class="hint" style="margin-bottom:10px">Per session, for both people. '+esc(RUN_METRICS[runMetric].axis)+'.</div>'
+    + '<div class="chart-box"><canvas id="runChart"></canvas></div></div>';
+  if(logs.length){
+    html+='<div class="card"><div class="sec-title">🏃 Sessions - '+esc(p)
+      + ' <span class="pill" data-sw="'+personSwatch(p)+'">'+logs.length+'</span></div>'
+      + logs.slice().reverse().map(runSessionHtml).join("")+'</div>';
+  } else {
+    html+='<div class="card empty">No runs logged for '+esc(p)+' yet.</div>';
+  }
+  document.getElementById("view").innerHTML=html;
+  wirePaneToggle();
+  document.getElementById("runMetric").onchange=e=>{ runMetric=e.target.value; renderRun(); };
+  drawRunChart();
+}
+function runSessionHtml(l){
+  const run=(l.entries||[]).find(e=>isRunning(e));
+  const bits=[];
+  const summary=run?runSummaryFromEntry(run, l.garmin):"";
+  if(summary) bits.push(summary);
+  else {
+    const iv=(l.entries||[]).find(e=>isIntervalEntry(e));
+    const s=iv?bestSpeedFromEntry(iv):"";
+    if(s) bits.push("best "+s);
+  }
+  // The drift/recovery/spread numbers deliberately aren't repeated here - they're
+  // already on garminLine's "reps on the watch" line, which History shows too.
+  return '<div class="ex" style="margin-bottom:8px"><div class="ex-head"><div>'
+    + '<b>'+esc(l.sessionName||"Run")+'</b>'
+    + '<div class="ex-meta">'+esc(l.date)+' · '+relTime(l.date)
+    + (bits.length?' · '+esc(bits.join(" · ")):"")+garminStatus(l)+'</div></div></div>'
+    + garminLine(l)+hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+repTableHtml(l)+'</div>';
+}
+// The reps as they were actually run. Columns appear only when the watch recorded
+// them, so Cerys's Vivoactive (no power, no ground contact) gets a narrower table
+// rather than a row of blanks.
+function repTableHtml(l){
+  const reps=repsOf(l); if(!reps||!(reps.reps||[]).length) return "";
+  const rows=reps.reps;
+  const hasPwr=rows.some(r=>r.power_w!=null), hasCad=rows.some(r=>r.cadence_spm!=null);
+  const hasRec=rows.some(r=>r.recovery_sec!=null);
+  return '<div class="sets-wrap" style="margin-top:6px"><table class="sets"><thead><tr>'
+    + '<th>Rep</th><th>Dist</th><th>Time</th><th>Pace</th><th>♥ avg</th><th>♥ max</th>'
+    + (hasCad?'<th>Cad</th>':'')+(hasPwr?'<th>W</th>':'')
+    + (hasRec?'<th>Recovery</th>':'')+'</tr></thead><tbody>'
+    + rows.map(r=>'<tr><td><b>'+r.n+'</b></td><td>'+(r.dist_m!=null?r.dist_m+" m":"–")+'</td>'
+        + '<td>'+(r.sec!=null?fmtMmSs(r.sec):"–")+'</td>'
+        + '<td>'+(r.pace?esc(r.pace)+"/km":"–")+(r.kmh!=null?'<div class="ex-meta">'+r.kmh+' km/h</div>':"")+'</td>'
+        + '<td>'+(r.avg_hr!=null?r.avg_hr:"–")+'</td><td>'+(r.max_hr!=null?r.max_hr:"–")+'</td>'
+        + (hasCad?'<td>'+(r.cadence_spm!=null?r.cadence_spm:"–")+'</td>':'')
+        + (hasPwr?'<td>'+(r.power_w!=null?r.power_w:"–")+'</td>':'')
+        + (hasRec?'<td>'+(r.recovery_sec!=null?fmtMmSs(r.recovery_sec):"–")
+            + (r.hr_drop!=null?'<div class="ex-meta">♥ −'+r.hr_drop+'</div>':"")+'</td>':'')
+        + '</tr>').join("")
+    + '</tbody></table></div>'
+    + '<div class="hint" style="margin-top:4px">Read off the watch. '
+    + 'Speed is each rep\'s average, so it sits a little under the belt setting.</div>';
+}
+function drawRunChart(){
+  const m=RUN_METRICS[runMetric];
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const series=state.people.map((p,i)=>{
+    const pts=runLogsFor(p).map(l=>{ const v=m.pick(l); return v==null?null:{x:l.date,y:v}; })
+      .filter(Boolean);
+    return {label:p,data:pts,borderColor:swatchColor(state.colors[i],dark),
+      backgroundColor:swatchColor(state.colors[i],dark),tension:.25,spanGaps:true};
+  });
+  if(chart) chart.destroy();
+  const tickCol=dark?"#9aa3b2":"#697086";
+  const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  const labels=[...new Set(state.people.flatMap(p=>runLogsFor(p).map(l=>l.date)))].sort();
+  chart=new Chart(document.getElementById("runChart"),{
+    type:"line", data:{datasets:series},
+    options:{responsive:true,maintainAspectRatio:false,parsing:false,
+      scales:{x:{type:"category",labels:labels,ticks:{color:tickCol},grid:{color:gridCol}},
+        y:{beginAtZero:false,reverse:!!m.reverse,
+          title:{display:true,text:m.axis,color:tickCol},
+          ticks:{color:tickCol,callback:v=>m.pace?fmtPace(v/60):v},grid:{color:gridCol}}},
+      plugins:{legend:{position:"top",labels:{color:tickCol}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+": "
+          +(m.pace?fmtPace(c.parsed.y/60)+"/km":c.parsed.y)}}}}
   });
 }
 
@@ -2646,7 +2866,7 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b> and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
+     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
@@ -2677,13 +2897,15 @@ function renderHelp(){
      +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)')
-     +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 0:58 hard, 2:02 easy between" - by reading the speed trace off your watch. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap), and it\'s <b>structure only</b>: the speeds <b>you</b> typed stay the record for speed, because treadmill pace is estimated from your wrist and reads high. It means your coach can see whether the session you were set is the session you did - including when you had to cut one short.'));
+     +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ 🏃 Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away, and it\'s the same note the coach reads.')
      +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
-     +p('<b>Progress</b> has two halves, switched at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.'));
+     +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.')
+     +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
+     +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
