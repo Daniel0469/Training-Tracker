@@ -1116,6 +1116,132 @@ def backfill_run_entries(person, limit=50):
     return {"ok": True, "person": person, "filled": len(filled), "details": filled,
             "message": f"Restored the run on {len(filled)} session(s)."}
 
+# ---------------------------------------------------------------- overnight / recovery
+def fetch_wellness_day(date):
+    """Sleep, overnight HRV, resting HR and readiness for one night. Returns None for
+    a night the watch wasn't worn, which is most of them so far - both Daniel and
+    Cerys currently put the watch on for a workout and take it off after, so the whole
+    of this comes back empty. That's the point of returning None rather than a row of
+    nulls: nothing is stored, so the app has nothing to show and shows nothing.
+
+    HRV needs about three weeks of consistent overnight wear before `status` becomes
+    anything other than NONE - Garmin won't call an HRV reading high or low until it
+    has a baseline to compare against. Expect the number before the verdict.
+
+    A night with no sleep recorded returns None even when Garmin offers other numbers
+    for that date, because they aren't trustworthy without it. Garmin's "resting" HR is
+    the lowest it saw all day, so on a day the watch went on for the gym and came off
+    after, it reports the bottom of a warm-up - Daniel's 25 and 29 Jul came back as 91
+    and 80 bpm against the 52 measured on the one night he actually wore it. Storing
+    those would have drawn a resting-HR trend out of three warm-ups."""
+    w = {}
+    try:
+        s = garmin_client().get_sleep_data(date) or {}
+    except Exception:
+        s = {}
+    dto = s.get("dailySleepDTO") or {}
+    secs = _num(dto.get("sleepTimeSeconds"))
+    if secs:
+        w["sleep_sec"] = int(secs)
+        w["sleep"] = _mmss_hours(secs)
+        for key, field in (("deep_sec", "deepSleepSeconds"), ("light_sec", "lightSleepSeconds"),
+                           ("rem_sec", "remSleepSeconds"), ("awake_sec", "awakeSleepSeconds")):
+            v = _num(dto.get(field))
+            if v is not None:
+                w[key] = int(v)
+        for key, field in (("overnight_hr", "avgHeartRate"), ("sleep_stress", "avgSleepStress"),
+                           ("respiration", "averageRespirationValue")):
+            v = _num(dto.get(field))
+            if v is not None:
+                w[key] = round(v, 1) if key == "respiration" else int(round(v))
+        score = ((dto.get("sleepScores") or {}).get("overall") or {}).get("value")
+        if _num(score) is not None:
+            w["sleep_score"] = int(_num(score))
+        qual = ((dto.get("sleepScores") or {}).get("totalDuration") or {}).get("qualifierKey")
+        if qual:
+            w["sleep_quality"] = str(qual).replace("_", " ").lower()
+    if not w:
+        return None                        # watch wasn't worn overnight - see docstring
+    hrv = _num(s.get("avgOvernightHrv"))
+    status = s.get("hrvStatus")
+    if hrv is None or status is None:
+        try:
+            h = garmin_client().get_hrv_data(date) or {}
+        except Exception:
+            h = {}
+        summ = h.get("hrvSummary") or {}
+        hrv = hrv if hrv is not None else _num(summ.get("lastNightAvg"))
+        status = status or summ.get("status")
+    if hrv is not None:
+        w["hrv_ms"] = int(round(hrv))
+    # NONE means "no baseline yet", which is not a verdict - don't store it as one.
+    if status and str(status).upper() != "NONE":
+        w["hrv_status"] = str(status).lower()
+    rhr = _num(s.get("restingHeartRate"))
+    if rhr is None:
+        try:
+            rhr = _num((garmin_client().get_stats(date) or {}).get("restingHeartRate"))
+        except Exception:
+            rhr = None
+    if rhr:
+        w["resting_hr"] = int(round(rhr))
+    try:
+        rd = garmin_client().get_training_readiness(date) or []
+    except Exception:
+        rd = []
+    row = (rd or [{}])[0] if isinstance(rd, list) else rd
+    if isinstance(row, dict):
+        sc = _num(row.get("score"))
+        if sc is not None:
+            w["readiness"] = int(sc)
+            if row.get("level"):
+                w["readiness_level"] = str(row["level"]).lower()
+    return w or None
+
+def _mmss_hours(sec):
+    """Seconds -> "8h 56m", for a duration that's hours long rather than minutes."""
+    sec = int(sec or 0)
+    return f"{sec // 3600}h {sec % 3600 // 60:02d}m"
+
+def sync_wellness(person, days=14):
+    """Store `person`'s overnight numbers for the last `days` days, so the app can show
+    a recovery card and the coach can put a bad session next to a bad night.
+
+    Only days with data are written, and the whole call no-ops when there are none, so
+    running this against a watch that never gets worn overnight costs one commit's
+    worth of nothing. Idempotent: a day already stored isn't refetched."""
+    have = set()
+    try:
+        data, _sha, _url, _token = _github_read_with_sha()
+        have = set(((data.get("wellness") or {}).get(person) or {}).keys())
+    except Exception:
+        pass
+    today = datetime.date.today()
+    fetched = {}
+    for n in range(1, max(1, days) + 1):
+        d = (today - datetime.timedelta(days=n)).isoformat()
+        if d in have:
+            continue                       # already stored - don't call Garmin again
+        w = fetch_wellness_day(d)
+        if w:
+            fetched[d] = w
+    if not fetched:
+        return {"ok": True, "person": person, "added": 0,
+                "message": (f"No overnight data in the last {days} days that isn't already "
+                            "stored. Expected while the watch is only worn for workouts.")}
+    def mutate(data):
+        wl = data.setdefault("wellness", {}).setdefault(person, {})
+        added = [d for d in fetched if d not in wl]
+        if not added:
+            return None
+        for d in added:
+            wl[d] = fetched[d]
+        return sorted(added)
+    added = _github_update(
+        mutate, lambda a: f"Add {len(a)} night(s) of {person}'s overnight data") or []
+    return {"ok": True, "person": person, "added": len(added), "dates": added,
+            "message": f"Stored {len(added)} night(s). Shows in the app after a sync."}
+
 def refresh_metrics(person, limit=50):
     """Re-read Garmin for `person`'s ALREADY-linked sessions, so sessions linked
     before a field existed pick it up. Neither the scheduled `--sync` nor
@@ -1249,6 +1375,16 @@ def _register(mcp):
                            "run_entry_backfill": backfill_run_entries(person)}, indent=2)
 
     @mcp.tool()
+    def garmin_wellness(person: str, days: int = 14) -> str:
+        """Store `person`'s overnight numbers - sleep and its stages, sleep score,
+        overnight HRV, resting HR, respiration, and training readiness where Garmin has
+        it - for the last `days` days. Only nights with data are written and days already
+        stored aren't refetched, so it's cheap and safe to re-run. Expect nothing back
+        while the watch is only worn for workouts; HRV also needs ~3 weeks of overnight
+        wear before its status means anything."""
+        return json.dumps(sync_wellness(person, days), indent=2)
+
+    @mcp.tool()
     def garmin_refresh_metrics(person: str) -> str:
         """Re-read Garmin for `person`'s already-linked sessions and add any metrics
         they're missing (per-rep interval detail, running dynamics, power, the watch's
@@ -1356,6 +1492,20 @@ def _refresh(args):
                          "e.g. `python server.py --refresh training-garmin`.")
     print(json.dumps(refresh_metrics(person), indent=2))
 
+def _wellness(args):
+    """`--wellness [server-name] [days]`: store the overnight numbers. Worth a daily
+    scheduled run once someone actually wears the watch at night; pointless before
+    that, and it no-ops when there's nothing new."""
+    if args and not args[0].isdigit():
+        _load_server_env(args[0])
+        _ensure_ca_bundle()
+        args = args[1:]
+    person = os.environ.get("TT_PERSON")
+    if not person:
+        raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
+                         "e.g. `python server.py --wellness training-garmin`.")
+    print(json.dumps(sync_wellness(person, int(args[0]) if args else 14), indent=2))
+
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
         fx = json.load(fh)
@@ -1386,6 +1536,8 @@ if __name__ == "__main__":
         _hrzones(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 2 and sys.argv[1] == "--refresh":
         _refresh(sys.argv[2:]); sys.exit(0)
+    if len(sys.argv) >= 2 and sys.argv[1] == "--wellness":
+        _wellness(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         _selftest(sys.argv[2]); sys.exit(0)
     from mcp.server.fastmcp import FastMCP

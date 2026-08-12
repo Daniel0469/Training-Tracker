@@ -54,6 +54,11 @@ function load(){
       // name. Written by the coach when they tell it (mcp-coach write_limiter),
       // read-only in the app.
       if(!s.limiters || typeof s.limiters!=="object") s.limiters={};
+      // Overnight numbers from Garmin, person -> date -> {sleep, hrv_ms, resting_hr,
+      // readiness, …}. Written by mcp-garmin (`--wellness`), read-only here. Only
+      // nights the watch was actually worn are ever stored, so this is empty for both
+      // of them today and the card that reads it renders nothing until it isn't.
+      if(!s.wellness || typeof s.wellness!=="object") s.wellness={};
       if(!Array.isArray(s.meals)) s.meals=[];
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
@@ -2868,6 +2873,7 @@ function renderHelp(){
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
+     +p('<b>💤 Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep and its stages, sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
 
@@ -3098,6 +3104,53 @@ document.getElementById("saveDlgOk").onclick=function(){ document.getElementById
 // not time spent in them - written by mcp-garmin's `--hrzones` into state.hrZones,
 // keyed by person name. Renders nothing at all until that's been run for someone.
 const HR_ZONE_NAMES=["Warm up","Easy","Aerobic","Threshold","Maximum"];
+// 💤 Sleep & recovery, from whatever nights the watch was actually worn (mcp-garmin
+// `--wellness` writes state.wellness). Renders NOTHING at all when there's no data -
+// no empty card, no "not set up" copy - so an install with no Garmin, or a watch that
+// only goes on for the gym, looks exactly as it did before this existed.
+//
+// Every row is independently optional for the same reason: HRV needs about three
+// weeks of overnight wear before Garmin will give it a status, and training readiness
+// needs more still, so a first night arrives with sleep and nothing else.
+// Hours and minutes with the unit written out ("1h 17m", "6m") - unambiguous for a
+// sleep stage in a way a colon-separated clock isn't at a glance.
+function fmtHm(sec){
+  sec=Math.round(sec||0);
+  const h=Math.floor(sec/3600), m=Math.round((sec%3600)/60);
+  return h? h+"h "+(m<10?"0":"")+m+"m" : m+"m";
+}
+function recoveryCardHtml(person){
+  const all=(state.wellness&&state.wellness[person])||{};
+  const dates=Object.keys(all).filter(d=>all[d]&&Object.keys(all[d]).length).sort();
+  if(!dates.length) return "";
+  const last=dates[dates.length-1], w=all[last];
+  const big=[];
+  if(w.sleep) big.push('<span class="pill">😴 '+esc(w.sleep)+'</span>');
+  if(w.sleep_score!=null) big.push('<span class="pill">score '+w.sleep_score+'/100</span>');
+  if(w.readiness!=null) big.push('<span class="pill">ready '+w.readiness+'/100</span>');
+  const bits=[];
+  if(w.hrv_ms!=null) bits.push("HRV "+w.hrv_ms+" ms"+(w.hrv_status?" ("+esc(w.hrv_status)+")":""));
+  if(w.resting_hr!=null) bits.push("resting ♥ "+w.resting_hr);
+  if(w.overnight_hr!=null) bits.push("overnight ♥ "+w.overnight_hr);
+  if(w.respiration!=null) bits.push("breathing "+w.respiration+"/min");
+  if(w.sleep_stress!=null) bits.push("stress "+w.sleep_stress);
+  // Sleep stages as one line rather than a second chart - it's context for the
+  // duration above, not something anyone trends off a phone card. Deliberately NOT
+  // fmtDuration: that gives h:mm:ss, so 6 minutes awake printed as "6:00" next to
+  // "1:17:00" of deep sleep reads as six hours awake.
+  const st=[];
+  if(w.deep_sec!=null) st.push("deep "+fmtHm(w.deep_sec));
+  if(w.rem_sec!=null) st.push("REM "+fmtHm(w.rem_sec));
+  if(w.light_sec!=null) st.push("light "+fmtHm(w.light_sec));
+  if(w.awake_sec) st.push("awake "+fmtHm(w.awake_sec));
+  if(!big.length && !bits.length) return "";
+  return '<div class="card"><div class="sec-title" style="margin:0 0 6px">💤 Sleep &amp; recovery</div>'
+    + (big.length?'<div class="row" style="gap:6px;margin-bottom:6px">'+big.join("")+'</div>':'')
+    + (bits.length?'<div class="ex-meta">'+bits.join(' · ')+'</div>':'')
+    + (st.length?'<div class="ex-meta" style="margin-top:4px">'+esc(st.join(' · '))+'</div>':'')
+    + '<div class="hint" style="margin-top:6px">From Garmin · '+esc(relTime(last))
+    + (dates.length>1?' · '+dates.length+' nights on record':'')+'</div></div>';
+}
 function hrZonesCardHtml(person){
   const z=(state.hrZones&&state.hrZones[person])||null;
   if(!z || !Array.isArray(z.floors) || z.floors.length<5) return "";
@@ -3295,6 +3348,7 @@ function renderHome(){
   }
 
   html += fiveKCardHtml(p);
+  html += recoveryCardHtml(p);
   html += hrZonesCardHtml(p);
 
   if(bw.length>=2){
