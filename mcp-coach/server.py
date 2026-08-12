@@ -385,7 +385,19 @@ def get_running_form(data, person):
                          "distance_km": round(km, 2), "duration_sec": sec,
                          "pace_per_km": _mmss((sec / km)) if sec and km else None,
                          "avg_hr": g.get("avg_hr"), "max_hr": g.get("max_hr"),
-                         "hr_zone_secs": g.get("hr_zone_secs")})
+                         "min_hr": g.get("min_hr"),
+                         "hr_zone_secs": g.get("hr_zone_secs"),
+                         # Efficiency is measured over the RUNNING blocks only, so it
+                         # doesn't move just because someone walked more of a session -
+                         # which matters a lot here, where a "Zone 2 run" is often
+                         # part walked. See activity_efficiency in mcp-garmin.
+                         "efficiency": g.get("efficiency"),
+                         "watch_rpe": g.get("watch_rpe"), "watch_feel": g.get("watch_feel"),
+                         "form": {k: g[k] for k in
+                                  ("cadence_spm", "stride_length_cm", "ground_contact_ms",
+                                   "vertical_oscillation_cm", "avg_power_w",
+                                   "normalized_power_w", "training_load")
+                                  if g.get(k) is not None} or None})
     runs.sort(key=lambda r: r.get("date") or "")
     # Interval / speed work: not distance+time entries, so they're not "runs", but they
     # are the hard efforts a 5k estimate most needs. Values are passed through verbatim
@@ -407,11 +419,21 @@ def get_running_form(data, person):
             intervals.append({"date": l.get("date"), "session": l.get("sessionName"),
                               "exercise": e.get("name"), "target": None,
                               "columns": cols, "rows": rows,
-                              "avg_hr": g.get("avg_hr"), "hr_zone_secs": g.get("hr_zone_secs"),
-                              # What they ACTUALLY did, read off the watch's speed
-                              # trace rather than typed - see detect_intervals in
-                              # mcp-garmin/server.py. This is how you check whether a
-                              # prescription was followed.
+                              "avg_hr": g.get("avg_hr"), "max_hr": g.get("max_hr"),
+                              "hr_zone_secs": g.get("hr_zone_secs"),
+                              "watch_rpe": g.get("watch_rpe"), "watch_feel": g.get("watch_feel"),
+                              "efficiency": g.get("efficiency"),
+                              # Every rep individually, off Garmin's own run/walk split
+                              # detection: distance, duration, average speed, pace,
+                              # avg + max HR, cadence, power, and the recovery that
+                              # followed (duration, average speed, and the LOWEST HR
+                              # reached). `derived` holds the trend numbers - drift,
+                              # HR recovery, consistency, fade. See reps_from_typed_splits.
+                              "actual_reps": g.get("reps"),
+                              # The older speed-trace heuristic. Same structure, measured
+                              # differently (it clips the belt's ramp, so its reps read
+                              # ~10s shorter) and it is the only source when Garmin didn't
+                              # segment the activity. Prefer actual_reps when both exist.
                               "actual_structure": g.get("intervals")})
     intervals.sort(key=lambda r: r.get("date") or "")
     preds = (data.get("racePredictions") or {}).get(person) or {}
@@ -421,15 +443,29 @@ def get_running_form(data, person):
         "run_count": len(runs),
         "interval_sessions": intervals,
         "actual_structure_note": (
-            "`actual_structure` on an interval session is derived from the watch's per-second "
-            "speed trace, NOT from what was typed: rep count, how long each rep lasted, how long "
-            "the recoveries were. Use it to check whether a prescription was actually followed. "
-            "On 29 Jul 2026 Daniel's came back 6 reps of ~58s on a 3-minute cycle - exactly the "
-            "prescribed 6x1min hard / 2min easy - while Cerys's came back 5, her last one 47s "
-            "instead of ~58; she cut it short, and the typed row did not record that. Structure "
-            "ONLY: the speeds in `rows` remain the record for speed, because treadmill pace is "
-            "wrist-estimated and read 10-15% high on both sessions checked. Absent on sessions "
-            "logged before this existed, and on any session done without the watch."),
+            "`actual_reps` is what they ACTUALLY did, rep by rep, off the watch rather than "
+            "typed - use it to check whether a prescription was followed, and read it in "
+            "preference to `actual_structure` (the older whole-session heuristic) whenever "
+            "both are present. Each rep carries its distance, duration, average speed and "
+            "pace, avg + max HR, cadence, power where the watch records it, and the recovery "
+            "that followed it including the LOWEST HR reached. `derived` holds the numbers "
+            "worth trending: drift_bpm (HR climb from first rep to last at a comparable "
+            "speed), hr_recovery_bpm (average beats dropped between reps), consistency_pct "
+            "(spread of rep speeds) and fade_pct (last rep against the best one).\n"
+            "Worked examples from 29 Jul 2026. Daniel: 6 reps, speeds within 14.7% and HR "
+            "130 -> 139 across them, i.e. he held the prescribed 6x1min and drifted 9 bpm. "
+            "Cerys: 5 reps at 13.5 / 12.5 / 14.1 / 13.1 / 10.2 km/h - a 28% fade by the last "
+            "one, at 175-180 bpm against a 192 max. Her typed row said a flat 11 km/h and "
+            "recorded none of that. When drift can't be computed honestly (her first and last "
+            "rep were at different speeds, so the HR difference would be measuring her "
+            "slowing down) `drift_skipped` says so instead - don't work around it.\n"
+            "On speed: what they typed is still the record, and `rows` is what they typed. But "
+            "an earlier version of this note said the watch reads 10-15% high and to ignore its "
+            "speed entirely - that figure was the PEAK of the speed trace, not the rep average. "
+            "The rep average came out at 13.1 km/h against Daniel's typed 13. So per-rep speed "
+            "is usable, and where it disagrees with the typed number by a lot (Cerys, above) "
+            "the disagreement is itself the finding. Absent on sessions logged before this "
+            "existed, and on any session done without the watch."),
         "interval_units_warning": (
             "Interval values are passed through EXACTLY as typed, under the person's own "
             "column names. A column called 'pace' may actually hold treadmill SPEED in km/h "
