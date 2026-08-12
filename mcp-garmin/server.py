@@ -27,7 +27,7 @@ Setup + Claude config: see mcp-garmin/README.md.
 Self-test the pure mapping (no Garmin/network needed):
     python server.py --selftest sample-activity.json
 """
-import os, sys, json, base64, datetime, time, urllib.request, urllib.error
+import os, re, sys, json, base64, datetime, time, urllib.request, urllib.error
 
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
@@ -180,8 +180,16 @@ def activity_to_log(a, splits, person):
 
 # ---------------------------------------------------------------- enrichment (link Garmin -> a logged session)
 def activity_metrics(a):
-    """The extra info Garmin adds on top of a logged run: HR, cadence, elevation,
-    calories, moving time, training effect, VO2max. Only keys the device recorded."""
+    """The extra info Garmin adds on top of a logged run. Only keys the device
+    actually recorded, so this stays honest across watches: Daniel's Forerunner 255
+    reports running power and ground contact time, Cerys's Vivoactive 5 reports
+    neither, and her sessions simply come back without those keys rather than with
+    zeros. Everything here is read from a summary we already fetch - no extra calls.
+
+    `vo2max` is kept even though it has never had a value for either of them:
+    Garmin only estimates VO2max from outdoor GPS runs and all the recent running
+    is on a treadmill, so the key is simply absent. It costs nothing and starts
+    working the day someone runs outside."""
     m = {}
     def put(key, val, rnd=None):
         if val is None:
@@ -189,15 +197,55 @@ def activity_metrics(a):
         m[key] = round(val, rnd) if rnd is not None else val
     put("avg_hr", _num(_field(a, "averageHR")), 0)
     put("max_hr", _num(_field(a, "maxHR")), 0)
-    put("cadence_spm", _num(_field(a, "averageRunningCadenceInStepsPerMinute")), 0)
+    # The lowest HR in the session - on an interval workout that's the bottom of a
+    # recovery block, which is what HR recovery is measured against.
+    put("min_hr", _num(_field(a, "minHR")), 0)
+    put("cadence_spm", _num(_field(a, "averageRunningCadenceInStepsPerMinute")
+                            or _field(a, "averageRunCadence")), 0)
+    put("max_cadence_spm", _num(_field(a, "maxRunCadence")), 0)
     put("elevation_gain_m", _num(_field(a, "elevationGain")), 0)
     put("calories", _num(_field(a, "calories") or _field(a, "activeKilocalories")), 0)
     mov = _num(_field(a, "movingDuration"))
     if mov:
         m["moving_time"] = _mmss(mov)
-    put("training_effect", _num(_field(a, "aerobicTrainingEffect")), 1)
+    put("training_effect", _num(_field(a, "aerobicTrainingEffect")
+                                or _field(a, "trainingEffect")), 1)
     put("vo2max", _num(_field(a, "vO2MaxValue")), 1)
+    # --- load and effort ---------------------------------------------------
+    put("anaerobic_effect", _num(_field(a, "anaerobicTrainingEffect")), 1)
+    put("training_load", _num(_field(a, "activityTrainingLoad")), 1)
+    lbl = _field(a, "trainingEffectLabel")
+    if lbl:
+        m["effect_label"] = str(lbl).replace("_", " ").title()
+    put("steps", _num(_field(a, "steps")), 0)
+    put("moderate_minutes", _num(_field(a, "moderateIntensityMinutes")), 0)
+    put("vigorous_minutes", _num(_field(a, "vigorousIntensityMinutes")), 0)
+    put("sweat_loss_ml", _num(_field(a, "waterEstimated")), 0)
+    # --- running dynamics --------------------------------------------------
+    put("ground_contact_ms", _num(_field(a, "groundContactTime")), 0)
+    put("vertical_oscillation_cm", _num(_field(a, "verticalOscillation")), 1)
+    put("vertical_ratio_pct", _num(_field(a, "verticalRatio")), 1)
+    put("stride_length_cm", _num(_field(a, "strideLength")), 0)
+    # --- running power (Forerunner-class watches only) ---------------------
+    put("avg_power_w", _num(_field(a, "averagePower")), 0)
+    put("max_power_w", _num(_field(a, "maxPower")), 0)
+    put("normalized_power_w", _num(_field(a, "normalizedPower")), 0)
+    # --- what the person told the watch afterwards -------------------------
+    # Garmin stores its post-workout prompts on a 0-100 scale in steps of 10 and
+    # shows them as 1-10 (RPE) and a five-point Feel. Kept as the 1-10 the app
+    # already uses for its own RPE, so the two are directly comparable - and they
+    # are two different answers to the same question, not one duplicated: the
+    # watch asks at the end of the run, the app asks per exercise.
+    rpe = _num(_field(a, "directWorkoutRpe"))
+    if rpe:
+        m["watch_rpe"] = int(round(rpe / 10))
+    feel = _num(_field(a, "directWorkoutFeel"))
+    if feel is not None:
+        m["watch_feel"] = _FEEL_LABELS.get(int(round(feel / 25)) * 25, str(int(feel)))
     return {k: (int(v) if isinstance(v, float) and v.is_integer() else v) for k, v in m.items()}
+
+# Garmin's five-point "how did that feel?" prompt, as stored (0-100) and shown.
+_FEEL_LABELS = {0: "very weak", 25: "weak", 50: "normal", 75: "strong", 100: "very strong"}
 
 def splits_to_rows_hr(splits, a=None):
     """Like splits_to_rows, but appends per-lap average HR as a 4th value when the
@@ -355,19 +403,244 @@ def detect_intervals(series, min_rep_sec=20, merge_gap_sec=15):
                   "accurate to about the sample interval (sample_sec).",
     }
 
-def enrich_log(log, a, splits, zone_secs=None, program=None):
+# ---------------------------------------------------------------- per-rep interval detail
+# A rep has to be a real one: Garmin's run/walk detection also emits 1-8 second
+# fragments where the belt was spinning up or the person stumbled a stride. On the
+# two real interval sessions every prescribed rep clears both of these easily
+# (Daniel's shortest was 228 m / 64 s, Cerys's 195 m / 69 s) and every fragment
+# fails both (0-2 m, 0.2-8 s), so the gap is wide - no session sits near the line.
+_REP_MIN_M = 50
+_REP_MIN_SEC = 20
+
+def _gmt_dt(s):
+    s = str(s or "").replace("T", " ").strip()[:19]
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+def fetch_typed_splits(activity_id):
+    """Garmin's run/walk-detected splits. Unlike laps (which a treadmill fires every
+    1 km, swallowing whole reps) these are typed RWD_RUN / RWD_WALK / RWD_STAND, so
+    the running blocks ARE the reps. Returns [] when unavailable; optional to every
+    caller."""
+    try:
+        return (garmin_client().get_activity_typed_splits(activity_id) or {}).get("splits") or []
+    except Exception:
+        return []
+
+def fetch_power_zone_times(activity_id):
+    """Seconds in each of the five running-power zones, [Z1..Z5]. None on a watch
+    that doesn't record power (Cerys's Vivoactive 5), same contract as
+    fetch_hr_zone_times."""
+    try:
+        rows = garmin_client().get_activity_power_in_timezones(activity_id) or []
+    except Exception:
+        return None
+    secs = {}
+    for r in rows:
+        n = r.get("zoneNumber")
+        if n is None:
+            continue
+        secs[int(n)] = int(round(_num(r.get("secsInZone")) or 0))
+    if not any(secs.values()):
+        return None
+    return [secs.get(i, 0) for i in range(1, 6)]
+
+def _series_min_hr(series, lo, hi):
+    """Lowest HR in the elapsed-seconds window [lo, hi) of the per-second trace."""
+    hrs = [h for t, _kmh, h in series if h is not None and lo <= t < hi]
+    return int(round(min(hrs))) if hrs else None
+
+def reps_from_typed_splits(typed, a, series=None):
+    """Per-rep detail for an interval session, from Garmin's own run/walk splits.
+
+    detect_intervals() (below/above) recovers the same structure from the speed
+    trace and is kept as a cross-check, but this is richer and comes from Garmin's
+    own segmentation rather than a threshold we picked: every rep arrives with its
+    distance, duration, average and max HR, cadence and - on a watch that records
+    it - power. Verified against both 29 Jul sessions: 6 reps for Daniel and 5 for
+    Cerys, matching what they typed and what the trace says.
+
+    Speed here is the rep AVERAGE, which is a different number from the peak the
+    trace shows. That matters: the peak reads 10-15% above the typed speed, which is
+    why speed was treated as unusable, but the rep average came out at 13.1 km/h
+    against Daniel's typed 13. Included on that basis, still alongside what he typed.
+    """
+    act_start = _gmt_dt(_field(a, "startTimeGMT"))
+    if act_start is None or not typed:
+        return None
+    blocks = []
+    for s in typed:
+        st = _gmt_dt(s.get("startTimeGMT"))
+        dur = _num(s.get("duration")) or 0
+        if st is None or dur <= 0:
+            continue
+        blocks.append({"type": str(s.get("type") or s.get("splitType") or ""),
+                       "at": (st - act_start).total_seconds(), "sec": dur,
+                       "m": _num(s.get("distance")) or 0,
+                       "avg_hr": _num(s.get("averageHR")), "max_hr": _num(s.get("maxHR")),
+                       "cad": _num(s.get("averageRunCadence")),
+                       "pwr": _num(s.get("averagePower"))})
+    blocks.sort(key=lambda b: b["at"])
+    runs = [b for b in blocks
+            if b["type"] == "RWD_RUN" and b["m"] >= _REP_MIN_M and b["sec"] >= _REP_MIN_SEC]
+    if len(runs) < 2:
+        return None
+    series = series or []
+    reps = []
+    for i, b in enumerate(runs):
+        end = b["at"] + b["sec"]
+        km = b["m"] / 1000.0
+        rep = {"n": i + 1, "dist_m": int(round(b["m"])), "sec": int(round(b["sec"])),
+               "kmh": round(b["m"] / b["sec"] * 3.6, 1), "pace": _pace(km, b["sec"])}
+        for key, val, rnd in (("avg_hr", b["avg_hr"], 0), ("max_hr", b["max_hr"], 0),
+                              ("cadence_spm", b["cad"], 0), ("power_w", b["pwr"], 0)):
+            if val is not None:
+                rep[key] = int(round(val)) if rnd == 0 else round(val, rnd)
+        if i + 1 < len(runs):
+            nxt = runs[i + 1]["at"]
+            gap = nxt - end
+            if gap > 0:
+                rep["recovery_sec"] = int(round(gap))
+                # Average speed over everything between the two reps (walking and
+                # standing both), which is what the "Easy speed" column means.
+                rm = sum(b["m"] for b in blocks if end <= b["at"] < nxt)
+                if rm > 0:
+                    rep["recovery_kmh"] = round(rm / gap * 3.6, 1)
+                # The bottom of the recovery, from the per-second trace. The walk
+                # splits only carry an average, and an average over a block that
+                # starts at 155 bpm hides the point of the measurement.
+                lo = _series_min_hr(series, end, runs[i + 1]["at"])
+                if lo is not None:
+                    rep["recovery_min_hr"] = lo
+                    if b["max_hr"]:
+                        rep["hr_drop"] = int(round(b["max_hr"] - lo))
+        reps.append(rep)
+    return {"count": len(reps), "reps": reps, "derived": rep_derived(reps),
+            "source": "Garmin's own run/walk split detection (RWD_RUN blocks). Speed "
+                      "is the rep average, not the peak."}
+
+def rep_derived(reps):
+    """The numbers worth trending session to session, from the per-rep list.
+
+    Deliberately conservative about drift: comparing the first rep's HR with the
+    last one's only means anything if they were run at a similar speed. Daniel's
+    29 Jul reps sat within 3% of each other and his HR went 130 -> 139, which is
+    real cardiac drift. Cerys's last rep was 25% slower than her best, so the same
+    subtraction would be measuring her slowing down, not her heart drifting - hence
+    the speed guard and the explicit reason when it can't be computed."""
+    if not reps:
+        return {}
+    speeds = [r["kmh"] for r in reps if r.get("kmh")]
+    d = {}
+    if len(speeds) >= 2:
+        mean = sum(speeds) / len(speeds)
+        best = max(speeds)
+        if mean:
+            # Spread of the reps around their own mean: how evenly it was paced.
+            d["consistency_pct"] = round((max(speeds) - min(speeds)) / mean * 100, 1)
+        if best:
+            # Negative = the last rep was slower than the best one.
+            d["fade_pct"] = round((speeds[-1] - best) / best * 100, 1)
+        d["kmh_avg"] = round(mean, 1)
+        d["kmh_best"] = round(best, 1)
+    first_hr, last_hr = reps[0].get("avg_hr"), reps[-1].get("avg_hr")
+    if first_hr and last_hr and len(reps) >= 3:
+        if speeds and min(speeds[0], speeds[-1]) >= 0.9 * max(speeds[0], speeds[-1]):
+            d["drift_bpm"] = int(last_hr - first_hr)
+        else:
+            d["drift_skipped"] = ("first and last rep were run at different speeds, "
+                                  "so the HR difference isn't drift")
+    drops = [r["hr_drop"] for r in reps if r.get("hr_drop") is not None]
+    if drops:
+        d["hr_recovery_bpm"] = int(round(sum(drops) / len(drops)))
+        d["hr_recovery_best"] = max(drops)
+    return d
+
+def activity_efficiency(a, typed=None, bodyweight_kg=None):
+    """How much speed each heartbeat and each watt is buying - the numbers that
+    should improve as someone gets fitter at an unchanged pace.
+
+    `ef` is the standard efficiency factor, metres per minute per bpm. It is taken
+    over the RUNNING blocks only where Garmin's run/walk detection gives them: the
+    whole-activity average is diluted by the walking either side (on Daniel's 1 Aug
+    Zone 2 the activity averages 7:32/km against 6:43/km for the running), and an EF
+    that moves because someone walked a bit more is worthless for trending.
+
+    `watts_per_kg` uses the bodyweight already in the app as at the session date, so
+    it comes from the same place as the lifting load calculations rather than a
+    second, drifting copy of someone's weight."""
+    out = {}
+    runs = [s for s in (typed or [])
+            if str(s.get("type") or "") == "RWD_RUN"
+            and (_num(s.get("distance")) or 0) >= _REP_MIN_M
+            and (_num(s.get("duration")) or 0) >= _REP_MIN_SEC]
+    dist = sum(_num(s.get("distance")) or 0 for s in runs)
+    dur = sum(_num(s.get("duration")) or 0 for s in runs)
+    hrs = [(_num(s.get("averageHR")) or 0) * (_num(s.get("duration")) or 0) for s in runs]
+    basis = "running blocks only"
+    if not (dist > 0 and dur > 0 and sum(hrs) > 0):
+        # No typed splits (an older activity, or a watch that didn't segment it):
+        # fall back to the whole activity and say so, rather than skip the metric.
+        dist = _num(_field(a, "distance")) or 0
+        dur = _num(_field(a, "movingDuration")) or _num(_field(a, "duration")) or 0
+        hr = _num(_field(a, "averageHR")) or 0
+        hrs = [hr * dur]
+        basis = "whole activity, diluted by any walking"
+    if dist > 0 and dur > 0:
+        avg_hr = sum(hrs) / dur
+        out["run_km"] = round(dist / 1000, 2)
+        out["run_pace"] = _pace(dist / 1000, dur)
+        if avg_hr > 0:
+            out["ef"] = round((dist / dur * 60) / avg_hr, 2)
+            out["ef_avg_hr"] = int(round(avg_hr))
+        out["ef_basis"] = basis
+    pwr = _num(_field(a, "averagePower"))
+    if pwr and bodyweight_kg:
+        out["watts_per_kg"] = round(pwr / bodyweight_kg, 2)
+    return out
+
+def bodyweight_on(data, person, date):
+    """The person's bodyweight as at a date - latest entry on or before it, else the
+    earliest one after. Mirrors bodyweightOn in js/app.js (and the port in mcp-coach)
+    so every load calculation in the project agrees."""
+    rows = [b for b in (data.get("bodyweights") or [])
+            if b and b.get("person") == person and _num(b.get("kg"))]
+    if not rows:
+        return None
+    before = [b for b in rows if str(b.get("date") or "") <= str(date or "")]
+    if before:
+        return _num(max(before, key=lambda b: str(b.get("date")))["kg"])
+    return _num(min(rows, key=lambda b: str(b.get("date")))["kg"])
+
+def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
     """Attach Garmin's extra info to an already-logged session, without overwriting
     what the person entered. Fills splits only if the run entry was left empty, and
     recreates that entry entirely when the session hasn't got one (see below).
     `zone_secs` (from fetch_hr_zone_times) adds time-in-HR-zone when available;
-    `program` places a recreated run entry in the right spot in the exercise order."""
+    `program` places a recreated run entry in the right spot in the exercise order.
+    `extras` carries everything that needs its own Garmin call or a look at the rest
+    of the store - typed splits, the speed/HR trace, power zones, bodyweight - so
+    those all happen up front and a write retry never re-fetches them."""
+    extras = extras or {}
     log["garminActivityId"] = a.get("activityId")
     log["garminWanted"] = False
     metrics = activity_metrics(a)
     if zone_secs:
         metrics["hr_zone_secs"] = zone_secs
+    if extras.get("power_zone_secs"):
+        metrics["power_zone_secs"] = extras["power_zone_secs"]
+    eff = activity_efficiency(a, extras.get("typed_splits"), extras.get("bodyweight_kg"))
+    if eff:
+        metrics["efficiency"] = eff
     if metrics:
-        log["garmin"] = metrics
+        # Merged, not replaced: re-running this (refresh_metrics does) must not drop
+        # a field whose fetch happened to fail this time - time-in-zone comes from a
+        # separate call that returns None on a run with no HR data.
+        log.setdefault("garmin", {}).update(metrics)
     run_entry = next((e for e in log.get("entries", []) if _is_run_entry(e)), None)
     if run_entry is None:
         # No run entry to fill: sessions saved before the app kept a blank one lost it
@@ -391,13 +664,61 @@ def enrich_log(log, a, splits, zone_secs=None, program=None):
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
     # Interval sessions only - one without a run entry, i.e. reps typed as speeds.
-    # A steady Zone 2 run has no structure worth recovering, and detect_intervals
-    # returns None for one anyway.
+    # A steady Zone 2 run has no structure worth recovering, and neither the trace
+    # heuristic nor the run/walk splits return reps for one.
     if run_entry is None and log.get("garmin"):
-        iv = detect_intervals(fetch_detail_series(a.get("activityId")))
+        series = extras.get("series") or []
+        reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
+        if reps:
+            log["garmin"]["reps"] = reps
+            _fill_blank_interval_rows(log, program, reps)
+        # The trace heuristic stays as a second opinion. It measures the rep
+        # differently (it thresholds at the midpoint of the session's speed range,
+        # so it clips the belt's ramp up and down and reads ~10s shorter per rep),
+        # and it is the only source when Garmin didn't segment the activity.
+        iv = detect_intervals(series)
         if iv:
             log["garmin"]["intervals"] = iv
     return log
+
+def _interval_entry(log, program):
+    """The logged entry for an interval piece - reps typed as speeds. A logged entry
+    doesn't carry the program's `garminRun` flag, so it's resolved back by name, the
+    same fallback _program_run_slot and the app's isIntervalEntry use."""
+    sess = ((program or {}).get("sessions") or {}).get(log.get("sessionKey")) or {}
+    named = {e.get("name") for e in (sess.get("exercises") or []) if e.get("garminRun") is True}
+    if not named:
+        return None
+    return next((e for e in (log.get("entries") or []) if e.get("name") in named), None)
+
+def _fill_blank_interval_rows(log, program, reps):
+    """Write the per-rep speeds into the interval entry, but ONLY when it was left
+    blank - Daniel's call, matching how the Zone 2 splits already behave: anything
+    typed is his data and stays untouched, and an empty entry gets filled rather
+    than staying empty.
+
+    Guarded on the column actually being km/h. The speed Garmin reports is km/h, and
+    writing it into a column labelled mph or "(level)" would silently record a wrong
+    number - the same reasoning as bestSpeedFromEntry in js/app.js only converting
+    for km/h."""
+    e = _interval_entry(log, program)
+    if e is None or _entry_has_rows(e):
+        return
+    cols = e.get("cols") or []
+    if len(cols) < 2 or not all(re.search(r"km\s*/\s*h", str(c), re.I) for c in cols[:2]):
+        return
+    rows = [[r.get("kmh", ""), r.get("recovery_kmh", "")] for r in reps.get("reps") or []]
+    if rows:
+        e["rows"] = rows
+
+def fetch_activity_extras(activity_id):
+    """Everything about one activity that needs its own Garmin call: the run/walk
+    splits, the per-second speed/HR trace, and power time-in-zones. Gathered in one
+    place so callers fetch it once, up front, outside the store write - a write that
+    has to retry must never re-run these."""
+    return {"typed_splits": fetch_typed_splits(activity_id),
+            "series": fetch_detail_series(activity_id),
+            "power_zone_secs": fetch_power_zone_times(activity_id)}
 
 def _start_dt(a):
     s = str(_field(a, "startTimeLocal") or "").replace("T", " ").strip()[:19]
@@ -587,7 +908,8 @@ def fill_pending(person, lookback=30):
             splits = garmin_client().get_activity_splits(aid)
         except Exception:
             splits = {}
-        matches[str(l.get("id"))] = (a, splits, fetch_hr_zone_times(aid))
+        matches[str(l.get("id"))] = (a, splits, fetch_hr_zone_times(aid),
+                                     fetch_activity_extras(aid))
         used.add(aid)
     if not matches:
         return {"ok": True, "person": person, "filled": 0, "details": [], "unmatched": len(pending),
@@ -603,11 +925,12 @@ def fill_pending(person, lookback=30):
             m = matches.get(str(l.get("id")))
             if not m:
                 continue
-            a, splits, zsecs = m
+            a, splits, zsecs, extras = m
             aid = a.get("activityId")
             if aid in taken:
                 continue
-            enrich_log(l, a, splits, zsecs, data.get("program"))
+            extras = dict(extras, bodyweight_kg=bodyweight_on(data, person, l.get("date")))
+            enrich_log(l, a, splits, zsecs, data.get("program"), extras)
             taken.add(aid)
             done.append({"session": l.get("sessionName"), "date": l.get("date"),
                          "activity_id": aid, "added": list((l.get("garmin") or {}).keys())})
@@ -793,6 +1116,50 @@ def backfill_run_entries(person, limit=50):
     return {"ok": True, "person": person, "filled": len(filled), "details": filled,
             "message": f"Restored the run on {len(filled)} session(s)."}
 
+def refresh_metrics(person, limit=50):
+    """Re-read Garmin for `person`'s ALREADY-linked sessions, so sessions linked
+    before a field existed pick it up. Neither the scheduled `--sync` nor
+    garmin_enrich_session can reach them: both deliberately skip anything that
+    already has a garminActivityId, which is right for linking and wrong for adding
+    new fields to old links.
+
+    Runs the same enrich_log as the sync, so it inherits the never-overwrite rule -
+    typed data is safe, blanks may get filled. Garmin calls all happen up front, so
+    a write retry never re-fetches them."""
+    data, _sha, _url, _token = _github_read_with_sha()
+    todo = [l for l in data.get("logs", [])
+            if l and l.get("person") == person and l.get("garminActivityId")][:limit]
+    fetched = {}
+    for l in todo:
+        aid = l.get("garminActivityId")
+        try:
+            a, splits = fetch_activity(aid)
+        except Exception:
+            continue
+        fetched[str(l.get("id"))] = (a, splits, fetch_hr_zone_times(aid),
+                                    fetch_activity_extras(aid))
+    if not fetched:
+        return {"ok": True, "person": person, "refreshed": 0,
+                "message": f"Nothing to refresh ({len(todo)} linked session(s) checked)."}
+    def mutate(data):
+        done = []
+        for l in data.get("logs", []):
+            m = fetched.get(str(l.get("id"))) if l else None
+            if not m:
+                continue
+            a, splits, zsecs, extras = m
+            before = sorted((l.get("garmin") or {}).keys())
+            extras = dict(extras, bodyweight_kg=bodyweight_on(data, person, l.get("date")))
+            enrich_log(l, a, splits, zsecs, data.get("program"), extras)
+            after = sorted((l.get("garmin") or {}).keys())
+            done.append({"session": l.get("sessionName"), "date": l.get("date"),
+                         "added": [k for k in after if k not in before]})
+        return done or None
+    done = _github_update(
+        mutate, lambda f: f"Refresh Garmin metrics on {len(f)} of {person}'s session(s)") or []
+    return {"ok": True, "person": person, "refreshed": len(done), "details": done,
+            "message": f"Refreshed {len(done)} session(s). They show after a sync."}
+
 def enrich_session(session_id, activity_id, person):
     """Manually link one specific Garmin run to one specific already-logged session,
     by id - for a session that has no way to be picked up by fill_pending (e.g. it
@@ -804,6 +1171,7 @@ def enrich_session(session_id, activity_id, person):
         return {"ok": False, "message": f"Activity {activity_id} is a "
                 f"'{activity_type(a) or 'non-run'}', not a run. Nothing linked."}
     zsecs = fetch_hr_zone_times(activity_id)
+    extras0 = fetch_activity_extras(activity_id)
     outcome = {}
     def mutate(data):
         logs = data.get("logs", [])
@@ -816,7 +1184,8 @@ def enrich_session(session_id, activity_id, person):
             outcome["status"] = "already_linked"
             outcome["session"] = log.get("sessionName")
             return None
-        enrich_log(log, a, splits, zsecs, data.get("program"))
+        extras = dict(extras0, bodyweight_kg=bodyweight_on(data, person, log.get("date")))
+        enrich_log(log, a, splits, zsecs, data.get("program"), extras)
         outcome.update(status="linked", session=log.get("sessionName"), date=log.get("date"),
                         added=list((log.get("garmin") or {}).keys()))
         return outcome
@@ -878,6 +1247,15 @@ def _register(mcp):
                            "race_predictions": sync_race_predictions(person),
                            "run_zone_backfill": backfill_hr_zone_times(person),
                            "run_entry_backfill": backfill_run_entries(person)}, indent=2)
+
+    @mcp.tool()
+    def garmin_refresh_metrics(person: str) -> str:
+        """Re-read Garmin for `person`'s already-linked sessions and add any metrics
+        they're missing (per-rep interval detail, running dynamics, power, the watch's
+        own RPE/Feel, efficiency). Use after this server gains a new field: the normal
+        sync skips anything already linked, so old sessions never pick one up. Same
+        never-overwrite merge - what was typed stays."""
+        return json.dumps(refresh_metrics(person), indent=2)
 
     @mcp.tool()
     def garmin_enrich_session(session_id: str, activity_id: str, person: str) -> str:
@@ -964,6 +1342,20 @@ def _hrzones(args):
                       "run_zone_backfill": backfill_hr_zone_times(person),
                       "run_entry_backfill": backfill_run_entries(person)}, indent=2))
 
+def _refresh(args):
+    """`--refresh [server-name]`: add any missing metrics to already-linked sessions.
+    Deliberately not part of `--sync` (which stays cheap by not contacting Garmin when
+    nothing is pending) - this one always calls Garmin once per linked session, so it
+    is a run-it-when-the-server-gains-a-field job, not an hourly one."""
+    if args:
+        _load_server_env(args[0])
+        _ensure_ca_bundle()
+    person = os.environ.get("TT_PERSON")
+    if not person:
+        raise SystemExit("Set TT_PERSON (or pass a server name whose .mcp.json env has it), "
+                         "e.g. `python server.py --refresh training-garmin`.")
+    print(json.dumps(refresh_metrics(person), indent=2))
+
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
         fx = json.load(fh)
@@ -992,6 +1384,8 @@ if __name__ == "__main__":
         _sync(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 2 and sys.argv[1] == "--hrzones":
         _hrzones(sys.argv[2:]); sys.exit(0)
+    if len(sys.argv) >= 2 and sys.argv[1] == "--refresh":
+        _refresh(sys.argv[2:]); sys.exit(0)
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         _selftest(sys.argv[2]); sys.exit(0)
     from mcp.server.fastmcp import FastMCP

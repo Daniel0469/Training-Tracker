@@ -19,17 +19,72 @@ follow-up — see `docs/running-import.md` for why we avoid the Strava/Garmin *d
   twice — re-importing updates rather than duplicating.
 - `garmin_fill_pending(person)` — **link** Garmin runs to cardio sessions the app flagged as
   awaiting a run (see below). This is what the scheduled `--sync` calls; use it to fill on demand.
+- `garmin_hr_zones(person)` — refresh the configured HR zones and race predictions, and backfill
+  time-in-zone / missing run entries on older links.
+- `garmin_enrich_session(session_id, activity_id, person)` — link one specific run to one specific
+  session by hand, for a session `fill_pending` can't reach.
+- `garmin_refresh_metrics(person)` — re-read Garmin for sessions that are **already linked**, so
+  they pick up fields this server didn't extract when they were first linked. Both `--sync` and
+  `garmin_enrich_session` deliberately skip anything already linked (right for linking, wrong for
+  adding new fields), so this is the way to backfill. Same never-overwrite merge. CLI:
+  `python server.py --refresh training-garmin`.
 
 Then in Claude you just ask, e.g. *"Import my last run for Daniel,"* or *"Show me my runs this week
 and how my pace is trending."*
 
+## What gets attached to a session
+Everything below comes out of responses the server already fetches, so none of it costs extra Garmin
+calls. Only keys the watch actually recorded are stored, which keeps it honest across devices —
+Daniel's Forerunner 255 reports running power and ground contact time, Cerys's Vívoactive 5 reports
+neither, and her sessions simply arrive without those keys rather than with zeros.
+
+- **Heart rate** — avg, max, min, and seconds in each of the five zones.
+- **Per-rep interval detail** (`garmin.reps`) — on an interval session, each rep's distance,
+  duration, average speed, pace, avg + max HR, cadence and power, plus the recovery that followed
+  it (duration, average speed, and the *lowest* HR reached, from the per-second trace). Derived
+  from **Garmin's own run/walk split detection**, not a threshold we picked. Verified against both
+  29 Jul sessions: 6 reps for Daniel, 5 for Cerys, matching what they typed.
+- **Derived trend numbers** (`garmin.reps.derived`) — cardiac **drift** across the reps, average and
+  best **HR recovery**, rep **consistency** and **fade**, best and average speed. Drift is only
+  reported when the first and last rep were run at a similar speed; otherwise a `drift_skipped`
+  reason is stored instead, because subtracting HRs across two different speeds measures someone
+  slowing down, not their heart drifting.
+- **Efficiency** (`garmin.efficiency`) — efficiency factor (metres per minute per bpm), taken over
+  the **running blocks only** where Garmin segmented them, since a whole-activity average moves when
+  someone walks more; plus watts/kg using the bodyweight already in the app as at the session date.
+- **Running dynamics** — ground contact time, vertical oscillation, vertical ratio, stride length,
+  step count, cadence (avg + max).
+- **Running power** — average, max and normalised watts, and seconds in each power zone.
+- **Load and effort** — aerobic and anaerobic training effect, the effect label, activity training
+  load, moderate/vigorous intensity minutes, estimated sweat loss, calories, moving time.
+- **What you told the watch** — the post-run **RPE** and **Feel** prompts, stored on the same 1-10
+  scale the app uses for its own RPE so the two are comparable. They are two different answers to
+  the same question, not a duplicate: the watch asks once at the end, the app asks per exercise.
+
+Two known blanks, both expected rather than broken: **VO₂max** has never had a value for either
+person, because Garmin only estimates it from outdoor GPS runs and all the recent running is on a
+treadmill (the key starts appearing the day someone runs outside); and Garmin's own **training
+status / load** metrics read "detraining" regardless, because five gym sessions a week never reach
+the watch — they are deliberately not extracted for that reason.
+
+### Interval speeds: what's stored vs what you typed
+The typed speed stays the record, and Garmin's per-rep speeds are stored alongside it — **except**
+when the interval entry was left completely blank, in which case the per-rep speeds fill it in, the
+same way per-km splits already fill a blank run entry. Anything typed is never touched.
+
+Worth knowing, because an earlier note in this repo said the opposite: treadmill speed off the wrist
+is *not* uniformly 10-15% high. That figure came from the **peak** of the speed trace. The per-rep
+**average** came out at 13.1 km/h against Daniel's typed 13, which is why per-rep speed is now
+stored at all. Cerys's 29 Jul is the interesting counter-case — she typed 11 km/h and the watch says
+12.7 average / 14.1 best — so keeping both numbers is the point.
+
 ## Auto-link runs to cardio sessions (hands-off)
 When you save a **cardio/running** session in the app it's tagged *⌚ awaiting run…*. A scheduled
 `--sync` on the laptop then finds that day's Garmin run, matches it by person + date, and adds the
-extra info **onto that session** — avg/max **heart rate**, **cadence**, **elevation gain**,
-**calories**, **moving time**, **aerobic training effect**, **VO₂max**, and per-km splits *if you
-left them blank*. It **never overwrites** what you typed; the app shows it as a **⌚ Garmin** line in
-History after the next sync (which happens automatically on open).
+extra info **onto that session** (the full list is above — HR and zones, per-rep interval detail,
+running dynamics, power, load, your watch RPE), plus per-km splits *if you left them blank*. It
+**never overwrites** what you typed; the app shows it as a **⌚ Garmin** line in History after the
+next sync (which happens automatically on open).
 
 This is safe to run often: it only contacts Garmin when there's actually a flagged session to fill.
 
