@@ -823,7 +823,10 @@ function renderLog(){
     + '<div class="hint" style="margin-bottom:4px">Difficulty (1 easy &middot; 10 max effort)</div>'
     + '<div class="diff" id="diff">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-d="'+n+'">'+n+'</button>').join("")+'</div>'
     + '</div></div>'
-    + '<label class="fld">Your own notes (optional)<textarea id="feedback" placeholder="e.g. Right knee tight on squats. Felt strong today."></textarea></label>'
+    // Grows to fit (see autoGrow, wired below): a long note used to scroll inside
+    // the 64px box, so most of what you'd just written was out of sight while you
+    // wrote it. The min-height keeps it looking the same when it's empty.
+    + '<label class="fld">Your own notes (optional)<textarea id="feedback" style="overflow:hidden" placeholder="e.g. Right knee tight on squats. Felt strong today."></textarea></label>'
     // Only worth saying to someone who actually has a coach. On an install with
     // no coaching and no cloud sync it promised a feature that was never coming,
     // and pointed at a "sync" that isn't set up.
@@ -861,8 +864,10 @@ function renderLog(){
   const form=document.getElementById("exForm");
   form.addEventListener("input", startOnEntry);
   form.addEventListener("change", startOnEntry);
-  document.getElementById("feedback").addEventListener("input", scheduleDraftSave);
+  const fbEl=document.getElementById("feedback");
+  fbEl.addEventListener("input", ()=>{ autoGrow(fbEl); scheduleDraftSave(); });
   restoreDraft();
+  autoGrow(fbEl);              // a restored draft can already be several lines long
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ex=exs[+card.dataset.ei];
     if(ex) updateWarmup(card, ex);
