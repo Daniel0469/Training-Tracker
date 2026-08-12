@@ -11,26 +11,55 @@ everything instead.
 The service worker still installs; if you have an old one registered from the
 plain server, unregister it once in DevTools (Application > Service workers).
 
-HTTP/1.1 + threading is deliberate: on HTTP/1.0 the handler signals end-of-body
-by closing the socket, and js/app.js (~195KB, by far the biggest file here) was
-arriving truncated every few loads - the browser then reports ERR_CONNECTION_RESET
-and every global in app.js is silently missing, which looks exactly like the app
-being broken. HTTP/1.1 frames the body with Content-Length instead, and threading
-stops one slow request stalling the rest of the page.
+Two other things this fixes, both of which present as "the app is broken" rather
+than as a network problem, because a truncated js/app.js parses to nothing and
+every global in it silently disappears:
+
+  * HTTP/1.1 instead of 1.0, so the body is framed by Content-Length rather than
+    by closing the socket.
+  * gzip for text responses. js/app.js is ~210KB and was arriving short every few
+    loads even over 1.1; compressed it's ~45KB and stops tripping whatever size
+    limit sits between here and the browser. Also just faster to iterate on.
 """
-import sys
+import gzip, io, os, sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+# Worth compressing: text that gets big. Images and fonts are already compressed.
+GZIP_TYPES = (".js", ".css", ".html", ".json", ".webmanifest", ".svg", ".map")
 
-class NoCacheHandler(SimpleHTTPRequestHandler):
+
+class DevHandler(SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
+    def do_GET(self):
+        path = self.translate_path(self.path)
+        if not (os.path.isfile(path)
+                and path.lower().endswith(GZIP_TYPES)
+                and "gzip" in self.headers.get("Accept-Encoding", "")):
+            return super().do_GET()
+        try:
+            with open(path, "rb") as f:
+                raw = f.read()
+        except OSError:
+            return super().do_GET()
+        buf = io.BytesIO()
+        # mtime=0 keeps the output byte-identical between runs of the same file.
+        with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=6, mtime=0) as gz:
+            gz.write(raw)
+        body = buf.getvalue()
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
-    print(f"serving http://localhost:{port} (no-store, HTTP/1.1)")
-    ThreadingHTTPServer(("", port), NoCacheHandler).serve_forever()
+    print(f"serving http://localhost:{port} (no-store, HTTP/1.1, gzip)")
+    ThreadingHTTPServer(("", port), DevHandler).serve_forever()
