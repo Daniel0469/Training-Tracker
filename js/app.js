@@ -324,6 +324,13 @@ function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(
 // drives pace auto-compute, splits and the run importer, which only make sense for
 // a real distance+time entry. This one only decides "expect a Garmin activity".
 function isGarminCardio(ex){ return isRunning(ex) || ex.garminRun===true; }
+// Which exercises offer an RPE rating. Effort is worth rating on anything you
+// actually work at, so this is a blocklist rather than an allowlist: the only
+// rows it leaves out are the free-text warm-up and cool-down ones (Min/Notes),
+// which aren't an effort at all. isLifting()/isGarminCardio() used to be the
+// gate, and both need a Reps or a Time column - so Walking/sandbag lunges
+// (Weight + Distance) had no RPE, which is what Daniel asked for.
+function ratesRpe(ex){ return !(ex.cols||[]).some(c=>/note/i.test(c)); }
 function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
 function parseTimeToMin(s){
   s=String(s).trim(); if(!s) return NaN;
@@ -979,11 +986,10 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
     + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     // RPE isn't a lifting-only idea - a treadmill interval session has an
-    // effort level just as much as a set of squats does, and it's the only
-    // subjective read we get on a run beyond Garmin's HR. isGarminCardio picks
-    // out exactly the cardio worth rating (the intervals, the Zone 2 run) and
-    // leaves the Min/Notes warm-up and cool-down rows alone.
-    + (isLifting(ex) || isGarminCardio(ex) ? '<div class="row" style="margin-top:6px;align-items:center;gap:6px;flex-wrap:nowrap">'
+    // effort level just as much as a set of squats does, and so does a set of
+    // loaded lunges measured in metres. See ratesRpe: everything except the
+    // Min/Notes warm-up and cool-down rows.
+    + (ratesRpe(ex) ? '<div class="row" style="margin-top:6px;align-items:center;gap:6px;flex-wrap:nowrap">'
         + '<span class="hint" style="margin:0;flex:none">RPE</span><div class="diff diff-sm" data-exrpe>'
         + [1,2,3,4,5,6,7,8,9,10].map(n=>'<button type="button" data-d="'+n+'">'+n+'</button>').join("")
         + '</div></div>' : '')
@@ -2656,7 +2662,7 @@ function renderHelp(){
      +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
-     +p('<b>Lifting and running</b> exercises get an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. That covers your treadmill intervals and easy runs as well as your lifts, so you can record that a session felt easy even when the pace looked fast. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
+     +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
      +p('<b>&#10133; Add an exercise for today</b> (under the last exercise) covers the gym being busy, a niggle, or just fancying something else - it logs exactly like a normal exercise but shows a dashed <b>Today only</b> card, and your <b>program is untouched</b>. Tap the <b>&#10005;</b> on the card to drop it again. When you save, the popup offers to <b>add it to the program</b> if you want to keep it.')
      +p('<b>Your entry is kept safe.</b> What you\'ve typed is stored on the device as you go, so nothing is lost by leaving the app, switching person, a sync landing mid-set, or your phone dropping the page and reloading it - come back and the sets (and the running timer) are still there. It\'s cleared once you save the session, tap <b>Clear</b>, or leave it more than about 12 hours.'));
