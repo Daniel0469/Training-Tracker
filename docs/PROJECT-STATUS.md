@@ -289,10 +289,27 @@ which was already the old gate's stated intent. `tt-v102`.
   over HTTP/1.0, and the cache-first service worker then served the broken copy at an identical byte
   count on every reload. Now HTTP/1.1 + gzip (~72KB). **The identical size on repeat loads is the
   tell** - clear the SW caches first, as `CLAUDE.md` says.
-- **Still open, for Daniel:** the three remaining in-app suggestions (exercise timer, longer
-  per-exercise coaching notes, coach-pushed suggestions behind approval) - all need a decision, see
-  the bottom of this file. And a **Claude Code restart** is needed for `garmin_refresh_metrics`,
-  `garmin_wellness` and the coach's new fields.
+- **Coaching written from the dev chat** (restart done, new fields confirmed reaching the tools).
+  Cardio only - the lifting notes weren't reviewed. **The find that changed the advice: Cerys never
+  actually recovers between reps.** Her HR drops 33 bpm on average, which looks healthy until you see
+  what it drops *to* - 151/153/154/155, when her Z4 floor is 159 and Z3 runs 139-158. She peaks at
+  192 and restarts each rep in the top of Zone 3, so rep 1 averaged 152 bpm and rep 2 averaged **175
+  for slower running**. That explains the 28% fade far better than "went too hard", and it answers
+  her stated limiter ("top speed already found, progress has to come from something else") with an
+  actual answer: recovery length, not belt speed. Prescribed 4 reps with 3 min recovery *when she's
+  back* - her shins stopped her on 1 Aug and her own call was one cardio session a week, which the
+  data gives no reason to argue with. Daniel's equivalents are healthy (drops to 110-121, back into
+  Z2, holds 13 km/h to the last rep), so his notes carry the efficiency trend and the rep-4 wobble
+  instead. **Deliberately left alone:** Daniel's `next_cardio` (live, unspent and still right) and
+  Cerys's `five_k` (already written today and already citing the 29 Jul intervals).
+- **Also worth a look, not acted on:** Cerys typed **11 km/h** for her 29 Jul reps and the watch read
+  them at **12.5-14.1**. Since the same method matched Daniel's typed 13 almost exactly, she is more
+  likely running faster than her row says than the watch being wrong - so her "top speed already
+  found" limiter may be understated. Asked her to check the belt display next time rather than
+  asserting it.
+- **Still open, for Daniel:** two in-app suggestions (exercise timer, longer per-exercise coaching
+  notes) - see the section at the bottom of this file. And **another Claude Code restart** for
+  `propose_suggestion_tool`.
 
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
@@ -372,7 +389,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v104`.
+  change to a cached file.** Currently `tt-v105`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -591,8 +608,8 @@ forced on every account - a settings toggle per account for which of these are t
    above, revisit whenever the Pi is up.
 
 ## Open in-app suggestions awaiting Daniel's decision (as of 2026-08-12)
-Two were auto-applied on 12 Aug (notes box grows, RPE on lunges) and marked done. These three need a
-call from Daniel before anything is built - each has more than one reasonable reading:
+Three of the five were cleared on 12 Aug (notes box grows, RPE on lunges, coach-raised suggestions).
+These two still need a call from Daniel - each has more than one reasonable reading:
 - **"add an optional exercise timer"** (`1786488191424`). Ambiguous, and it brushes against a
   decision already made: the Phase 3 **rest timer is explicitly NOT wanted**. An *exercise* timer is
   plausibly a different thing - a count-up/count-down for a held movement (plank, a timed carry) -
@@ -604,13 +621,20 @@ call from Daniel before anything is built - each has more than one reasonable re
   `write_coaching`'s tool description and `docs/coaching-prompt.md`, not app code, or (b) a request
   for a second, longer per-exercise field distinct from the one-line cue. (a) is free; (b) is a
   data-model change.
-- **"coach should be able to push suggestions aswell - put behind for me to agree before applied"**
-  (`1786491755166`). The biggest of the three and genuinely new: the coach proposing *program*
-  changes (reorder Lower 1 so the deadlift is first, drop an exercise, change a target) that land in
-  the app as pending items Daniel approves or rejects, rather than being written straight into
-  `state.program`. Note this is exactly the human-gate pattern the automation section below already
-  argues for, and there's a precedent to copy in `suggestions` + `deletedLogs` (a synced list with a
-  status). Needs a design pass on where approval lives and what a proposal can touch.
+- ✅ **DONE (2026-08-12) - "coach should be able to push suggestions aswell"** (`1786491755166`).
+  Daniel clarified the scope: anything a coaching note mentions that is really a request of the
+  **app** goes to the dev backlog for his approval, rather than sitting in a note he has to remember.
+  Built on `state.suggestions` rather than a parallel list. A suggestion now has a lifecycle:
+  `proposed` → `open` → `done`, with **`declined` as a second terminal state that is not the same as
+  `done`** - it means he said no, which both the coach and the dev tool can see, so a rejected idea
+  isn't re-raised weekly. The gate lives in `get_suggestions`: `proposed` is withheld from the
+  dev-facing tool unless asked for, so **approval is what turns a proposal into work**.
+  `propose_suggestion_tool(text, why, about)` is the coach's end and refuses text that already
+  exists in any state. Approval UI is the gear menu's 💡 panel only (Daniel's call - no Home card),
+  and **anyone on the device can action one**: the app has no owner concept and adding one for this
+  wasn't wanted. **`mergeInData` had to be generalised** - it only let `"done"` win, so an approval or
+  a decline on one phone would have been walked back by the other's older `proposed` copy; a status
+  rank now decides and the terminal states can't be undone. `tt-v105`.
 
 ## Other open items
 - **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
