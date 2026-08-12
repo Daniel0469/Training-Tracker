@@ -20,7 +20,7 @@ Setup + Claude config: see mcp-coach/README.md.
 Self-test without an MCP client:
     python server.py --selftest ../sample-daniel.json
 """
-import os, sys, json, base64, re, time, urllib.request, urllib.error
+import os, sys, json, base64, datetime, re, time, urllib.request, urllib.error
 
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
@@ -109,7 +109,6 @@ def _github_update(mutate, message, attempts=3):
         return result
 
 def _today():
-    import datetime
     return datetime.date.today().isoformat()
 
 def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
@@ -480,9 +479,63 @@ def get_running_form(data, person):
         "current_estimate": ((data.get("coaching") or {}).get(person) or {}).get("fiveK"),
     }
 
-def get_suggestions(data, include_done=False):
+# A suggestion's life: "proposed" (the coach raised it, Daniel hasn't looked yet)
+# -> "open" (he approved it, so the dev chat should action it) -> "done". "declined"
+# is the other terminal state, and it is NOT the same as "done": it means he said no,
+# so the coach can see that and not raise it again.
+SUGGESTION_TERMINAL = ("done", "declined")
+
+def get_suggestions(data, include_done=False, include_proposed=False):
+    """The dev backlog. `proposed` items are withheld by default, which is the whole
+    point of letting the coach raise things: Daniel approves them in the app first, and
+    only then do they become work. Pass include_proposed to see what's waiting on him."""
     subs = data.get("suggestions") or []
-    return [s for s in subs if include_done or s.get("status") != "done"]
+    out = []
+    for s in subs:
+        st = s.get("status")
+        if st == "proposed" and not include_proposed:
+            continue
+        if st in SUGGESTION_TERMINAL and not include_done:
+            continue
+        out.append(s)
+    return out
+
+def propose_suggestion(text, why="", about=""):
+    """Raise an app/tracker improvement for Daniel to approve, from the coaching chat.
+
+    This is for things noticed while looking at the data that the APP should do
+    differently - not training advice, which belongs in write_coaching. It lands in the
+    same backlog Daniel and Cerys type into, but as `status: "proposed"`, so it does not
+    reach the dev chat until he has approved it in the gear menu. He asked for exactly
+    that gate: "put behind for me to agree before applied"."""
+    text = (text or "").strip()
+    if not text:
+        return {"ok": False, "message": "Nothing to propose - `text` was empty."}
+    item = {"id": int(time.time() * 1000), "person": "Coach", "source": "coach",
+            "date": datetime.date.today().isoformat(), "text": text,
+            "status": "proposed"}
+    if why:
+        item["why"] = why.strip()
+    if about:
+        item["about"] = about.strip()
+    def mutate(data):
+        subs = data.setdefault("suggestions", [])
+        # Don't raise the same thing twice, including something already declined -
+        # re-proposing a rejected idea every week is exactly the annoyance the
+        # declined state exists to prevent.
+        norm = " ".join(text.lower().split())
+        for s in subs:
+            if " ".join(str(s.get("text") or "").lower().split()) == norm:
+                return None
+        subs.append(item)
+        return item
+    if _github_update(mutate, f"Coach proposes: {text[:60]}") is None:
+        return {"ok": True, "duplicate": True,
+                "message": "An identical suggestion is already on the list (possibly "
+                           "already declined) - nothing added."}
+    return {"ok": True, "id": item["id"], "status": "proposed",
+            "message": "Proposed. Daniel sees it in the app's gear menu and can approve "
+                       "or decline it; the dev chat won't see it until he approves."}
 
 def resolve_suggestion(sid):
     def mutate(data):
@@ -555,10 +608,29 @@ def _register(mcp):
         return json.dumps(get_progress(load_data(), person, exercise), indent=2)
 
     @mcp.tool()
-    def suggestions(include_done: bool = False) -> str:
+    def suggestions(include_done: bool = False, include_proposed: bool = False) -> str:
         """In-app improvement suggestions / bug reports Daniel & Cerys logged. Each has id,
-        person, date, text, status. Use for the app's dev backlog."""
-        return json.dumps(get_suggestions(load_data(), include_done), indent=2)
+        person, date, text, status. Use for the app's dev backlog.
+
+        Coach-raised items (`source: "coach"`) start as `status: "proposed"` and are NOT
+        returned unless you pass include_proposed - Daniel approves them in the app first,
+        and approval is what turns one into work. `status: "declined"` means he said no:
+        don't re-raise it and don't build it."""
+        return json.dumps(get_suggestions(load_data(), include_done, include_proposed), indent=2)
+
+    @mcp.tool()
+    def propose_suggestion_tool(text: str, why: str = "", about: str = "") -> str:
+        """Raise an improvement to the APP for Daniel to approve - use this whenever a
+        coaching note ends up mentioning something the tracker itself should do
+        differently, so the idea reaches the dev chat instead of being buried in a note
+        he has to remember. Training advice is not this: that goes in write_coaching.
+
+        `text` is the change, phrased as the thing to do. `why` is the evidence from the
+        data that prompted it. `about` optionally names the person or session it concerns.
+        It lands as `proposed`, visible to Daniel in the app's gear menu, and the dev chat
+        cannot see it until he approves. Identical text is not added twice, so re-running
+        is safe and a declined idea won't come back."""
+        return json.dumps(propose_suggestion(text, why, about), indent=2)
 
     @mcp.tool()
     def resolve_suggestion_tool(suggestion_id: str) -> str:

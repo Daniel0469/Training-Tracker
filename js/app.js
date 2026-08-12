@@ -2400,25 +2400,60 @@ function renderNotSetupList(){
     + '<p style="margin:0 0 8px"><b>AI coaching</b> - not set up. Needs the coaching MCP server, plus someone running a coaching chat for you (see docs/coaching-prompt.md).</p>'
     + '<div class="hint" style="margin:0">This device supports up to <b>2 accounts</b>. A third person needs their own separate device/install.</div>';
 }
+// A suggestion's statuses: "proposed" (the coach raised it, nobody has decided yet)
+// -> "open" (approved, so the dev chat should action it) -> "done". "declined" is the
+// other end state and is deliberately distinct from "done": it means someone said no,
+// which the coach reads so it doesn't raise the same thing again.
+// How far along a suggestion is, so a sync can't walk a decision backwards. An
+// absent status is an old record from before the coach could propose anything, which
+// only ever meant "open".
+function sugRank(status){
+  return {proposed:0, open:1, declined:2, done:2}[status||"open"] || 0;
+}
+function sugRow(s, buttons){
+  const who = s.source==="coach"
+    ? '<b class="pill">&#129504; Coach</b>'
+    : '<b class="pill" data-sw="'+personSwatch(s.person)+'">'+esc(s.person||"?")+'</b>';
+  return '<div class="log-row" style="padding:3px 0;border-bottom:1px solid var(--line);gap:8px">'
+    + '<div style="font-size:13px">'+who+' '+esc(s.text)
+    + (s.why?'<div class="ex-meta">'+esc(s.why)+'</div>':"")
+    + (s.about?'<div class="ex-meta">about: '+esc(s.about)+'</div>':"")
+    + '</div>'+buttons+'</div>';
+}
 function renderSuggestions(){
   const list=document.getElementById("sugList"); if(!list) return;
-  const open=(state.suggestions||[]).filter(s=>s&&s.status!=="done").slice().reverse();
-  list.innerHTML = open.length
-    ? '<div class="hint" style="margin:0 0 4px">'+open.length+' pending - synced for the dev/coach chat to action</div>'
-      + open.map(s=>'<div class="log-row" style="padding:3px 0;border-bottom:1px solid var(--line);gap:8px">'
-        + '<div style="font-size:13px"><b class="pill" data-sw="'+personSwatch(s.person)+'">'+esc(s.person||"?")+'</b> '+esc(s.text)+'</div>'
-        + '<button class="mini" data-sugdel="'+s.id+'" title="Mark as done" style="color:var(--good)">&#10003;</button></div>').join("")
-    : '<div class="hint" style="margin:0">No suggestions yet.</div>';
-  list.querySelectorAll("[data-sugdel]").forEach(b=>b.onclick=()=>{
-    // Mark done rather than deleting. A deleted row was resurrected by the very
-    // next sync — mergeInData unions in any remote suggestion missing locally —
-    // so dismissals never stuck. A local "done" is the tombstone: it hides the
-    // row, blocks the re-add, and is re-asserted on every push, so it stays
-    // cleared even if another device pushed an older "open" copy.
-    const s=(state.suggestions||[]).find(x=>String(x.id)===b.dataset.sugdel);
-    if(s){ s.status="done"; s.doneAt=new Date().toISOString(); }
-    save(); renderSuggestions(); autoSync();
-  });
+  const all=(state.suggestions||[]).filter(s=>s&&s.status!=="done"&&s.status!=="declined");
+  const proposed=all.filter(s=>s.status==="proposed").slice().reverse();
+  const open=all.filter(s=>s.status!=="proposed").slice().reverse();
+  let html="";
+  if(proposed.length){
+    html+='<div class="hint" style="margin:0 0 4px">&#129504; <b>'+proposed.length
+      + ' from your coach</b>, waiting on you - approve to send it to the dev chat, or decline it.</div>'
+      + proposed.map(s=>sugRow(s,
+          '<div class="row" style="gap:4px;flex:none;flex-wrap:nowrap">'
+          + '<button class="mini" data-sugok="'+s.id+'" title="Approve - send to the dev chat" style="color:var(--good)">&#10003;</button>'
+          + '<button class="mini" data-sugno="'+s.id+'" title="Decline - the coach won\'t raise it again">&#10005;</button></div>')).join("");
+  }
+  html += open.length
+    ? '<div class="hint" style="margin:'+(proposed.length?'8px':'0')+' 0 4px">'+open.length
+      + ' pending - synced for the dev/coach chat to action</div>'
+      + open.map(s=>sugRow(s, '<button class="mini" data-sugdel="'+s.id+'" title="Mark as done" style="color:var(--good)">&#10003;</button>')).join("")
+    : (proposed.length?'':'<div class="hint" style="margin:0">No suggestions yet.</div>');
+  list.innerHTML=html;
+  // Mark done rather than deleting. A deleted row was resurrected by the very
+  // next sync — mergeInData unions in any remote suggestion missing locally —
+  // so dismissals never stuck. A local "done" is the tombstone: it hides the
+  // row, blocks the re-add, and is re-asserted on every push, so it stays
+  // cleared even if another device pushed an older "open" copy. "declined"
+  // behaves the same way, for the same reason.
+  const setStatus=(id,status,msg)=>{
+    const s=(state.suggestions||[]).find(x=>String(x.id)===String(id));
+    if(s){ s.status=status; s[status==="open"?"approvedAt":"doneAt"]=new Date().toISOString(); }
+    save(); renderSuggestions(); autoSync(); toast(msg);
+  };
+  list.querySelectorAll("[data-sugdel]").forEach(b=>b.onclick=()=>setStatus(b.dataset.sugdel,"done","Marked done"));
+  list.querySelectorAll("[data-sugok]").forEach(b=>b.onclick=()=>setStatus(b.dataset.sugok,"open","Approved - the dev chat will pick it up"));
+  list.querySelectorAll("[data-sugno]").forEach(b=>b.onclick=()=>setStatus(b.dataset.sugno,"declined","Declined"));
 }
 document.getElementById("sugSend").onclick=()=>{
   const t=document.getElementById("sugText").value.trim();
@@ -2561,10 +2596,15 @@ function mergeInData(data, adoptConfig, fromSync){
   if(data.limiters && typeof data.limiters==="object"){ if(!state.limiters) state.limiters={}; Object.keys(data.limiters).forEach(function(p){ state.limiters[p]=data.limiters[p]; }); }
   // Coaching history: union by id (every past coach write, so improvement can be tracked).
   if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
-  // Improvement suggestions: union by id, and a "done" status wins from either
-  // side — so resolving one in the coach/dev chat clears it on every device on
+  // Improvement suggestions: union by id, and the further-along status wins from
+  // either side — so resolving one in the coach/dev chat clears it on every device on
   // the next sync. (A plain union kept the local "open" copy and ignored the
   // incoming "done", so resolved suggestions stayed pending in the app.)
+  //
+  // The ranking is what makes the coach-proposal gate work across two phones: an
+  // approval (proposed -> open) has to travel, and so does a decline, or the other
+  // phone would keep showing a decision that's already been made. "done" and
+  // "declined" are both terminal and neither can be undone by an older copy.
   if(Array.isArray(data.suggestions)){
     if(!Array.isArray(state.suggestions)) state.suggestions=[];
     var byS={}; state.suggestions.forEach(function(s){ if(s&&s.id!=null) byS[s.id]=s; });
@@ -2572,7 +2612,12 @@ function mergeInData(data, adoptConfig, fromSync){
       if(!s||s.id==null) return;
       var cur=byS[s.id];
       if(!cur){ state.suggestions.push(s); byS[s.id]=s; }
-      else if(s.status==="done" && cur.status!=="done"){ cur.status="done"; updated++; }
+      else if(sugRank(s.status) > sugRank(cur.status)){
+        cur.status=s.status;
+        if(s.doneAt) cur.doneAt=s.doneAt;
+        if(s.approvedAt) cur.approvedAt=s.approvedAt;
+        updated++;
+      }
     });
   }
   // Meals: upsert by id, same as logs. Written by the Home Hub app (barcode /
@@ -2945,7 +2990,8 @@ function renderHelp(){
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
      +p('&bull; No cloud sync? Export regularly as a backup, and to keep both of you in sync. With sync on, that\'s already handled - every save pushes a full copy off-device.')
-     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.'));
+     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.')
+     +p('&bull; Your <b>🧠 coach can suggest app changes too</b>, when it notices something the tracker should do differently. Those arrive in the same <b>💡 Improve the app</b> list marked <b>🧠 Coach</b>, with the reason it thinks so, and they sit there <b>waiting for you</b>: tap <b>✓</b> to approve and send it to the dev chat, or <b>✕</b> to decline. Nothing the coach suggests gets built without you approving it first, and declining one means it won\'t be raised again.'));
 
   document.getElementById("view").innerHTML=h;
 }
