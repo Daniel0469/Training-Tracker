@@ -195,6 +195,95 @@ def set_limiter(person, session, text):
     _github_update(mutate, f"Limiter for {person} / {session}")
     return {"ok": True, "person": person, "session": session}
 
+# ---------------------------------------------------------------- session notes
+# The warm-up / cool-down notes live on the PROGRAM, not on `coaching`, so unlike
+# everything else the coach writes they are shared: one text, seen by both people.
+# That is Daniel's explicit choice for this tool (17 Aug 2026) - the alternative,
+# a per-person overlay, was offered and turned down. Two consequences to respect:
+#   * an injury note aimed at one of them is read by both, so name who it's for;
+#   * the notes are hand-written and long (the mobility blocks), and a replace
+#     wipes the lot - hence `append`, and hence returning the previous text.
+def _now_iso():
+    """Match JavaScript's `new Date().toISOString()` exactly - `...mmmZ`, not
+    `+00:00`. mergeInData compares these stamps as plain STRINGS, and '+' sorts
+    below 'Z', so a `+00:00` stamp would read as older than the phone's copy and
+    the edit would simply never be adopted."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+
+def _find_session(data, session):
+    sessions = ((data.get("program") or {}).get("sessions")) or {}
+    want = str(session or "").strip()
+    if not want:
+        return None, sessions
+    for key, s in sessions.items():                       # exact name
+        if (s or {}).get("name") == want:
+            return key, sessions
+    for key, s in sessions.items():                       # then case-insensitive, then the key
+        if str((s or {}).get("name") or "").strip().lower() == want.lower() or key == want:
+            return key, sessions
+    return None, sessions
+
+def get_session_notes(data, session=""):
+    """The warm-up / cool-down notes on each session of the program, as they stand.
+
+    Read this BEFORE writing one. The notes are long, hand-written and mostly
+    mobility work built up over months; write_session_notes replaces by default,
+    so writing blind throws away whatever is already there.
+    """
+    key, sessions = _find_session(data, session)
+    if session and key is None:
+        return {"error": f"No session named {session!r}.",
+                "sessions": [(s or {}).get("name") for s in sessions.values()]}
+    keys = [key] if key else list(sessions.keys())
+    return [{"session": (sessions.get(k) or {}).get("name"),
+             "day": (sessions.get(k) or {}).get("day"),
+             "warmupNote": (sessions.get(k) or {}).get("warmupNote", ""),
+             "cooldownNote": (sessions.get(k) or {}).get("cooldownNote", "")}
+            for k in keys]
+
+def set_session_notes(session, warmup=None, cooldown=None, append=False):
+    """Rewrite a session's warm-up and/or cool-down note. Shared by both people.
+
+    Passing None for a field leaves it alone; passing "" clears it. `append` adds
+    the text as a new paragraph instead of replacing, which is what an injury or
+    niggle line usually wants - the mobility work below stays put.
+    """
+    failed = {}
+    def mutate(data):
+        key, sessions = _find_session(data, session)
+        if key is None:
+            failed["error"] = f"No session named {session!r}."
+            failed["sessions"] = [(s or {}).get("name") for s in sessions.values()]
+            return None
+        s = sessions[key]
+        before = {"warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", "")}
+        changed = []
+        for field, text in (("warmupNote", warmup), ("cooldownNote", cooldown)):
+            if text is None:
+                continue
+            text = str(text).strip()
+            if append and text and before[field]:
+                text = before[field].rstrip() + "\n\n" + text
+            if text == before[field]:
+                continue
+            s[field] = text
+            changed.append(field)
+        if not changed:
+            failed["error"] = "Nothing to change - the note already reads exactly that."
+            return None
+        # The program only reaches the phones when its stamp is newer than theirs.
+        data.setdefault("program", {})["updatedAt"] = _now_iso()
+        return {"session": s.get("name"), "changed": changed, "previous": before,
+                "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", "")}
+    result = _github_update(mutate, lambda r: f"Session notes for {r['session']}")
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    result["message"] = ("Saved to the shared program. BOTH people see this text; it reaches "
+                         "their phones on the next Sync now, unless one is mid-workout.")
+    return result
+
 def get_coaching_history(data, person, limit=10):
     log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
     log.sort(key=lambda e: e.get("id", 0), reverse=True)
@@ -679,6 +768,38 @@ def _register(mcp):
         EXACT session name. Only when they tell you; never your own inference (that is
         what your coaching notes are for). Empty `text` clears it."""
         return json.dumps(set_limiter(person, session, text), indent=2)
+
+    @mcp.tool()
+    def session_notes(session: str = "") -> str:
+        """The 🔥 warm-up and 🧊 cool-down notes on each session of the program, as they
+        currently read. Omit `session` for all of them. ALWAYS call this before
+        write_session_notes: the notes are long, hand-written mobility blocks and a write
+        replaces them by default."""
+        return json.dumps(get_session_notes(load_data(), session), indent=2)
+
+    @mcp.tool()
+    def write_session_notes(session: str, warmup: str | None = None,
+                            cooldown: str | None = None, append: bool = False) -> str:
+        """Rewrite a session's warm-up and/or cool-down note - use this when the fix is a
+        change to what they do either side of the exercises, e.g. adding calf and ankle work
+        to a cardio warm-up because someone's shins keep flaring, or dropping a stretch that
+        aggravates a hip. `session` must be an EXACT session name.
+
+        Unlike everything else you write, this is NOT per person: the note lives on the
+        program and BOTH of them see the same text. So write "Cerys: ..." or "Daniel: ..."
+        on any line that is meant for one of them - that is how the existing notes already
+        handle Cerys's PAILs/RAILs and her hip-flexor exclusions.
+
+        Call `session_notes(session)` FIRST and work from what's there. These notes are long
+        and hand-written, and passing `warmup` REPLACES the whole thing - months of mobility
+        work included. For adding a line, pass `append=True` and just the new paragraph.
+        Omit a field to leave it untouched; pass "" to clear it. The previous text comes back
+        in the response, so a bad write can be undone by writing it back.
+
+        It reaches both phones on their next Sync now (a phone mid-workout takes it after).
+        Program STRUCTURE - sets, reps, targets, which exercises - is not yours to change:
+        raise that with propose_suggestion_tool for Daniel to approve."""
+        return json.dumps(set_session_notes(session, warmup, cooldown, append), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,

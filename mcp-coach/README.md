@@ -4,9 +4,24 @@ Lets **Claude act as your coach**: it reads Daniel's & Cerys's workouts, PRs, bo
 and goals straight from your data and gives feedback toward your goals. Runs locally on your
 laptop, on your **Claude subscription — no API billing**.
 
-## What it exposes (read-only)
-`people`, `goals(person)`, `recent_sessions(person, limit)`, `session(session_id)`,
-`prs(person)`, `bodyweight(person)`, `progress(person, exercise)`.
+## What it exposes
+
+**Read:** `people`, `goals(person)`, `recent_sessions(person, limit)`, `session(session_id)`,
+`prs(person)`, `bodyweight(person)`, `progress(person, exercise)`, `running_form(person)`,
+`limiters(person)`, `coaching_history(person)`, `session_notes(session)`, `suggestions()`.
+
+**Write** (needs the token to have Contents: **read and write**): `write_coaching`,
+`write_limiter`, `write_session_notes`, `propose_suggestion_tool`, `resolve_suggestion_tool`.
+Everything written lands in the shared `data.json` and reaches the phones on their next sync.
+
+Two of the writes are worth knowing the shape of before using them:
+- `write_coaching` is **per person** — Daniel and Cerys can get different notes on the same
+  session, and usually should.
+- `write_session_notes` is **not**. Warm-up / cool-down notes live on the *program*, so one text
+  is shared by both people; name whoever a line is for. It also **replaces** the field by default,
+  and those notes are long hand-written mobility blocks — so call `session_notes(session)` first
+  and pass `append=True` when you're adding a line rather than rewriting the lot. The previous
+  text is returned on every write, so a bad one can be put straight back.
 
 Then in Claude you just ask, e.g. *"You're my coach — review my last two weeks against my goals
 and tell me what to change,"* and it calls these tools itself.

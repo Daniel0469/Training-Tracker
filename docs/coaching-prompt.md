@@ -4,8 +4,8 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 *only* for coaching). App development stays in its own chat.
 
 **Before first use:** fully restart Claude Code once so the `training-tracker` MCP server picks up
-the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`), then
-start a new chat and paste
+the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`, and —
+added 17 Aug 2026 — `session_notes` / `write_session_notes`), then start a new chat and paste
 the prompt below.
 
 ---
@@ -80,6 +80,16 @@ the prompt below.
 >   one for each of them every review, or the app just alternates - which is fine, but it's the
 >   thing you're there to improve on.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
+>
+> **To change a warm-up or cool-down** — for an injury or a niggle, typically — call
+> `session_notes(session)` to read what's there, then `write_session_notes(session, warmup=…,
+> cooldown=…, append=True)`. Adding calf and ankle work to a cardio warm-up because shins keep
+> flaring is exactly this. Two things make it unlike everything above: it is **shared** (the note
+> lives on the session, so both of them read it — write "Cerys: …" on any line meant for one
+> person, as the existing notes already do), and a write **replaces** the field, so read first and
+> use `append=True` to add a paragraph rather than flattening months of mobility work. The previous
+> text comes back in the response if you need to put it back. Program **structure** — sets, reps,
+> targets, which exercises — is not yours to change: that goes to `propose_suggestion_tool`.
 >
 > **If a note of yours ends up saying the app should work differently, don't bury it in the note** -
 > call `propose_suggestion_tool(text, why, about)`. It lands in the same 💡 backlog Daniel and Cerys
