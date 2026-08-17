@@ -311,6 +311,38 @@ which was already the old gate's stated intent. `tt-v102`.
   notes) - see the section at the bottom of this file. And **another Claude Code restart** for
   `propose_suggestion_tool`.
 
+**2026-08-17 — backlog session: two cleared, one dropped, three left for Daniel.** Of six items in
+the 💡 backlog, **none were safe to auto-apply** - every one had more than one reasonable reading,
+wrote to shared data, or was gated on approval. So they were put to Daniel first, and two built:
+- **Per-exercise coaching notes are now asked to be a note, not a cue** (`1786488544590`). Confirmed
+  again that this is **not a display bug**: `.coach` is `white-space:pre-wrap` with no clamp or
+  `max-height`, so a long note already rendered in full. The notes were short because the *tool* asked
+  for "a concrete next step". `write_coaching`'s description and `docs/coaching-prompt.md` now ask for
+  two to four sentences: the number, the reason it's that number, and what to do if it goes wrong.
+  **No app code, no cache bump**; it takes effect on the next Claude Code restart. The prompt also
+  warns that because `by_exercise` **merges**, the first review after this must rewrite *every* cue it
+  previously set or the app shows both styles at once.
+- **The coach can rewrite a session's warm-up / cool-down** (`1786574564394`): `session_notes(session)`
+  to read, `write_session_notes(session, warmup, cooldown, append)` to change. **Daniel chose the
+  shared-note mechanism over a per-person overlay**, so this is the one thing the coach writes that is
+  *not* per person - the notes live on the program and both of them read the same text, hence the tool
+  telling it to name whoever a line is for (as the notes already do for Cerys's PAILs/RAILs).
+  `append=True` adds a paragraph rather than flattening months of mobility work, and the previous text
+  comes back on every write so a bad one can be put straight back. **The subtle bit worth keeping:**
+  `program.updatedAt` is stamped in JS's exact `toISOString` format, because `mergeInData` compares
+  those stamps as plain **strings** and Python's default `+00:00` sorts *below* `Z` - a naive stamp
+  would have read as older than the phones' copy and the edit would silently never have arrived.
+  Program *structure* stays out of scope and is pointed at `propose_suggestion_tool`. `tt-v106`.
+  **Needs a Claude Code restart** before the coaching chat can see the two new tools.
+- **Dropped on Daniel's instruction: the exercise timer** (`1786488191424`) - resolved without
+  building. Don't re-raise it; the Phase 3 rest timer remains not wanted either.
+- **Still open, deliberately: "update export and import - ask specifics"** (`1786567246193`). Daniel's
+  call was "leave for now but keep", so it stays in the backlog **unresolved**. The options put to him,
+  for whenever it's picked up: an import preview before merging, export via the phone's share sheet
+  (the download is often blocked - there's already a copy-the-text fallback for exactly that), CSV
+  export of raw logs, or selective export by person/date range.
+- **Two left needing a decision, both "the coach writes to the program"** - see the section below.
+
 **2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
 cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
@@ -389,7 +421,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v105`.
+  change to a cached file.** Currently `tt-v106`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
@@ -607,20 +639,35 @@ forced on every account - a settings toggle per account for which of these are t
    "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
    above, revisit whenever the Pi is up.
 
-## Open in-app suggestions awaiting Daniel's decision (as of 2026-08-12)
-Three of the five were cleared on 12 Aug (notes box grows, RPE on lunges, coach-raised suggestions).
-These two still need a call from Daniel - each has more than one reasonable reading:
-- **"add an optional exercise timer"** (`1786488191424`). Ambiguous, and it brushes against a
-  decision already made: the Phase 3 **rest timer is explicitly NOT wanted**. An *exercise* timer is
-  plausibly a different thing - a count-up/count-down for a held movement (plank, a timed carry) -
-  which the program can't currently express, since those are logged as reps. Ask which he means
-  before touching it; don't resurrect the rest timer by accident.
-- **"have longer coaching notes for each exercise"** (`1786488544590`). **Not a display bug** -
-  checked: `.coach` has `white-space:pre-wrap` and no clamp, so a long note already renders in full
-  over multiple lines. So this is either (a) the coach being too terse, which is a change to
-  `write_coaching`'s tool description and `docs/coaching-prompt.md`, not app code, or (b) a request
-  for a second, longer per-exercise field distinct from the one-line cue. (a) is free; (b) is a
-  data-model change.
+## Open in-app suggestions awaiting Daniel's decision (as of 2026-08-17)
+Both remaining items are the same shape - **the coach reaching into the program** - and neither is
+a small build. Answering the first largely settles the second:
+- **"have coach be able to suggest adjustments to the program - i.e. changing from 4 sets to 3, and
+  if i agree then it changes in the app"** (`1786995006416`, 17 Aug). The mechanism already exists in
+  outline: the `proposed → open → done/declined` lifecycle built on 12 Aug, with approval in the gear
+  💡 panel. What needs deciding is **scope** (sets/reps/target only, or adding and removing exercises
+  too - the second is far more destructive, since a removed exercise orphans its history), **where
+  approval happens** (the 💡 panel, or on the exercise itself in the Program tab, which reads better
+  for "4 sets → 3" but means a second approval surface), and **whether an approved change is applied
+  by the app or written by the coach**. Note the live hazard: `saveProgram()` stamps `updatedAt` and
+  pushes, so an approved change lands on **both** phones - and `mergeInData` deliberately refuses to
+  adopt a new program mid-workout, so a change approved during a session arrives after it's saved.
+- **The coach's own proposal, awaiting approval in the app** (`1786642972329`, `status: "proposed"`):
+  let a cardio session record **how** the aerobic work was done - run, incline walk, bike,
+  cross-trainer - instead of everything being an "Easy run (Zone 2)" row. Its evidence is real and
+  checkable: Cerys's 13 Aug incline walk logged as a run, reported at 10:27/km with an efficiency
+  figure whose own basis says it's diluted by walking, and now sitting on the same trend as her actual
+  runs. **The dev tool cannot see this until Daniel approves it in the gear 💡 panel** - that gate is
+  deliberate, so it has not been built. Approve or decline it there.
+
+### Cleared or settled on 17 Aug
+- ✅ **"have longer coaching notes for each exercise"** (`1786488544590`) - built, see the 17 Aug entry.
+- ✅ **"have coach be able to alter the warm up and cool downs"** (`1786574564394`) - built, shared-note
+  mechanism, see the 17 Aug entry.
+- ❌ **"add an optional exercise timer"** (`1786488191424`) - **Daniel's answer was to drop it**.
+  Resolved without building. Don't re-raise; the Phase 3 rest timer is still not wanted either.
+- ⏸ **"update export and import - ask specifics"** (`1786567246193`) - **left open on purpose**
+  ("leave for now but keep"). Still in the backlog, not resolved.
 - ✅ **DONE (2026-08-12) - "coach should be able to push suggestions aswell"** (`1786491755166`).
   Daniel clarified the scope: anything a coaching note mentions that is really a request of the
   **app** goes to the dev backlog for his approval, rather than sitting in a note he has to remember.
