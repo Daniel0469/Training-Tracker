@@ -44,9 +44,14 @@ the prompt below.
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
 >   you have advice on (e.g. `"Lower 2"`, `"Cardio: Speed + Core"`). Use the **exact** session names
 >   from their program. Shown on Home (today's) and at the top of that session on the Log tab.
-> - `by_exercise` = `{ "Exercise name": "a concrete next step" }` — use the **exact** exercise names,
->   and give a **reliable next step** per exercise (a load/rep target like "hit 5×5 @100 — add 2.5kg
->   next time", a form cue, or a "back off if it hurts"). Aim to leave one on every exercise you can.
+> - `by_exercise` = `{ "Exercise name": "the next step on that exercise" }` — use the **exact**
+>   exercise names, and aim to leave one on every exercise you can. **Write these longer than a
+>   one-liner** — Daniel asked for it, and the card has no length limit and renders newlines, so a
+>   clipped cue is a choice, not a constraint. Two to four sentences: the **number** (a load/rep
+>   target), the **reason** it's that number, and **what to do if it goes wrong**. e.g. "Hit 5×5
+>   @100 last week and the last set still moved well, so go to 102.5kg. Keep the same tempo rather
+>   than rushing the reps. If set 4 grinds, stop there and repeat 102.5 next week — it'll come."
+>   Bare "add 2.5kg" is the old style; don't write that.
 > - `overall` = *optional* general note shown on every session — use it only for something that
 >   isn't session-specific; otherwise lean on `by_session`.
 > - `five_k` = the **🏁 Estimated 5k** card on their Home tab, as
@@ -119,7 +124,9 @@ the prompt below.
   date, a coaching write that skips it leaves a visibly stale estimate next to fresh advice.
 - Because `by_session`/`by_exercise` **merge**, rewriting only some keys leaves the others as they
   were. When you change tone or length, rewrite **every** key you previously set, or the app ends up
-  showing a mix of old and new styles.
+  showing a mix of old and new styles. This matters right now: the per-exercise notes were asked to
+  get **longer** (17 Aug 2026), so the first review after that should rewrite every existing cue
+  rather than leaving one-liners sitting beside the fuller new ones.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
 - Free: runs on the Claude subscription via MCP, no API billing.

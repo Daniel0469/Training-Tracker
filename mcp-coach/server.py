@@ -115,7 +115,8 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
                  next_cardio=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
-    `by_exercise` maps exercise name -> a short next-step cue; `five_k` is the
+    `by_exercise` maps exercise name -> the next step on that exercise (a few
+    sentences, not a clipped cue - the card renders it in full); `five_k` is the
     estimated-5k card; `next_cardio` assigns which cardio session comes next and
     what to do in it. All are merged into any existing coaching. Shows in the app on
     Home + the log form after the person syncs."""
@@ -686,8 +687,15 @@ def _register(mcp):
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
-        `by_exercise` = {exact exercise name: a concrete next step} shown on that exercise
-        (e.g. "hit 5x5 @100 — add 2.5kg next time"). Give one per exercise you have advice on.
+        `by_exercise` = {exact exercise name: the next step on that exercise} shown on that
+        exercise while they train. Give one per exercise you have advice on.
+        **Write a proper note, not a clipped cue.** Daniel asked for these to be longer: the
+        card has no length limit and renders newlines, so aim for two to four sentences and
+        use them to say the number, the reason, and what to do if it goes wrong - e.g.
+        "Hit 5x5 @100 last week and the last set still moved well, so go to 102.5kg. Keep
+        the same tempo rather than rushing to make the reps. If set 4 grinds, stop there and
+        repeat 102.5 next week - it'll come." A bare "add 2.5kg" is the old, too-terse style.
+        Multi-line is fine: use a newline between the target and a form cue if it reads better.
         `overall` = an optional general note shown on every session.
         `five_k` = the estimated-5k card on Home, as
         {"time": "24:30", "pace": "4:54", "basis": "one line on what it's from",
