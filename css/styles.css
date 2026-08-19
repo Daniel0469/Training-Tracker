@@ -43,7 +43,16 @@
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:14px;}
   h1,h2,h3{margin:0}
   .wrap{max-width:780px;margin:0 auto}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  /* Sticky header. Both of them train in the same session and swap the active
+     person constantly, and the log form is long enough that the toggle spent
+     most of it off-screen - so every swap cost a scroll to the top and back.
+     The negative margins cancel body's padding so the bar spans the full width
+     and content scrolling underneath can't peek out at its edges; that relies
+     on --bg being opaque in both themes, which it is. z-index stays below the
+     bottom tab bar's 30. */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    position:sticky;top:0;z-index:20;background:var(--bg);
+    margin:-14px -14px 12px;padding:14px 14px 10px;border-bottom:1px solid var(--line)}
   .title{font-size:19px;font-weight:700;letter-spacing:-.01em}
   .title small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
   .people{display:flex;gap:6px;align-items:center}
@@ -268,4 +277,5 @@
   .grow{flex:1}
   .toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:11px 20px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
-  @media(max-width:520px){ .title small{display:none} body{padding:10px} td.prev,th.prev{width:74px} }
+  @media(max-width:520px){ .title small{display:none} body{padding:10px} td.prev,th.prev{width:74px}
+    .topbar{margin:-10px -10px 12px;padding:10px 10px 8px} }
