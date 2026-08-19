@@ -311,6 +311,38 @@ which was already the old gate's stated intent. `tt-v102`.
   notes) - see the section at the bottom of this file. And **another Claude Code restart** for
   `propose_suggestion_tool`.
 
+**2026-08-19 - the coach's first program changes, approved and applied.** Five coach-raised
+suggestions, all approved by Daniel in the gear menu the same day. Four were program data, one was
+app code. Worth noting what this session actually demonstrates: the `proposed -> open` gate did its
+job - the coach raised changes to the *program*, Daniel approved them, and only then were they
+built. That is the shape suggestion `1786995006416` is asking to formalise.
+- **Calf raise moved off the shoulder-pad machine onto the leg press**, in both Lower 1 and Lower 2.
+  Daniel and Cerys flagged it independently on 18 Aug, both stuck at 70kg with the pads hurting
+  before the calves worked. **Renamed to `Leg press calf raise` rather than kept** - Daniel's call,
+  and the same reasoning that keeps `Flat press (DB)` out of `Bench press`: records, the Last column
+  and the progress chart key on the NAME, and 70kg on a pad machine is not the same load as a leg
+  press, so keeping the name would splice two movements into one trend and one PR. The five logged
+  sessions each stay under the old name. Lower 2's `5/3/3` machine-setting note went with it - those
+  were the old machine's pins and would be actively wrong on the leg press.
+- **Goblet squat added to Lower 2**, 3x8-10, **last** on Daniel's instruction. Cerys asked for it to
+  reach depth her back squat can't. Flagged at the time and worth watching: Lower 2 already overruns
+  and the last exercise is the one that gets dropped - that is why Daniel's deadlift went unlogged
+  for so long. Placing it after Squat was offered and turned down.
+- **Lower 2 reordered** so the lunges follow the seated leg curl - they need floor space, which is
+  what disappears when a class is on.
+- **Bench press 4 sets -> 3** (target with it). **Upper 2's pull-ups deliberately left at 4**, though
+  the approved text allowed cutting them: "unassisted pull up" is one of Cerys's two goals and the
+  overrun evidence was about Upper 1. Lower 2's squat already read 3, so that part was a no-op. Also
+  tidied: Lower 1's deadlift had `sets=3` against a target of `4x5-8`, so the form drew three rows
+  under a target asking for four.
+- Script: `scratchpad/apply_aug19.py` (idempotent, verified by re-running, backs up data.json first).
+  `scratchpad/probe_program.py` dumps the program read-only - keep it, it is how the above was
+  grounded rather than guessed.
+- **The person toggle is now sticky** (`1787141099260`): the log form runs to ~3000px on a phone, so
+  swapping person cost a scroll to the top and back. `CACHE_NAME` -> **tt-v108**; v107 was taken by
+  the note-sync fix landing from another chat in parallel - **check `sw.js` before assuming the next
+  number is free.**
+
 **2026-08-17 — backlog session: two cleared, one dropped, three left for Daniel.** Of six items in
 the 💡 backlog, **none were safe to auto-apply** - every one had more than one reasonable reading,
 wrote to shared data, or was gated on approval. So they were put to Daniel first, and two built:
@@ -421,7 +453,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v106`.
+  change to a cached file.** Currently `tt-v108`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
