@@ -136,6 +136,69 @@ Once the Pi exists for Home Assistant, move both jobs (`--sync training-garmin` 
 dependency, no code change — the caveat just disappears. Needs `.mcp.json`-equivalent env on the Pi
 and a re-login to cache each Garmin session there.
 
+### 6. Run the coach itself on the Pi - unattended coaching
+
+**Status: agreed in principle 2026-08-19, nothing built.** Daniel's call: *"unattended is fine for the
+coach - it pushes new coaching, with anything changing to the program either being pushed because I
+asked for the change, or any changes suggested by the coach are pushed to the app for me to agree to."*
+
+A cron job on the Pi runs Claude Code headless against `docs/coaching-prompt.md`, so a review happens
+without anyone opening a chat. Feasible because the pieces are already portable:
+
+- Both MCP servers are Python reading the **GitHub store**, with no laptop-specific state - the same
+  property that makes item 5 free.
+- The reasoning runs on Daniel's **Claude subscription**, not the paid API, so the "keep it free"
+  constraint from `hub-and-coaching.md` §B3.3 still holds. That section rules out *API-on-save*; it
+  does not rule this out.
+
+#### The permission model already exists in the tools
+
+| Tool | Reaches the phones | Gate |
+|---|---|---|
+| `write_coaching` | immediately | none - intended, this is the point |
+| `propose_suggestion_tool` | only once approved | gear menu, Daniel approves |
+| `write_session_notes` | immediately | **none - this is the gap** |
+
+**Decide this before the first unattended run.** `write_session_notes` rewrites warm-ups and
+cool-downs, which is a program change by any reasonable definition, and it writes straight through.
+An unattended coach could rewrite both athletes' warm-ups overnight with no approval step. Two
+options: route session-note changes through the suggestion gate as well (preferred - more useful, and
+it matches the rule Daniel has already set), or restrict unattended runs to `write_coaching` +
+`propose_suggestion_tool` and leave notes for when he is in the chat.
+
+#### Trigger on a schedule, NOT on save
+
+Load-bearing, and learned the hard way on 2026-08-19: Daniel added a note to his Upper 1 session
+**after** saving it. The app supports that deliberately (backlog item *"add option to add notes after
+saving a workout"*, shipped), and the note is the single highest-value part of a session for
+coaching - injuries, form cues and program requests live there and nowhere else. A save-triggered
+review would routinely coach a session whose note does not exist yet, and would never see it.
+
+So: **fixed daily schedule, late** (04:00 suits, and matches the ~5am training-day rollover). Coach
+everything logged since the newest `coachingLog` entry for that person. Late enough that both the
+notes and the Garmin runs have landed; no-ops cheaply on a rest day.
+
+**Ordering matters:** `--sync` (item 5) must run *before* the coach, or the coach reviews a cardio
+session with no run attached to it.
+
+#### Setup
+
+1. Python 3 + deps; clone the repo (or copy `mcp-coach/` and `mcp-garmin/`).
+2. `.mcp.json`-equivalent env: GitHub token, both Garmin credential blocks. Same secrets item 5
+   needs, so do the two together.
+3. Claude Code installed, and authenticated **once interactively** to cache subscription auth. This
+   is the fiddly step on a headless box and the only genuinely new setup cost.
+4. Cron: `--sync` for both people, then the coach, in that order.
+
+#### What this does not solve
+
+Quality. Every review so far has turned on something only Daniel could supply - the stated limiters,
+his *"is 4 sets too much?"* question, the 100kg squat that overturned advice given three days earlier.
+Unattended coaching is a good **floor** (nobody has to remember to ask), not a replacement for the
+weekly chat. Detection alone - an in-app "N sessions since your last coaching" badge, computed from
+`logs` vs `coachingLog` with no server at all - captures much of the value for far less machinery,
+and should probably land first.
+
 ## What this app must NOT do
 
 - **Don't call the hub.** No outbound dependency on a home server from a public GitHub Pages app.
@@ -150,4 +213,8 @@ completion before anything here starts. Only **hub phase 5** needs this side, an
 above to exist first.
 
 Sensible order: ~~item 1 → item 2~~ ✅ **done — the hub is unblocked** → hub builds capture →
-**items 3–4** land the display and coaching side → **item 5** whenever the Pi is up.
+**items 3–4** land the display and coaching side → **items 5–6** whenever the Pi is up.
+
+Items 5 and 6 share their whole setup - same box, same secrets, same cron file - so they are one
+piece of work, not two. Item 6 also has a cheap precursor that needs no Pi at all: the in-app
+"N sessions since your last coaching" badge described at the end of it.
