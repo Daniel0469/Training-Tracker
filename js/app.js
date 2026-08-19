@@ -1206,7 +1206,9 @@ function saveSession(){
     if(prevBest>-Infinity && thisMax>prevBest){ en.pr=Math.round(thisMax*10)/10; prs.push({name:en.name,weight:en.pr}); }
   });
   const durationSec = timerElapsed(getTimer());
-  const log={ id:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
+  // updatedAt: every writer of a log stamps this (here, the note editor, and
+  // mcp-garmin's enrichment). mergeRecord resolves a two-sided edit by it.
+  const log={ id:Date.now(), updatedAt:Date.now(), date, person, sessionKey:curSession, sessionName:sess.name,
     entries, feedback, difficulty, volume, durationSec };
   // Cardio session: flag it so the Garmin sync (laptop) can link the activity's extra
   // data (HR, zones, cadence, calories, and splits when the run row was left blank).
@@ -1521,8 +1523,19 @@ function wireHistNotes(){
     const log=logById(ta.dataset.fbta); if(!log) return false;
     const v=ta.value.trim();
     if(v===(log.feedback||"")) return false;
-    if(v) log.feedback=v; else delete log.feedback;
-    save(); return true;
+    // Store a cleared note as "" rather than deleting the key: mergeRecord treats a
+    // key we hold as our deliberate value, so "I removed this note" has to be
+    // representable or the next pull puts the old one back.
+    log.feedback=v;
+    log.updatedAt=Date.now();
+    save();
+    // Push immediately instead of waiting for whatever happens to trigger the next
+    // sync. A note added after the session is saved is the part the coach most needs,
+    // and it used to sit on one phone indefinitely. Quiet, so it says nothing when
+    // sync isn't set up, and safe to pull-then-push now that mergeRecord won't let
+    // the store's older copy overwrite what was just typed.
+    syncNow(true);
+    return true;
   };
   document.querySelectorAll("[data-fbta]").forEach(ta=>{
     ta.addEventListener("input",()=>autoGrow(ta));
@@ -2577,6 +2590,42 @@ function tombstoneLog(id){
 // manual file import must not - it has its own "adopt" tick box, and quietly
 // overriding it would replace the program of whoever opened someone else's
 // export just to merge a few sessions in.
+// Merge one shared record (a log, a meal) that BOTH sides may have edited.
+//
+// This used to be `state.logs[i] = incoming` - the store's copy replaced ours
+// outright. That silently destroyed any local edit not yet pushed: add a note to an
+// already-saved session, sync, and the note was gone from the phone AND written back
+// to the store as empty, because syncNow pulls and merges before it pushes. It cost
+// Daniel a note on 19 Aug 2026 that no commit in the store had ever held.
+//
+// "Local always wins" is not the fix either: mcp-garmin writes HR, zones, cadence and
+// splits into logs remotely and the phones have to receive those. Both sides are
+// legitimate writers, so this needs an actual conflict rule.
+//
+// The rule: whoever edited more recently wins, per `updatedAt`, which every writer now
+// stamps. If we are newer, every key we hold stands - including one we deliberately
+// cleared - and we still adopt keys we simply don't have, which is how Garmin
+// enrichment lands on a session whose note was edited offline. Records written before
+// `updatedAt` existed carry no stamp, and two unstamped sides fall back to the old
+// "incoming wins" so nothing regresses. On top of all that, an absent or empty
+// incoming field never erases something we hold - that guard alone would have saved
+// the note, since the store's copy had no `feedback` key at all.
+function mergeRecord(mine, theirs){
+  var mineAt=+mine.updatedAt||0, theirsAt=+theirs.updatedAt||0;
+  var mineIsNewer = mineAt>theirsAt;
+  var changed=false;
+  Object.keys(theirs).forEach(function(k){
+    if(k==="updatedAt") return;
+    var tv=theirs[k], mv=mine[k];
+    if(tv===mv) return;
+    if(mineIsNewer && Object.prototype.hasOwnProperty.call(mine,k)) return;
+    if((tv==null || tv==="") && mv!=null && mv!=="") return;
+    mine[k]=tv; changed=true;
+  });
+  if(theirsAt>mineAt) mine.updatedAt=theirsAt;
+  return changed;
+}
+
 function mergeInData(data, adoptConfig, fromSync){
   let added=0, updated=0;
   // Replay the other device's deletions BEFORE the union below, or a log it deleted
@@ -2584,7 +2633,7 @@ function mergeInData(data, adoptConfig, fromSync){
   if(Array.isArray(data.deletedLogs)) data.deletedLogs.forEach(tombstoneLog);
   if(Array.isArray(data.logs)){
     var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
-    data.logs.forEach(function(l){ if(!l || isDeletedLog(l.id)) return; if(byId[l.id]!=null){ state.logs[byId[l.id]]=l; updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
+    data.logs.forEach(function(l){ if(!l || isDeletedLog(l.id)) return; if(byId[l.id]!=null){ if(mergeRecord(state.logs[byId[l.id]], l)) updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
   }
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
@@ -2629,7 +2678,9 @@ function mergeInData(data, adoptConfig, fromSync){
     var byM={}; state.meals.forEach(function(m,i){ if(m&&m.id!=null) byM[m.id]=i; });
     data.meals.forEach(function(m){
       if(!m||m.id==null) return;
-      if(byM[m.id]!=null){ state.meals[byM[m.id]]=m; updated++; }
+      // Same conflict rule as logs - the hub is a second writer, so a wholesale
+      // replace here would lose a locally edited meal exactly as it lost a note.
+      if(byM[m.id]!=null){ if(mergeRecord(state.meals[byM[m.id]], m)) updated++; }
       else { byM[m.id]=state.meals.length; state.meals.push(m); added++; }
     });
   }
@@ -2952,7 +3003,7 @@ function renderHelp(){
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
-     +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away, and it\'s the same note the coach reads.')
+     +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
      +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
      +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.')
      +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')

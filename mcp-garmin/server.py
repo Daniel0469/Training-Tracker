@@ -616,6 +616,17 @@ def bodyweight_on(data, person, date):
         return _num(max(before, key=lambda b: str(b.get("date")))["kg"])
     return _num(min(rows, key=lambda b: str(b.get("date")))["kg"])
 
+def _touch(log):
+    """Stamp a log as edited now, in the same ms-epoch the app uses.
+
+    The app's mergeRecord (js/app.js) resolves a log edited on both sides by this
+    field. Without it, a phone holding a local edit looks 'newer' than everything
+    this server writes and Garmin enrichment would stop landing. Every place that
+    mutates a log has to call this - see the merge comment in js/app.js for why the
+    old wholesale-replace had to go."""
+    log["updatedAt"] = int(time.time() * 1000)
+
+
 def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
     """Attach Garmin's extra info to an already-logged session, without overwriting
     what the person entered. Fills splits only if the run entry was left empty, and
@@ -626,6 +637,7 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
     of the store - typed splits, the speed/HR trace, power zones, bodyweight - so
     those all happen up front and a write retry never re-fetches them."""
     extras = extras or {}
+    _touch(log)
     log["garminActivityId"] = a.get("activityId")
     log["garminWanted"] = False
     metrics = activity_metrics(a)
@@ -1071,6 +1083,7 @@ def backfill_hr_zone_times(person, limit=50):
             if g.get("hr_zone_secs"):
                 continue                       # another run of this job got there first
             g["hr_zone_secs"] = z
+            _touch(l)
             done.append({"session": l.get("sessionName"), "date": l.get("date")})
         return done or None
     filled = _github_update(
@@ -1109,6 +1122,7 @@ def backfill_run_entries(person, limit=50):
             entries = l.setdefault("entries", [])
             entries.insert(len(entries) if idx is None else idx,
                            {"name": name, "cols": _run_cols(rows), "rows": rows})
+            _touch(l)
             done.append({"session": l.get("sessionName"), "date": l.get("date"), "added_as": name})
         return done or None
     filled = _github_update(
