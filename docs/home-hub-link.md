@@ -66,14 +66,26 @@ New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coaching
   "carbs": 55,
   "fat": 18,
   "source": "barcode",             // "barcode" | "text" | "manual"
-  "estimated": true                // true when macros came from an LLM guess, not a database
+  "estimated": true,               // true when macros came from an LLM guess, not a database
+  "updatedAt": 1787141028912       // ms epoch, REQUIRED - see the conflict rule below
 }
 ```
 
 Rules, all matching existing conventions:
 
-- **Merge by `id`, upsert.** Same as `logs` (`mergeInData`, [js/app.js:1582](../js/app.js#L1582)).
-  Re-syncing the same meal must never duplicate it.
+- **Merge by `id`, upsert** — but *not* a wholesale replace. Since **tt-v107** both `logs` and
+  `meals` go through `mergeRecord` (`js/app.js`), which merges field by field:
+  - **Whichever side has the newer `updatedAt` wins** a genuine conflict.
+  - If the *other* side is newer, it still adopts keys it doesn't hold — so a partial write from
+    one writer doesn't erase another's fields.
+  - **An absent or empty incoming field never erases a value the other side holds.**
+  - Two records with *no* stamp on either side fall back to the old "incoming wins".
+
+  **The hub MUST stamp `updatedAt` on every meal it writes or rewrites.** An unstamped hub write
+  loses to any stamped phone edit of the same meal, and silently. This replaced a wholesale
+  replace that destroyed a locally-edited session note on 19 Aug 2026 — the same defect was
+  already sitting in the `meals` branch, untriggered only because the hub doesn't exist yet.
+- Re-syncing the same meal must never duplicate it.
 - **`person` is a name**, not an id — this app keys everything by person name. A meal whose person
   doesn't match a known person is kept but not displayed (don't drop data).
 - **`date` uses the ~5am training-day rollover**, so a late meal lands on the same training day as
@@ -106,6 +118,12 @@ errors still raise immediately. `fill_pending` keeps its Garmin calls *outside* 
 re-checks on write that an activity wasn't claimed meanwhile, so a race can't link one run twice.
 
 **The store is now safe for a fourth writer — the hub can be pointed at it.**
+
+**Amended tt-v107 (19 Aug 2026).** Retry-on-409 stopped concurrent writes *losing the file*, but
+the record merge itself was still a wholesale replace, which lost a *field*: a session note typed
+on a phone was overwritten by the store's older copy and pushed back empty. `mergeRecord` fixes it
+for `logs` and `meals` both — see the conflict rule under the `meals` contract above. **The hub
+must stamp `updatedAt`**; that is now a hard requirement of being a writer, not a nicety.
 
 ### 2. `meals` in state + merge ✅ DONE
 `state.meals`, `exportPayload`, and a `mergeInData` branch that upserts by id (mirroring `logs`),
