@@ -820,6 +820,17 @@ function renderLog(){
 
   // The session's own warm-up / cool-down notes (Program tab) bracket the
   // exercises, in the order you actually do them.
+  // How to record THIS session on the watch - when to start the activity, where
+  // the laps go, what to report back afterwards. Its own block, above the warm-up
+  // and collapsed by default: it used to be the first twenty lines of warmupNote,
+  // where it pushed the actual warm-up off a phone screen at the moment you need
+  // it. Collapsed rather than merely moved, because that is the half of the
+  // complaint a separate section alone doesn't fix.
+  if(sess.recordingNote){
+    html += '<details class="card rec-card"><summary class="sec-title">&#8986; Recording &middot; how to record this one</summary>'
+      + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.recordingNote)+'</div></details>';
+  }
+
   if(sess.warmupNote){
     html += '<div class="card"><div class="sec-title">&#128293; Warm-up</div>'
       + '<div style="white-space:pre-wrap">'+esc(sess.warmupNote)+'</div></div>';
@@ -2074,9 +2085,11 @@ function autoGrow(ta){
   ta.style.height=(ta.scrollHeight + (ta.offsetHeight-ta.clientHeight))+"px";
 }
 function sessNotesHtml(k, s){
-  const wu=s.warmupNote||"", cd=s.cooldownNote||"";
-  const has=!!(wu||cd);
+  const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"";
+  const has=!!(wu||cd||rec);
   return '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+    + '<label class="fld" style="margin-bottom:8px">&#8986; Recording (Garmin)'
+      + '<textarea class="notes" data-sessnote="recordingNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. start on the warm-up jog, lap at the start and end of the 2km, end before the core work">'+esc(rec)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#128293; Warm-up / mobility'
       + '<textarea class="notes" data-sessnote="warmupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 3 min cross-trainer, then shoulder mobility">'+esc(wu)+'</textarea></label>'
     + '<label class="fld">&#129482; Cool-down'
@@ -2113,7 +2126,7 @@ function renderEdit(){
       // per-exercise actions below.
       html+='<div class="row actions" style="margin:2px 0 10px">'
         + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
-        + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote)?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down</button>'
+        + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote||s.recordingNote)?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down / &#8986; recording</button>'
         + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
         + '<button class="mini" data-addex="'+k+'">&#10133; Exercise</button></div>'
         + sessNotesHtml(k, s);
@@ -2170,7 +2183,8 @@ function renderEdit(){
     if(v===(sess[field]||"")) return;
     if(v) sess[field]=v; else delete sess[field];
     saveProgram();
-    toast(field==="warmupNote" ? "Warm-up note saved" : "Cool-down note saved");
+    toast(field==="warmupNote" ? "Warm-up note saved"
+        : field==="recordingNote" ? "Recording note saved" : "Cool-down note saved");
   }));
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
@@ -2876,6 +2890,7 @@ function sessionShareCode(sessionKey){
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  if(s.recordingNote) payload.recordingNote=s.recordingNote;
   if(s.warmupNote) payload.warmupNote=s.warmupNote;
   if(s.cooldownNote) payload.cooldownNote=s.cooldownNote;
   return b64encode(JSON.stringify(payload));
@@ -2904,6 +2919,7 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   let key=slugify(payload.name), n=2;
   while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
   state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.recordingNote) state.program.sessions[key].recordingNote=String(payload.recordingNote);
   if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
   if(payload.cooldownNote) state.program.sessions[key].cooldownNote=String(payload.cooldownNote);
   state.program.order.push(key);
@@ -3051,6 +3067,7 @@ function renderHelp(){
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
+     +p('<b>&#8986; Recording</b> is a separate note for sessions you record on a <b>Garmin</b> - when to start the activity, where to press lap, when to end, and what to report back. It sits <b>above the warm-up</b> on the Session tab and starts <b>folded up</b>, so it never buries the warm-up; tap it to read it. It is kept apart from the warm-up so a coach can rewrite the recording plan when a session\'s structure changes without touching your mobility work.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
      +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); the volume total already saved against past sessions is left as it was logged. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')

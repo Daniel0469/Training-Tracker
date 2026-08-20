@@ -263,6 +263,10 @@
   .tile .big{font-size:23px;font-weight:800;line-height:1.15}
   .tile .big .sub{font-size:13px;font-weight:600;color:var(--muted)}
   .tile .lbl{font-size:12px;color:var(--muted);margin-top:3px}
+  /* The Session tab's Garmin recording block. Same collapsed-card pattern as the
+     coaching history: a <details> whose summary is the section heading. */
+  .rec-card summary{cursor:pointer}
+  .rec-card[open] summary{margin-bottom:2px}
   .coach-hist summary{cursor:pointer}
   .coach-hist[open] summary{margin-bottom:6px}
   .hist-entry{font-size:13px;border-top:1px solid var(--line);padding:8px 0}

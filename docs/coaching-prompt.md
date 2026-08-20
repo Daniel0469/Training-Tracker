@@ -106,6 +106,18 @@ the prompt below.
 > so put the prescription in `target`. Always pass `why`: it becomes the note they read on the
 > session. `Cardio: Endurance + Core` is the kept backup — never repurpose it.
 >
+> **Whenever you change a run's structure, rewrite `recording` in the same call.** It is a
+> separate field from `warmup` — the app shows it as its own folded-up **⌚ Recording** block
+> above the warm-up — and it is how the session becomes readable afterwards: a warm-up, a time
+> trial and an easy jog all sit in **one** Garmin activity, so the activity-level averages are
+> worthless unless the note says which lap holds which piece. Cover, in order: one activity or
+> several; where **Start**, each **Lap** and **End** go; what each lap will hold, written for
+> whoever reads it back; anything to **type in** as well (typed data is never overwritten by the
+> sync, so a treadmill-belt number beats a wrist estimate); and anything to report back, like a
+> treadmill-vs-watch distance check. Lap points are meaningless against a different structure, so
+> a new session with last week's recording note is worse than none. Because it is its own field,
+> rewriting it never disturbs the hand-written mobility work in `warmup`.
+>
 > **If a note of yours ends up saying the app should work differently, don't bury it in the note** -
 > call `propose_suggestion_tool(text, why, about)`. It lands in the same 💡 backlog Daniel and Cerys
 > type into, marked as yours, and waits in the gear menu for Daniel to approve or decline; the dev

@@ -19,7 +19,12 @@ Everything written lands in the shared `data.json` and reaches the phones on the
 Three of the writes are worth knowing the shape of before using them:
 - `write_coaching` is **per person** — Daniel and Cerys can get different notes on the same
   session, and usually should.
-- `write_session_notes` is **not**. Warm-up / cool-down notes live on the *program*, so one text
+- `write_run` / `write_session_notes` carry **three** notes, not two: `recording` (how to
+  record it on the watch - start, laps, end, what to report back) is deliberately separate
+  from `warmup`, because the lap plan has to be rewritten whenever a session's structure
+  changes and doing that shouldn't mean re-sending months of hand-written mobility work.
+  The app draws it as its own collapsed block above the warm-up.
+- `write_session_notes` is **not** per person. Warm-up / cool-down notes live on the *program*, so one text
   is shared by both people; name whoever a line is for. It also **replaces** the field by default,
   and those notes are long hand-written mobility blocks — so call `session_notes(session)` first
   and pass `append=True` when you're adding a line rather than rewriting the lot. The previous

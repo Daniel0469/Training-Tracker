@@ -238,11 +238,12 @@ def get_session_notes(data, session=""):
     keys = [key] if key else list(sessions.keys())
     return [{"session": (sessions.get(k) or {}).get("name"),
              "day": (sessions.get(k) or {}).get("day"),
+             "recordingNote": (sessions.get(k) or {}).get("recordingNote", ""),
              "warmupNote": (sessions.get(k) or {}).get("warmupNote", ""),
              "cooldownNote": (sessions.get(k) or {}).get("cooldownNote", "")}
             for k in keys]
 
-def set_session_notes(session, warmup=None, cooldown=None, append=False):
+def set_session_notes(session, warmup=None, cooldown=None, append=False, recording=None):
     """Rewrite a session's warm-up and/or cool-down note. Shared by both people.
 
     Passing None for a field leaves it alone; passing "" clears it. `append` adds
@@ -257,9 +258,11 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False):
             failed["sessions"] = [(s or {}).get("name") for s in sessions.values()]
             return None
         s = sessions[key]
-        before = {"warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", "")}
+        before = {"warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
+                  "recordingNote": s.get("recordingNote", "")}
         changed = []
-        for field, text in (("warmupNote", warmup), ("cooldownNote", cooldown)):
+        for field, text in (("recordingNote", recording),
+                            ("warmupNote", warmup), ("cooldownNote", cooldown)):
             if text is None:
                 continue
             text = str(text).strip()
@@ -275,6 +278,7 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False):
         # The program only reaches the phones when its stamp is newer than theirs.
         data.setdefault("program", {})["updatedAt"] = _now_iso()
         return {"session": s.get("name"), "changed": changed, "previous": before,
+                "recordingNote": s.get("recordingNote", ""),
                 "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", "")}
     result = _github_update(mutate, lambda r: f"Session notes for {r['session']}")
     if result is None:
@@ -339,12 +343,13 @@ def get_run(data, person):
     if key is None:
         return {"error": s}
     return {"person": person, "session": s.get("name"), "day": s.get("day"),
+            "recordingNote": s.get("recordingNote", ""),
             "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
             "exercises": s.get("exercises") or []}
 
 
 def set_run(person, exercises=None, why="", name=None, day=None,
-            warmup=None, cooldown=None):
+            warmup=None, cooldown=None, recording=None):
     """Re-prescribe `person`'s own run session. See the write_run tool docstring."""
     failed = {}
 
@@ -369,6 +374,7 @@ def set_run(person, exercises=None, why="", name=None, day=None,
             cleaned = None
 
         previous = {"name": s.get("name"), "day": s.get("day"),
+                    "recordingNote": s.get("recordingNote", ""),
                     "warmupNote": s.get("warmupNote", ""),
                     "cooldownNote": s.get("cooldownNote", ""),
                     "exercises": json.loads(json.dumps(s.get("exercises") or []))}
@@ -393,7 +399,8 @@ def set_run(person, exercises=None, why="", name=None, day=None,
         if day and str(day).strip() != s.get("day"):
             s["day"] = str(day).strip()
             changed.append("day")
-        for field, text in (("warmupNote", warmup), ("cooldownNote", cooldown)):
+        for field, text in (("recordingNote", recording),
+                            ("warmupNote", warmup), ("cooldownNote", cooldown)):
             if text is None:
                 continue
             text = str(text).strip()
@@ -928,15 +935,16 @@ def _register(mcp):
 
     @mcp.tool()
     def session_notes(session: str = "") -> str:
-        """The 🔥 warm-up and 🧊 cool-down notes on each session of the program, as they
-        currently read. Omit `session` for all of them. ALWAYS call this before
+        """The ⌚ recording, 🔥 warm-up and 🧊 cool-down notes on each session of the program,
+        as they currently read. Omit `session` for all of them. ALWAYS call this before
         write_session_notes: the notes are long, hand-written mobility blocks and a write
         replaces them by default."""
         return json.dumps(get_session_notes(load_data(), session), indent=2)
 
     @mcp.tool()
     def write_session_notes(session: str, warmup: str | None = None,
-                            cooldown: str | None = None, append: bool = False) -> str:
+                            cooldown: str | None = None, append: bool = False,
+                            recording: str | None = None) -> str:
         """Rewrite a session's warm-up and/or cool-down note - use this when the fix is a
         change to what they do either side of the exercises, e.g. adding calf and ankle work
         to a cardio warm-up because someone's shins keep flaring, or dropping a stretch that
@@ -953,11 +961,16 @@ def _register(mcp):
         Omit a field to leave it untouched; pass "" to clear it. The previous text comes back
         in the response, so a bad write can be undone by writing it back.
 
+        `recording` is the third note: how to record the session on a Garmin (start, laps,
+        end, what to report back). Keep it out of `warmup` - it is its own collapsed block
+        above the warm-up, so that the warm-up isn't buried and so either can be rewritten
+        without disturbing the other. For a person's OWN run session, use write_run instead.
+
         It reaches both phones on their next Sync now (a phone mid-workout takes it after).
         Program STRUCTURE - sets, reps, targets, which exercises - is not yours to change,
         with ONE exception: each person's own run session, which is yours (see write_run).
         Everywhere else, raise it with propose_suggestion_tool for Daniel to approve."""
-        return json.dumps(set_session_notes(session, warmup, cooldown, append), indent=2)
+        return json.dumps(set_session_notes(session, warmup, cooldown, append, recording), indent=2)
 
     @mcp.tool()
     def run_session(person: str) -> str:
@@ -969,7 +982,8 @@ def _register(mcp):
     @mcp.tool()
     def write_run(person: str, exercises: list | None = None, why: str = "",
                   name: str | None = None, day: str | None = None,
-                  warmup: str | None = None, cooldown: str | None = None) -> str:
+                  warmup: str | None = None, cooldown: str | None = None,
+                  recording: str | None = None) -> str:
         """Re-prescribe ONE person's run session. This session is yours: Daniel's explicit
         instruction (20 Aug 2026) is that the coach decides the optimal run each week from
         the data, and is NOT restricted to the formats used so far. Rep sessions, tempo,
@@ -1001,6 +1015,20 @@ def _register(mcp):
         trends, while renaming it to "4x800m" starts a new and empty history. Put the
         prescription in `target` instead - that's what it's for.
 
+        `recording` is how to record THIS session on the watch, and it is its own field
+        on purpose - it is NOT warm-up content and must not be put in `warmup`. It shows as
+        a separate collapsed block above the warm-up on their phone. Write it whenever you
+        change the session's structure, because the lap points are meaningless against a
+        different structure, and it is the only way you can read a mixed activity back: a
+        warm-up, a time trial and an easy jog all sit in ONE Garmin recording, so the
+        activity-level averages are worthless without knowing which lap holds which piece.
+        Cover, in this order: whether it is one activity or several; where to press Start,
+        each Lap, and End; what each lap will hold, written for whoever reads it back later;
+        anything to TYPE in as well (typed data is never overwritten by the sync, so a
+        treadmill-belt number beats a wrist estimate); and anything to report back, like a
+        treadmill-vs-watch distance check. Because it is separate, rewriting it never
+        touches the hand-written mobility work in `warmup`, and vice versa.
+
         `why` is the reason, in a few sentences, and you should always pass it: it becomes
         the coach note on that session, so they read it while they train, and it lands in
         the coaching history so the two of you can see whether the call worked.
@@ -1011,7 +1039,8 @@ def _register(mcp):
         what they fall back to. The full previous session comes back in the response; keep it
         if you might want to put it back. Reaches their phone on the next Sync now, never
         mid-workout."""
-        return json.dumps(set_run(person, exercises, why, name, day, warmup, cooldown), indent=2)
+        return json.dumps(set_run(person, exercises, why, name, day, warmup, cooldown,
+                                  recording), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
