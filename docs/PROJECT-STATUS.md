@@ -311,6 +311,33 @@ which was already the old gate's stated intent. `tt-v102`.
   notes) - see the section at the bottom of this file. And **another Claude Code restart** for
   `propose_suggestion_tool`.
 
+**2026-08-20 - all 14 warm-up / cool-down notes rewritten for reading at the gym.** Daniel's
+complaint: they are what he reads between sets and they had grown wordy for no reason - detailed is
+fine, convoluted is not. Agreed shape, then applied as program data (no app code, so no
+`CACHE_NAME` bump):
+- **One line per move** - name, dose, then a cue only where the move is easy to get wrong (heel
+  leading on the abduction, elbows down on the rack holds). Paragraphs of prose technique are gone;
+  every dose, time and percentage survives.
+- **The coaching asides and the safety text stay**, compressed to an indented line under the move
+  they belong to - Cerys's hip click, the PAILs/RAILs hold-off, the shin/calf note, the adductor
+  traffic light and the red flags. Daniel was offered moving them out of the note entirely and
+  turned it down: the traffic light has to be in front of you at the moment you judge the hip.
+- **Two housekeeping blocks removed.** The paragraph on both Wednesday sessions explaining how the
+  app picks your cardio - `renderHelp` already says it (the ⚡ Next cardio paragraph, "a default,
+  not a lock"), so it was duplication in the one place you least want to read it. And "Calf raise is
+  out of this warm-up, as you asked", an acknowledgement of a change already made on 19 Aug.
+- The only other losses are two bits of rationale for the coach's own past edits - why PAILs/RAILs
+  stayed on the list, and the fuller account of what moved out of the Wednesday endurance cool-down.
+  Both explained a decision rather than telling you how to train.
+- 11,240 -> 8,930 chars overall (-21%). The lopsided part is the point: Lower 2's warm-up went
+  2,303 -> 1,600 and the two Wednesday warm-ups more than halved, while the Upper notes barely moved
+  because they were already one line per move. **The remaining bulk in the Lower notes is the safety
+  text Daniel chose to keep** - don't re-trim it thinking it was missed.
+- Scripts: `scratchpad/apply_note_trim.py` (idempotent, backs up `data.json`, and **refuses to run
+  if any note no longer hashes to the text it was written against** - so an edit made on a phone in
+  the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
+  the notes read-only.
+
 **2026-08-19 - the coach's first program changes, approved and applied.** Five coach-raised
 suggestions, all approved by Daniel in the gear menu the same day. Four were program data, one was
 app code. Worth noting what this session actually demonstrates: the `proposed -> open` gate did its
