@@ -263,12 +263,30 @@ function orderedKeys(){
     return da-db;
   });
 }
+// A session can belong to ONE person (`person` on the session). The run sessions
+// are prescribed individually - opposite limiters, different rep counts - so the
+// other person should never be offered one, on the calendar or in the picker.
+// No `person` means it belongs to everybody, which is every session that existed
+// before this, so nothing changes for them.
+function ownsSession(k, p){
+  var o=(state.program.sessions[k]||{}).person;
+  return !o || o===p;
+}
+// The sessions the active person can actually log. The Program tab deliberately
+// doesn't use this - both of you can see and edit the whole plan there.
+function myKeys(){
+  var p=state.people[state.activePerson];
+  return orderedKeys().filter(function(k){ return ownsSession(k,p); });
+}
 
 function sessionForDate(dstr){
   var wd=new Date(dstr+"T12:00:00").getDay();
   var names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   var target=names[wd];
-  var keys=state.program.order.filter(function(k){return String(state.program.sessions[k].day||"").toLowerCase()===target;});
+  var me=state.people[state.activePerson];
+  var keys=state.program.order.filter(function(k){
+    return String(state.program.sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
+  });
   if(keys.length<2) return keys[0];
   // More than one session on this weekday - the two cardio sessions share
   // Wednesday. Which one is it today?
@@ -731,7 +749,9 @@ function hasCoaching(){
 }
 function renderLog(){
   const p = state.people[state.activePerson];
-  const opts = orderedKeys().map(k=>{
+  // Swapping person can leave you pointed at the other one's run session.
+  if(!ownsSession(curSession, p)) curSession = sessionForDate(curDate) || myKeys()[0] || curSession;
+  const opts = myKeys().map(k=>{
     const s=state.program.sessions[k];
     return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(s.day)+'</option>';
   }).join("");
@@ -952,10 +972,14 @@ function updateWarmup(card, ex){
 }
 function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
   const running = isRunning(ex);
-  // Runs get a single blank split row — the watch (or the importer) fills the
-  // real splits in. Other exercises take their set count from the program only
-  // (it used to be max(program, last log), which permanently inflated it).
-  const rows = running ? 1 : Math.max(1, ex.sets||1);
+  // Set count comes from the program only (it used to be max(program, last log),
+  // which permanently inflated it). A run left at sets=1 therefore gets the
+  // single blank split row it always had, and the watch or the importer fills
+  // the real splits in. A run PRESCRIBED as reps - "6 x 400m" - sets sets=6 and
+  // gets a row per rep to type into, which is what makes a fade visible rep by
+  // rep. Blank rows are dropped on save either way, so an untouched rep table
+  // still leaves the entry for Garmin to fill.
+  const rows = Math.max(1, ex.sets||1);
   const fmt = r => fmtRow(ex.cols, r);
   let body="";
   for(let i=0;i<rows;i++){
@@ -2079,7 +2103,8 @@ function renderEdit(){
       + '<button type="button" class="sess-head" data-sesstoggle="'+esc(k)+'" aria-expanded="'+(open?"true":"false")+'">'
         + '<span class="sess-caret">&#9656;</span>'
         + '<span class="sess-title"><span class="sess-name">'+esc(s.name)+'</span>'
-          + '<span class="ex-meta">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")+'</span></span>'
+          + '<span class="ex-meta">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")
+            +(s.person?' &middot; '+esc(s.person)+' only':"")+'</span></span>'
       + '</button>';
     if(open){
       // One right-aligned row of session actions. The warm-up/cool-down toggle
@@ -2994,7 +3019,8 @@ function renderHelp(){
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
   h+=card('4 &middot; Cardio &amp; running',
-      p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs; the run starts as a single blank row and shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
+      p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs, and it shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
+     +p('<b>A run gets a row per rep or per km</b> when it\'s prescribed that way - <i>6 x 400m</i> draws six rows, a 5km easy run draws five - so you can fill each one in as you go and see a rep fading while you\'re still on the treadmill. <b>Leaving them blank is fine and is the point</b>: empty rows are dropped when you save, and the Garmin sync then fills the real splits in exactly as it always has. Type into them only when you\'re running <b>without the watch</b>, and use <b>+ set</b> if you need another row.')
      +p('<b>Interval / speed sessions</b> work slightly differently: you type your own <b>hard and easy paces</b>, and Garmin adds only what it alone measures - <b>♥ HR, heart-rate zones and calories</b> - without overwriting anything you entered. That works because the exercise is ticked <b>⌚ Garmin records this</b> in Edit Program (real distance+time runs are detected automatically; tick it for cardio logged as paces instead). These hard efforts are also the most valuable data for your <b>🏁 Estimated 5k</b>.')
      +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
@@ -3015,13 +3041,15 @@ function renderHelp(){
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
-     +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something. When two cardio sessions share a day, your coach can <b>assign</b> which one is next and what to do in it - and the app then <b>opens that one</b> for you, instead of guessing. It\'s <b>per person</b>, so you and your partner can get different numbers for the same session. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app goes back to <b>alternating on its own</b> - whichever of the two you did least recently - until your coach writes a new one. You can always pick the other session from the list anyway; it\'s a default, not a lock.')
+     +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')
+     +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. You can always pick another session from the list; it\'s a default, not a lock.')
      +p('<b>&#128681; What\'s holding this back</b> shows on a session when you\'ve told your coach what\'s limiting it - "haven\'t found my top working speed yet", "Zone 2 is a walk for me, not a run". It\'s in <b>your</b> words, kept apart from the coach\'s own read of your numbers, and it\'s the first thing the coach checks - because two people can produce the same heart-rate trace for completely opposite reasons.'));
 
   h+=card('7 &middot; Edit the program',
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
+     +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')

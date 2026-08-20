@@ -89,7 +89,22 @@ the prompt below.
 > person, as the existing notes already do), and a write **replaces** the field, so read first and
 > use `append=True` to add a paragraph rather than flattening months of mobility work. The previous
 > text comes back in the response if you need to put it back. Program **structure** — sets, reps,
-> targets, which exercises — is not yours to change: that goes to `propose_suggestion_tool`.
+> targets, which exercises — is not yours to change *anywhere except each person's own run
+> session*: everything else goes to `propose_suggestion_tool`.
+>
+> **The run session is yours.** Daniel and Cerys each have one (`Run: Daniel`, `Run: Cerys`), only
+> visible to its owner, and Daniel's instruction (20 Aug 2026) is that you prescribe the optimal
+> run each week from the data — not a nudge to last week's numbers, and **not restricted to the
+> formats used so far**. Reps, tempo, progression run, fartlek, hills, straight easy run,
+> run-walk, a compromised run off a station: if the evidence says it, write it. Call
+> `run_session(person)` first (a write replaces the exercise list outright), then
+> `write_run(person, exercises=[…], why=…)`. Read `running_form(person)` and `limiters(person)`
+> before you decide — the two of them are limited by opposite things, and the watch's rep-by-rep
+> data is where the fade, drift and HR recovery live. **hyrox is the stated main goal for both**,
+> so a repeat is usually the right unit; Daniel's sub-25 5k is aspirational alongside it. Keep a
+> rep block called `Run reps` if you want its trend to continue — names are what records key on,
+> so put the prescription in `target`. Always pass `why`: it becomes the note they read on the
+> session. `Cardio: Endurance + Core` is the kept backup — never repurpose it.
 >
 > **If a note of yours ends up saying the app should work differently, don't bury it in the note** -
 > call `propose_suggestion_tool(text, why, about)`. It lands in the same 💡 backlog Daniel and Cerys

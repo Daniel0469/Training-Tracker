@@ -15,3 +15,5 @@ scratchpad/data-backup-*.json
 scratchpad/store.json
 scratchpad/probe*.txt
 _devfixture.json
+# The prototype state the browser loads: same thing again, a full copy of the store.
+scratchpad/proto-*.json

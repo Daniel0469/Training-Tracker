@@ -8,13 +8,15 @@ laptop, on your **Claude subscription — no API billing**.
 
 **Read:** `people`, `goals(person)`, `recent_sessions(person, limit)`, `session(session_id)`,
 `prs(person)`, `bodyweight(person)`, `progress(person, exercise)`, `running_form(person)`,
-`limiters(person)`, `coaching_history(person)`, `session_notes(session)`, `suggestions()`.
+`limiters(person)`, `coaching_history(person)`, `session_notes(session)`, `run_session(person)`,
+`suggestions()`.
 
 **Write** (needs the token to have Contents: **read and write**): `write_coaching`,
-`write_limiter`, `write_session_notes`, `propose_suggestion_tool`, `resolve_suggestion_tool`.
+`write_limiter`, `write_session_notes`, `write_run`, `propose_suggestion_tool`,
+`resolve_suggestion_tool`.
 Everything written lands in the shared `data.json` and reaches the phones on their next sync.
 
-Two of the writes are worth knowing the shape of before using them:
+Three of the writes are worth knowing the shape of before using them:
 - `write_coaching` is **per person** — Daniel and Cerys can get different notes on the same
   session, and usually should.
 - `write_session_notes` is **not**. Warm-up / cool-down notes live on the *program*, so one text
@@ -22,6 +24,12 @@ Two of the writes are worth knowing the shape of before using them:
   and those notes are long hand-written mobility blocks — so call `session_notes(session)` first
   and pass `append=True` when you're adding a line rather than rewriting the lot. The previous
   text is returned on every write, so a bad one can be put straight back.
+- `write_run` is the one place the coach owns program **structure**. Each person has their own
+  run session (`Run: Daniel`, `Run: Cerys` — the `person` field on the session, which is also
+  what hides it from the other one), and Daniel's instruction is that the coach prescribes the
+  optimal run each week from the data, in whatever format the data calls for. It replaces the
+  exercise list outright, so call `run_session(person)` first; the whole previous session comes
+  back for a revert. `Cardio: Endurance + Core` stays as the untouchable backup.
 
 Then in Claude you just ask, e.g. *"You're my coach — review my last two weeks against my goals
 and tell me what to change,"* and it calls these tools itself.

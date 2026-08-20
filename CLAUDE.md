@@ -12,6 +12,12 @@ feature proposals/specs.
   answered. Default to asking: if a request has more than one reasonable reading, guessing wrong
   means rework and, worse, silent changes to real training data. State your recommendation with
   each option so answering is quick. Cheap factual lookups don't need this.
+- **Prototype before pushing.** Once the plan is agreed, build it locally and *show* it -
+  screenshots of the real app, both people, both themes - and let Daniel change whatever he
+  wants before anything is committed or pushed. Prototype against a COPY of the store, never
+  the live one (`scratchpad/proto_run.py` is the pattern: newest `data-backup-*.json` in,
+  local state file out, shared store never opened). Pushing auto-deploys to both phones and
+  writes real training data, so the review has to happen while it's still free.
 - **Bump `CACHE_NAME` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
   bump, installed users keep the old files. Increment the `tt-vN` number.

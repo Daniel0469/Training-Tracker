@@ -136,7 +136,10 @@
   table.sets input[readonly]{background:#eef1f6;color:var(--muted);cursor:default;font-weight:600}
   table.sets th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;font-weight:700;padding:2px 6px}
   table.sets td{padding:3px 6px}
-  table.sets input{width:100%;padding:7px 8px}
+  /* min-width so a three-column run row (Distance/Time/Pace) can't squeeze a
+     cell until its own value is clipped - "5:27" was rendering as "5:2" on a
+     375px phone. The table scrolls inside .sets-wrap instead. */
+  table.sets input{width:100%;padding:7px 8px;min-width:3.4em}
   .setno{color:var(--muted);font-weight:700;width:30px;text-align:center;font-size:13px;cursor:pointer;user-select:none}
   .setno[data-setno]:hover{color:var(--brand)}
   tr.wset td{opacity:.55}

@@ -311,6 +311,44 @@ which was already the old gate's stated intent. `tt-v102`.
   notes) - see the section at the bottom of this file. And **another Claude Code restart** for
   `propose_suggestion_tool`.
 
+**2026-08-20 - a run session each, and the coach now owns them.** Daniel asked for a designed run
+per person instead of the app picking between Speed and Endurance, and for the coach to
+re-prescribe it weekly. Built from the run history, not a template:
+- **Daniel: `4 x 800m @ 11.0 km/h, 90s walk`**, then 10 min easy jog. The 29 Jul intervals peaked
+  at **157 bpm against a 200 max and a 173 threshold** and he finished them faster than he started
+  - 1 min on / 2 min off never gets him near threshold. 11.0 km/h is his current estimated 5k pace,
+  so this is also the first evidence that could move the 5k off medium confidence.
+- **Cerys: `6 x 400m @ 11.0 km/h, 90s walk`**, then a 10 min incline walk. Her 29 Jul reps went
+  13.5 / 12.5 / 14.1 / 13.1 / **10.2** km/h - a 28% fade, ten minutes above Zone 4. Speed is
+  **fixed at her own stated 11.0** (her limiter says speed isn't the lever, and the limiter wins);
+  the progression is reps, then recovery. Walk recoveries also keep continuous impact off the shins.
+- **hyrox is the main goal for both** (Daniel's answer: sub-25 5k is aspirational alongside it), so
+  the unit is a repeat and the ladder heads for 8x1km.
+- **Sessions can now belong to one person** (`person` on the session). An owned session is hidden
+  from the other's Session picker and calendar; the Program tab still shows both, tagged
+  *Daniel only* / *Cerys only*, and unowned sessions behave exactly as before. That, not the coach
+  card, is what removes the pick-between-two problem.
+- **`Cardio: Speed + Core` retired** (its logs keep the name); **`Cardio: Endurance + Core` moved to
+  Optional** and kept as the backup easy run - never repurpose it, Daniel asked for it as the
+  fallback. Its Zone 2 run now draws **a row per km**.
+- **Runs draw a row per rep when prescribed as reps.** `renderExForm` used to hard-code runs to one
+  row; now `sets` means the same thing everywhere. Blank rows are dropped on save, so the
+  wear-the-watch-and-leave-it-empty path is untouched - the rows are for running without the watch,
+  and for seeing a fade rep by rep while you're on the treadmill.
+- **`write_run` / `run_session`** (mcp-coach): the coach re-prescribes one person's run outright -
+  any format, explicitly **not** restricted to the two used so far, on Daniel's instruction. It
+  validates every exercise, refuses a rename that collides with another session, returns the whole
+  previous session for a revert, and writes `why` as the session's coach note. Offline test:
+  `scratchpad/test_write_run.py`. This is the ONE carve-out from "program structure is not yours
+  to change" - `write_session_notes` and `coaching-prompt.md` now say so.
+- Prototyped in the browser before any of it was pushed (`scratchpad/proto_run.py` +
+  `run_sessions.py`, which the apply script shares so what shipped is what was reviewed). The
+  prototype found two things a diff never would: runs drawing one row for a six-rep prescription,
+  and the **Pace column clipping its own value** at 375px ("5:27" as "5:2") - hence the
+  `table.sets input` min-width. `CACHE_NAME` -> **tt-v109**.
+- Still open: `Cardio: Endurance + Core` keeps its `Warm-up` / `Cooldown` logged rows, which
+  duplicate the note cards. The new run sessions don't have them (Daniel's call).
+
 **2026-08-20 - all 14 warm-up / cool-down notes rewritten for reading at the gym.** Daniel's
 complaint: they are what he reads between sets and they had grown wordy for no reason - detailed is
 fine, convoluted is not. Agreed shape, then applied as program data (no app code, so no

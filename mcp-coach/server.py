@@ -284,6 +284,163 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False):
                          "their phones on the next Sync now, unless one is mid-workout.")
     return result
 
+def _find_run_session(data, person):
+    """The session that BELONGS to `person` - the one the coach re-prescribes each
+    week. Ownership is the `person` field on the session, which is also what stops
+    the other one being offered it in the app. Returns (key, session) or (None, why).
+    """
+    sessions = ((data.get("program") or {}).get("sessions")) or {}
+    hits = [(k, s) for k, s in sessions.items() if (s or {}).get("person") == person]
+    if not hits:
+        owned = {(s or {}).get("name"): (s or {}).get("person")
+                 for s in sessions.values() if (s or {}).get("person")}
+        return None, (f"No session belongs to {person!r}. Owned sessions: {owned or 'none'}.")
+    if len(hits) > 1:
+        return None, ("More than one session belongs to %r (%s) - that shouldn't happen; "
+                      "fix the program before prescribing." % (person, [s.get("name") for _, s in hits]))
+    return hits[0][0], hits[0][1]
+
+
+def _clean_exercise(e, i):
+    """One exercise, validated into the exact shape the app's program model wants."""
+    where = f"exercises[{i}]"
+    if not isinstance(e, dict):
+        raise ValueError(f"{where} must be an object, got {type(e).__name__}")
+    name = str(e.get("name") or "").strip()
+    if not name:
+        raise ValueError(f"{where} has no name")
+    cols = e.get("cols")
+    if not (isinstance(cols, list) and 2 <= len(cols) <= 3
+            and all(str(c).strip() for c in cols)):
+        raise ValueError(f"{where} ({name}) needs 2 or 3 non-empty column names, e.g. "
+                         '["Distance (km)", "Time (mm:ss)", "Pace"] or ["Min", "Notes"]')
+    try:
+        sets = int(e.get("sets") or 1)
+    except (TypeError, ValueError):
+        raise ValueError(f"{where} ({name}) has a non-numeric `sets`")
+    if not 1 <= sets <= 30:
+        raise ValueError(f"{where} ({name}) has sets={sets}; it must be 1-30")
+    out = {"name": name, "warmup": str(e.get("warmup") or ""),
+           "notes": str(e.get("notes") or ""), "target": str(e.get("target") or "").strip(),
+           "sets": sets, "cols": [str(c).strip() for c in cols]}
+    if e.get("garminRun"):
+        out["garminRun"] = True
+    for opt in ("groupId", "load", "bwPct"):
+        if e.get(opt):
+            out[opt] = e[opt]
+    if e.get("muscles"):
+        out["muscles"] = list(e["muscles"])
+    return out
+
+
+def get_run(data, person):
+    """`person`'s current run session, exactly as their phone will draw it."""
+    key, s = _find_run_session(data, person)
+    if key is None:
+        return {"error": s}
+    return {"person": person, "session": s.get("name"), "day": s.get("day"),
+            "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
+            "exercises": s.get("exercises") or []}
+
+
+def set_run(person, exercises=None, why="", name=None, day=None,
+            warmup=None, cooldown=None):
+    """Re-prescribe `person`'s own run session. See the write_run tool docstring."""
+    failed = {}
+
+    def mutate(data):
+        if person not in (data.get("people") or []):
+            failed["error"] = f"No such person {person!r}. People: {data.get('people')}"
+            return None
+        key, s = _find_run_session(data, person)
+        if key is None:
+            failed["error"] = s
+            return None
+        if exercises is not None:
+            if not isinstance(exercises, list) or not exercises:
+                failed["error"] = "`exercises` must be a non-empty list of exercise objects."
+                return None
+            try:
+                cleaned = [_clean_exercise(e, i) for i, e in enumerate(exercises)]
+            except ValueError as err:
+                failed["error"] = str(err)
+                return None
+        else:
+            cleaned = None
+
+        previous = {"name": s.get("name"), "day": s.get("day"),
+                    "warmupNote": s.get("warmupNote", ""),
+                    "cooldownNote": s.get("cooldownNote", ""),
+                    "exercises": json.loads(json.dumps(s.get("exercises") or []))}
+        changed = []
+        if cleaned is not None and cleaned != previous["exercises"]:
+            s["exercises"] = cleaned
+            changed.append("exercises")
+        if name and str(name).strip() and str(name).strip() != s.get("name"):
+            wanted = str(name).strip()
+            # Session names have to stay unique: logs are keyed by sessionName, the
+            # next-cardio card matches a session by name, and _find_session resolves
+            # by name. Two sessions called the same thing quietly break all three.
+            clash = [k2 for k2, s2 in (((data.get("program") or {}).get("sessions")) or {}).items()
+                     if k2 != key and str((s2 or {}).get("name") or "").strip().lower() == wanted.lower()]
+            if clash:
+                failed["error"] = (f"Another session is already called {wanted!r}. Session names "
+                                   "must be unique - logs, the next-cardio card and every "
+                                   "lookup key on it.")
+                return None
+            s["name"] = wanted
+            changed.append("name")
+        if day and str(day).strip() != s.get("day"):
+            s["day"] = str(day).strip()
+            changed.append("day")
+        for field, text in (("warmupNote", warmup), ("cooldownNote", cooldown)):
+            if text is None:
+                continue
+            text = str(text).strip()
+            if text != s.get(field, ""):
+                s[field] = text
+                changed.append(field)
+        if not changed:
+            failed["error"] = "Nothing to change - the session already reads exactly that."
+            return None
+
+        # The phones adopt the program only when its stamp is newer than theirs.
+        data.setdefault("program", {})["updatedAt"] = _now_iso()
+
+        # `why` rides along as the session's coach note, so the reason for this
+        # week's prescription is on the card they read while they train, and lands
+        # in the coaching history next to every other note.
+        note = str(why or "").strip()
+        if note:
+            coaching = data.get("coaching") or {}
+            entry = coaching.get(person) or {}
+            by_session = dict(entry.get("bySession") or {})
+            by_session[s.get("name")] = note
+            entry["bySession"] = by_session
+            entry["updated"] = _today()
+            coaching[person] = entry
+            data["coaching"] = coaching
+            hist = data.get("coachingLog")
+            if not isinstance(hist, list):
+                hist = []
+            hist.append({"id": int(time.time() * 1000), "date": _today(),
+                         "person": person, "bySession": {s.get("name"): note}})
+            data["coachingLog"] = hist
+
+        return {"person": person, "session": s.get("name"), "changed": changed,
+                "previous": previous, "exercises": s.get("exercises")}
+
+    result = _github_update(mutate, lambda r: f"Run session for {r['person']}: {r['session']}")
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    result["message"] = (
+        f"Saved. Only {person} sees this session; it reaches their phone on the next "
+        "Sync now, and never mid-workout. `previous` above is the whole session as it "
+        "was - keep it if you might want to put it back.")
+    return result
+
+
 def get_coaching_history(data, person, limit=10):
     log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
     log.sort(key=lambda e: e.get("id", 0), reverse=True)
@@ -797,9 +954,64 @@ def _register(mcp):
         in the response, so a bad write can be undone by writing it back.
 
         It reaches both phones on their next Sync now (a phone mid-workout takes it after).
-        Program STRUCTURE - sets, reps, targets, which exercises - is not yours to change:
-        raise that with propose_suggestion_tool for Daniel to approve."""
+        Program STRUCTURE - sets, reps, targets, which exercises - is not yours to change,
+        with ONE exception: each person's own run session, which is yours (see write_run).
+        Everywhere else, raise it with propose_suggestion_tool for Daniel to approve."""
         return json.dumps(set_session_notes(session, warmup, cooldown, append), indent=2)
+
+    @mcp.tool()
+    def run_session(person: str) -> str:
+        """`person`'s own run session as it currently stands - every exercise, target, set
+        count, column and note, exactly as their phone will draw it. ALWAYS call this before
+        write_run: a write replaces the exercise list outright."""
+        return json.dumps(get_run(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def write_run(person: str, exercises: list | None = None, why: str = "",
+                  name: str | None = None, day: str | None = None,
+                  warmup: str | None = None, cooldown: str | None = None) -> str:
+        """Re-prescribe ONE person's run session. This session is yours: Daniel's explicit
+        instruction (20 Aug 2026) is that the coach decides the optimal run each week from
+        the data, and is NOT restricted to the formats used so far. Rep sessions, tempo,
+        progression runs, fartlek, hills, a straight easy run, run-walk, a compromised
+        run off a lifting station - if the data says it, prescribe it. Design it properly
+        from the evidence rather than nudging last week's numbers.
+
+        Read FIRST, every time: `run_session(person)` (what's there now), `running_form(person)`
+        (every logged run, rep by rep off the watch - fade, drift, HR recovery, time in zone),
+        `limiters(person)` (their own account of what's holding the session back - it wins over
+        your reading of the numbers), `goals(person)`, and `wellness`/`recent_sessions` for what
+        else is in the week. Hyrox is the stated main goal for both of them, so a repeat is
+        usually the right unit; Daniel's sub-25 5k is aspirational alongside it.
+
+        `exercises` REPLACES the whole list, so pass every exercise you want them to do,
+        in order. Each is
+          {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
+           "notes": optional setup/how-to text, "garminRun": optional bool,
+           "groupId": optional str to circuit two together}
+        Columns decide how the app treats it: a Distance + Time pair (e.g.
+        ["Distance (km)", "Time (mm:ss)", "Pace"]) makes it a run - pace computes itself,
+        `sets` draws a row per rep, and Garmin fills blank rows with the real splits. Two
+        free-text columns like ["Min", "Notes"] make it a plain timed block. Anything else
+        the watch records but that isn't distance+time (a speed-based interval, say) should
+        set garminRun=true so heart rate still attaches.
+
+        Keep an exercise NAME stable if you want its trend: records, the Last column and the
+        progress chart all key on the name, so a rep block called "Run reps" every week
+        trends, while renaming it to "4x800m" starts a new and empty history. Put the
+        prescription in `target` instead - that's what it's for.
+
+        `why` is the reason, in a few sentences, and you should always pass it: it becomes
+        the coach note on that session, so they read it while they train, and it lands in
+        the coaching history so the two of you can see whether the call worked.
+
+        Guard rails: you can only write a session that BELONGS to that person, so you cannot
+        touch the other one's run or any shared session. The original `Cardio: Endurance +
+        Core` is kept as an always-available backup - never delete or repurpose it, it is
+        what they fall back to. The full previous session comes back in the response; keep it
+        if you might want to put it back. Reaches their phone on the next Sync now, never
+        mid-workout."""
+        return json.dumps(set_run(person, exercises, why, name, day, warmup, cooldown), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
