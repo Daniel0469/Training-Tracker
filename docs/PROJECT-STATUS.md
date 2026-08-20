@@ -376,6 +376,36 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-20 - the Garmin recording plan became its own field.** Coach-raised, approved by Daniel
+the same day. The recording protocol (one activity or several, where Start/Lap/End go, what each lap
+holds, what to type in, what to report back) was the first ~20 lines of each run session's
+`warmupNote`. Now `session.recordingNote`, drawn on the Session tab as a **collapsed `<details>`
+card above the warm-up**, with a matching field in the Program editor and a `recording` parameter on
+`write_run` and `write_session_notes`.
+- **The measured win:** on a 375x812 phone against the real `Run: Daniel`, pulling it out and folding
+  it up moves the warm-up heading **742px** up the page. **But the warm-up is still not on the first
+  screen** (it starts at ~1257px), because the **🧠 Coach card is now 627px tall** - a direct
+  consequence of the 17 Aug "longer coaching notes" change - and the cardio banner adds 154px. If the
+  warm-up being reachable still matters, that card is the next thing to look at, not this one.
+- **Collapsed by default is deliberate:** a separate section that is still expanded pushes the warm-up
+  down just as far, so folding it is the half of the complaint that actually gets fixed. Flip
+  `<details>` to `<details open>` in `renderLog` if that turns out wrong in the gym.
+- **The suggestion's premise was wrong** and it's worth knowing: it asked for "collapsible like the
+  warm-up", but nothing on the Session tab was collapsible. This establishes the pattern (borrowed
+  from `.coach-hist`) rather than following one.
+- Why it's a separate field and not just moved text: lap points are meaningless against a different
+  structure, so it must be rewritable **without** re-sending the hand-written mobility work; and it is
+  read twice - during by whoever trains, after by the coach, because a warm-up, a time trial and an
+  easy jog sit in **one** Garmin activity and the activity-level averages are worthless without
+  knowing which lap is which.
+- Store side: `scratchpad/apply_recording_split.py` splits at the `WARM-UP` heading and **refuses
+  rather than guesses** if a note isn't written that way. Idempotent, backs up first, applied 20 Aug.
+  `scratchpad/proto_recording.py` builds a local prototype state from the newest backup so this could
+  be seen with the real notes without ever opening the shared store.
+- `CACHE_NAME` -> **tt-v110**. v109 was taken by the run-session work landing from another chat in
+  parallel - **two chats were writing this repo all day; check `sw.js` rather than assuming the next
+  number is free.** **Needs a Claude Code restart** before the coaching chat sees `recording`.
+
 **2026-08-19 - the coach's first program changes, approved and applied.** Five coach-raised
 suggestions, all approved by Daniel in the gear menu the same day. Four were program data, one was
 app code. Worth noting what this session actually demonstrates: the `proposed -> open` gate did its
@@ -518,7 +548,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v108`.
+  change to a cached file.** Currently `tt-v110`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
