@@ -39,16 +39,31 @@ Daniel's Forerunner 255 reports running power and ground contact time, Cerys's V
 neither, and her sessions simply arrive without those keys rather than with zeros.
 
 - **Heart rate** — avg, max, min, and seconds in each of the five zones.
-- **Per-rep interval detail** (`garmin.reps`) — on an interval session, each rep's distance,
-  duration, average speed, pace, avg + max HR, cadence and power, plus the recovery that followed
-  it (duration, average speed, and the *lowest* HR reached, from the per-second trace). Derived
-  from **Garmin's own run/walk split detection**, not a threshold we picked. Verified against both
-  29 Jul sessions: 6 reps for Daniel, 5 for Cerys, matching what they typed.
+- **Per-rep detail** (`garmin.reps`) — on **any** session Garmin segmented into repeats, each
+  rep's distance, duration, average speed, pace, avg + max HR, cadence and power, plus the recovery
+  that followed it (duration, average speed, and the *lowest* HR reached, from the per-second
+  trace). Derived from **Garmin's own run/walk split detection**, not a threshold we picked.
+  Verified against the 29 Jul sessions (6 reps for Daniel, 5 for Cerys, matching what they typed)
+  and Cerys's 20 Aug 6×1min.
+  **This used to fire only for sessions whose reps are typed as speeds**, so a rep session logged
+  with Distance/Time columns — which is how both run sessions are built now — produced no per-rep
+  data at all. It is no longer gated on the column shape.
+- **Refused rather than guessed** (`garmin.reps_skipped`) — reps are *repeats*, and Garmin's run/walk
+  detection finds every continuous run block, which on a mixed recording is not the same thing.
+  Daniel's 20 Aug trial holds three warm-up build-ups and one 2 km effort; calling those "4 reps"
+  gave a consistency of 24.7% and a fade of 0%, describing nothing that happened. When the blocks
+  are too unalike to be a set, no reps are stored and the reason is.
 - **Derived trend numbers** (`garmin.reps.derived`) — cardiac **drift** across the reps, average and
   best **HR recovery**, rep **consistency** and **fade**, best and average speed. Drift is only
   reported when the first and last rep were run at a similar speed; otherwise a `drift_skipped`
   reason is stored instead, because subtracting HRs across two different speeds measures someone
   slowing down, not their heart drifting.
+- **Drift within one effort** (`garmin.effort_drift`) — for a sustained effort like a time trial,
+  which has no reps to compare: the longest continuous run block in the activity, first half against
+  second half, with the block reported back so the assumption can be checked. Same speed guard as
+  above — if the halves were run at different speeds it is `drift_skipped`, not a number. Daniel's
+  20 Aug 2 km: **151 → 174 bpm, +23**, where the activity-level average said 134 and covered a
+  ten-minute walk.
 - **Efficiency** (`garmin.efficiency`) — efficiency factor (metres per minute per bpm), taken over
   the **running blocks only** where Garmin segmented them, since a whole-activity average moves when
   someone walks more; plus watts/kg using the bodyweight already in the app as at the session date.

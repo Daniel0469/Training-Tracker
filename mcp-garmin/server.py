@@ -147,6 +147,38 @@ def splits_to_rows(splits):
         rows.append([km, _mmss(sec), _pace(km, sec)])
     return rows
 
+def splits_detail(splits):
+    """Per-lap detail for READING - each lap as a dict with its average and max HR.
+
+    Deliberately separate from splits_to_rows/_hr, which build the positional rows
+    that get STORED on a log entry and drawn by the app: those have a fixed column
+    shape, so widening them would change stored data. This one is only ever returned
+    to whoever is reading the activity, so it can carry whatever the lap holds.
+
+    The HR was always there - the lap DTOs carry averageHR and maxHR, and
+    splits_to_rows_hr already read the average - it just never reached the tool
+    output, so a mixed activity could only be read at the activity level. That is
+    what made a time trial unreadable: one recording holds the warm-up, the trial
+    and the jog home, so its average HR describes none of them.
+    """
+    laps = (splits or {}).get("lapDTOs") or []
+    out = []
+    for i, lap in enumerate(laps):
+        km = round((lap.get("distance") or 0) / 1000, 2)
+        sec = int(lap.get("duration") or 0)
+        if km <= 0:            # skip 0-distance rest/auto laps - not real splits
+            continue
+        row = {"lap": i + 1, "km": km, "time": _mmss(sec), "pace": _pace(km, sec)}
+        for key, src in (("avg_hr", "averageHR"), ("max_hr", "maxHR"),
+                         ("cadence_spm", "averageRunCadence")):
+            v = _num(lap.get(src))
+            if v is not None:
+                row[key] = int(round(v))
+        if sec > 0:
+            row["avg_kmh"] = round(km / (sec / 3600.0), 1)
+        out.append(row)
+    return out
+
 def activity_to_log(a, splits, person):
     """Map a Garmin run (+ its splits) to a Training Tracker log entry, matching the
     shape saveSession() writes in js/app.js. Uses the Garmin activityId as the log id
@@ -411,6 +443,8 @@ def detect_intervals(series, min_rep_sec=20, merge_gap_sec=15):
 # fails both (0-2 m, 0.2-8 s), so the gap is wide - no session sits near the line.
 _REP_MIN_M = 50
 _REP_MIN_SEC = 20
+# Below this an 'effort' is too short for half-vs-half drift to mean anything.
+_EFFORT_MIN_SEC = 240
 
 def _gmt_dt(s):
     s = str(s or "").replace("T", " ").strip()[:19]
@@ -454,6 +488,33 @@ def _series_min_hr(series, lo, hi):
     hrs = [h for t, _kmh, h in series if h is not None and lo <= t < hi]
     return int(round(min(hrs))) if hrs else None
 
+def _not_a_rep_set(runs):
+    """Why these run blocks aren't a set of repeats - or None if they are.
+
+    Reps are repeats: similar pieces done more than once. Garmin's run/walk
+    detection finds every continuous run block, which on a MIXED recording is not
+    the same thing. Daniel's 20 Aug trial is the case that forced this: it holds
+    three 40-odd-second warm-up build-ups and one 583-second 2km trial, and calling
+    those "4 reps" produced a consistency of 24.7% and a fade of 0% - numbers that
+    describe nothing that happened, sitting in the per-rep table the athlete reads.
+
+    So the blocks have to look like each other. A session that fails this isn't
+    left silent: the caller records the reason, and a single sustained effort gets
+    effort_drift instead, which is the right description of it.
+    """
+    durs = sorted(b["sec"] for b in runs)
+    mid = durs[len(durs) // 2] if len(durs) % 2 else (durs[len(durs) // 2 - 1] + durs[len(durs) // 2]) / 2.0
+    if not mid:
+        return None
+    if durs[-1] > 2.5 * mid:
+        return ("run blocks too unalike to be reps - longest is %ds against a typical %ds, "
+                "so this looks like a mixed session (warm-up pieces and one effort) rather "
+                "than a set of repeats" % (round(durs[-1]), round(mid)))
+    if durs[0] < 0.4 * mid:
+        return ("run blocks too unalike to be reps - shortest is %ds against a typical %ds"
+                % (round(durs[0]), round(mid)))
+    return None
+
 def reps_from_typed_splits(typed, a, series=None):
     """Per-rep detail for an interval session, from Garmin's own run/walk splits.
 
@@ -489,6 +550,9 @@ def reps_from_typed_splits(typed, a, series=None):
             if b["type"] == "RWD_RUN" and b["m"] >= _REP_MIN_M and b["sec"] >= _REP_MIN_SEC]
     if len(runs) < 2:
         return None
+    odd = _not_a_rep_set(runs)
+    if odd:
+        return {"count": 0, "reps": [], "skipped": odd}
     series = series or []
     reps = []
     for i, b in enumerate(runs):
@@ -559,6 +623,65 @@ def rep_derived(reps):
         d["hr_recovery_bpm"] = int(round(sum(drops) / len(drops)))
         d["hr_recovery_best"] = max(drops)
     return d
+
+def effort_drift(typed, a, series):
+    """Cardiac drift across ONE continuous effort - a time trial, say - by comparing
+    the first half of it with the second half.
+
+    reps_from_typed_splits gives drift ACROSS reps; this is drift WITHIN a single
+    effort, which is the only kind a time trial has. The effort is taken to be the
+    longest continuous RWD_RUN block in the activity, which for a session recorded
+    the way the ⌚ Recording note asks is the trial itself rather than the warm-up
+    jog - the block used is reported back so that assumption can be checked rather
+    than trusted.
+
+    Same guard as rep_derived, for the same reason: if the two halves were run at
+    different speeds then the HR difference is measuring someone speeding up or
+    slowing down, not their heart drifting. Skipped, with the reason, rather than
+    reported as a number that looks like drift.
+    """
+    if not series:
+        return None
+    act_start = _gmt_dt(_field(a, "startTimeGMT"))
+    blocks = []
+    for sp in (typed or []):
+        st = _gmt_dt(sp.get("startTimeGMT"))
+        dur = _num(sp.get("duration")) or 0
+        if st is None or act_start is None or dur <= 0:
+            continue
+        if str(sp.get("type") or sp.get("splitType") or "") != "RWD_RUN":
+            continue
+        blocks.append(((st - act_start).total_seconds(), dur, _num(sp.get("distance")) or 0))
+    if not blocks:
+        return None
+    at, sec, metres = max(blocks, key=lambda b: b[1])
+    if sec < _EFFORT_MIN_SEC:
+        return None
+    mid = at + sec / 2.0
+
+    def window(lo, hi):
+        hrs = [h for t, _k, h in series if h is not None and lo <= t < hi]
+        kmh = [k for t, k, _h in series if k is not None and lo <= t < hi]
+        return (sum(hrs) / len(hrs) if hrs else None,
+                sum(kmh) / len(kmh) if kmh else None)
+
+    hr1, kmh1 = window(at, mid)
+    hr2, kmh2 = window(mid, at + sec)
+    if hr1 is None or hr2 is None:
+        return None
+    out = {"effort_sec": int(round(sec)), "effort_km": round(metres / 1000.0, 2),
+           "starts_at_sec": int(round(at)),
+           "first_half_hr": int(round(hr1)), "second_half_hr": int(round(hr2)),
+           "basis": ("longest continuous run block in the activity, first half vs "
+                     "second half of it")}
+    if metres > 0 and sec > 0:
+        out["pace"] = _pace(metres / 1000.0, sec)
+    if kmh1 and kmh2 and min(kmh1, kmh2) >= 0.9 * max(kmh1, kmh2):
+        out["drift_bpm"] = int(round(hr2 - hr1))
+    else:
+        out["drift_skipped"] = ("the two halves were run at different speeds, so the HR "
+                                "difference isn't drift")
+    return out
 
 def activity_efficiency(a, typed=None, bodyweight_kg=None):
     """How much speed each heartbeat and each watt is buying - the numbers that
@@ -675,22 +798,48 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
             run_entry["rows"] = rows
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
-    # Interval sessions only - one without a run entry, i.e. reps typed as speeds.
-    # A steady Zone 2 run has no structure worth recovering, and neither the trace
-    # heuristic nor the run/walk splits return reps for one.
-    if run_entry is None and log.get("garmin"):
+    # Per-rep detail, for ANY session Garmin segmented into repeats - not just the
+    # ones whose reps are typed as speeds. That used to be the gate (`run_entry is
+    # None`), which meant a rep session logged with Distance/Time columns got none:
+    # Cerys's 6x1min on 20 Aug, a textbook interval session, produced no per-rep data
+    # at all, while her 29 Jul speed-column session produced the full breakdown. Both
+    # of their run sessions are built with distance/time columns now, so every rep
+    # session from here would have lost it.
+    #
+    # Safe to run for a steady run: reps_from_typed_splits needs two or more RWD_RUN
+    # blocks over 50m/20s and returns None otherwise, so a continuous Zone 2 run gets
+    # nothing. A run/walk DOES report its run blocks, which is correct - for Cerys
+    # that IS the session's structure.
+    #
+    # No extra Garmin calls: the typed splits and the trace are already in `extras`.
+    if log.get("garmin"):
         series = extras.get("series") or []
         reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
-        if reps:
+        if reps and reps.get("reps"):
             log["garmin"]["reps"] = reps
+            # Self-guards: it only writes into an exercise flagged garminRun whose
+            # columns are really km/h, so a distance/time run entry is left alone.
             _fill_blank_interval_rows(log, program, reps)
-        # The trace heuristic stays as a second opinion. It measures the rep
-        # differently (it thresholds at the midpoint of the session's speed range,
-        # so it clips the belt's ramp up and down and reads ~10s shorter per rep),
-        # and it is the only source when Garmin didn't segment the activity.
-        iv = detect_intervals(series)
-        if iv:
-            log["garmin"]["intervals"] = iv
+        elif reps:
+            # Blocks were found but they aren't repeats. Say so rather than going
+            # quiet: "no reps" and "reps refused, here's why" read very differently
+            # to whoever is trying to work out what the watch saw.
+            log["garmin"]["reps_skipped"] = reps["skipped"]
+        # Drift within a single effort, which is the only kind a time trial has -
+        # its reps-based cousin above needs more than one rep to compare.
+        drift = effort_drift(extras.get("typed_splits"), a, series)
+        if drift:
+            log["garmin"]["effort_drift"] = drift
+        # The trace heuristic stays as a second opinion, and stays limited to the
+        # speed-typed sessions. It thresholds at the midpoint of the session's speed
+        # range, so on a mixed recording (warm-up + effort + jog home) it would carve
+        # up work that isn't reps at all; on a speed session it clips the belt's ramp
+        # and reads ~10s shorter per rep, and is the only source when Garmin didn't
+        # segment the activity.
+        if run_entry is None:
+            iv = detect_intervals(series)
+            if iv:
+                log["garmin"]["intervals"] = iv
     return log
 
 def _interval_entry(log, program):
@@ -1356,10 +1505,19 @@ def _register(mcp):
 
     @mcp.tool()
     def garmin_activity(activity_id: str) -> str:
-        """One Garmin activity in detail: summary plus per-split rows (km / time / pace)."""
+        """One Garmin activity in detail: summary plus per-lap splits, each with its own
+        average and max HR, cadence and speed.
+
+        Read the LAPS, not just the summary, whenever the recording holds more than one
+        kind of work. A warm-up jog, a time trial and an easy jog home sit in ONE
+        activity, so `avg_hr` at the top describes none of them - the lap that holds the
+        effort does. The session's own ⌚ Recording note says which lap is which."""
         a, splits = fetch_activity(activity_id)
         out = summarize_activity(a)
-        out["splits"] = splits_to_rows(splits)
+        out["splits"] = splits_detail(splits)
+        out["splits_note"] = ("Per lap. The activity-level avg_hr above covers everything "
+                              "recorded, warm-up and walking included; for a single effort "
+                              "read that effort's lap.")
         return json.dumps(out, indent=2)
 
     @mcp.tool()
