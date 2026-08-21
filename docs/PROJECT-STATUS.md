@@ -376,6 +376,44 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-21 - heart rate reaches the run blocks.** Coach-raised, approved the same day. Daniel had
+asked whether HR could be read against the runs themselves; it couldn't. His 20 Aug 2km trial
+reported **avg HR 134 for the whole activity** - a figure that includes a ten-minute walk and
+describes nothing that happened.
+- **Per-lap HR in `garmin_activity`** via a new `splits_detail()`. Kept separate from
+  `splits_to_rows/_hr` on purpose: those build the positional rows that get **stored** on a log
+  entry and drawn by the app, so widening them would change stored data. Daniel's trial laps read
+  **149 and 171** against the activity's 134.
+- **Per-rep analysis is no longer gated on the column shape.** It fired only when a session had no
+  distance/time entry (reps typed as speeds), so **Cerys's 6x1min on 20 Aug produced no per-rep data
+  at all** while her 29 Jul speed-typed session produced the full breakdown - and both run sessions
+  are built with distance/time columns now. It now yields her 6 reps: drift **+26bpm**, HR recovery
+  40, recoveries bottoming out at **137-142 against a Zone 4 floor of 159** - the same "never
+  actually recovers" pattern as 29 Jul, now visible on the current format.
+- **`effort_drift`**: drift *within* one sustained effort, the only kind a time trial has. Longest
+  continuous run block, first half vs second, same speed guard as rep drift. Daniel's 2km:
+  **151 -> 174, +23bpm**. Also added to the app's Run trend picker as its own metric, kept apart
+  from the rep-to-rep drift (same units, different measurement) and self-gated.
+- **The guard that widening needed, and it is the important part.** Reps are *repeats*, but Garmin's
+  run/walk detection finds every continuous run block, which on a mixed recording is not the same
+  thing. Daniel's trial holds three warm-up build-ups and the 2km; the first cut reported **"4 reps"
+  with a consistency of 24.7% and a fade of 0%**. `_not_a_rep_set` now refuses when the blocks are
+  too unalike and stores the reason in `reps_skipped` rather than going quiet. **A program-based
+  gate (read `sets` off the run exercise) was considered and rejected**: the coach re-prescribes
+  these sessions weekly, so today's prescription says nothing about a session logged last week.
+- **Known side effect, for Daniel to rule on:** the widening also lights up **Zone 2 run/walks** -
+  Daniel 13 Aug now shows 4 reps, Cerys 1 Aug shows 3. Those blocks are real (that IS their run/walk
+  structure, and Cerys's stated limiter is that Zone 2 is a walk for her), but it means Zone 2
+  sessions now join interval sessions on the app's rep-consistency and drift trends. Tighten by
+  requiring more blocks, or leave it - not decided.
+- Verified read-only against five real activities with `scratchpad/test_run_hr.py`, which enriches a
+  **copy** of the actual logged session so the real gate is exercised: 29 Jul still returns 6 and 5
+  with Cerys's derived numbers unchanged (consistency 30.8 / fade -27.7 / recovery 33), and **no
+  typed row was touched in any of them**. Backfilled onto all 12 linked sessions with `--refresh`.
+- `.gitignore` now covers `scratchpad/proto-*.json`: the prototype states are whole copies of the
+  store and **this repo is public**. `CACHE_NAME` -> **tt-v111**. **Needs a Claude Code restart**
+  before the coaching chat sees the new `garmin_activity` output.
+
 **2026-08-20 - the Garmin recording plan became its own field.** Coach-raised, approved by Daniel
 the same day. The recording protocol (one activity or several, where Start/Lap/End go, what each lap
 holds, what to type in, what to report back) was the first ~20 lines of each run session's
@@ -548,7 +586,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v110`.
+  change to a cached file.** Currently `tt-v111`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,

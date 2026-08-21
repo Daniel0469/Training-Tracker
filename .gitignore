@@ -13,6 +13,9 @@ scratchpad/data-backup-*.json
 # probe scripts (heart rates, profile ids, activity detail). The scripts stay
 # in the repo; what they print does not.
 scratchpad/store.json
+# The prototype states the proto_*.py scripts write are whole copies of the
+# store - both people's training data - and this repo is public.
+scratchpad/proto-*.json
 scratchpad/probe*.txt
 _devfixture.json
 # The prototype state the browser loads: same thing again, a full copy of the store.
