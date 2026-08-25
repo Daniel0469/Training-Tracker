@@ -376,6 +376,36 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-25 (audit) - "are the past runs stored well enough to infer from?"** Audited every one
+(`scratchpad/audit_runs.py`, read-only, keep it). **Daniel's were sound. Cerys's had three problems,
+all now fixed** - and one had been "fixed" before without holding.
+- **Cerys's 1 Aug was three logs for one session** - the real linked run plus two empty ones stuck
+  *awaiting run* forever (the matcher won't reuse an activity id). Her week read as **5 sessions
+  instead of 3**, which argues against her own "one cardio session a week" call.
+  **Why the 11 Aug merge didn't hold, and the lesson:** it removed the logs but never **tombstoned**
+  them, so the phone that still had them pushed them back on its next sync. Removing a log says
+  nothing - `deletedLogs` is what says "gone on purpose" and is re-asserted on every push.
+  `apply_mergedupes.py` now writes tombstones; **any future script that drops a log must too.**
+- **Cerys's 20 Aug run entry held Garmin's three LAPS, not her six reps**, and the third lap was her
+  **incline walk** - so the app reported a **15:02/km running pace** and used it for her best pace
+  and Last column. Run entries are now filled from **per-rep detail** where it exists, laps only
+  otherwise. Existing rows are replaced **only when they exactly match the lap output**, which proves
+  a sync wrote them; anything typed differs and is left alone.
+- **Daniel's 13 Aug Zone 2 was stored as "4 reps", fade 0%, consistency 5.6%** - on the same trends
+  as his interval sessions, and two of those "reps" were one block split a second apart. Blocks under
+  20s apart now merge, and **fade/consistency are only computed for blocks of roughly equal length**.
+  Uneven ones keep their per-block detail (that's how you see the walk breaks, and how you see Cerys's
+  Zone 2 is a walk) and carry `rep_set:false` with the reason. **This settles the Zone 2 question**
+  that had been open since 21 Aug: reps stay, rep-set metrics don't.
+- **`write_log_entry`** (Daniel's ask): the coach can CORRECT a logged entry when the automatic fill
+  still gets it wrong - the activity held something other than the session it matched. Refuses an
+  unknown session or exercise, returns the previous rows for an undo, keeps them on the log with the
+  reason, and a corrected entry is never silently overwritten by a later sync.
+- **Still true and worth re-reading before coaching Cerys:** her 29 Jul entry types **11.0 km/h** for
+  five reps the watch measured at **13.5 / 12.5 / 14.1 / 13.1 / 10.2**. Typed stays the record by
+  design, but her "top speed already found" limiter rests on that number.
+- No app code, so no `CACHE_NAME` bump. **Needs a Claude Code restart** for `write_log_entry`.
+
 **2026-08-25 (later) - the update result is a dialog, and reps can be read off the speed trace.**
 - **Update popup** (Daniel): a toast was the wrong container - the message lands right after a
   reload amid everything else that fires on load, and the **30-day export nudge overwrote it during
