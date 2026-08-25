@@ -1674,12 +1674,105 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like openSessions in the Program tab.
 let progressPane="lifts";
-const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", body:"⚖ Body"};
+const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", time:"⏱ Time", body:"⚖ Body"};
 // 🏃 Run only joins the toggle once there's running data to put in it, so a
 // lifting-only install sees the same two-way toggle it always did rather than a
 // third tab of empty cards.
+// ⏱ Time joins the toggle only once something has actually been timed, on the
+// same rule as 🏃 Run: a pane nobody has data for is never offered, so it can't
+// lead to an empty chart. The session timer is optional, so plenty of logs have
+// no duration and those sessions simply aren't plotted.
+function hasDurationData(){
+  return state.logs.some(l=>l && l.durationSec>0);
+}
 function progressPanes(){
-  return hasRunData() ? ["lifts","run","body"] : ["lifts","body"];
+  const keys=["lifts"];
+  if(hasRunData()) keys.push("run");
+  if(hasDurationData()) keys.push("time");
+  keys.push("body");
+  return keys;
+}
+// Sessions with a duration, oldest first, for one person - optionally just one
+// session key. Sessions are compared against themselves: Lower 2 running long is
+// a different question from a cardio day being short, and averaging them answers
+// neither.
+function timedLogsFor(person, sessionKey){
+  return state.logs.filter(l=>l && l.person===person && l.durationSec>0
+      && (!sessionKey || l.sessionKey===sessionKey))
+    .slice().sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
+}
+let timeSession="";           // "" = every session
+function renderTime(){
+  const p=state.people[state.activePerson];
+  // Only offer sessions this person has actually timed, so the picker can't
+  // select an empty chart.
+  const keys=[...new Set(timedLogsFor(p).map(l=>l.sessionKey))]
+    .filter(k=>state.program.sessions[k]);
+  if(timeSession && keys.indexOf(timeSession)<0) timeSession="";
+  const logs=timedLogsFor(p, timeSession);
+  const mins=logs.map(l=>l.durationSec/60);
+  const avg=mins.length? mins.reduce((a,b)=>a+b,0)/mins.length : 0;
+  const last=logs.length? logs[logs.length-1] : null;
+  // Against the average rather than the previous session: one long session is
+  // noise, a drift away from your own norm is the thing worth seeing.
+  const delta=last? (last.durationSec/60 - avg) : 0;
+  let html=progressTabsHtml()
+    + '<div class="card">'
+    + '<div class="row" style="margin-bottom:12px">'
+    + '<label class="fld grow" style="max-width:280px">Session<select id="timeSession">'
+    + '<option value=""'+(timeSession?"":" selected")+'>All sessions</option>'
+    + keys.map(k=>'<option value="'+esc(k)+'"'+(k===timeSession?' selected':'')+'>'
+        + esc(state.program.sessions[k].name)+'</option>').join("")
+    + '</select></label></div>'
+    + '<div class="hint" style="margin-bottom:10px">How long each session took, for both people. '
+    + 'Only sessions you ran the timer on appear.</div>'
+    + '<div class="chart-box"><canvas id="timeChart"></canvas></div></div>';
+  if(logs.length){
+    html+='<div class="card"><div class="tiles">'
+      + '<div class="tile"><b>'+fmtDuration(avg*60)+'</b><span>Average</span></div>'
+      + '<div class="tile"><b>'+fmtDuration(last.durationSec)+'</b><span>Last'
+        + (Math.abs(delta)>=1? ' <span style="color:var('+(delta<0?"--good":"--bad")+')">'
+            +(delta<0?"▼":"▲")+Math.round(Math.abs(delta))+'m</span>' : "")+'</span></div>'
+      + '<div class="tile"><b>'+fmtDuration(Math.max.apply(null,mins)*60)+'</b><span>Longest</span></div>'
+      + '<div class="tile"><b>'+logs.length+'</b><span>Timed</span></div>'
+      + '</div></div>'
+      + '<div class="card"><div class="sec-title">⏱ Sessions - '+esc(p)+'</div>'
+      + logs.slice().reverse().map(l=>'<div class="hist-entry"><div class="ex-meta">'
+          + esc(l.sessionName)+' &middot; '+relTime(l.date)+'</div><div>'
+          + fmtDuration(l.durationSec)
+          + (l.volume? ' &middot; '+l.volume.toLocaleString()+' kg' : "")
+          + (l.difficulty? ' &middot; difficulty '+l.difficulty+'/10' : "")
+          + '</div></div>').join("")
+      + '</div>';
+  } else {
+    html+='<div class="card empty">No timed sessions for '+esc(p)+' yet. '
+      + 'Start the timer at the top of the Session tab and it\'s saved with the session.</div>';
+  }
+  document.getElementById("view").innerHTML=html;
+  wirePaneToggle();
+  document.getElementById("timeSession").onchange=e=>{ timeSession=e.target.value; renderTime(); };
+  drawTimeChart();
+}
+function drawTimeChart(){
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const series=state.people.map((p,i)=>({
+    label:p,
+    data:timedLogsFor(p, timeSession).map(l=>({x:l.date, y:+(l.durationSec/60).toFixed(1)})),
+    borderColor:swatchColor(state.colors[i],dark),
+    backgroundColor:swatchColor(state.colors[i],dark), tension:.25, spanGaps:true}));
+  if(chart) chart.destroy();
+  const tickCol=dark?"#9aa3b2":"#697086";
+  const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  const labels=[...new Set(state.people.flatMap(p=>timedLogsFor(p, timeSession).map(l=>l.date)))].sort();
+  chart=new Chart(document.getElementById("timeChart"),{
+    type:"line", data:{datasets:series},
+    options:{responsive:true,maintainAspectRatio:false,parsing:false,
+      scales:{x:{type:"category",labels:labels,ticks:{color:tickCol},grid:{color:gridCol}},
+        y:{beginAtZero:true,title:{display:true,text:"minutes",color:tickCol},
+          ticks:{color:tickCol},grid:{color:gridCol}}},
+      plugins:{legend:{position:"top",labels:{color:tickCol}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtDuration(c.parsed.y*60)}}}}
+  });
 }
 function progressTabsHtml(){
   return '<div class="card pane-card"><div class="ptoggle pane-toggle">'
@@ -1700,6 +1793,7 @@ function renderProgress(){
   if(progressPanes().indexOf(progressPane)<0) progressPane="lifts";
   if(progressPane==="body") return renderBody();
   if(progressPane==="run") return renderRun();
+  if(progressPane==="time") return renderTime();
   const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
   if(!allEx.length){
     document.getElementById("view").innerHTML=progressTabsHtml()
@@ -3077,7 +3171,7 @@ function renderHelp(){
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
      +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
-     +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6.')
+     +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6. <b>⏱ Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.'));
 
