@@ -343,6 +343,7 @@ def fetch_detail_series(activity_id, max_points=2000):
     descs = d.get("metricDescriptors") or []
     idx = {m.get("key"): m.get("metricsIndex") for m in descs}
     ti, si, hi = idx.get("sumElapsedDuration"), idx.get("directSpeed"), idx.get("directHeartRate")
+    ci = idx.get("directRunCadence")
     if ti is None or si is None:
         return []
     out = []
@@ -350,10 +351,10 @@ def fetch_detail_series(activity_id, max_points=2000):
         v = m.get("metrics") or []
         def at(i):
             return v[i] if i is not None and i < len(v) else None
-        t, s, h = at(ti), at(si), at(hi)
+        t, s, h, c = at(ti), at(si), at(hi), at(ci)
         if t is None or s is None:
             continue
-        out.append((float(t), float(s) * 3.6, h))
+        out.append((float(t), float(s) * 3.6, h, c))
     return out
 
 def detect_intervals(series, min_rep_sec=20, merge_gap_sec=15):
@@ -377,7 +378,7 @@ def detect_intervals(series, min_rep_sec=20, merge_gap_sec=15):
     actually typed in (Daniel typed 13 km/h, the trace says ~14.5). What the person
     typed stays the truth for speed.
     """
-    pts = [(t, kmh) for t, kmh, _h in series if kmh is not None]
+    pts = [(t, kmh) for t, kmh, _h, _c in series if kmh is not None]
     if len(pts) < 30:
         return None
     speeds = [p[1] for p in pts]
@@ -485,7 +486,7 @@ def fetch_power_zone_times(activity_id):
 
 def _series_min_hr(series, lo, hi):
     """Lowest HR in the elapsed-seconds window [lo, hi) of the per-second trace."""
-    hrs = [h for t, _kmh, h in series if h is not None and lo <= t < hi]
+    hrs = [h for t, _kmh, h, _c in series if h is not None and lo <= t < hi]
     return int(round(min(hrs))) if hrs else None
 
 def _not_a_rep_set(runs):
@@ -587,6 +588,180 @@ def reps_from_typed_splits(typed, a, series=None):
             "source": "Garmin's own run/walk split detection (RWD_RUN blocks). Speed "
                       "is the rep average, not the peak."}
 
+# Speed-trace segmentation. Where reps_from_typed_splits leans on Garmin deciding
+# what was a run and what was a walk, this reads the belt speed itself.
+#
+# The gap it exists to close: RWD_RUN/RWD_WALK can only separate reps when the
+# RECOVERY IS A WALK. Daniel's threshold session recovers with a 7.5 km/h float,
+# which is running throughout, so that detection cannot find a boundary anywhere -
+# and the recording note has been asking him for a lap press per rep to compensate.
+#
+# A correction to the premise this was raised on, worth keeping: the treadmill
+# trace is NOT a clean step function of the programmed speeds. The watch estimates
+# speed from arm swing, it does not read the belt. On Daniel's 29 Jul session the
+# reps he typed as 13.0 read 14.2-15.7 and the walk recoveries wander between 0.1
+# and 5.9. So this segments on RELATIVE level changes with a wide tolerance, and it
+# reports what it measured rather than pretending to recover the programmed number.
+_LEVEL_MIN_SEC = 15          # shorter than this is a blip, not a level
+_WORK_MIN_SHARE = 0.12       # a rep set is a real part of the session, not 5% of it
+_RECOVERY_MIN_SEC = 20       # below this, two blocks are one effort that wandered
+
+def _levels_from_trace(pts, min_sec):
+    """The trace as a list of {at, sec, kmh} blocks at a roughly constant speed."""
+    blocks = []
+    for t, kmh in pts:
+        if blocks and abs(kmh - blocks[-1]["kmh"]) <= max(1.2, 0.18 * blocks[-1]["kmh"]):
+            b = blocks[-1]
+            b["n"] += 1
+            b["sum"] += kmh
+            b["kmh"] = b["sum"] / b["n"]        # running mean, so the level tracks
+            b["end"] = t
+        else:
+            blocks.append({"at": t, "end": t, "kmh": kmh, "sum": kmh, "n": 1})
+    for b in blocks:
+        b["sec"] = b["end"] - b["at"]
+    # Fold blips back into whichever neighbour they're closer to in speed, so one
+    # noisy sample mid-rep doesn't cut the rep in two.
+    out = []
+    for b in blocks:
+        if b["sec"] < min_sec and out:
+            out[-1]["end"] = b["end"]
+            out[-1]["sec"] = out[-1]["end"] - out[-1]["at"]
+        else:
+            out.append(b)
+    return [b for b in out if b["sec"] >= min_sec]
+
+def _same_length_runs(blocks):
+    """The candidate rep-sets inside one speed group: subsets whose blocks are all
+    about as long as each other. Returned longest-set first, so a real set of reps
+    is preferred over the two warm-up pieces that happen to share their speed."""
+    out = []
+    for seed in sorted(blocks, key=lambda b: -b["sec"]):
+        cand = [b for b in blocks if 0.6 * seed["sec"] <= b["sec"] <= 1.667 * seed["sec"]]
+        if cand and not any(set(id(x) for x in cand) == set(id(x) for x in o) for o in out):
+            out.append(cand)
+    return sorted(out, key=lambda c: (-len(c), -sum(b["sec"] for b in c)))
+
+def _prescribed_reps(log, program):
+    """How many reps the program asks for on this session's running exercise, for
+    ANNOTATION only - see reps_from_speed_trace. Returns None when the session has
+    been re-prescribed since, which is the usual case."""
+    sess = ((program or {}).get("sessions") or {}).get(log.get("sessionKey")) or {}
+    for e in sess.get("exercises") or []:
+        if _is_run_entry(e) or e.get("garminRun"):
+            return e.get("sets")
+    return None
+
+def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
+    """Per-rep detail segmented from the speed trace, in the same shape
+    reps_from_typed_splits returns so both can feed the same readers.
+
+    `expected` is how many reps were prescribed (the run exercise's `sets`). It is
+    ONLY used to annotate a mismatch - it deliberately does not influence which
+    blocks are chosen. Seeding the detector with the prescription was the original
+    idea and it was tried: because the coach re-prescribes these sessions weekly,
+    today's `sets` says nothing about a session logged a fortnight ago, and letting
+    it pick made Daniel's 20 Aug trial come back as "4 reps" that never happened.
+    The trace is the evidence; the prescription is context.
+    """
+    pts = [(t, kmh) for t, kmh, _h, _c in series if kmh is not None]
+    if len(pts) < 30:
+        return None
+    span = pts[-1][0] - pts[0][0]
+    blocks = _levels_from_trace(pts, _LEVEL_MIN_SEC)
+    work = [b for b in blocks if b["sec"] >= min_rep_sec]
+    if len(work) < 2:
+        return None
+    # Group blocks by speed level, fastest first, and take the best candidate for
+    # "the reps": similar durations, more than one of them, and a real share of the
+    # session. The share test is what stops three 40-second warm-up build-ups being
+    # reported as a rep set - the trap the typed-splits version fell into.
+    groups = []
+    for b in sorted(work, key=lambda b: -b["kmh"]):
+        hit = next((g for g in groups if abs(g[0]["kmh"] - b["kmh"]) <= max(1.5, 0.2 * b["kmh"])), None)
+        if hit is None:
+            groups.append([b])
+        else:
+            hit.append(b)
+    best = None
+    for g in groups:
+        # Within a speed group, keep only blocks that also match each other in
+        # LENGTH. Speed alone isn't enough to tell the reps from the warm-up:
+        # Daniel's build-ups run at 12.5 against reps at 11.0, close enough to
+        # group together, and the pair is told apart by 30 seconds against 360.
+        for cand in _same_length_runs(g):
+            if len(cand) < 2:
+                continue
+            secs = [x["sec"] for x in cand]
+            if sum(secs) < _WORK_MIN_SHARE * max(1, span):
+                continue
+            # The reps are the WORK, so the fastest qualifying set wins - not the
+            # longest. Scoring on duration picked the walk recoveries instead, which
+            # on Daniel's 29 Jul read as "7 reps at 5.0 km/h" when he did six at 13.
+            # Total time only breaks a tie between sets at the same speed.
+            speed = sum(x["kmh"] * x["sec"] for x in cand) / max(1, sum(secs))
+            score = (-round(speed, 1), -sum(secs))
+            if best is None or score < best[0]:
+                best = (score, cand)
+    if best is None:
+        return None
+    # Reps are separated by RECOVERIES. Two chosen blocks a second apart are one
+    # effort whose speed wandered, not two reps: Daniel's 2km trial dipped mid-way,
+    # the dip fell below the minimum block length and was dropped, and what was left
+    # looked like two reps with a 1-second gap between them. Merge those back.
+    reps_blocks = []
+    for b in sorted(best[1], key=lambda b: b["at"]):
+        prev = reps_blocks[-1] if reps_blocks else None
+        if prev and b["at"] - prev["end"] < _RECOVERY_MIN_SEC:
+            total = prev["sec"] + b["sec"]
+            prev["kmh"] = (prev["kmh"] * prev["sec"] + b["kmh"] * b["sec"]) / max(1, total)
+            prev["end"] = b["end"]
+            prev["sec"] = prev["end"] - prev["at"]
+        else:
+            reps_blocks.append(dict(b))
+    if len(reps_blocks) < 2:
+        return None
+    reps = []
+    for i, b in enumerate(reps_blocks):
+        lo, hi = b["at"], b["end"]
+        hrs = [h for t, _k, h, _c in series if h is not None and lo <= t <= hi]
+        cads = [c for t, _k, _h, c in series if c is not None and lo <= t <= hi]
+        rep = {"n": i + 1, "sec": int(round(b["sec"])), "kmh": round(b["kmh"], 1),
+               "dist_m": int(round(b["kmh"] / 3.6 * b["sec"]))}
+        if b["sec"] > 0 and b["kmh"] > 0:
+            rep["pace"] = _pace(b["kmh"] / 3.6 * b["sec"] / 1000.0, b["sec"])
+        if hrs:
+            rep["avg_hr"] = int(round(sum(hrs) / len(hrs)))
+            rep["max_hr"] = int(round(max(hrs)))
+        if cads:
+            rep["cadence_spm"] = int(round(sum(cads) / len(cads)))
+        if i + 1 < len(reps_blocks):
+            nxt = reps_blocks[i + 1]["at"]
+            gap = nxt - hi
+            if gap > 0:
+                rep["recovery_sec"] = int(round(gap))
+                rk = [k for t, k, _h, _c in series if k is not None and hi <= t < nxt]
+                if rk:
+                    rep["recovery_kmh"] = round(sum(rk) / len(rk), 1)
+                lo_hr = _series_min_hr(series, hi, nxt)
+                if lo_hr is not None:
+                    rep["recovery_min_hr"] = lo_hr
+                    if rep.get("max_hr"):
+                        rep["hr_drop"] = int(round(rep["max_hr"] - lo_hr))
+        reps.append(rep)
+    res = round(span / max(1, len(pts) - 1), 1)
+    out = {"count": len(reps), "reps": reps, "derived": rep_derived(reps),
+           "sample_sec": res,
+           "source": "segmented from the Garmin speed trace, not from Garmin's "
+                     "run/walk splits - so it works when the recovery is a jog "
+                     "rather than a walk. Speed is the watch's estimate from arm "
+                     "swing, NOT the belt: it reads high, so the typed speeds stay "
+                     "the record. Durations and heart rates are the useful part."}
+    if expected and len(reps) != expected:
+        out["note"] = ("%d reps prescribed, %d found in the trace - report what was "
+                       "measured, don't assume the trace is wrong" % (expected, len(reps)))
+    return out
+
 def rep_derived(reps):
     """The numbers worth trending session to session, from the per-rep list.
 
@@ -660,8 +835,8 @@ def effort_drift(typed, a, series):
     mid = at + sec / 2.0
 
     def window(lo, hi):
-        hrs = [h for t, _k, h in series if h is not None and lo <= t < hi]
-        kmh = [k for t, k, _h in series if k is not None and lo <= t < hi]
+        hrs = [h for t, _k, h, _c in series if h is not None and lo <= t < hi]
+        kmh = [k for t, k, _h, _c in series if k is not None and lo <= t < hi]
         return (sum(hrs) / len(hrs) if hrs else None,
                 sum(kmh) / len(kmh) if kmh else None)
 
@@ -825,6 +1000,21 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
             # quiet: "no reps" and "reps refused, here's why" read very differently
             # to whoever is trying to work out what the watch saw.
             log["garmin"]["reps_skipped"] = reps["skipped"]
+        if not (reps and reps.get("reps")):
+            # FALLBACK ONLY, and deliberately so. Garmin's run/walk split detection
+            # is the better reader wherever it works: on Cerys's sessions the trace
+            # version under-counts (4 against the correct 6 on 20 Aug, 4 against 5 on
+            # 29 Jul) because her watch samples the trace about every 7 seconds and
+            # her reps are only a minute long. On Daniel's denser trace the two agree
+            # exactly - 6 reps, HR recovery 36 against 35.
+            #
+            # What it adds is the case Garmin cannot do at all: a recovery that is a
+            # JOG rather than a walk means no RWD_WALK block, so there is no boundary
+            # for run/walk detection to find. Running it only when the better method
+            # came back empty means it can add data but never replace better data.
+            trace_reps = reps_from_speed_trace(series, expected=_prescribed_reps(log, program))
+            if trace_reps:
+                log["garmin"]["reps"] = trace_reps
         # Drift within a single effort, which is the only kind a time trial has -
         # its reps-based cousin above needs more than one rep to compare.
         drift = effort_drift(extras.get("typed_splits"), a, series)
