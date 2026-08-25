@@ -56,18 +56,30 @@ def api(url, token, data=None, method=None):
 
 
 def split_note(note):
-    """(recording, warmup) or (None, why-not). The marker has to start a line."""
+    """(above, from-the-heading-down) or (None, why-not).
+
+    The marker has to START a line and be UPPERCASE, because these notes write
+    their headings in capitals and their prose in sentence case. That distinction
+    turned out to be load-bearing: Daniel's treadmill-program note wraps onto a
+    line reading "warm-up program, then 6-13 as the main one.", and matching
+    case-insensitively split there - mid-sentence, three lines above the real
+    heading, silently truncating the block table. Caught on a dry run, which is
+    the argument for having one. More than one match is refused, not guessed at.
+    """
     lines = note.split("\n")
-    for i, line in enumerate(lines):
-        if line.strip().upper().startswith(MARKER):
-            rec = "\n".join(lines[:i]).strip()
-            wu = "\n".join(lines[i:]).strip()
-            if not rec:
-                return None, "nothing above the %s heading" % MARKER
-            if not wu:
-                return None, "nothing below the %s heading" % MARKER
-            return (rec, wu), None
-    return None, "no line starting %r" % MARKER
+    hits = [i for i, line in enumerate(lines) if line.strip().startswith(MARKER)]
+    if not hits:
+        return None, "no line starting %r (in capitals - it has to be the heading)" % MARKER
+    if len(hits) > 1:
+        return None, ("%d lines start with %r, so which is the heading would be a guess"
+                      % (len(hits), MARKER))
+    i = hits[0]
+    above, below = "\n".join(lines[:i]).strip(), "\n".join(lines[i:]).strip()
+    if not above:
+        return None, "nothing above the %s heading" % MARKER
+    if not below:
+        return None, "nothing below the %s heading" % MARKER
+    return (above, below), None
 
 
 def main():

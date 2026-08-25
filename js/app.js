@@ -749,8 +749,18 @@ function hasCoaching(){
 }
 function renderLog(){
   const p = state.people[state.activePerson];
-  // Swapping person can leave you pointed at the other one's run session.
-  if(!ownsSession(curSession, p)) curSession = sessionForDate(curDate) || myKeys()[0] || curSession;
+  // Swapping person can leave you pointed at the other one's run session. Move to
+  // the COUNTERPART - what this person does in that same slot - rather than to
+  // whatever today's session is. They train together and swap names constantly, so
+  // standing at the treadmill on Run: Daniel and tapping Cerys used to land on
+  // Tuesday's Upper 1: a different workout entirely, which is what she reported.
+  // Same day, preferring a session that's hers, then any she can log that day.
+  if(!ownsSession(curSession, p)){
+    const day=(state.program.sessions[curSession]||{}).day;
+    const sameDay=myKeys().filter(k=>(state.program.sessions[k]||{}).day===day);
+    curSession = sameDay.find(k=>(state.program.sessions[k]||{}).person)
+      || sameDay[0] || sessionForDate(curDate) || myKeys()[0] || curSession;
+  }
   const opts = myKeys().map(k=>{
     const s=state.program.sessions[k];
     return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(s.day)+'</option>';
@@ -820,6 +830,17 @@ function renderLog(){
 
   // The session's own warm-up / cool-down notes (Program tab) bracket the
   // exercises, in the order you actually do them.
+  // What to key into the treadmill before starting. First of the three blocks
+  // because it is first in the order you actually do them: program the belt, start
+  // the watch, warm up. Same reasoning as the recording block below - it covers the
+  // whole session, is read once before you begin rather than followed during, and is
+  // rewritten every time the structure changes, so it must not live inside the
+  // warm-up where correcting one speed means re-sending the mobility work.
+  if(sess.setupNote){
+    html += '<details class="card setup-card"><summary class="sec-title">&#127899;&#65039; Treadmill program &middot; enter this before you start</summary>'
+      + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.setupNote)+'</div></details>';
+  }
+
   // How to record THIS session on the watch - when to start the activity, where
   // the laps go, what to report back afterwards. Its own block, above the warm-up
   // and collapsed by default: it used to be the first twenty lines of warmupNote,
@@ -2089,9 +2110,11 @@ function autoGrow(ta){
   ta.style.height=(ta.scrollHeight + (ta.offsetHeight-ta.clientHeight))+"px";
 }
 function sessNotesHtml(k, s){
-  const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"";
-  const has=!!(wu||cd||rec);
+  const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"", set=s.setupNote||"";
+  const has=!!(wu||cd||rec||set);
   return '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+    + '<label class="fld" style="margin-bottom:8px">&#127899;&#65039; Treadmill program'
+      + '<textarea class="notes" data-sessnote="setupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 1: 5:00 at 8.0 warm-up jog / 2: 6:00 at 11.0 rep 1 / 3: 1:30 at 7.5 float">'+esc(set)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#8986; Recording (Garmin)'
       + '<textarea class="notes" data-sessnote="recordingNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. start on the warm-up jog, lap at the start and end of the 2km, end before the core work">'+esc(rec)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#128293; Warm-up / mobility'
@@ -2130,7 +2153,7 @@ function renderEdit(){
       // per-exercise actions below.
       html+='<div class="row actions" style="margin:2px 0 10px">'
         + (selCount>=2?'<button class="mini" data-group="'+k+'">&#8646; Group as superset ('+selCount+')</button>':'')
-        + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote||s.recordingNote)?"true":"false")+'">&#128293; Warm-up / &#129482; cool-down / &#8986; recording</button>'
+        + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote||s.recordingNote||s.setupNote)?"true":"false")+'">&#128221; Session notes</button>'
         + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
         + '<button class="mini" data-addex="'+k+'">&#10133; Exercise</button></div>'
         + sessNotesHtml(k, s);
@@ -2188,7 +2211,8 @@ function renderEdit(){
     if(v) sess[field]=v; else delete sess[field];
     saveProgram();
     toast(field==="warmupNote" ? "Warm-up note saved"
-        : field==="recordingNote" ? "Recording note saved" : "Cool-down note saved");
+        : field==="recordingNote" ? "Recording note saved"
+        : field==="setupNote" ? "Treadmill program saved" : "Cool-down note saved");
   }));
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
@@ -2894,6 +2918,7 @@ function sessionShareCode(sessionKey){
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  if(s.setupNote) payload.setupNote=s.setupNote;
   if(s.recordingNote) payload.recordingNote=s.recordingNote;
   if(s.warmupNote) payload.warmupNote=s.warmupNote;
   if(s.cooldownNote) payload.cooldownNote=s.cooldownNote;
@@ -2923,6 +2948,7 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   let key=slugify(payload.name), n=2;
   while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
   state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.setupNote) state.program.sessions[key].setupNote=String(payload.setupNote);
   if(payload.recordingNote) state.program.sessions[key].recordingNote=String(payload.recordingNote);
   if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
   if(payload.cooldownNote) state.program.sessions[key].cooldownNote=String(payload.cooldownNote);
@@ -3071,6 +3097,7 @@ function renderHelp(){
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
+     +p('<b>&#127899;&#65039; Treadmill program</b> is the session written out as numbered time-and-speed blocks to key into the machine before you start, so the belt runs the session and there is nothing to adjust mid-run. Like the recording note it sits above the warm-up, folded up, and is its own field - so a single speed can be corrected without re-sending everything else.')
      +p('<b>&#8986; Recording</b> is a separate note for sessions you record on a <b>Garmin</b> - when to start the activity, where to press lap, when to end, and what to report back. It sits <b>above the warm-up</b> on the Session tab and starts <b>folded up</b>, so it never buries the warm-up; tap it to read it. It is kept apart from the warm-up so a coach can rewrite the recording plan when a session\'s structure changes without touching your mobility work.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
@@ -3688,16 +3715,48 @@ if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").then(reg=>{ if(reg) reg.update(); });
   });
 }
+// Say whether the update the user just asked for actually changed anything.
+// Runs on every load and returns immediately unless forceUpdate left its mark.
+window.addEventListener("load", reportUpdateResult);
 
-// Show the running app version (the shell cache name, e.g. "tt-v47") in Settings.
-function showAppVersion(){
-  const el=document.getElementById("appVersion"); if(!el) return;
-  if(!window.caches){ el.textContent="-"; return; }
-  caches.keys().then(keys=>{
+// The running app version - the shell cache name, e.g. "tt-v47".
+function shellVersion(){
+  if(!window.caches) return Promise.resolve("");
+  return caches.keys().then(keys=>{
     const v=keys.filter(k=>/^tt-v/.test(k)).sort((a,b)=>
       (parseInt(a.replace(/\D/g,""),10)||0)-(parseInt(b.replace(/\D/g,""),10)||0));
-    el.textContent = v.length ? v[v.length-1] : "-";
-  }).catch(()=>{ el.textContent="-"; });
+    return v.length ? v[v.length-1] : "";
+  }).catch(()=>"");
+}
+// Show it in Settings.
+function showAppVersion(){
+  const el=document.getElementById("appVersion"); if(!el) return;
+  shellVersion().then(v=>{ el.textContent = v || "-"; });
+}
+// Updating drops the caches and reloads, which closes Settings either way - so
+// from the outside, "there was nothing to update" and "you're now three versions
+// newer" looked identical, which is what Daniel reported. The version we were on
+// is stashed before the reload and compared to the one that comes back.
+const UPDATE_FROM_KEY = "flLiveTracker_v1_updfrom";
+// The new shell is cached by the service worker a moment AFTER load, so asking
+// once, immediately, would usually read "" and claim nothing happened. Poll until
+// a version appears, then give up rather than hang.
+function shellVersionWhenReady(tries){
+  return shellVersion().then(v=>{
+    if(v || tries<=0) return v;
+    return new Promise(r=>setTimeout(r,400)).then(()=>shellVersionWhenReady(tries-1));
+  });
+}
+function reportUpdateResult(){
+  let was=null;
+  try{ was=localStorage.getItem(UPDATE_FROM_KEY); localStorage.removeItem(UPDATE_FROM_KEY); }catch(e){ return; }
+  if(was===null) return;                       // this load wasn't an update
+  shellVersionWhenReady(12).then(now=>{
+    if(!now) toast("Update finished");
+    else if(!was) toast("Now on "+now);
+    else if(now!==was) toast("Updated: "+was+" → "+now);
+    else toast("Already up to date ("+now+")");
+  });
 }
 // Force the newest deployed version: drop the service worker + every cache, then
 // reload from the network. This is the reliable escape hatch for an installed
@@ -3705,12 +3764,19 @@ function showAppVersion(){
 function forceUpdate(){
   const btn=document.getElementById("updateNow"); if(btn){ btn.disabled=true; btn.textContent="Updating…"; }
   const reload=()=>window.location.reload();
-  const jobs=[];
-  if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
-    jobs.push(navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))));
-  if(window.caches)
-    jobs.push(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))));
-  Promise.all(jobs).then(reload).catch(reload);
+  // Read the version we're on BEFORE anything is deleted - it's read FROM the
+  // caches this is about to drop, so the two can't run concurrently. "" is a real
+  // answer (nothing cached yet); it's the key's presence, not its value, that
+  // tells the reloaded page an update was asked for.
+  shellVersion().then(v=>{
+    try{ localStorage.setItem(UPDATE_FROM_KEY, v||""); }catch(e){}
+    const jobs=[];
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+      jobs.push(navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))));
+    if(window.caches)
+      jobs.push(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))));
+    return Promise.all(jobs);
+  }).then(reload).catch(reload);
 }
 const updBtn=document.getElementById("updateNow");
 if(updBtn) updBtn.onclick=forceUpdate;
