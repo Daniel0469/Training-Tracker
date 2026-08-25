@@ -2983,6 +2983,7 @@ function exportData(){
     return false;
   }
 }
+document.getElementById("updClose").onclick=()=>document.getElementById("updDlg").close();
 document.getElementById("importCancel").onclick=()=>importDlg.close();
 document.getElementById("importFile").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -3846,11 +3847,33 @@ function reportUpdateResult(){
   try{ was=localStorage.getItem(UPDATE_FROM_KEY); localStorage.removeItem(UPDATE_FROM_KEY); }catch(e){ return; }
   if(was===null) return;                       // this load wasn't an update
   shellVersionWhenReady(12).then(now=>{
-    if(!now) toast("Update finished");
-    else if(!was) toast("Now on "+now);
-    else if(now!==was) toast("Updated: "+was+" → "+now);
-    else toast("Already up to date ("+now+")");
+    let title, body;
+    if(!now){
+      title="Update finished";
+      body="This browser doesn't expose a version to check against, so there's nothing to compare - but the app has been reloaded from the network.";
+    }else if(now!==was && was){
+      title="Updated";
+      body="You were on "+was+", you're now on "+now+".";
+    }else if(!was){
+      title="Updated";
+      body="You're now on "+now+".";
+    }else{
+      title="Already up to date";
+      body="You were already on "+now+" - nothing needed changing.";
+    }
+    showUpdateResult(title, body);
   });
+}
+// A dialog, not a toast: this arrives immediately after a reload, in among
+// everything else that fires on load - the 30-day export nudge overwrote the
+// toast during testing - and it's the answer to a question the user just asked,
+// so it should wait to be dismissed rather than time out.
+function showUpdateResult(title, body){
+  const dlg=document.getElementById("updDlg");
+  if(!dlg || !dlg.showModal){ toast(title); return; }
+  document.getElementById("updTitle").textContent=title;
+  document.getElementById("updBody").textContent=body;
+  if(!dlg.open) dlg.showModal();
 }
 // Force the newest deployed version: drop the service worker + every cache, then
 // reload from the network. This is the reliable escape hatch for an installed

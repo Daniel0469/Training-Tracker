@@ -91,6 +91,18 @@
   <div class="hint" style="margin-top:10px">Changes save automatically when you close. Clearing the program empties it on every synced device and can't be undone, so it takes a backup first; your logged history is never deleted.</div>
 </div></dialog>
 
+<!-- Result of gear → Update now. A dialog rather than a toast: updating reloads
+     the page, so the answer arrives amid everything else that fires on load -
+     the 30-day export nudge overwrote it in testing - and the whole point is
+     that you can currently not tell whether anything happened. -->
+<dialog id="updDlg"><div class="dlg-body">
+  <h3 id="updTitle">Up to date</h3>
+  <div class="hint" id="updBody" style="margin:8px 0 14px"></div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-primary" id="updClose">OK</button>
+  </div>
+</div></dialog>
+
 <dialog id="importDlg"><div class="dlg-body">
   <h3>Import / merge data</h3>
   <div class="hint" style="margin-bottom:10px">Pick an exported file, or paste its contents below. New sessions are added to this device - nothing already here is lost.</div>
