@@ -48,7 +48,11 @@ Full version + follow-ups are in **`docs/coaching-prompt.md`**. Short version to
 > pass `five_k` as well** (from `running_form`) so the Estimated 5k card never goes stale. They see
 > it after their app syncs. Be specific, tie to goals + recent numbers, progress lifts
 > in small jumps, encourage Cerys, and treat pain notes conservatively (deload / mobility / "get it
-> checked", never diagnose). Start by reviewing both and give me your read, then write coaching.
+> checked", never diagnose). **Read `docs/coaching-method.md` first** — the training principles, what
+> we've already learned about each of them, and the equipment constraints (the treadmills take TIME
+> and SPEED only, in 5s steps, so run sessions must be written as time x speed blocks). Their logged
+> data overrides that file; their stated limiters override both. Start by reviewing both and give me
+> your read, then write coaching.
 
 ---
 
