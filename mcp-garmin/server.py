@@ -303,6 +303,33 @@ def splits_to_rows_hr(splits, a=None):
             rows = [[dist_km, _mmss(dur), _pace(dist_km, dur)]]
     return rows
 
+def rows_from_reps(reps):
+    """A run entry's rows built from the per-rep detail: one row per rep.
+
+    Better than the laps whenever reps exist, because a lap is where the treadmill
+    or the wearer happened to press, not what was done. Cerys's 20 Aug session is
+    the case: three laps (1.61km/12:29, 0.49km/3:58, 1.04km/15:38) against the six
+    1-minute reps she actually ran - and the third lap is the incline WALK, so the
+    entry reported a 15:02/km "run" pace and her Last column and best pace were
+    computed from a walk.
+
+    Non-running work stays out of it. The reps are the running; whatever else was in
+    the activity belongs to its own exercise, not to this one.
+    """
+    out = []
+    for r in (reps or {}).get("reps") or []:
+        m, sec = r.get("dist_m"), r.get("sec")
+        if not m or not sec:
+            continue
+        km = round(m / 1000.0, 2)
+        row = [km, _mmss(sec), _pace(km, sec)]
+        if r.get("avg_hr"):
+            row.append(int(r["avg_hr"]))
+        out.append(row)
+    if out and not all(len(r) > 3 for r in out):    # HR on all rows or none
+        out = [r[:3] for r in out]
+    return out
+
 def _is_run_entry(e):
     cols = e.get("cols") or []
     return any("dist" in str(c).lower() for c in cols) and any("time" in str(c).lower() for c in cols)
@@ -551,6 +578,25 @@ def reps_from_typed_splits(typed, a, series=None):
             if b["type"] == "RWD_RUN" and b["m"] >= _REP_MIN_M and b["sec"] >= _REP_MIN_SEC]
     if len(runs) < 2:
         return None
+    # Two run blocks a second apart are one block Garmin split, not two reps -
+    # Daniel's 13 Aug had a 428s and a 207s "rep" with a 1-second gap between them.
+    # Same rule the speed-trace detector uses: reps are separated by recoveries.
+    joined = []
+    for b in runs:
+        prev = joined[-1] if joined else None
+        if prev and b["at"] - (prev["at"] + prev["sec"]) < _RECOVERY_MIN_SEC:
+            prev["sec"] = (b["at"] + b["sec"]) - prev["at"]
+            prev["m"] += b["m"]
+            for k in ("avg_hr", "max_hr", "cad", "pwr"):
+                if prev.get(k) is None:
+                    prev[k] = b.get(k)
+                elif b.get(k) is not None:
+                    prev[k] = max(prev[k], b[k]) if k == "max_hr" else (prev[k] + b[k]) / 2.0
+        else:
+            joined.append(dict(b))
+    runs = joined
+    if len(runs) < 2:
+        return None
     odd = _not_a_rep_set(runs)
     if odd:
         return {"count": 0, "reps": [], "skipped": odd}
@@ -770,20 +816,38 @@ def rep_derived(reps):
     29 Jul reps sat within 3% of each other and his HR went 130 -> 139, which is
     real cardiac drift. Cerys's last rep was 25% slower than her best, so the same
     subtraction would be measuring her slowing down, not her heart drifting - hence
-    the speed guard and the explicit reason when it can't be computed."""
+    the speed guard and the explicit reason when it can't be computed.
+
+    Fade and consistency are only computed for something that looks like a
+    PRESCRIBED rep set - blocks of roughly equal length. On a Zone 2 run/walk the
+    blocks are whatever the person felt like: Daniel's 13 Aug came out as 314s,
+    247s, 428s and 207s, and reporting "fade 0%, consistency 5.6%" for that put a
+    steady Zone 2 run on the same trend line as his interval sessions. The per-block
+    detail is still worth having there - it is how you see the walk breaks, and how
+    you see that Cerys's Zone 2 is a walk - so the blocks stay and only the
+    rep-set-specific numbers drop out."""
     if not reps:
         return {}
     speeds = [r["kmh"] for r in reps if r.get("kmh")]
     d = {}
+    secs = sorted(r["sec"] for r in reps if r.get("sec"))
+    even = bool(secs) and secs[-1] <= 1.6 * max(1, secs[0])
+    if not even:
+        d["rep_set"] = False
+        d["not_a_rep_set"] = ("block lengths %s are too uneven for fade or consistency to "
+                              "mean anything - this reads as a run/walk, not a set of reps"
+                              % ([int(x) for x in secs],))
     if len(speeds) >= 2:
         mean = sum(speeds) / len(speeds)
         best = max(speeds)
-        if mean:
+        if even and mean:
             # Spread of the reps around their own mean: how evenly it was paced.
             d["consistency_pct"] = round((max(speeds) - min(speeds)) / mean * 100, 1)
-        if best:
+        if even and best:
             # Negative = the last rep was slower than the best one.
             d["fade_pct"] = round((speeds[-1] - best) / best * 100, 1)
+        # Average and best speed are meaningful either way - they describe the
+        # blocks rather than assuming they were meant to match each other.
         d["kmh_avg"] = round(mean, 1)
         d["kmh_best"] = round(best, 1)
     first_hr, last_hr = reps[0].get("avg_hr"), reps[-1].get("avg_hr")
@@ -951,6 +1015,15 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
         # a field whose fetch happened to fail this time - time-in-zone comes from a
         # separate call that returns None on a run with no HR data.
         log.setdefault("garmin", {}).update(metrics)
+    # Reps are worked out BEFORE the run entry is filled, because they are the
+    # better source for its rows - see rows_from_reps.
+    series = extras.get("series") or []
+    reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
+    if not (reps and reps.get("reps")):
+        trace_reps = reps_from_speed_trace(series, expected=_prescribed_reps(log, program))
+        if trace_reps:
+            reps = trace_reps
+    rep_rows = rows_from_reps(reps) if (reps and reps.get("reps")) else []
     run_entry = next((e for e in log.get("entries", []) if _is_run_entry(e)), None)
     if run_entry is None:
         # No run entry to fill: sessions saved before the app kept a blank one lost it
@@ -962,15 +1035,24 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
         # was never done - its paces are typed in by hand.
         name, idx = _program_run_slot(program, log.get("sessionKey"), log)
         if idx is not None:
-            rows = splits_to_rows_hr(splits, a)
+            rows = rep_rows or splits_to_rows_hr(splits, a)
             if rows:
                 log.setdefault("entries", []).insert(
                     idx, {"name": name, "cols": _run_cols(rows), "rows": rows})
     elif not _entry_has_rows(run_entry):
-        rows = splits_to_rows_hr(splits, a)
+        rows = rep_rows or splits_to_rows_hr(splits, a)
         if rows:
             run_entry["cols"] = _run_cols(rows)
             run_entry["rows"] = rows
+    elif rep_rows and run_entry.get("rows") == splits_to_rows_hr(splits, a):
+        # The entry already holds rows, but they are EXACTLY what the laps produce -
+        # so they were written by an earlier sync, not typed by a person. Only then
+        # is it safe to replace them with the better per-rep version. Anything a
+        # person typed differs from the lap output and is left alone, which is the
+        # rule everywhere else here.
+        run_entry["cols"] = _run_cols(rep_rows)
+        run_entry["rows"] = rep_rows
+        log.setdefault("garmin", {})["rows_from"] = "reps (replaced lap-derived rows)"
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
     # Per-rep detail, for ANY session Garmin segmented into repeats - not just the
@@ -988,8 +1070,6 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
     #
     # No extra Garmin calls: the typed splits and the trace are already in `extras`.
     if log.get("garmin"):
-        series = extras.get("series") or []
-        reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
         if reps and reps.get("reps"):
             log["garmin"]["reps"] = reps
             # Self-guards: it only writes into an exercise flagged garminRun whose
@@ -1000,21 +1080,11 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
             # quiet: "no reps" and "reps refused, here's why" read very differently
             # to whoever is trying to work out what the watch saw.
             log["garmin"]["reps_skipped"] = reps["skipped"]
-        if not (reps and reps.get("reps")):
-            # FALLBACK ONLY, and deliberately so. Garmin's run/walk split detection
-            # is the better reader wherever it works: on Cerys's sessions the trace
-            # version under-counts (4 against the correct 6 on 20 Aug, 4 against 5 on
-            # 29 Jul) because her watch samples the trace about every 7 seconds and
-            # her reps are only a minute long. On Daniel's denser trace the two agree
-            # exactly - 6 reps, HR recovery 36 against 35.
-            #
-            # What it adds is the case Garmin cannot do at all: a recovery that is a
-            # JOG rather than a walk means no RWD_WALK block, so there is no boundary
-            # for run/walk detection to find. Running it only when the better method
-            # came back empty means it can add data but never replace better data.
-            trace_reps = reps_from_speed_trace(series, expected=_prescribed_reps(log, program))
-            if trace_reps:
-                log["garmin"]["reps"] = trace_reps
+        # The speed-trace fallback already ran above (it has to, so its reps can
+        # fill the run entry). Garmin's run/walk detection stays the preferred
+        # reader: on Cerys's sessions the trace version under-counts - 4 against the
+        # correct 6 on 20 Aug - because her watch samples about every 7 seconds and
+        # her reps are a minute long. On Daniel's denser trace the two agree exactly.
         # Drift within a single effort, which is the only kind a time trial has -
         # its reps-based cousin above needs more than one rep to compare.
         drift = effort_drift(extras.get("typed_splits"), a, series)

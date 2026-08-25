@@ -520,6 +520,64 @@ def get_session(data, session_id):
             return l
     return {"error": f"No session with id {session_id}"}
 
+def set_log_entry(session_id, exercise, rows, why=""):
+    """Correct the rows of ONE exercise on ONE already-logged session.
+
+    The Garmin sync fills a run entry automatically - from the per-rep detail where
+    it has it, from the treadmill's laps otherwise - and it gets it wrong when the
+    activity held something other than the session it was matched to. Cerys's 20 Aug
+    is the example: her entry was filled from three laps, one of which was the
+    incline WALK, so the app reported a 15:02/km running pace. This is the way to
+    put that right rather than leaving a wrong number in the record.
+
+    It is a correction tool, not a logging tool: never invent a session that didn't
+    happen, and never "tidy" numbers a person typed. The previous rows come back in
+    the response so a bad correction can be undone.
+
+    Safe against the sync: it only auto-replaces rows that exactly match what the
+    laps would produce, and a corrected row won't, so what you write here stays.
+    """
+    failed = {}
+
+    def mutate(data):
+        log = next((l for l in data.get("logs", []) if str(l.get("id")) == str(session_id)), None)
+        if log is None:
+            failed["error"] = f"No session with id {session_id}"
+            return None
+        want = str(exercise).strip()
+        entry = next((e for e in (log.get("entries") or [])
+                      if str(e.get("name") or "").strip().lower() == want.lower()), None)
+        if entry is None:
+            failed["error"] = f"No exercise named {exercise!r} on that session."
+            failed["exercises"] = [e.get("name") for e in (log.get("entries") or [])]
+            return None
+        if not isinstance(rows, list) or not rows:
+            failed["error"] = "`rows` must be a non-empty list of rows."
+            return None
+        clean = [[("" if v is None else v) for v in (row or [])] for row in rows]
+        if clean == entry.get("rows"):
+            failed["error"] = "Nothing to change - the entry already reads exactly that."
+            return None
+        previous = json.loads(json.dumps(entry.get("rows")))
+        entry["rows"] = clean
+        note = str(why or "").strip()
+        # Stamped so the next reader can tell a corrected entry from a synced one.
+        log.setdefault("corrections", []).append(
+            {"at": _now_iso(), "exercise": entry.get("name"),
+             "why": note, "previous": previous})
+        return {"session": log.get("sessionName"), "date": log.get("date"),
+                "person": log.get("person"), "exercise": entry.get("name"),
+                "previous": previous, "rows": clean}
+
+    result = _github_update(mutate, lambda r: "Correct %s on %s's %s" % (
+        r["exercise"], r["person"], r["date"]))
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    result["message"] = ("Corrected. It reaches their phones on the next Sync now, and the "
+                         "Garmin sync will not overwrite it.")
+    return result
+
 def _bodyweight_on(data, person, date):
     """Bodyweight as at a session date - the same rule as bodyweightOn in js/app.js:
     the most recent weigh-in on or before that date, else the earliest on record,
@@ -938,6 +996,28 @@ def _register(mcp):
         EXACT session name. Only when they tell you; never your own inference (that is
         what your coaching notes are for). Empty `text` clears it."""
         return json.dumps(set_limiter(person, session, text), indent=2)
+
+    @mcp.tool()
+    def write_log_entry(session_id: str, exercise: str, rows: list, why: str = "") -> str:
+        """Correct the rows of one exercise on one already-logged session - use it when
+        the Garmin sync filled a run entry with the wrong thing, not to tidy numbers a
+        person typed.
+
+        `session_id` is the log's id (from recent_sessions), `exercise` its EXACT name,
+        `rows` the full replacement list, each row matching that entry's columns - for a
+        run that is [distance_km, "m:ss", "m:ss pace", avg_hr]. Read the session first.
+
+        The case it exists for: a Garmin activity holds more than the session it was
+        matched to, so the automatic fill describes the wrong work. Cerys's 20 Aug run
+        entry was filled from three treadmill laps, one of which was her incline WALK,
+        and the app then reported a 15:02/km running pace and used it for her best pace
+        and her Last column. The sync now prefers per-rep detail where it exists, but
+        when it still gets it wrong, fix it here.
+
+        Say what you changed and why in `why` - it is kept on the session alongside the
+        previous rows, which also come back in the response so a bad edit can be undone.
+        A corrected entry is never silently overwritten by a later sync."""
+        return json.dumps(set_log_entry(session_id, exercise, rows, why), indent=2)
 
     @mcp.tool()
     def session_notes(session: str = "") -> str:

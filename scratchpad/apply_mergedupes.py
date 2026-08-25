@@ -149,8 +149,23 @@ def main():
         return
 
     data["logs"] = [l for l in data["logs"] if l and l.get("id") not in drop_ids]
-    print("\n%d group(s) merged, %d log(s) removed. %d logs remain."
-          % (merged, len(drop_ids), len(data["logs"])))
+    # TOMBSTONE, or this merge does not hold. Learned the hard way: run on 11 Aug
+    # 2026, this removed Cerys's two phantom 1 Aug saves from the store and they
+    # were back within a day, because mergeInData unions logs by id and a phone
+    # that still held them pushed them straight back. Removing a log says nothing;
+    # `deletedLogs` is what says "this is gone on purpose", and it is re-asserted
+    # on every push. The app has done this since tt-v101 - the script hadn't.
+    tomb = data.get("deletedLogs")
+    if not isinstance(tomb, list):
+        tomb = []
+    have = {str(x) for x in tomb}
+    for i in drop_ids:
+        if str(i) not in have:
+            tomb.append(i)
+            have.add(str(i))
+    data["deletedLogs"] = tomb
+    print("\n%d group(s) merged, %d log(s) removed, %d tombstone(s) now on file. %d logs remain."
+          % (merged, len(drop_ids), len(tomb), len(data["logs"])))
 
     if dry:
         print("\nDry run. Re-run with --apply to push.")
