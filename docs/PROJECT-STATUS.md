@@ -403,9 +403,17 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   `sessionForDate`. It now moves to the **counterpart**: same day, preferring one that is hers.
   Round-trips. Shared sessions were never affected.
 - `CACHE_NAME` -> **tt-v113**. **Needs a Claude Code restart** for `setup` on the coach's tools.
-- **Still open:** *"add a section to see duration of sessions"* (`1787304170398`) - needs a decision
-  on where it lives and what it shows; plus the two long-standing ones (export/import, parked by
-  Daniel; and the coach proposing program adjustments).
+- **⏱ Time pane added** (`1787304170398`, Daniel picked the trend chart over a summary table).
+  Progress gains a fourth pane: both people on one graph, a picker for a single session, and tiles
+  for average / last-against-average / longest / how many were timed. Sessions are compared against
+  **themselves** - a short cardio day and a long Lower 2 are different questions and pooling them
+  answers neither - so the picker only offers sessions that person has timed. Gated like 🏃 Run:
+  it only appears once something has been timed. **What it says straight away:** Lower 2 has gone
+  **49 → 88 → 92 min** for Daniel (45 → 89 → 92 for Cerys), so the session they both flagged as
+  overrunning is getting *longer* - and that's before the goblet squat added on 19 Aug has been
+  logged. Upper 1 went **73 → 66** for Daniel after bench dropped to 3 sets. `CACHE_NAME` → tt-v114.
+- **Still open:** the two long-standing ones only - export/import (parked by Daniel, "leave for now
+  but keep") and the coach proposing program adjustments (`1786995006416`, needs a design round).
 
 **2026-08-21 - heart rate reaches the run blocks.** Coach-raised, approved the same day. Daniel had
 asked whether HR could be read against the runs themselves; it couldn't. His 20 Aug 2km trial
@@ -617,7 +625,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v113`.
+  change to a cached file.** Currently `tt-v114`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
