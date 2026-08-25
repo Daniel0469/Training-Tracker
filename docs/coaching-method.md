@@ -185,6 +185,19 @@ These shape what can actually be prescribed. Ignoring them produces sessions tha
 - **Only TIME and SPEED can be set**, and time only in **5-second increments**. There is no distance
   target. So **every run session must be written as time x speed blocks**, never as "4 x 1000m".
   Distance still falls out of it (6:00 at 11.0 km/h = 1100m) and can be used for calibration.
+- **They take a programmed sequence.** The whole session goes in as a list of blocks up front and the
+  belt steps through it on its own. Daniel's explicit reason for wanting it that way is so he does not
+  have to adjust anything mid-run.
+
+  Two consequences for session design. **Speed changes are free** - there is no reason to keep a
+  session monotonous to spare them fiddling with buttons, so progression runs, pyramids, alternating
+  blocks and surges are all viable. And **every session should be written as a complete
+  program-entry table**, warm-up through cool-down, in the order it is entered.
+
+  The one thing that still costs them effort is **lap presses**, since the watch cannot know about the
+  belt's program. Most stage changes beep, so "press lap when the belt changes speed" is the cheapest
+  possible instruction. Only ask for laps where the data actually needs them - if the recovery is a
+  walk, Garmin's run/walk detection finds the reps by itself and no laps are needed at all.
 - **They use two different machines**, side by side, same make and model. Same-model units still drift
   apart with belt and roller wear, so a discrepancy between the two of them is not automatically a
   watch problem.
