@@ -114,6 +114,28 @@ Useful for time trials as well as races, and it fixes the most common pacing err
 
 Anyone can run the first two and the last one. Km 3 and 4 are the ones to win.
 
+## Reading the data: never trust an average over mixed work
+
+This has produced two wrong coaching cues in a single week, so it is a principle rather than a note.
+
+**An average is only meaningful over work of one kind.** A recording that contains a warm-up, an
+effort and a walk produces summary figures that describe none of them:
+
+- Daniel's whole-activity **cadence read 116 spm**, and he was told to shorten his stride. His actual
+  running cadence was 157-166. The 116 was dragged down by ten minutes of walking at 82.
+- Cerys appeared to **drift 158 to 166 bpm** across a rep block, and was warned her recoveries were
+  too short. Rep by rep her heart rate was flat at 167-172 from rep 2 onward; the "drift" was two
+  lap averages containing different amounts of walking.
+
+**Always read the per-rep or per-lap figures before drawing a conclusion, and say which you used.**
+`garmin.reps` gives per-rep speed, HR, cadence and recovery; `effort_drift` gives first-half against
+second-half HR within a single continuous effort; `garmin_activity` splits carry their own HR. The
+activity-level `avg_hr`, `cadence_spm` and `pace_per_km` describe the whole recording and are
+routinely misleading for any session with more than one kind of work in it.
+
+Corollary: when a metric contradicts what the athlete reports, check the metric's basis before
+telling them they are wrong.
+
 ## Judging whether an effort was truly maximal
 
 - A genuine maximum finishes at **~95% of max HR**. Finishing at 90-91% means there was more in there.
@@ -146,10 +168,19 @@ Dated. These are about these two people specifically and they expire - re-check 
 
 ## Cerys
 
-- **2026-08-20.** Heart rate runs hot the moment she runs. Reaches Zone 4 within a minute even at an
-  easy 10 km/h, and drifted 158 to 166 bpm across a rep session *including* the walks. This matches
-  her own limiter ("Zone 2 is a walk for me, not a run") - **do not fix it by asking her to slow
-  down**. Control the session with the recoveries instead.
+- **2026-08-20, corrected 2026-08-21.** Heart rate runs hot the moment she runs - Zone 4 within a
+  minute even at an easy 10 km/h. This matches her own limiter ("Zone 2 is a walk for me, not a
+  run"), so **do not fix it by asking her to slow down**; control the session with the recoveries.
+  But it **plateaus rather than drifting**: rep by rep on 20 Aug she went 143 (still catching up
+  from the warm-up), then 167, 168, 172, 170, 169 - flat across five reps. An earlier version of
+  this entry said she drifted 158 to 166, which was a lap-average artefact. See the reading note
+  in part 1.
+- **2026-08-21.** Recovers well between reps and is improving at it: 40 bpm dropped per walk down to
+  around 140 on 20 Aug, against 33 bpm and only down to 151 on 29 Jul. Consistency across reps went
+  from 30.8% spread to 11.6%, fade from 28% to 11%.
+- **2026-08-21.** Times hand-run reps generously. Her prescribed 6 x 1:00 actually ran 64, 80, 77,
+  97, 76 and 65 seconds. Not a criticism - she was counting them herself - but it means any
+  hand-timed session's volume is understated. The programmed treadmill sequence removes this.
 - **2026-08-20.** Shins are the governor, not fitness. Her 29 July intervals hit max HR 192 with ten
   minutes above Zone 4; she is plenty fit. Twelve days of walking-only fixed a three-week problem.
 - **2026-08-20.** Executes a fixed-speed prescription accurately. Given "10.0 km/h every rep" she held
@@ -209,7 +240,13 @@ Both watches estimate treadmill distance from wrist movement, and both read high
 | | Watch reads | Established |
 |---|---|---|
 | Daniel | ~9% high | 2km trial measured 2.19km, 2026-08-20 |
-| Cerys | ~15% high | typed 11 km/h vs watch 12.5-14.1, 2026-07-29 |
+| Cerys | ~13% high | per-rep distances against a known 10.0 km/h belt speed, 2026-08-20 |
+
+Cerys's figure is the better-grounded of the two: six reps at a prescribed 10.0 km/h came out at
+11.2-11.6 km/h on the watch, giving a ratio of about 1.13 across every rep independently. The
+earlier ~15% was inferred from a single typed number. **A known belt speed held for several reps is
+the cheapest and most reliable calibration available** - prefer it over a whole-session total,
+because it repeats.
 
 Correct for this before drawing conclusions from any watch pace or distance. Prefer the treadmill's
 own number wherever it exists, and have them **type** it - typed values are never overwritten by the
