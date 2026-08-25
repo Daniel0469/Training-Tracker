@@ -376,6 +376,37 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-25 - the treadmill program gets its own block, plus three fixes.**
+- **`setupNote`** (coach-raised, approved same day): the session as numbered time + speed blocks to
+  key into the belt before starting. Its own collapsed block, **first of the three** - program the
+  belt, start the watch, warm up - with a `setup` parameter on `write_run` / `write_session_notes`.
+  Same argument as `recordingNote` five days earlier, so `apply_setup_split.py` reuses that script's
+  `split_note`.
+- **That reuse immediately earned itself.** The dry run showed Daniel's note splitting **three lines
+  early, mid-sentence**, truncating his 13-block table: his program wraps onto a line reading
+  *"warm-up program, then 6-13 as the main one."* and the marker matched case-insensitively. The
+  marker is now **uppercase-only and refuses on more than one match**. The headings in these notes
+  are in capitals and the prose is not - that distinction is load-bearing, don't loosen it.
+- **"update boxes on program - overflowing" was my regression.** The session-notes button label grew
+  to *"Warm-up / cool-down / recording"* when the recording block landed on 20 Aug - the day before
+  Daniel reported it - rendering **372px wide in a 375px viewport, off-screen at left:-207 on every
+  session row**. Now just **"📝 Session notes"**; the icons live on the fields inside. 8 overflowing
+  elements before, 0 after. **Lesson: that button row has ~130px to play with, so don't put a new
+  field's name in the label.**
+- **The update button now says whether it updated.** It drops the caches and reloads, so "nothing to
+  update" and "three versions newer" looked identical. The version is stashed **before** the caches
+  go (sequenced, not concurrent - it is read *from* the caches being dropped) and reported back as
+  "Updated: tt-v99 → tt-v113" / "Already up to date (tt-v113)", silent on a normal load. It **polls**
+  for the version, because the new shell is cached a moment *after* load.
+- **Switching names no longer changes the workout** (Cerys). Reproduced: on `Run: Daniel`, tapping
+  Cerys landed on **Upper 1** - Tuesday's lifting session - because the ownership guard fell back to
+  `sessionForDate`. It now moves to the **counterpart**: same day, preferring one that is hers.
+  Round-trips. Shared sessions were never affected.
+- `CACHE_NAME` -> **tt-v113**. **Needs a Claude Code restart** for `setup` on the coach's tools.
+- **Still open:** *"add a section to see duration of sessions"* (`1787304170398`) - needs a decision
+  on where it lives and what it shows; plus the two long-standing ones (export/import, parked by
+  Daniel; and the coach proposing program adjustments).
+
 **2026-08-21 - heart rate reaches the run blocks.** Coach-raised, approved the same day. Daniel had
 asked whether HR could be read against the runs themselves; it couldn't. His 20 Aug 2km trial
 reported **avg HR 134 for the whole activity** - a figure that includes a ten-minute walk and
@@ -586,7 +617,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v111`.
+  change to a cached file.** Currently `tt-v113`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
