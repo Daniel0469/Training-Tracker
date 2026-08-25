@@ -376,6 +376,40 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-25 (later) - the update result is a dialog, and reps can be read off the speed trace.**
+- **Update popup** (Daniel): a toast was the wrong container - the message lands right after a
+  reload amid everything else that fires on load, and the **30-day export nudge overwrote it during
+  testing**. Now a dialog that waits to be dismissed: "Updated - you were on tt-v99, you're now on
+  tt-v115" or "Already up to date". `CACHE_NAME` → **tt-v115**.
+- **`reps_from_speed_trace`** (coach-raised, approved same day). Garmin's run/walk detection can only
+  separate reps when **the recovery is a walk**; Daniel's threshold session now recovers with a
+  7.5 km/h **jog float**, so there is no boundary for it to find and his recording note has been
+  asking for a lap press per rep. This segments on speed-level changes instead and returns the full
+  per-rep payload (duration, speed, distance, avg/max HR, cadence, and the recovery after each).
+  The detail series now carries **cadence**, so every unpack site widened from 3 to 4.
+- **Three findings that changed the design, all worth keeping:**
+  1. **A treadmill trace is NOT a clean step function of the programmed speeds** - the premise the
+     suggestion was raised on. The watch estimates speed from **arm swing**, not the belt: Daniel's
+     29 Jul reps typed as 13.0 read **14.2-15.7**, and his walk recoveries wander **0.1 to 5.9**.
+     Segmentation is therefore on *relative* level changes with a wide tolerance.
+  2. **Seeding with the prescription is harmful and was dropped.** The coach re-prescribes weekly, so
+     today's `sets` says nothing about an older session - letting it pick turned the 20 Aug **time
+     trial into "4 reps" that never happened**. `expected` now only annotates a mismatch. This is the
+     second time the "read the current program to interpret an old log" idea has had to be rejected.
+  3. **It is a FALLBACK, never a replacement.** On **Cerys's** sessions the trace under-counts -
+     **4 against the correct 6** (20 Aug) and **4 against 5** (29 Jul) - because her watch samples
+     about every **7 seconds** and her reps are a minute long. On Daniel's denser trace the two agree
+     exactly (6 reps, HR recovery 36 vs 35). So it runs **only when Garmin's method came back empty**.
+- **Two guards earned from real false positives:** the *fastest* qualifying set wins, not the longest
+  (scoring on duration picked the **walk recoveries** - "7 reps at 5.0 km/h" for a session run at 13);
+  and blocks less than 20s apart are merged (the 2km trial dipped mid-way and came back as two reps
+  one second apart).
+- **The float case is proved only synthetically** - that session hasn't been run. **The lap presses
+  stay in the recording notes** until Daniel's next run gives a real trace to check against; that is
+  the ground truth this needs before anyone removes them.
+- Side effect, same open question as before: the fallback now gives **Cerys's 13 Aug Zone 2** 3 reps
+  where it had none. Still undecided whether Zone 2 run/walks belong on the rep trends.
+
 **2026-08-25 - the treadmill program gets its own block, plus three fixes.**
 - **`setupNote`** (coach-raised, approved same day): the session as numbered time + speed blocks to
   key into the belt before starting. Its own collapsed block, **first of the three** - program the
@@ -625,7 +659,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v114`.
+  change to a cached file.** Currently `tt-v115`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
