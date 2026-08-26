@@ -3107,16 +3107,104 @@ document.getElementById("importCancel").onclick=()=>importDlg.close();
 document.getElementById("importFile").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ document.getElementById("importText").value=r.result; };
+  r.onload=()=>{ document.getElementById("importText").value=r.result; renderImportMap(); };
   r.readAsText(f);
 };
+// Redrawn as the text arrives so the choice is on screen before Merge in is
+// tapped, rather than the import silently deciding for you.
+document.getElementById("importText").addEventListener("input", renderImportMap);
+// ---- Import: whose data is this, and where should it land? --------------
+// Data is keyed by person NAME everywhere, so a rename or a fresh account orphans
+// everything that came before it. That is the whole reason this exists: it lets an
+// export from an old account be merged onto a differently-named one, instead of the
+// history being stranded under a name nobody uses any more.
+function peopleInPayload(d){
+  const names=[];
+  const add=n=>{ if(n && names.indexOf(n)<0) names.push(n); };
+  (d.logs||[]).forEach(l=>{ if(l) add(l.person); });
+  (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
+  (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
+  ["coaching","limiters","hrZones","racePredictions"].forEach(k=>{
+    if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
+  });
+  (d.people||[]).forEach(add);
+  return names;
+}
+function importPersonMap(){
+  const map={};
+  document.querySelectorAll("[data-pmap]").forEach(sel=>{ map[sel.dataset.pmap]=sel.value; });
+  return map;
+}
+// Rewrite every place a person's name appears, so the merge that follows treats the
+// imported records as belonging to the chosen account. "" means don't import them.
+function remapPeople(d, map){
+  const out=clone(d);
+  const to=n=> (map && map[n]!==undefined) ? map[n] : n;
+  const gone=n=> to(n)==="";
+  ["logs","bodyweights","meals"].forEach(k=>{
+    if(!Array.isArray(out[k])) return;
+    out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
+  });
+  ["coaching","limiters","hrZones","racePredictions"].forEach(k=>{
+    if(!out[k] || typeof out[k]!=="object") return;
+    const o={};
+    Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
+    out[k]=o;
+  });
+  // Per-person config travels by SLOT, not by name, so move each imported person's
+  // goal/weight/colour into the slot their new account occupies here - otherwise a
+  // goal would be filled in against the wrong person.
+  // Colours are deliberately absent: they aren't in an export (see exportPayload)
+  // and mergeInData never adopts them, so an import leaves each account looking
+  // exactly as it did on this device.
+  const np=["",""], ng=["",""], nw=["",""];
+  (d.people||[]).forEach((n,i)=>{
+    if(!n || gone(n)) return;
+    const target=to(n);
+    const slot=state.people.indexOf(target);
+    const at = slot>=0 ? slot : i;
+    np[at]=target;
+    ng[at]=(d.goals||[])[i]||"";
+    nw[at]=(d.weights||[])[i]||"";
+  });
+  out.people=np; out.goals=ng; out.weights=nw;
+  return out;
+}
+function renderImportMap(){
+  const box=document.getElementById("importMap"); if(!box) return;
+  let d=null;
+  try{ d=JSON.parse(document.getElementById("importText").value); }catch(e){}
+  if(!d || !Array.isArray(d.logs)){ box.innerHTML=""; return; }
+  const names=peopleInPayload(d);
+  const locals=state.people.filter(n=>n);
+  if(!names.length){ box.innerHTML=""; return; }
+  const count=(d.logs||[]).length;
+  box.innerHTML='<div class="hint" style="margin:12px 0 6px">'+count+' session'+(count===1?"":"s")
+    + ' for '+names.length+(names.length===1?" person":" people")
+    + '. Choose where each lands - <b>the names don\'t have to match</b>, which is how you move an '
+    + 'old account\'s history onto a new or renamed one.</div>'
+    + names.map(n=>'<label class="fld" style="margin-bottom:8px">'+esc(n)
+        + '<select data-pmap="'+esc(n)+'">'
+        + '<option value="'+esc(n)+'">Keep as &quot;'+esc(n)+'&quot;</option>'
+        + locals.filter(x=>x!==n).map(x=>'<option value="'+esc(x)+'">Merge into '+esc(x)+'</option>').join("")
+        + '<option value="">Don\'t import '+esc(n)+'</option>'
+        + '</select></label>').join("");
+}
+
 document.getElementById("importConfirm").onclick=()=>{
   let data; try{ data=JSON.parse(document.getElementById("importText").value); }
   catch(e){ toast("Couldn't read that data"); return; }
   if(!data || !Array.isArray(data.logs)){ toast("No logs found in import"); return; }
+  const map=importPersonMap();
+  const renamed=Object.keys(map).filter(n=>map[n]!==n && map[n]!=="");
+  const skipped=Object.keys(map).filter(n=>map[n]==="");
+  data=remapPeople(data, map);
+  if(!data.logs.length && skipped.length){ toast("Nothing left to import - every person was skipped"); return; }
   const res=mergeInData(data, document.getElementById("importAdopt").checked);
   save(); importDlg.close(); setDlg.close(); renderPeople(); renderView();
-  toast(res.added+" added, "+res.updated+" updated");
+  toast(res.added+" added, "+res.updated+" updated"
+    + (renamed.length? " ("+renamed.map(n=>n+" → "+map[n]).join(", ")+")" : "")
+    + (skipped.length? ", "+skipped.join(" & ")+" skipped" : ""));
 };
 document.getElementById("exportBtn").onclick=()=>exportData();
 document.getElementById("importBtn").onclick=()=>{ setDlg.close(); importDlg.showModal(); };
@@ -3298,6 +3386,7 @@ function renderHelp(){
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
+     +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
