@@ -376,6 +376,38 @@ fine, convoluted is not. Agreed shape, then applied as program data (no app code
   the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
   the notes read-only.
 
+**2026-08-26 - the backlog is empty. The two long-parked items shipped, plus a coach change.**
+- **Pull-ups added to Upper 1** (coach-raised, approved same day), so the movement is trained twice a
+  week. Daniel's own numbers are the argument: on 21 Aug he did one set of 5 unassisted then needed
+  4.5kg for three, which is the threshold where **frequency** converts one unassisted set into four.
+  Cerys went **39 days** (13 Jul - 21 Aug) without training her only written-down strength goal purely
+  because the session didn't come round. **Same exact NAME as Upper 2's** so it is one trend, not two
+  half-histories, and `load:"assist"` copied from it so both slots score identically. **Second in the
+  session**, not last - the deadlift is the standing lesson. **3 sets not 4**, because Upper 1 already
+  runs 66-79 min. Cerys's shoulder handled with a note rather than by leaving the exercise out.
+  Script: `scratchpad/apply_pullups_upper1.py`.
+- **The coach can propose a program change and a tick applies it** (`1786995006416`). **Daniel
+  corrected the design**: the old shape was coach proposes → he approves → *Claude writes the code* →
+  done, which left a set count wrong for days. Now the app applies it itself. `write_program_change`
+  lands it on that exercise in the Program tab with the reason and Apply / No; applying calls
+  `saveProgram()` so it stamps `updatedAt` and reaches the other phone. **Scope is edit, add AND
+  remove** on his call; a removal card is red and says past logs are kept. Stale changes (exercise or
+  session since gone) decline themselves rather than throwing. `programChanges` sync by id with a
+  decision beating an older `pending`, same ranking as suggestions.
+- **Import can put history onto a differently-named account** (`1786567246193` - the "ask specifics"
+  one; his answer was *"merge old data into new account, even with different name"*). Everything is
+  keyed by person NAME, so a rename strands it all - this is the way out. Picking a file lists
+  everyone in it; each can keep their name, merge into either local account, or be left out. Per-person
+  config travels by **slot**, so goals/bodyweight follow to the right account. Verified by renaming a
+  copy of the real store to Dan/C and importing onto Daniel/Cerys: all 47 sessions landed correctly,
+  every keyed structure re-keyed, and skipping one person imports only the other.
+- **`pace_per_km` removed from `get_running_form`** (coach-raised, approved). It divided the WHOLE
+  session's duration by the running distance: Cerys's 20 Aug read **56:13/km**. `efficiency.run_pace`
+  is measured over running blocks only and is correct - one right pace beats two that disagree.
+- `CACHE_NAME` → **tt-v117**. **Needs a Claude Code restart** for `write_program_change`,
+  `program_changes` and `write_log_entry`.
+- **Backlog is now empty** - nothing open, nothing proposed.
+
 **2026-08-25 (audit) - "are the past runs stored well enough to infer from?"** Audited every one
 (`scratchpad/audit_runs.py`, read-only, keep it). **Daniel's were sound. Cerys's had three problems,
 all now fixed** - and one had been "fixed" before without holding.
@@ -689,7 +721,7 @@ kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrec
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v115`.
+  change to a cached file.** Currently `tt-v117`.
 - `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
