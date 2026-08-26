@@ -130,8 +130,11 @@ effort and a walk produces summary figures that describe none of them:
 **Always read the per-rep or per-lap figures before drawing a conclusion, and say which you used.**
 `garmin.reps` gives per-rep speed, HR, cadence and recovery; `effort_drift` gives first-half against
 second-half HR within a single continuous effort; `garmin_activity` splits carry their own HR. The
-activity-level `avg_hr`, `cadence_spm` and `pace_per_km` describe the whole recording and are
-routinely misleading for any session with more than one kind of work in it.
+activity-level `avg_hr` and `cadence_spm` describe the whole recording and are routinely misleading
+for any session with more than one kind of work in it. **Pace for a run comes from
+`efficiency.run_pace`**, which is measured over the running blocks only; the old `pace_per_km` field
+was removed on 26 Aug 2026 because it divided whole-session time by running distance and reported
+figures like 56:13/km.
 
 Corollary: when a metric contradicts what the athlete reports, check the metric's basis before
 telling them they are wrong.

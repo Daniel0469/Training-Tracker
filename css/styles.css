@@ -267,6 +267,16 @@
      coaching history: a <details> whose summary is the section heading. */
   .rec-card summary,.setup-card summary{cursor:pointer}
   .rec-card[open] summary,.setup-card[open] summary{margin-bottom:2px}
+  /* A coach-proposed program change, waiting on a tick. Teal like the other
+     coach surfaces so it reads as "from your coach", not as an app warning. */
+  .pchange{margin:7px 0 2px;padding:8px 10px;border-radius:8px;font-size:12.5px;
+    background:var(--brand-soft);border:1px solid var(--line)}
+  .pchange-head{font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    font-weight:700;color:var(--muted);margin-bottom:3px}
+  .pchange-what{font-weight:700;color:var(--ink)}
+  .pchange-why{color:var(--muted);margin-top:3px;white-space:pre-wrap}
+  .pchange-danger{border-color:var(--bad)}
+  .pchange-danger .pchange-what{color:var(--bad)}
   .coach-hist summary{cursor:pointer}
   .coach-hist[open] summary{margin-bottom:6px}
   .hist-entry{font-size:13px;border-top:1px solid var(--line);padding:8px 0}

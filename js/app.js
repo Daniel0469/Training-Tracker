@@ -48,6 +48,10 @@ function load(){
       // 5k estimate (and the unreviewed fallback on Home), never edited in the app.
       if(!s.racePredictions || typeof s.racePredictions!=="object") s.racePredictions={};
       if(!Array.isArray(s.suggestions)) s.suggestions=[];
+      // Program changes the coach has proposed, waiting on a tick in the Program
+      // tab. The app applies them itself - that is the point of them. See
+      // applyProgramChange.
+      if(!Array.isArray(s.programChanges)) s.programChanges=[];
       // Ids of sessions deleted here, so a sync can't bring them back. See tombstoneLog.
       if(!Array.isArray(s.deletedLogs)) s.deletedLogs=[];
       // What each person says is holding a session back, keyed person -> session
@@ -90,7 +94,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -1685,6 +1689,96 @@ const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", time:"⏱ Time", body:"�
 function hasDurationData(){
   return state.logs.some(l=>l && l.durationSec>0);
 }
+// ---- Coach-proposed program changes ------------------------------------
+// The coach can propose a change to the program - "bench press: 4 sets -> 3" -
+// and it waits on the exercise in the Program tab until someone ticks it. The
+// APP applies it, not a developer: before this, an approved suggestion still
+// needed code written for it, so a set count sat wrong for days while the coach,
+// Daniel and the dev chat passed it between them.
+//
+// Deliberately not automatic. A program change reaches both phones and rewrites
+// what they are told to do next session, so it waits for a human tick - the same
+// gate as the 💡 suggestions, just moved to where the change actually lands.
+function pendingChanges(){
+  return (state.programChanges||[]).filter(c=>c && c.status==="pending");
+}
+function changesForExercise(sessionName, exName){
+  return pendingChanges().filter(c=> c.session===sessionName && c.exercise===exName
+    && (c.op==="edit"||c.op==="remove"));
+}
+function changesAddingTo(sessionName){
+  return pendingChanges().filter(c=> c.session===sessionName && c.op==="add");
+}
+function sessionKeyByName(name){
+  return orderedKeys().find(k=> (state.program.sessions[k]||{}).name===name);
+}
+// What the change would do, in words, for the card and the confirm.
+function describeChange(c){
+  if(c.op==="remove") return "Remove "+c.exercise;
+  if(c.op==="add") return "Add "+c.exercise;
+  const bits=[];
+  const key=sessionKeyByName(c.session);
+  const ex=key ? (state.program.sessions[key].exercises||[]).find(e=>e.name===c.exercise) : null;
+  Object.keys(c.fields||{}).forEach(f=>{
+    const was=ex ? ex[f] : undefined;
+    bits.push(f+": "+(was===undefined||was===""?"—":was)+" → "+c.fields[f]);
+  });
+  return bits.join(" · ") || "No change";
+}
+function setChangeStatus(c, status){
+  c.status=status;
+  c[status==="applied"?"appliedAt":"declinedAt"]=new Date().toISOString();
+  c.by=state.people[state.activePerson]||"";
+}
+function applyProgramChange(id){
+  const c=(state.programChanges||[]).find(x=>String(x.id)===String(id));
+  if(!c || c.status!=="pending") return;
+  const key=sessionKeyByName(c.session);
+  const sess=key ? state.program.sessions[key] : null;
+  if(!sess){ toast("That session isn't in the program any more"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+  const exs=sess.exercises||(sess.exercises=[]);
+  const i=exs.findIndex(e=>e.name===c.exercise);
+  if(c.op==="edit"){
+    if(i<0){ toast("That exercise isn't in the session any more"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+    Object.keys(c.fields||{}).forEach(f=>{ exs[i][f]=c.fields[f]; });
+  }else if(c.op==="remove"){
+    if(i<0){ toast("Already gone"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+    exs.splice(i,1);
+    cleanupSoloGroups(key);
+  }else if(c.op==="add"){
+    if(i>=0){ toast(c.exercise+" is already in "+c.session); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+    const def=Object.assign({name:c.exercise, warmup:"", notes:"", target:"", sets:3,
+      cols:["Weight (kg)","Reps"]}, c.fields||{});
+    const after=c.after ? exs.findIndex(e=>e.name===c.after) : -1;
+    exs.splice(after>=0 ? after+1 : exs.length, 0, def);
+  }
+  setChangeStatus(c,"applied");
+  // saveProgram stamps updatedAt and pushes, so it reaches the other phone - but
+  // never mid-workout, mergeInData refuses to adopt a program while a draft is open.
+  saveProgram();
+  renderEdit();
+  toast("Applied: "+describeChange(c));
+}
+function declineProgramChange(id){
+  const c=(state.programChanges||[]).find(x=>String(x.id)===String(id));
+  if(!c || c.status!=="pending") return;
+  setChangeStatus(c,"declined");
+  save(); autoSync(); renderEdit();
+  toast("Declined - the coach can see that, and won't re-raise it");
+}
+function changeCardHtml(c){
+  const danger = c.op==="remove";
+  return '<div class="pchange'+(danger?' pchange-danger':'')+'">'
+    + '<div class="pchange-head">🧠 Coach suggests</div>'
+    + '<div class="pchange-what">'+esc(describeChange(c))+'</div>'
+    + (c.why?'<div class="pchange-why">'+esc(c.why)+'</div>':"")
+    + (danger?'<div class="pchange-why">Past logs keep this exercise - removing it only stops it being prescribed.</div>':"")
+    + '<div class="row" style="gap:6px;margin-top:7px">'
+    + '<button class="mini" data-pcapply="'+esc(c.id)+'">✓ Apply</button>'
+    + '<button class="mini" data-pcdecline="'+esc(c.id)+'">✕ No</button>'
+    + '</div></div>';
+}
+
 function progressPanes(){
   const keys=["lifts"];
   if(hasRunData()) keys.push("run");
@@ -2186,7 +2280,9 @@ function exRowHtml(k, ei, ex){
     + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
     + '<button class="mini ico" data-downex="'+ref+'" title="Move down" aria-label="Move down">&darr;</button>'
     + '<button class="mini ico" data-delex="'+ref+'" style="color:var(--bad)" title="Remove" aria-label="Remove">&times;</button>'
-    + '</div></div></div>';
+    + '</div></div>'
+    + changesForExercise((state.program.sessions[k]||{}).name, ex.name).map(changeCardHtml).join("")
+    + '</div>';
 }
 // Per-session warm-up/mobility and cool-down notes, edited in the Program tab
 // and read on the Log tab (see renderLog). Free text on purpose - it's "3 min
@@ -2250,7 +2346,8 @@ function renderEdit(){
         + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote||s.recordingNote||s.setupNote)?"true":"false")+'">&#128221; Session notes</button>'
         + '<button class="mini" data-shareex="'+k+'">&#128279; Share</button>'
         + '<button class="mini" data-addex="'+k+'">&#10133; Exercise</button></div>'
-        + sessNotesHtml(k, s);
+        + sessNotesHtml(k, s)
+        + changesAddingTo(s.name).map(changeCardHtml).join("");
       exerciseBlocks(s.exercises).forEach(block=>{
         const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
         html += block.type==="group"
@@ -2308,6 +2405,8 @@ function renderEdit(){
         : field==="recordingNote" ? "Recording note saved"
         : field==="setupNote" ? "Treadmill program saved" : "Cool-down note saved");
   }));
+  document.querySelectorAll("[data-pcapply]").forEach(b=>b.onclick=()=>applyProgramChange(b.dataset.pcapply));
+  document.querySelectorAll("[data-pcdecline]").forEach(b=>b.onclick=()=>declineProgramChange(b.dataset.pcdecline));
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.ungroup.split(":");
@@ -2727,7 +2826,8 @@ const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
-    coachingLog:state.coachingLog, suggestions:state.suggestions, meals:state.meals,
+    coachingLog:state.coachingLog, suggestions:state.suggestions,
+    programChanges:state.programChanges, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs};
@@ -2826,6 +2926,25 @@ function mergeInData(data, adoptConfig, fromSync){
         cur.status=s.status;
         if(s.doneAt) cur.doneAt=s.doneAt;
         if(s.approvedAt) cur.approvedAt=s.approvedAt;
+        updated++;
+      }
+    });
+  }
+  // Program changes: union by id, and a decision beats an older "pending" from
+  // either side - the same ranking as suggestions and for the same reason. If one
+  // phone applies a change, the other must not still be offering the tick.
+  if(Array.isArray(data.programChanges)){
+    if(!Array.isArray(state.programChanges)) state.programChanges=[];
+    var byC={}; state.programChanges.forEach(function(c){ if(c&&c.id!=null) byC[c.id]=c; });
+    data.programChanges.forEach(function(c){
+      if(!c||c.id==null) return;
+      var cur=byC[c.id];
+      if(!cur){ state.programChanges.push(c); byC[c.id]=c; }
+      else if(cur.status==="pending" && c.status!=="pending"){
+        cur.status=c.status;
+        if(c.appliedAt) cur.appliedAt=c.appliedAt;
+        if(c.declinedAt) cur.declinedAt=c.declinedAt;
+        if(c.by) cur.by=c.by;
         updated++;
       }
     });
@@ -3188,6 +3307,7 @@ function renderHelp(){
 
   h+=card('7 &middot; Edit the program',
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
+     +p('If a coach proposes a change to your program - "bench press: 4 sets → 3" - it appears on that exercise here as a <b>🧠 Coach suggests</b> card with the reason, and nothing happens until you tap <b>✓ Apply</b>. Applying makes the change and syncs it to both phones; <b>✕ No</b> declines it and the coach can see you said no, so it won\'t come back. A proposal to <b>remove</b> an exercise is marked in red - your past logs of it are kept either way, removing it only stops it being prescribed.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')

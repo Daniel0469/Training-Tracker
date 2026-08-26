@@ -454,6 +454,77 @@ def set_run(person, exercises=None, why="", name=None, day=None,
     return result
 
 
+def get_program_changes(data, include_done=False):
+    """Program changes you have proposed, and what became of them."""
+    out = []
+    for c in (data.get("programChanges") or []):
+        if not include_done and c.get("status") != "pending":
+            continue
+        out.append(c)
+    out.sort(key=lambda c: c.get("id", 0), reverse=True)
+    return out
+
+def propose_program_change(session, exercise, why, sets=None, target=None,
+                           add=None, remove=False, after=""):
+    """Propose one change to the program. It waits on that exercise in the app's
+    Program tab until someone ticks it, and THE APP applies it - see the tool
+    docstring for why that matters.
+    """
+    failed = {}
+
+    def mutate(data):
+        sessions = ((data.get("program") or {}).get("sessions")) or {}
+        sess = next((s for s in sessions.values()
+                     if str((s or {}).get("name") or "").strip() == str(session).strip()), None)
+        if sess is None:
+            failed["error"] = f"No session called {session!r}."
+            failed["sessions"] = [s.get("name") for s in sessions.values()]
+            return None
+        names = [e.get("name") for e in (sess.get("exercises") or [])]
+        if remove:
+            op, fields = "remove", {}
+        elif add is not None:
+            op, fields = "add", dict(add)
+            fields.pop("name", None)
+        else:
+            op, fields = "edit", {}
+            if sets is not None:
+                fields["sets"] = int(sets)
+            if target is not None:
+                fields["target"] = str(target)
+            if not fields:
+                failed["error"] = "Nothing to change - pass sets, target, add or remove."
+                return None
+        if op in ("edit", "remove") and exercise not in names:
+            failed["error"] = f"{exercise!r} is not in {session!r}."
+            failed["exercises"] = names
+            return None
+        if op == "add" and exercise in names:
+            failed["error"] = f"{exercise!r} is already in {session!r}."
+            return None
+        pending = [c for c in (data.get("programChanges") or [])
+                   if c.get("status") == "pending" and c.get("session") == session
+                   and c.get("exercise") == exercise and c.get("op") == op]
+        if pending:
+            failed["error"] = ("The same change is already waiting for a tick - don't raise "
+                               "it twice. Ask them to look at the Program tab instead.")
+            return None
+        rec = {"id": int(time.time() * 1000), "at": _now_iso(), "status": "pending",
+               "session": session, "exercise": exercise, "op": op,
+               "fields": fields, "why": str(why or "").strip(), "source": "coach"}
+        if op == "add" and after:
+            rec["after"] = str(after)
+        data.setdefault("programChanges", []).append(rec)
+        return rec
+
+    result = _github_update(mutate, lambda r: "Coach proposes: %s on %s" % (r["op"], r["session"]))
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    result["message"] = ("Waiting on a tick in the Program tab, on that exercise. They see it "
+                         "after Sync now; applying it changes the program on both phones.")
+    return result
+
 def get_coaching_history(data, person, limit=10):
     log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
     log.sort(key=lambda e: e.get("id", 0), reverse=True)
@@ -700,7 +771,15 @@ def get_running_form(data, person):
             sec = l.get("durationSec") or 0
             runs.append({"date": l.get("date"), "session": l.get("sessionName"),
                          "distance_km": round(km, 2), "duration_sec": sec,
-                         "pace_per_km": _mmss((sec / km)) if sec and km else None,
+                         # pace_per_km used to sit here and was WRONG: it divided the
+                         # whole logged session's duration by the running distance, so
+                         # Cerys's 20 Aug read 56:13/km - 1.44km of running over 4857
+                         # seconds that included a 15-minute incline walk and her core
+                         # work. It was always slightly wrong for a mixed session; it
+                         # only became obvious once run rows held per-rep distances
+                         # rather than the whole activity's. The right figure is
+                         # efficiency.run_pace below, computed over the running blocks
+                         # only, and one correct pace beats two that disagree.
                          "avg_hr": g.get("avg_hr"), "max_hr": g.get("max_hr"),
                          "min_hr": g.get("min_hr"),
                          "hr_zone_secs": g.get("hr_zone_secs"),
@@ -996,6 +1075,48 @@ def _register(mcp):
         EXACT session name. Only when they tell you; never your own inference (that is
         what your coaching notes are for). Empty `text` clears it."""
         return json.dumps(set_limiter(person, session, text), indent=2)
+
+    @mcp.tool()
+    def program_changes(include_done: bool = False) -> str:
+        """Program changes you have proposed and what became of them - `pending` is
+        still waiting on a tick, `applied` was accepted, `declined` was refused. Check
+        before proposing so you don't raise the same thing twice, and read a `declined`
+        as a decision: don't work around it."""
+        return json.dumps(get_program_changes(load_data(), include_done), indent=2)
+
+    @mcp.tool()
+    def write_program_change(session: str, exercise: str, why: str, sets: int | None = None,
+                             target: str | None = None, add: dict | None = None,
+                             remove: bool = False, after: str = "") -> str:
+        """Propose ONE change to the program. It appears on that exercise in their
+        Program tab with the reason and a tick, and the APP applies it when they accept
+        - you are not waiting on a developer, and neither are they. This is how a set
+        count or a target actually changes; a coaching note asking them to do 3 sets
+        instead of 4 does not change what the app prescribes next week.
+
+        `session` and `exercise` must be EXACT names. `why` is required and is shown on
+        the card - they are being asked to accept a change to their training, so the
+        reason has to stand on its own.
+
+        Three kinds:
+        * change numbers - pass `sets` and/or `target` ("Bench press", sets=3,
+          target="3x5-8"). This is the common one.
+        * add an exercise - pass `add` as the definition
+          {"target": "3x8-10", "sets": 3, "cols": ["Weight (kg)", "Reps"],
+           "notes": "...", "load": "assist"} and optionally `after` to place it after a
+          named exercise. Place work that matters EARLY: the deadlift sat last in
+          Lower 1 and went unlogged for months.
+        * remove an exercise - pass remove=True. Their past logs of it are kept; it
+          just stops being prescribed. Use sparingly, and say what replaces it.
+
+        Keep an exercise NAME identical to one already used if you want its history to
+        continue - records, the Last column and the progress chart all key on the name.
+        That is what makes the same movement in two sessions one trend rather than two.
+
+        Refuses a duplicate of a change already waiting, and refuses to edit or remove
+        something that isn't in that session. One change per call."""
+        return json.dumps(propose_program_change(session, exercise, why, sets, target,
+                                                 add, remove, after), indent=2)
 
     @mcp.tool()
     def write_log_entry(session_id: str, exercise: str, rows: list, why: str = "") -> str:
