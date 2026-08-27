@@ -219,9 +219,15 @@ These shape what can actually be prescribed. Ignoring them produces sessions tha
 - **Only TIME and SPEED can be set**, and time only in **5-second increments**. There is no distance
   target. So **every run session must be written as time x speed blocks**, never as "4 x 1000m".
   Distance still falls out of it (6:00 at 11.0 km/h = 1100m) and can be used for calibration.
-- **They take a programmed sequence.** The whole session goes in as a list of blocks up front and the
-  belt steps through it on its own. Daniel's explicit reason for wanting it that way is so he does not
-  have to adjust anything mid-run.
+- **They take a programmed sequence, capped at 20 stages.** The whole session goes in as a list of
+  blocks up front and the belt steps through it on its own. Daniel's explicit reason for wanting it
+  that way is so he does not have to adjust anything mid-run.
+
+  **Count the blocks before prescribing.** A 21-block session for Cerys on 26 Aug silently ran out
+  partway through: she ended up hand-timing reps again, did 10 instead of 8, ran them 20% faster than
+  asked, got shin pain in one and felt sick. None of that was her - it was a session that could not
+  physically be entered. A rep set costs 2n-1 blocks, so 8 reps with walks is 15 before any warm-up
+  or cool-down. Move the warm-up to the bike when the count is tight.
 
   Two consequences for session design. **Speed changes are free** - there is no reason to keep a
   session monotonous to spare them fiddling with buttons, so progression runs, pyramids, alternating
