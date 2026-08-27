@@ -76,8 +76,6 @@ someone whose limiter is tissue tolerance - see the overrides.
 ## Progression rules
 
 - **Duration before intensity.** Add time at a pace before adding pace.
-- **One variable at a time.** If reps, rep length and speed all move at once, a bad week tells you
-  nothing.
 - **Hold a known speed across weeks** while volume climbs, so the sessions are comparable.
 - **A completed rep range earns the next load**, not a good feeling.
 
@@ -223,11 +221,15 @@ These shape what can actually be prescribed. Ignoring them produces sessions tha
   blocks up front and the belt steps through it on its own. Daniel's explicit reason for wanting it
   that way is so he does not have to adjust anything mid-run.
 
-  **Count the blocks before prescribing.** A 21-block session for Cerys on 26 Aug silently ran out
-  partway through: she ended up hand-timing reps again, did 10 instead of 8, ran them 20% faster than
-  asked, got shin pain in one and felt sick. None of that was her - it was a session that could not
-  physically be entered. A rep set costs 2n-1 blocks, so 8 reps with walks is 15 before any warm-up
-  or cool-down. Move the warm-up to the bike when the count is tight.
+  **Count the blocks before prescribing.** A 21-block session for Cerys on 26 Aug exceeded the limit,
+  so the tail of it - her incline walk - was cut short. A rep set costs 2n-1 blocks, so 8 reps with
+  walks is 15 before any warm-up or cool-down. Move the warm-up to the bike when the count is tight.
+
+  **Do not read a truncated program as a badly executed session.** On that same run the rep detection
+  reported 10 reps of 36-81s at up to 13.6 km/h, and the obvious inference - that she had run too many,
+  too fast - was wrong. She ran the eight prescribed slots at the prescribed speed and eased off on
+  one. Two of the "reps" were her warm-up jog tests. Check the count against the program before
+  concluding anyone deviated, and prefer their account.
 
   Two consequences for session design. **Speed changes are free** - there is no reason to keep a
   session monotonous to spare them fiddling with buttons, so progression runs, pyramids, alternating
