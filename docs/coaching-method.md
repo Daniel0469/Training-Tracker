@@ -21,6 +21,17 @@ Three rules, in priority order:
 This file does **not** duplicate what the tools already return. PRs, session history, limiters,
 goals and past coaching all come from `training-tracker`. Read those too.
 
+## Every review, without exception
+
+**Re-write the 5k card after every run.** Call `running_form(person)` and pass `five_k` on the
+`write_coaching` call, every time, even when the number does not move - say what the new run added
+and what it did not. The card shows its own last-updated date, so leaving it out makes it look
+neglected even when the figure is still right.
+
+The trap that caused this to be missed twice in one week: **`write_run` has no `five_k` field.** A
+session can be re-prescribed all day without the estimate ever being touched. If a run has been
+logged and the only tool called was `write_run`, the review is not finished.
+
 ---
 
 # Part 1 - Principles
@@ -271,6 +282,16 @@ Every run session gets a **⌚ Recording block** written for that specific sessi
 lap point, when to end, and a map of what each lap holds. It is dual-purpose - the athlete follows it
 during the session, and the coach uses it afterwards to find the right data in a mixed activity. See
 `garmin-recording-guide-per-run` in the coach's memory.
+
+**Garmin's 1km auto-lap fragments manual laps and must be turned off.** On Daniel's 26 Aug threshold
+run the manual presses were correct and captured all four reps and three floats - but auto-lap fired
+at every kilometre as well, splitting each 6-minute rep into two laps and producing 14 laps for an
+11-block session. The data was recoverable only by pairing each 1.00km auto-lap with the partial lap
+after it. With auto-lap off, the manual presses alone give clean per-rep splits.
+
+Until the trace segmentation is fixed, **manual laps are the ground truth** for any session whose
+recovery is a jog rather than a walk - the automatic rep detection inverts those, treating the
+threshold blocks as recovery.
 
 ---
 
