@@ -292,6 +292,80 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False, recordi
                          "their phones on the next Sync now, unless one is mid-workout.")
     return result
 
+def _session_key(name, sessions):
+    """A stable camelCase key from a session name - "Mobility assessment" becomes
+    "mobilityAssessment". The key is what every log points at, so it is set once
+    here and never edited afterwards; renaming a session changes only its `name`.
+    """
+    words = re.findall(r"[A-Za-z0-9]+", name) or ["session"]
+    base = words[0].lower() + "".join(w[:1].upper() + w[1:].lower() for w in words[1:])
+    base = base[:40] or "session"
+    # Underscore rather than a bare digit: "Lower 1" already keys to "lower1", so a
+    # plain suffix would give "lower12", which reads as Lower 12.
+    key, n = base, 2
+    while key in sessions:
+        key, n = f"{base}_{n}", n + 1
+    return key
+
+
+def add_session(name, day="Optional", exercises=None, person="", warmup="", cooldown="",
+                setup="", recording=""):
+    """Add a whole new session to the program. See the create_session tool docstring."""
+    failed = {}
+
+    def mutate(data):
+        wanted = str(name or "").strip()
+        if not wanted:
+            failed["error"] = "A session needs a name."
+            return None
+        program = data.setdefault("program", {})
+        sessions = program.setdefault("sessions", {})
+        # Names are the lookup key everywhere - logs are stored by sessionName, the
+        # next-cardio card matches one by name, and _find_session resolves by name.
+        # Two sessions called the same thing quietly break all three.
+        if any(str((s or {}).get("name") or "").strip().lower() == wanted.lower()
+               for s in sessions.values()):
+            failed["error"] = (f"A session called {wanted!r} already exists. Names must be "
+                               "unique - change what is in it with write_session_notes or "
+                               "write_program_change instead of adding a second one.")
+            return None
+        if person and person not in (data.get("people") or []):
+            failed["error"] = f"No such person {person!r}. People: {data.get('people')}"
+            return None
+        try:
+            cleaned = [_clean_exercise(e, i) for i, e in enumerate(exercises or [])]
+        except ValueError as err:
+            failed["error"] = str(err)
+            return None
+
+        key = _session_key(wanted, sessions)
+        s = {"name": wanted, "day": str(day or "Optional").strip(), "exercises": cleaned}
+        for field, text in (("setupNote", setup), ("recordingNote", recording),
+                            ("warmupNote", warmup), ("cooldownNote", cooldown)):
+            if str(text or "").strip():
+                s[field] = str(text).strip()
+        if person:
+            s["person"] = person
+        sessions[key] = s
+        order = program.setdefault("order", [])
+        if key not in order:
+            order.append(key)
+        program["updatedAt"] = _now_iso()
+        return {"session": wanted, "key": key, "day": s["day"],
+                "person": s.get("person", ""), "exercises": cleaned}
+
+    result = _github_update(mutate, lambda r: f"New session: {r['session']}")
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    who = result["person"] or "Both people"
+    result["message"] = (
+        f"Created. {who} will see it on the next Sync now. Nothing is logged against it "
+        "yet, so deleting it costs nothing if it is wrong - but once a session has been "
+        "logged, its key is what that history points at.")
+    return result
+
+
 def _find_run_session(data, person):
     """The session that BELONGS to `person` - the one the coach re-prescribes each
     week. Ownership is the `person` field on the session, which is also what stops
@@ -333,6 +407,11 @@ def _clean_exercise(e, i):
            "sets": sets, "cols": [str(c).strip() for c in cols]}
     if e.get("garminRun"):
         out["garminRun"] = True
+    # betterWhen says which way is progress on a flexibility test ("higher" for
+    # ankle range, absent for a gap you want to close). Dropping it makes every
+    # improvement render as a loss on the ladder.
+    if str(e.get("betterWhen") or "").strip().lower() == "higher":
+        out["betterWhen"] = "higher"
     for opt in ("groupId", "load", "bwPct"):
         if e.get(opt):
             out[opt] = e[opt]
@@ -1158,9 +1237,22 @@ def _register(mcp):
         aggravates a hip. `session` must be an EXACT session name.
 
         Unlike everything else you write, this is NOT per person: the note lives on the
-        program and BOTH of them see the same text. So write "Cerys: ..." or "Daniel: ..."
-        on any line that is meant for one of them - that is how the existing notes already
-        handle Cerys's PAILs/RAILs and her hip-flexor exclusions.
+        program and BOTH of them see the same text. So a note addressed to one of them does
+        NOT belong here - put it in write_coaching(by_session=...), which is per person.
+        Daniel's instruction, 2 Sep 2026: no person-specific lines in a warm-up or
+        cool-down. See docs/coaching-method.md, Part 3, "Writing warm-ups and cool-downs" -
+        it also settles what a cool-down is (stretches and breathing, never strength work),
+        that decision rules and traffic lights do not go in a warm-up, and that a stated
+        duration is computed from the list rather than guessed. Read it before writing one,
+        and do not write back anything that section says was removed.
+
+        KEEP THE REST OF THE SESSION IN STEP. `setup`, `recording`, `warmup` and `cooldown`
+        describe one session between them, so changing any of them can leave the others
+        lying. If the block count or the structure moves, walk all four and fix every
+        reference: block numbers, lap counts, totals, "blocks 1-5", "when block 21 finishes".
+        A recording note pointing at a block that no longer exists is worse than no note,
+        because it is followed. This is how Cerys's recording note ended up telling her to
+        end at block 21 of an 18-block session.
 
         Call `session_notes(session)` FIRST and work from what's there. These notes are long
         and hand-written, and passing `warmup` REPLACES the whole thing - months of mobility
@@ -1180,6 +1272,43 @@ def _register(mcp):
         Everywhere else, raise it with propose_suggestion_tool for Daniel to approve."""
         return json.dumps(set_session_notes(session, warmup, cooldown, append, recording,
                                            setup), indent=2)
+
+    @mcp.tool()
+    def create_session(name: str, day: str = "Optional", exercises: list | None = None,
+                       person: str = "", warmup: str = "", cooldown: str = "",
+                       setup: str = "", recording: str = "") -> str:
+        """Add a NEW session to the program - a whole training day that does not exist yet.
+
+        Use it when the work genuinely does not belong in any current session: a mobility
+        day, an assessment, a second cardio slot. To change a session that already exists,
+        use write_session_notes for the notes and write_program_change for the exercises;
+        this refuses a duplicate name.
+
+        `name` must be unique and is how everything finds the session afterwards - logs are
+        stored by session name, the next-cardio card matches by name, and every lookup
+        resolves by name. `day` is a weekday or "Optional" (which is right whenever it has
+        no fixed slot yet). `person` scopes it to one of them, the way each run session is;
+        leave it empty and both see it.
+
+        `exercises` is the list, in order, each
+          {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
+           "notes": optional setup/how-to text}
+        Columns decide how the app treats it. A Distance + Time pair makes it a run. Two
+        free-text columns like ["Min", "Notes"] make it a plain timed block. A first column
+        of "cm" makes it a flexibility test: it charts in Progress as a ladder rung and
+        stays out of records, volume and the Lifts chart. Add "betterWhen": "higher" on a
+        test where a bigger number is the better one, like ankle range.
+
+        Reuse an exercise NAME that already exists if you want its history to continue -
+        records, the Last column and the progress chart all key on the name.
+
+        The notes follow the same rules as write_session_notes: no person-specific lines
+        (those go in write_coaching), no decision rules in a warm-up, and a cool-down is
+        stretches and breathing rather than strength work. See docs/coaching-method.md,
+        Part 3. Adding a session is structural, so unless Daniel has asked for it directly,
+        raise it with propose_suggestion_tool first rather than creating it unannounced."""
+        return json.dumps(add_session(name, day, exercises, person, warmup,
+                                      cooldown, setup, recording), indent=2)
 
     @mcp.tool()
     def run_session(person: str) -> str:
@@ -1252,6 +1381,16 @@ def _register(mcp):
         `why` is the reason, in a few sentences, and you should always pass it: it becomes
         the coach note on that session, so they read it while they train, and it lands in
         the coaching history so the two of you can see whether the call worked.
+
+        WHEN THE SESSION CHANGES, WALK ALL FOUR FIELDS BEFORE YOU FINISH. `setup`,
+        `recording`, `warmup` and `cooldown` describe one session between them, and a change
+        to the structure invalidates references scattered across the other three. Check every
+        block number, lap count and total in each: "blocks 1-5", "when block 21 finishes",
+        "that is 9 lap presses", "the whole session is 44:40 on the belt". Rewriting `setup`
+        and leaving the rest is the standard failure - it is how Cerys ended up with a
+        recording note telling her to end at block 21 of an 18-block session, and a warm-up
+        pointing at belt blocks that had moved to the bike. A stale note is worse than a
+        missing one, because it gets followed.
 
         Guard rails: you can only write a session that BELONGS to that person, so you cannot
         touch the other one's run or any shared session. The original `Cardio: Endurance +
