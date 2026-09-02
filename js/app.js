@@ -1726,6 +1726,9 @@ function changesForExercise(sessionName, exName){
 function changesAddingTo(sessionName){
   return pendingChanges().filter(c=> c.session===sessionName && c.op==="add");
 }
+function changesForSession(sessionName){
+  return pendingChanges().filter(c=> c.session===sessionName);
+}
 function sessionKeyByName(name){
   return orderedKeys().find(k=> (state.program.sessions[k]||{}).name===name);
 }
@@ -2450,10 +2453,15 @@ function renderEdit(){
     // you're working in) and resets on reload.
     const open=openSessions.has(k);
     const n=s.exercises.length;
+    const pendingHere=changesForSession(s.name).length;
     html+='<div class="card sess'+(open?' open':'')+'">'
       + '<button type="button" class="sess-head" data-sesstoggle="'+esc(k)+'" aria-expanded="'+(open?"true":"false")+'">'
         + '<span class="sess-caret">&#9656;</span>'
-        + '<span class="sess-title"><span class="sess-name">'+esc(s.name)+'</span>'
+        + '<span class="sess-title"><span class="sess-name">'+esc(s.name)
+          // Visible while the session is SHUT: the proposal cards themselves only
+          // render once it is open, which is how nine of them went unnoticed.
+          + (pendingHere?' <span class="sess-flag">'+pendingHere+' waiting</span>':"")
+          + '</span>'
           + '<span class="ex-meta">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")
             +(s.person?' &middot; '+esc(s.person)+' only':"")+'</span></span>'
       + '</button>';
@@ -2479,6 +2487,7 @@ function renderEdit(){
     html+='</div>';
   });
   document.getElementById("view").innerHTML=html;
+  syncTabButtons(); // the count just changed if we got here from apply/decline
   document.querySelectorAll("[data-sesstoggle]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.sesstoggle;
     if(openSessions.has(k)) openSessions.delete(k); else openSessions.add(k);
@@ -3520,6 +3529,7 @@ function renderHelp(){
   h+=card('7 &middot; Edit the program',
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
      +p('If a coach proposes a change to your program - "bench press: 4 sets → 3" - it appears on that exercise here as a <b>🧠 Coach suggests</b> card with the reason, and nothing happens until you tap <b>✓ Apply</b>. Applying makes the change and syncs it to both phones; <b>✕ No</b> declines it and the coach can see you said no, so it won\'t come back. A proposal to <b>remove</b> an exercise is marked in red - your past logs of it are kept either way, removing it only stops it being prescribed.')
+     +p('<b>You don\'t have to go looking.</b> While anything is waiting, the <b>Program</b> tab carries a dot, and each session that has proposals on it shows a <b>waiting</b> count on its row while it is still closed - so you can see which session to open rather than opening all of them. Both clear themselves as soon as the last proposal on them is applied or declined.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
@@ -4025,6 +4035,11 @@ function renderView(){
 // has already been set, and the Guide has no button at all.
 function syncTabButtons(){
   document.querySelectorAll("#tabs button").forEach(function(x){ x.classList.toggle("active", x.dataset.tab===activeTab); });
+  // A proposal changes what you are told to do next session, so it should be
+  // visible without going looking for it. The dot rides the Program tab because
+  // that is where the change is accepted.
+  const progTab=document.querySelector('#tabs button[data-tab="edit"]');
+  if(progTab) progTab.classList.toggle("has-pending", pendingChanges().length>0);
 }
 // Switch section. Works even for views without a bottom-bar tab (the Guide,
 // reached from Settings). skipCapture is used right after saving, when the

@@ -73,6 +73,11 @@
     box-shadow:0 -2px 12px rgba(20,30,55,.10);overflow-x:auto}
   .tabs button{flex:1 0 auto;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:15px;padding:15px 6px;border-radius:12px;cursor:pointer;white-space:nowrap}
   .tabs button.active{background:var(--brand-soft);color:var(--brand)}
+  /* Dot on the Program tab while a proposal is waiting. Positioned rather than
+     appended so it never reflows the label or widens the bar. */
+  .tabs button.has-pending{position:relative}
+  .tabs button.has-pending::after{content:"";position:absolute;top:10px;right:10px;
+    width:8px;height:8px;border-radius:50%;background:var(--brand)}
   /* Keep page content clear of the fixed bar (taller now, lifted off the
      screen edge so taps don't collide with the phone's home-swipe gesture). */
   .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -235,6 +240,11 @@
   .hrz-range{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
   .hint{font-size:12px;color:var(--muted);margin-top:4px}
   .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  /* "3 waiting" on a collapsed session row. Brand-soft on brand so it reads in
+     both themes without hardcoding a colour. */
+  .sess-flag{display:inline-block;vertical-align:middle;margin-left:7px;font-size:11px;
+    font-weight:700;padding:2px 8px;border-radius:20px;
+    background:var(--brand-soft);color:var(--brand);white-space:nowrap}
   .pill[data-sw="navy"]{background:var(--me-soft);color:var(--me)}
   .pill[data-sw="purple"]{background:var(--partner-soft);color:var(--partner)}
   .pill[data-sw="teal"]{background:var(--sw-teal-soft);color:var(--sw-teal)}
