@@ -263,10 +263,18 @@ Dated. These are about these two people specifically and they expire - re-check 
 
 # Part 3 - Overrides and do-nots
 
+- **Do not design around an assumption that work will be skipped.** Daniel, 2026-09-02: "do not
+  assume that stuff will be skipped - be under the impression that if it is written it will be done
+  if the sessions meets the other requirements." A gap in the log is a fact and worth stating. Using
+  it to *predict* the next gap and shrink the prescription is not, and it had crept in: a second
+  squat exposure withheld from Lower 1 because Lower 1 "vanishes", hip work moved up the list
+  "because fourth is not working". Write what is right for the goal. Where something genuinely keeps
+  not happening, fix the session's **requirements** - its length, its equipment demands - rather
+  than quietly prescribing less. This overrides the "whatever sits last in the week is what you
+  lose" reasoning in [week-method.md](week-method.md) as a *design input*: that observation explains
+  the past, it does not license writing a smaller session.
 - **Float recovery is for Daniel, not Cerys** - while her limiter is tissue tolerance, the walks are
   deliberate load management and replacing them would undo the point of the session.
-- **Never prescribe Cerys a low-HR run.** She has told us she cannot run slowly enough to sit in
-  Zone 2, and the data agrees. Non-impact incline walking is how she gets Zone 2.
 - **Pull-ups are Cerys's only stated strength goal** and need neither shins nor hips. When something
   else is injured, that is an opportunity, not a lost week.
 - **Do not diagnose.** Pain notes get deload, mobility, footwear and "if it persists, get it checked".
