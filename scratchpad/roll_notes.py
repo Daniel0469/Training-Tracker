@@ -141,7 +141,7 @@ the part that counts.
     "runDaniel": {
         # The walk is block 13 of the treadmill program, so it is counted in the
         # belt time, not here - same reasoning as Cerys's 8-minute warm-up.
-        "cooldownNote": u"""COOL-DOWN - {MIN} min after the belt stops. Block 13's 5 min walk at 5.5 is the
+        "cooldownNote": u"""COOL-DOWN - {MIN} min after the belt stops. Block 15's 5 min walk at 5.5 is the
 first part - let your breathing settle on it.
 
 - Calf stretch on a step, knee straight then bent - 30s each way, each side
@@ -150,8 +150,12 @@ first part - let your breathing settle on it.
 - Hamstring stretch - 40s each side, slight knee bend, hinge from the hip""",
     },
     "runCerys": {
-        # No {MIN}: the 8 minutes is blocks 1-5 of the treadmill program.
-        "warmupNote": u"""WARM-UP - blocks 1 to 5, 8 minutes. The bike is fine for block 1.
+        # No {MIN}: the 5 minutes is bike time, set by the session rather than by
+        # this list. Rebuilt from the LIVE note on 2026-09-02 - the backup this
+        # was first drafted from still had the old 21-block program, where the
+        # warm-up was belt blocks 1-5 and the jog tests were blocks 2 and 4.
+        # Neither exists any more. The shins/hip decision moves to coaching.
+        "warmupNote": u"""WARM-UP - on the bike, before you touch the treadmill. 5 minutes easy.
 
 - Ankle circles - 10 each way
 - Leg swings, front to back - 10 each leg
@@ -202,11 +206,10 @@ TO_COACHING = {
                    u"stretch: your shins were quiet on 13 Aug for the first time since July, and "
                    u"calf length is part of why.",
         "Run: Cerys":
-                   u"Blocks 2 and 4, the two 20-second jogs, are a test rather than a formality. "
-                   u"Shins and left hip both get a say: if either speaks up there, skip the reps "
-                   u"and do the incline walk on its own. That is not failing the session. The calf "
-                   u"stretch in the cool-down is the most important line in it - calf length is "
-                   u"shin insurance.",
+                   u"Block 1, the 20-second jog, is a test rather than a formality. Shins and left "
+                   u"hip both get a say: if either speaks up there, skip to block 18 and do the "
+                   u"incline walk on its own. That is not failing the session. The calf stretch in "
+                   u"the cool-down is the most important line in it - calf length is shin insurance.",
     },
 }
 
