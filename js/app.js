@@ -351,6 +351,16 @@ function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(
 // drives pace auto-compute, splits and the run importer, which only make sense for
 // a real distance+time entry. This one only decides "expect a Garmin activity".
 function isGarminCardio(ex){ return isRunning(ex) || ex.garminRun===true; }
+// A flexibility test measures a distance in centimetres - the gap from your
+// fingertips to the floor, how far your foot sits from the wall - rather than a
+// load. It is never a lifting entry, so it stays off the records table, out of
+// session volume and off the Lifts chart, where a gap plotted on an axis
+// labelled "Top-set weight" would be worse than no chart at all.
+function isFlexTest(ex){ return /^cm$/i.test(String((ex.cols||[])[0]||"").trim()) && !isLifting(ex); }
+// Most tests are a gap you want to close. Ankle range is the exception: the
+// further your foot sits from the wall, the more dorsiflexion you have.
+function flexBetterHigher(ex){ return !!ex && ex.betterWhen==="higher"; }
+
 // Which exercises offer an RPE rating. Effort is worth rating on anything you
 // actually work at, so this is a blocklist rather than an allowlist: the only
 // rows it leaves out are the free-text warm-up and cool-down ones (Min/Notes),
@@ -1249,11 +1259,17 @@ function saveSession(){
       // Stamp the load type onto the entry so it scores the same for ever, even
       // if the exercise is later re-flagged or dropped from the program.
       if(ex.load){ en.load=ex.load; if(ex.bwPct) en.bwPct=ex.bwPct; }
+      // Which way is better travel on a flexibility test. Same reasoning as
+      // load above: without it on the entry, an old measurement reads as a
+      // gap-to-close the moment the exercise changes or leaves the program.
+      if(ex.betterWhen) en.betterWhen=ex.betterWhen;
       if(ex.muscles&&ex.muscles.length) en.muscles=ex.muscles.slice(); entries.push(en); }
   });
   if(!entries.length && !feedback){ toast("Nothing entered yet"); return; }
   var volume=0;
-  entries.forEach(function(en){ var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=setLoad(en, r[0], person, date), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
+  // Both columns of a flexibility test hold numbers, so without this gate a
+  // 12cm gap logged beside an 8cm one would add 96kg of phantom volume.
+  entries.forEach(function(en){ if(isFlexTest(en)) return; var wu=en.warmup||[]; en.rows.forEach(function(r,ri){ if(wu.indexOf(ri)>=0) return; var w=setLoad(en, r[0], person, date), reps=parseInt(r[1],10); if(!isNaN(w)&&!isNaN(reps)) volume+=w*reps; }); });
   volume=Math.round(volume);
   var prs=[];
   entries.forEach(function(en){
@@ -1655,6 +1671,7 @@ function drawHist(who){
 }
 
 let chart=null;
+let flexChart=null;
 // "82 kg" on its own is a puzzle for a pull-up - show the sum behind a
 // bodyweight or assisted best. Empty for a normal loaded exercise.
 function loadBreakdown(r){
@@ -1678,7 +1695,7 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like openSessions in the Program tab.
 let progressPane="lifts";
-const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", time:"⏱ Time", body:"⚖ Body"};
+const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", flex:"🤸 Flexibility", time:"⏱ Time", body:"⚖ Body"};
 // 🏃 Run only joins the toggle once there's running data to put in it, so a
 // lifting-only install sees the same two-way toggle it always did rather than a
 // third tab of empty cards.
@@ -1782,6 +1799,7 @@ function changeCardHtml(c){
 function progressPanes(){
   const keys=["lifts"];
   if(hasRunData()) keys.push("run");
+  if(hasFlexData()) keys.push("flex");
   if(hasDurationData()) keys.push("time");
   keys.push("body");
   return keys;
@@ -1796,6 +1814,107 @@ function timedLogsFor(person, sessionKey){
     .slice().sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
 }
 let timeSession="";           // "" = every session
+let flexTest="";              // which flexibility test the ladder chart is showing
+// ---- Flexibility ------------------------------------------------------------
+// Tests are logged in centimetres and read as a ladder: every rung you have
+// measured, where it sits now, and which way it has moved since the first time.
+// The method this follows says the lowest rung is the only thing worth training,
+// so the job of the table is to make the low one findable - not to celebrate the
+// high ones.
+function hasFlexData(){
+  return state.logs.some(l=>l && (l.entries||[]).some(e=>isFlexTest(e)));
+}
+// One rung per test name, oldest measurement first. A per-side test puts both
+// sides in one entry as two rows; the ladder reports the WORSE side, because
+// that is the side actually limiting the skill.
+function flexHistory(person){
+  const byName={}, order=[];
+  state.logs.filter(l=>l.person===person).slice().sort((a,b)=>a.date<b.date?-1:1)
+    .forEach(l=>(l.entries||[]).forEach(e=>{
+      if(!isFlexTest(e)) return;
+      const vals=(e.rows||[]).map(r=>parseFloat(r[0])).filter(v=>!isNaN(v));
+      if(!vals.length) return;
+      const higher=flexBetterHigher(e);
+      const v=higher?Math.min.apply(null,vals):Math.max.apply(null,vals);
+      if(!byName[e.name]){ byName[e.name]={name:e.name,higher:higher,pts:[]}; order.push(e.name); }
+      const rung=byName[e.name];
+      rung.higher=higher; // the newest log wins if the flag was added later
+      rung.pts.push({date:l.date,v:v});
+    }));
+  // Insertion order, not alphabetical: entries are saved in program order, so
+  // this keeps the tests for one skill next to each other in the ladder.
+  return order.map(n=>byName[n]);
+}
+function renderFlex(){
+  const p=state.people[state.activePerson];
+  const hist=flexHistory(p);
+  const names=hist.map(h=>h.name);
+  // A test can go away under you when the active person changes, the same way
+  // timeSession can - see renderTime.
+  if(flexTest && names.indexOf(flexTest)<0) flexTest="";
+  if(!flexTest && names.length) flexTest=names[0];
+  let html=progressTabsHtml();
+  if(!hist.length){
+    html+='<div class="card empty">No flexibility tests logged for '+esc(p)+' yet.<br>'
+      + 'Run the <b>Mobility assessment</b> session and your ladder appears here.</div>';
+    document.getElementById("view").innerHTML=html;
+    wirePaneToggle();
+    return;
+  }
+  html+='<div class="card"><div class="sec-title">&#129692; Flexibility ladder - '+esc(p)+'</div>'
+    + '<div class="hint" style="margin-bottom:10px">Your lowest rung is what limits the skill - '
+    + 'that is the one to train, not whichever stretch you feel the most. A test done on both '
+    + 'sides reports the worse side.</div>'
+    + '<div class="sets-wrap"><table class="rec"><thead><tr><th>Test</th><th>Now</th>'
+    + '<th>Change</th><th>Measured</th></tr></thead><tbody>'
+    + hist.map(function(h){
+        const first=h.pts[0], last=h.pts[h.pts.length-1];
+        const d=Math.round((last.v-first.v)*10)/10;
+        const better=h.higher? d>0 : d<0;
+        let change;
+        if(h.pts.length<2) change='<span class="ex-meta">baseline</span>';
+        else if(d===0) change='<span class="ex-meta">no change</span>';
+        else change='<span style="color:var('+(better?"--good":"--bad")+')">'
+          + (d>0?"&#9650;":"&#9660;")+Math.abs(d)+' cm</span>';
+        return '<tr><td>'+esc(h.name)
+          + (h.higher?' <span class="ex-meta">(higher is better)</span>':"")
+          + '</td><td><b>'+(Math.round(last.v*10)/10)+' cm</b></td><td>'+change
+          + '</td><td class="ex-meta">'+relTime(last.date)+'</td></tr>';
+      }).join("")
+    + '</tbody></table></div></div>';
+  html+='<div class="card">'
+    + '<div class="row" style="margin-bottom:12px">'
+    + '<label class="fld grow" style="max-width:280px">Test<select id="flexTest">'
+    + names.map(n=>'<option'+(n===flexTest?' selected':'')+'>'+esc(n)+'</option>').join("")
+    + '</select></label></div>'
+    + '<div class="hint" style="margin-bottom:10px">Both people, every time you have measured it.</div>'
+    + '<div class="chart-box"><canvas id="flexChart"></canvas></div></div>';
+  document.getElementById("view").innerHTML=html;
+  wirePaneToggle();
+  document.getElementById("flexTest").onchange=e=>{ flexTest=e.target.value; renderFlex(); };
+  drawFlexChart();
+}
+function drawFlexChart(){
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const series=state.people.map(function(p,i){
+    const h=flexHistory(p).filter(x=>x.name===flexTest)[0];
+    return {label:p, data:(h?h.pts:[]).map(pt=>({x:pt.date,y:Math.round(pt.v*10)/10})),
+      borderColor:swatchColor(state.colors[i],dark),backgroundColor:swatchColor(state.colors[i],dark),
+      tension:.25,spanGaps:true};
+  });
+  if(flexChart) flexChart.destroy();
+  const tickCol=dark?"#9aa3b2":"#697086";
+  const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  flexChart=new Chart(document.getElementById("flexChart"),{
+    type:"line", data:{datasets:series},
+    options:{responsive:true,maintainAspectRatio:false,parsing:false,
+      scales:{x:{type:"category",labels:[...new Set(state.logs.map(l=>l.date))].sort(),
+          ticks:{color:tickCol},grid:{color:gridCol}},
+        y:{beginAtZero:false,title:{display:true,text:"cm",color:tickCol},
+          ticks:{color:tickCol},grid:{color:gridCol}}},
+      plugins:{legend:{position:"top",labels:{color:tickCol}}}}
+  });
+}
 function renderTime(){
   const p=state.people[state.activePerson];
   // Only offer sessions this person has actually timed, so the picker can't
@@ -1887,8 +2006,10 @@ function renderProgress(){
   if(progressPanes().indexOf(progressPane)<0) progressPane="lifts";
   if(progressPane==="body") return renderBody();
   if(progressPane==="run") return renderRun();
+  if(progressPane==="flex") return renderFlex();
   if(progressPane==="time") return renderTime();
-  const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).map(e=>e.name)))].sort();
+  // Centimetres, not kilograms: these chart in the Flexibility pane instead.
+  const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).filter(e=>!isFlexTest(e)).map(e=>e.name)))].sort();
   if(!allEx.length){
     document.getElementById("view").innerHTML=progressTabsHtml()
       +'<div class="card empty">Log a few sessions and your progress charts will appear here.</div>';
@@ -3340,7 +3461,7 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
+     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>💤 Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep and its stages, sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
      +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
@@ -3381,7 +3502,9 @@ function renderHelp(){
      +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
      +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6. <b>⏱ Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
-     +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.'));
+     +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')
+     +p('<b>🤸 Flexibility</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
+     +p('The <b>Mobility assessment</b> session in Program is what fills it. It is a set of measurements rather than a workout - a tape measure, a wall and a flat floor - and each test\'s 🔧 <b>setup</b> line says exactly how to set it up and what it is telling you. Measure <b>cold</b>, before training: stretching buys you a few centimetres that wear off within hours, so warming up first measures the warm-up rather than your flexibility. Same conditions, same landmark, no forcing - a number you had to fight for won\'t repeat next time.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
