@@ -220,7 +220,9 @@ Dated. These are about these two people specifically and they expire - re-check 
 ## Writing warm-ups and cool-downs
 
 Daniel set these on 2026-09-02, after we rewrote all eight sessions together. They apply to every
-future write of a `warmupNote` or `cooldownNote`.
+future write of a `warmupNote` or `cooldownNote`. The reasoning behind them - the flexibility
+ladder, stretch stacking, and why flexibility work is training rather than recovery - is in
+`docs/flexibility-method.md`. Read that before arguing with any of this.
 
 **These are settled decisions, not suggestions, and the coach does not get to undo them.** Do not
 reinstate anything removed below, do not re-add a traffic light or a person-specific line to a note,
@@ -371,6 +373,10 @@ Training principles above draw on:
 - [Medial tibial stress syndrome - Physiopedia](https://www.physio-pedia.com/Medial_Tibial_Stress_Syndrome)
   and [shin splints return-to-run plan](https://injury.vision/guides/return-to-running-after-shin-splints)
 - [McMillan 5K training guide](https://www.mcmillanrunning.com/5k-training-plan-guide/)
+- Matt Smith (`matthewismith`), "The Blueprint to Get Flexible Once, Forever" (YouTube, transcript
+  reviewed 2026-09-02). Source of the flexibility ladder, stretch stacking, the assisted-to-resisted
+  spectrum and the scheduling ranking that moved flexibility work out of our cool-downs. Summarised
+  in [flexibility-method.md](flexibility-method.md).
 - Nicklas Rossner, "5 tactics to run a faster 5K" (YouTube, transcript reviewed 2026-08-20). Source of
   the level-based threshold/VO2max split, the current-vs-goal-pace distinction, float recovery and the
   km 3-4 pacing framework. The linked "5K Speed Blueprint" is an email-capture page with no plan

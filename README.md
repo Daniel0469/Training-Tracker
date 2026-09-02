@@ -23,6 +23,8 @@ GitHub Pages.
   running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
   field, and which two are permanently blank on a treadmill (VO₂max, training status) and why.
 - `docs/coaching-prompt.md` - starter prompt for a dedicated Claude Code coaching chat.
+- `docs/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
+  session, the Flexibility pane and the warm-up / cool-down rules.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
   only (see "Notes & decisions" below - not committed to git).
