@@ -54,6 +54,18 @@ The trap that caused this to be missed twice in one week: **`write_run` has no `
 session can be re-prescribed all day without the estimate ever being touched. If a run has been
 logged and the only tool called was `write_run`, the review is not finished.
 
+**Every `write_coaching` replaces the whole card, so a partial write deletes what it omits.** A
+second write on the same day that passes only `by_session` wipes `by_exercise`, and leaves the old
+`next_cardio` and `five_k` standing. That is how Daniel's Home card advertised 4 x 6:00 @ 11.5 for a
+week after the run session itself had been corrected to 5 x 6:00 @ 11.0 - the correction was a
+`by_session`-only write. Read `coaching_history` first, carry forward everything still true, and pass
+`five_k` and `next_cardio` on every write rather than only the first one of the day.
+
+**Check the programmed set count before writing a milestone.** Daniel was told for two weeks to build
+to "four clean unassisted sets of 5" on pull-ups. Upper 2 prescribes three. He hit three on 29 Aug -
+the milestone met - and the card would have told him he had fallen short. `scratchpad/probe_program.py`
+dumps every session's exercises, sets and targets read-only, and settles it in one look.
+
 ---
 
 # Part 1 - Principles
@@ -185,6 +197,20 @@ Dated. These are about these two people specifically and they expire - re-check 
 
 ## Daniel
 
+- **2026-09-02.** Given a lift he cannot yet do well, he spends the whole session on it rather than
+  working through the list. 28 Aug Lower 1 was 53 minutes on the deadlift alone - 50x8 then 80x8 at
+  RPE 6, session rated 4 - with a note saying he was finding the right weight for next time. Cerys
+  did the same thing on the same day. **Do not prescribe a full accessory list on a day that
+  introduces or rebuilds a lift.** It will not get done, and it should not be.
+- **2026-09-02.** Pull-up milestone met: 6/5/5 with zero assistance at RPE 8, all three programmed
+  sets, a fortnight after needing 4.5kg of help on three of four. Load is still not the next step -
+  reps to 3x8 at bodyweight are, and pull-ups are now in both upper sessions to buy the frequency.
+- **2026-09-02.** From 7 September he works **Saturday and Sunday**, with uni on weekdays and the
+  timetable not yet issued. The programme runs Monday to Friday; he actually trains Tuesday to
+  Saturday. So the session about to lose its slot is the fifth one of the week - which is Lower 1,
+  the session that already went 39 days without happening. Day assignments are frozen until the
+  timetable lands, and Daniel asked for the sessions to be rewritten together at that point rather
+  than changed piecemeal - including his own suggestion to drop the leg press and move the hip work.
 - **2026-08-20.** Responds to load faster than an incremental model predicts. Three times running he
   has overtaken a prescribed progression and it landed: squat 70 to 80 when 75 was asked, bench 20 to
   50 when 40 was asked, squat 80 to 100 when a rep target was asked. Give a target and a ceiling and
@@ -202,6 +228,14 @@ Dated. These are about these two people specifically and they expire - re-check 
 
 ## Cerys
 
+- **2026-09-02.** She separates technique difficulty from load difficulty in her own RPE, and says
+  which it was: "put deadlift as an 8, the weight is not the hard factor but more so technic". **Read
+  her RPE together with the note, never alone** - an 8 meaning "heavy" and an 8 meaning "hard to do
+  well" need opposite responses. This one meant hold the load and buy practice with it.
+- **2026-09-02.** First pull-up session since 19 Aug with no shoulder ache afterwards, and at a
+  higher effort than the one that caused it (32kg assist, 10/8/7 at RPE 8, against 4x8 at RPE 7).
+  Her 10 is the most reps she has done in a single set. One quiet session is not yet a pattern, so
+  the assistance held.
 - **2026-08-20, corrected 2026-08-21.** Heart rate runs hot the moment she runs - Zone 4 within a
   minute even at an easy 10 km/h. This matches her own limiter ("Zone 2 is a walk for me, not a
   run"), so **do not fix it by asking her to slow down**; control the session with the recoveries.
