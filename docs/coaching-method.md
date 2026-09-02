@@ -217,6 +217,73 @@ Dated. These are about these two people specifically and they expire - re-check 
 - **Program structure is not the coach's to change** except each person's own run session. Sets, reps,
   targets and which exercises go through `propose_suggestion_tool` for Daniel to approve.
 
+## Writing warm-ups and cool-downs
+
+Daniel set these on 2026-09-02, after we rewrote all eight sessions together. They apply to every
+future write of a `warmupNote` or `cooldownNote`.
+
+**These are settled decisions, not suggestions, and the coach does not get to undo them.** Do not
+reinstate anything removed below, do not re-add a traffic light or a person-specific line to a note,
+and do not restore a strength exercise to a cool-down because the session looks light without it. If
+you think one of them is wrong, say so and put it through `propose_suggestion_tool` for Daniel to
+approve - never just write it back.
+
+What was removed on 2026-09-02, so you can recognise an accidental restoration:
+
+- Copenhagen plank, side plank, dead bug, seated march and single-leg glute bridge, out of the
+  Lower 1 and Lower 2 cool-downs.
+- Hip hike and side-lying clam, out of the Run: Cerys cool-down.
+- PAILs/RAILs in 90/90, out of the Cardio: Endurance + Core cool-down. It is flexibility training and
+  belongs in its own session, not on the end of a cardio day.
+- The adductor traffic light (green/amber/red), out of both Lower warm-ups.
+- The leg press, squat and flat press ramps, out of the notes - each is already on its exercise card.
+
+**Equally, do not overwrite what was moved INTO coaching.** The Cerys cautions on Lower 1, Lower 2,
+Upper 1, Upper 2, Cardio: Endurance + Core and Run: Cerys, and the adductor red flags on both Lower
+sessions for both people, now live in `coaching.bySession` because that is the only place they are
+allowed to live. They are the reason those lines are no longer in the notes. A `write_coaching` that
+replaces a `bySession` entry wholesale will silently delete safety guidance - carry the existing text
+forward and add to it.
+
+**What each block is for**
+
+- A **warm-up is preparation for today's session and nothing else.** The range it buys is
+  viscoelastic and gone within hours - which is exactly what a warm-up is for. Never write one as
+  though it builds flexibility.
+- A **cool-down is stretches and breathing.** No strength work, no flexibility training. If an item
+  has sets and reps and you would *work* at it, it is an exercise and does not belong here.
+- **Lasting flexibility is trained in its own session**, not bolted onto either end of a lifting day.
+  It is training rather than recovery, and it fatigues like training - which is why doing it while
+  already fatigued suppresses the adaptation you wanted.
+
+**What does not go in them**
+
+- **No decision rules.** Traffic lights, train-if/skip-if gates and red-flag lists are read before you
+  start, not performed. They are not warm-up items.
+- **No person-specific notes.** Anything addressed to one of them goes in coaching (`bySession`, keyed
+  by session name), never inline in the note text.
+- **No ramp that is already on the exercise card.** `ex.warmup` renders on the card itself, so
+  repeating it in the note prints it twice on one screen.
+
+**Numbers**
+
+- The stated duration is **computed from the list, not asserted.** Both Lower warm-ups claimed 12-13
+  min for months while actually running past 20, because the isometrics were never counted.
+  `scratchpad/note_times.py` does the arithmetic. Correct the list or correct the number, but never
+  leave the two disagreeing.
+
+**Formatting - phone rules, not taste**
+
+Session notes render `white-space: pre-wrap`, so a hard line break is kept *and* the line is wrapped
+again when it is too long for the screen.
+
+- **Never align columns with runs of spaces.** A wrapped line loses its indent completely and the
+  table collapses into rubble. This is what destroyed the first rewrite of the adductor traffic light
+  at 375px.
+- **Keep lines under about 95 characters**, matching the existing notes. Continuation lines then read
+  as an ordinary paragraph.
+- Use `- ` for list items. A four-space indent for a continuation line under an item is fine.
+
 ---
 
 # Part 4 - Equipment constraints
