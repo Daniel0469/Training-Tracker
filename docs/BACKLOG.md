@@ -6,6 +6,111 @@ lands here instead.
 
 ---
 
+## Batch: 2 Sep 2026 - out of the research pass (five new method docs)
+
+Daniel asked for a broad research pass and it produced five new `docs/*-method.md` files plus three
+new sections on `flexibility-method.md`. **Nothing was written to the live store and no program was
+changed** - the session was documentation only. What follows is what the research says should
+happen next, and every item needs Daniel's approval before anything moves.
+
+### Second research pass, same day - all four areas picked
+
+Strength (previously parked), testing and benchmarking, the week itself, and treadmill-vs-outdoor.
+Produced `strength-method.md`, `week-method.md`, `testing-method.md` and a new Part 7 on
+`running-method.md`. **Nothing parked remains from either pass.** New items below.
+
+- [ ] **Move Lower 1 off the end of the week.** The highest-value structural change found. Lower 1
+      is Friday, the week runs a day late and slips, and Lower 1 has been logged **twice since 20
+      July** - which is the entire reason the deadlift has one logged top set. One of three named
+      strength goals is sitting in the slot reserved for the session you are willing to drop.
+      `week-method.md` Part 2.
+- [ ] **Shorten the sessions before adding anything to the week.** Eight exercises on each upper and
+      lower day, Lower 2 running to 88-92 minutes, and six weeks of "cut down to keep it under 90
+      mins" / "ended early" / "cut short". Strength has steep diminishing returns to volume and
+      frequency matters more than volume, so trimming costs less than it feels like. This is also
+      what makes a second run possible without a sixth day. `week-method.md` Part 3.
+- [ ] **Use `Weekend run (optional)` - it already exists.** Built 11 Aug, Garmin-tracked,
+      deliberately skippable. The second run needs using, not building. Saturday is the better
+      default: running on legs tired from Friday's Lower 1 *is* compromised running, which is the
+      most Hyrox-specific quality there is. Must be **easy** - Wednesday keeps the quality session.
+      For Cerys it is probably an incline walk rather than a run while shins are the governor.
+- [ ] **Read the per-set RPE the app already collects.** Added in July, covers lifting and running,
+      and **nothing reads it**. It is exactly the input autoregulated progression needs, the evidence
+      says RIR-based autoregulation beats fixed loading over 12 weeks, and it is the honest version of
+      "give him a target and a ceiling". Largest piece of unused information in the project.
+      `strength-method.md` Part 3.
+- [ ] **Daniel: the 30-minute threshold field test.** Confirms his threshold of 173, improves every
+      subsequent running prescription, and doubles as his longest ever continuous run. Run it
+      manually rather than as a programmed sequence, with auto-lap off. `testing-method.md` Part 5.
+- [ ] **Station benchmarks at submaximal loads.** Five minutes each, they have the kit for seven of
+      eight, and every Hyrox prescription is currently generic because nobody has any station data.
+- [ ] **Introduce hard-surface running as its own progression for Cerys.** Treadmills absorb ~71%
+      more shock than asphalt; Hyrox is 2-4 laps per kilometre on an arena floor. A first race-floor
+      run is a load increase that no watch metric will show, and her whole shin history is on the
+      forgiving end of the range. `running-method.md` Part 7.
+
+### Not a task, but the timing matters
+
+- **A new work schedule starts 7 September** (Daniel's 28 Aug session note), so the week is being
+  rebuilt anyway. `week-method.md` Part 7 lists the five questions worth answering while it is:
+  how many days honestly, what goes first, how long a session is allowed to be, whether the two empty
+  weekend days get used, and whether the sessions should be the same for both of them.
+
+### Proposals - program changes, need approval
+
+- [ ] **A second run per week, for both.** `running-method.md` Part 1: one run a week is enough to
+      complete a 5k and not enough to improve at one. Every stated running goal either of them has
+      (sub-20, Hyrox's 8 km) is blocked on this. The hard part is that the reasons they run once a
+      week are real - Cerys's shins, a full five-day week, and Daniel's fatigue notes - so this is a
+      conversation before it is a change.
+- [ ] **Cadence work for Cerys.** Her per-rep running cadence is **140-151 spm**, which is low, and
+      she is the one with shin splints. A 10% increase cuts peak tibial acceleration ~11.5% and
+      loading rate ~15.6%; each extra step per minute is associated with ~5% lower bone stress injury
+      risk. On a fixed treadmill speed it is mechanically trivial to implement and to measure. Best
+      evidence-to-effort ratio in the whole research pass.
+- [ ] **Add a hip-extension measure to the Mobility assessment.** The one gap the pass found: hip
+      extension governs both the sled push and running stride length, and neither the pike nor the
+      deep-squat cluster tests it. `flexibility-method.md` section 11.
+- [ ] **Add eccentrics to Cerys's pull-up work.** Her strongest trend (47.8 kg effective, rising),
+      her only stated strength goal, needs neither shins nor hips, and transfers to the Hyrox sled
+      pull. `female-athlete-method.md` Part 4.
+- [ ] **Where the flexibility session goes.** Already open in `flexibility-method.md` section 8, but
+      the research sharpens it: it must **not** land the day after a Lower day, which is the slot it
+      would naturally fall into and the worst-ranked option in the method. A scheduling decision with
+      a right answer, not a preference.
+
+### Data collection - no program change, but nothing else can be concluded without it
+
+- [ ] **Wear the watches overnight.** `garmin_wellness` already exists in both Garmin MCP servers and
+      stores sleep, sleep stages, sleep score, overnight HRV, resting HR, respiration and training
+      readiness. It returns nothing today for one reason, which its own docs state: the watches are
+      only worn for workouts. **The wellness gap is behavioural, not technical - nothing needs
+      building.** HRV status needs ~3 weeks of overnight wear before it means anything.
+- [ ] **Cerys weighs in more than once.** One reading ever (79.8 kg, 1 Aug). It also blocks correct
+      scoring of her pull-up, which is her own goal.
+- [ ] **Daniel weighs in often enough to see a trend.** Eleven of thirteen readings are an identical
+      77.2 kg, which suggests the scale data is not arriving as often as the record implies. Relevant
+      because he dropped 3.8 kg over five weeks while reporting hunger and fatigue.
+
+### Verification tasks - both answered 2 Sep
+
+- [x] **Mixed-doubles loads are the men's weights.** Daniel confirmed from his own check, agreeing
+      with the two secondary sources: 152 kg sled push, 103 kg sled pull, 2 x 24 kg carry, 20 kg
+      sandbag, 6 kg ball, with only the wall-ball target height differing by athlete. Still not read
+      off the official rulebook (the PDF 403s), and **loads change between seasons**, so re-check for
+      whichever season they actually enter. The consequence stands: **a long strength runway for
+      Cerys, starting now.**
+- [x] **No wall ball.** Confirmed by Daniel. Seven of the eight stations are trainable directly;
+      wall balls will be trained by substitute. New item below.
+
+- [ ] **Get a medicine ball and mark a wall at 2.74 m and 3.00 m.** The cheapest fix on the whole
+      backlog, and it converts the one un-rehearsable station into a trainable one. It matters more
+      than "one station of eight" implies: wall balls are last, done on empty legs, and are where a
+      technical failure (missing depth, missing the line) costs the most. `hyrox-method.md` Part 4
+      has the substitution ladder for until then.
+
+---
+
 ## Batch: 29 Jul 2026 (Daniel, from Cardio: Speed + Core feedback) - DONE 30 Jul
 
 Sections A, B and C are shipped. **Section D is still open** and needs Daniel's approval.

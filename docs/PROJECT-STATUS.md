@@ -669,6 +669,105 @@ Done and committed previously: the original handoff backlog, backlog **item 3**,
 coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
 kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
 
+**2026-09-02 - a research pass, and five new method documents. No code, no data, no program change.**
+Daniel asked for a broad research pass on "everything that will help me and Cerys", scoped by
+`AskUserQuestion` to: the whole Hyrox event, fuelling/bodyweight/energy, sleep/recovery/injury, more
+on running and flexibility, and female-athlete material for Cerys. Division confirmed as **mixed
+doubles, no race date booked**. Kit confirmed as **rower and/or ski erg, sled, sandbags**. Strength
+programming toward the 100/200/200 was offered and **not selected - parked, not rejected**, and is
+logged as such in `BACKLOG.md`.
+
+New files, each with its own sources, indexed from a table added to `coaching-method.md`:
+`hyrox-method.md`, `running-method.md`, `fuelling-method.md`, `recovery-method.md`,
+`female-athlete-method.md`, plus sections 9-11 appended to `flexibility-method.md` (assessment
+norms, session shape, and the Hyrox mobility overlap). `README.md` lists them all.
+
+The findings that changed how the project should think, rather than just adding reference material:
+
+- **Mixed doubles appears to put both partners on men's Open loads** - 152 kg sled push, 103 kg sled
+  pull, 2 x 24 kg carries, 20 kg sandbag, 6 kg ball, with only the wall-ball target height differing
+  by athlete. Against Cerys's current 30 kg squat and 30 kg deadlift that is a long strength runway,
+  and it starts now rather than at race minus twelve weeks. **Daniel confirmed this from his own
+  check the same day** ("from what I can tell it's the men's weights"), so three reads agree; it has
+  still not been read off the official rulebook, which 403s, and loads change between seasons.
+  Kit follow-up the same day: **no wall ball**, so seven of eight stations are trainable directly and
+  the eighth needs a medicine ball and a marked wall (now on the backlog).
+- **In doubles the running is 60-65% of the race**, not the ~49% it is solo, because the station work
+  halves and the 8 km does not. So for a pair, running is not one of the things you train, it is the
+  thing you train.
+- **Neither of them could currently run the running half of a Hyrox.** Daniel's longest run ever is
+  3.45 km; Cerys's longest continuous run is about a minute. Written up honestly in
+  `hyrox-method.md` Part 3 as Phase 0 of the build rather than hidden in an appendix.
+- **One run a week cannot reach any of their running goals** - the evidence floor for improvement is
+  roughly three runs and 15-20 km a week. This is now the single highest-value proposal on the
+  backlog, and it is a conversation rather than a change because the reasons they run once a week
+  are real.
+- **Heavy lifting improves running economy** (meta-analytic, larger effect than plyometrics,
+  strongest at loads at or above 90% 1RM). Daniel's barbell goals and his sub-20 5k are the same
+  project, not competing ones. The interference effect is largely a non-issue at one to two runs a
+  week.
+- **Cerys's per-rep running cadence is 140-151 spm** and she is the one with shin splints. A 10%
+  increase cuts peak tibial acceleration ~11.5% and loading rate ~15.6%. Best
+  evidence-to-effort ratio found in the whole pass, and mechanically trivial on a fixed belt speed.
+- **The wellness gap is behavioural, not technical.** `coaching-method.md` says no overnight data
+  exists; `garmin_wellness` has been built and working the whole time and returns nothing for the
+  reason its own docs give - the watches are only worn for workouts. Nothing needs building.
+- **Sub-8-hour sleep carries 1.7x the injury risk**, and Cerys has flagged three joints in six weeks.
+  Largest untouched lever either of them has.
+- **Cycle-phase training programming is not supported by the evidence** - reviews find no meaningful
+  effect on force production and state outright that current evidence cannot be used to write
+  guidelines. Reported as such in `female-athlete-method.md` rather than repeating the popular
+  version. Iron and ferritin, by contrast, have strong evidence and are unmeasured.
+
+`CACHE_NAME` **not bumped** - no cached shell file was touched.
+
+**2026-09-02 (second pass) - strength, the week, testing, and treadmill-vs-outdoor.** Daniel asked
+what else was worth researching and picked all four offered. Three more docs -
+`strength-method.md`, `week-method.md`, `testing-method.md` - plus a new Part 7 on
+`running-method.md`. Kit and rules questions from the first pass both answered: **the loads are the
+men's weights**, and **there is no wall ball**.
+
+The findings, and two of them correct things this file previously said:
+
+- **They are novices, and the "responds to load faster than an incremental model predicts"
+  observation is a novice effect, not a special quality.** Daniel's squat went 40 → 48 → 70 → 80 →
+  100 in eight weeks; published novice expectation is +40-100 kg in a *year*. The practical advice
+  (give a target and a ceiling, let him pick inside it) is unchanged and still right. What changes is
+  the expectation: **it will stop, and when it does that is normal rather than a failure.**
+- **The deadlift mystery is solved, and it is a scheduling artefact.** One logged top set ever, 80 kg,
+  and his own note says it was a deliberate form session. The cause: Lower 1 is the **Friday**
+  session, the week runs about a day late and slips, and **Lower 1 has been logged twice since 20
+  July**. Principle: *whatever sits last in the week is the thing you will lose.* One of three named
+  strength goals is currently in the drop slot.
+- **Session length is the real constraint, not the number of days.** Lower 2 ran 92 and 88 minutes;
+  eight exercises on each upper and lower day; six weeks of feedback saying "cut down to keep the
+  session under 90 mins", "ended early", "cut short". A second run does not need a sixth day, it
+  needs shorter sessions.
+- **The second run already exists in the program.** `Weekend run (optional)` was built on 11 August,
+  is Garmin-tracked and deliberately skippable. It needs using, not building. Saturday is the better
+  default because running on legs tired from Lower 1 *is* compromised running.
+- **Peer-reviewed Hyrox research found**: VO2max (ρ = -0.71), endurance training volume (ρ = -0.68)
+  and body fat (ρ = 0.67) predicted finish time; **grip strength, resistance training volume and
+  muscle mass did not** (p = 0.79 / 0.31 / 0.94), and correlations existed only for the runs. Also
+  that the stations provoke *higher* intensity than the runs while the runs decide the time. n = 11,
+  so read the direction not the precision. Strength for Hyrox is a **sufficiency** problem.
+- **The goals are not equally hard.** At 74.6 kg, a 100 kg bench is 1.34x bodyweight (solid
+  intermediate) while a 200 kg squat is 2.68x (advanced edging elite). The bench sounds hardest and
+  is the most modest of the three.
+- **Cerys has no threshold at all** - her zones are percentages of a max, Daniel's come from a real
+  lactate-threshold estimate. Her max (199, with 192 observed) is probably fine; the missing piece is
+  threshold. **She cannot do the standard 30-minute field test** - her longest continuous run is a
+  minute - and it does not currently earn its place anyway. Daniel's version doubles as his longest
+  ever continuous run.
+- **Every kilometre either of them has run is on a belt**, and **treadmills absorb ~71% more shock
+  than asphalt**. Hyrox is 2-4 laps per kilometre on a hard arena floor. A first race-floor run is a
+  load increase that no watch metric will show - which matters most for Cerys's shins.
+- **The app already records RPE per set and nothing reads it.** It is exactly the input an
+  autoregulated progression needs, and it is the largest piece of unused information in the project.
+
+**Timing note:** Daniel's 28 Aug session note says a **new work schedule starts 7 September**, so the
+week is being rebuilt anyway. `week-method.md` Part 7 lists the questions worth answering while it is.
+
 ### Features built (high level)
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session

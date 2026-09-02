@@ -21,6 +21,28 @@ Three rules, in priority order:
 This file does **not** duplicate what the tools already return. PRs, session history, limiters,
 goals and past coaching all come from `training-tracker`. Read those too.
 
+## The other method files, and when to read them
+
+This file is the operational one - read it every time. The others go deeper on one area each, and
+you read the one the session is about rather than all of them. All were written 2026-09-02 and
+carry their own sources.
+
+| File | Read it when | The one thing in it |
+|---|---|---|
+| [hyrox-method.md](hyrox-method.md) | Anything Hyrox | They are doing **mixed doubles**, which puts Cerys on men's Open loads, and in doubles the running is 60-65% of the race because stations halve and the 8 km does not |
+| [running-method.md](running-method.md) | Any running session, and before any volume decision | **One run a week cannot reach either of their goals.** Also: heavy lifting improves running economy, so the barbell work and the sub-20 are the same project |
+| [fuelling-method.md](fuelling-method.md) | Tiredness, hunger or bodyweight comes up | Daniel's "ended early - hungry" notes and a 3.8 kg drop have never been looked at. Under-fuelling and overtraining present identically |
+| [recovery-method.md](recovery-method.md) | Injury, fatigue, or anyone proposes tracking something | Under 8 hours' sleep is **1.7x the injury risk**. The wellness pipeline already exists; it returns nothing because the watches are only worn for workouts |
+| [female-athlete-method.md](female-athlete-method.md) | Anything specific to Cerys's physiology | Cycle-phase programming is **not supported** by the evidence. Iron and ferritin are, and are unmeasured |
+| [strength-method.md](strength-method.md) | Any lifting decision, and before judging progress | They are **novices** - Daniel's squat went 40 to 100 in eight weeks and that will stop. The 100/200/200 goals are multi-year, and the 200 kg squat is much harder than the 100 kg bench, not the other way round |
+| [week-method.md](week-method.md) | Where anything goes in the week | **Whatever sits last in the week is what you lose.** The week runs a day late, so Friday's Lower 1 keeps vanishing - which is the entire reason the deadlift has one logged set |
+| [testing-method.md](testing-method.md) | Before trusting any number, and before adding a test | Cerys has **no threshold at all** - her zones are percentages of a maximum, Daniel's come from a real threshold estimate. A test only earns its place if the result changes a decision |
+| [flexibility-method.md](flexibility-method.md) | Warm-ups, cool-downs, mobility | The ladder, and why cool-downs stopped being stretching sessions. Sections 9-11 add assessment norms and the Hyrox mobility overlap |
+
+**None of them override Part 3 of this file.** The overrides and do-nots stand regardless of what
+any piece of research says, and "the evidence says otherwise" is a reason to raise a proposal, not
+a reason to act.
+
 ## Every review, without exception
 
 **Re-write the 5k card after every run.** Call `running_form(person)` and pass `five_k` on the

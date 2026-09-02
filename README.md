@@ -23,8 +23,26 @@ GitHub Pages.
   running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
   field, and which two are permanently blank on a treadmill (VO₂max, training status) and why.
 - `docs/coaching-prompt.md` - starter prompt for a dedicated Claude Code coaching chat.
-- `docs/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
-  session, the Flexibility pane and the warm-up / cool-down rules.
+- **Method files** - the evidence base behind the coaching, one topic each. `docs/coaching-method.md`
+  is the operational one and indexes the rest:
+  - `docs/hyrox-method.md` - the event, the mixed-doubles format and loads, all eight stations, and
+    a phase model for a build with no race date yet.
+  - `docs/running-method.md` - weekly structure and volume, intensity distribution, running economy
+    and the concurrent-training question, cadence, and progression rules.
+  - `docs/strength-method.md` - progression models by training age, volume and frequency,
+    autoregulation, what the 100/200/200 goals actually cost, and how much strength Hyrox needs.
+  - `docs/week-method.md` - the week as designed against the week as executed, session length as
+    the real constraint, and where a second run and a flexibility session could go.
+  - `docs/testing-method.md` - heart-rate zones and where theirs come from, the 30-minute threshold
+    field test, and which tests are actually worth a session.
+  - `docs/fuelling-method.md` - energy availability, protein, carbohydrate, supplements that have
+    evidence behind them, and race-day fuelling.
+  - `docs/recovery-method.md` - sleep, tissue tolerance and load management, and what the Garmin
+    wellness metrics are and are not worth.
+  - `docs/female-athlete-method.md` - menstrual cycle evidence (weaker than advertised), iron and
+    ferritin, bone stress, and the first pull-up.
+  - `docs/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
+    session, the Flexibility pane and the warm-up / cool-down rules.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
   only (see "Notes & decisions" below - not committed to git).
