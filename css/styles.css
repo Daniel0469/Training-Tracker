@@ -73,11 +73,10 @@
     box-shadow:0 -2px 12px rgba(20,30,55,.10);overflow-x:auto}
   .tabs button{flex:1 0 auto;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:15px;padding:15px 6px;border-radius:12px;cursor:pointer;white-space:nowrap}
   .tabs button.active{background:var(--brand-soft);color:var(--brand)}
-  /* Dot on the Program tab while a proposal is waiting. Positioned rather than
-     appended so it never reflows the label or widens the bar. */
-  .tabs button.has-pending{position:relative}
-  .tabs button.has-pending::after{content:"";position:absolute;top:10px;right:10px;
-    width:8px;height:8px;border-radius:50%;background:var(--brand)}
+  /* Border on the Program tab while a proposal is waiting. An inset box-shadow
+     rather than a real border: it follows the 12px radius and takes up no layout
+     space, so the nav bar doesn't shift the moment a proposal arrives. */
+  .tabs button.has-pending{box-shadow:inset 0 0 0 2px var(--brand)}
   /* Keep page content clear of the fixed bar (taller now, lifted off the
      screen edge so taps don't collide with the phone's home-swipe gesture). */
   .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
