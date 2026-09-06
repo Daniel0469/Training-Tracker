@@ -19,4 +19,6 @@ scratchpad/proto-*.json
 scratchpad/probe*.txt
 _devfixture.json
 # The prototype state the browser loads: same thing again, a full copy of the store.
-scratchpad/proto-*.json
+# Extension-agnostic on purpose - a .js shim wrapping the same JSON slipped past the
+# .json rule once. The scripts are proto_*.py (underscore) and stay tracked.
+scratchpad/proto-*

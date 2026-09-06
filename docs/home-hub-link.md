@@ -1,7 +1,12 @@
 # Home Hub link — tracker-side plan & data contract
 
-**Status: proposal, nothing built.** Companion to the Home Hub planning doc (kept outside this repo).
-This file is the **owner of the shared data contract** — the hub reads it, doesn't fork it.
+**Status: the hub is mostly built and running** (confirmed by Daniel 2026-09-06 — the box is on).
+The link to *this* app is still to come. Companion to the Home Hub planning doc (kept outside this
+repo). This file is the **owner of the shared data contract** — the hub reads it, doesn't fork it.
+
+**Claimed by the hub, 2026-09-06:** the hub is getting a **daily tab with a daily todo list**, and
+the **daily yoga tick** lives there rather than in this app. The term routine schedules yoga; the
+hub records whether it happened. Nothing was built in the tracker for it.
 
 ## The short version
 
