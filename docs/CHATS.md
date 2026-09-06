@@ -1,76 +1,66 @@
 # How to start new Claude chats (so they have full context)
 
-You run two kinds of chat, both **in Claude Code, opened on the Training Tracker project folder**
-(`C:\Users\danie\Documents\TrainingTracker`). Keep them separate:
-- **Development chat** — build the app / hub, and action the in-app suggestion backlog.
-- **Coaching chat** — Claude coaches Daniel & Cerys from their live data.
+You run three kinds of chat, all **in Claude Code, opened on the Training Tracker project folder**
+(`C:\Users\danie\Documents\TrainingTracker`). Keep them separate - each has a different job and
+loads different tools.
+
+| Chat | Prompt | What it does |
+|---|---|---|
+| **Development** | [prompts/dev.md](prompts/dev.md) | Build the app, action the in-app suggestion backlog |
+| **Coaching** | [prompts/coaching.md](prompts/coaching.md) | Coach Daniel & Cerys from their live data |
+| **Running** | [prompts/running.md](prompts/running.md) | Pull runs off the watches, enrich them, write the next prescription |
+
+The Home Hub is a **separate app in its own repo**, with its own chat and its own prompt -
+[home-hub-starter-prompt.md](home-hub-starter-prompt.md). Don't build hub features in this repo.
 
 ---
 
-## ✅ Before ANY new chat (do these once each time)
-1. **Open the project folder** in Claude Code (`C:\Users\danie\Documents\TrainingTracker`). This
-   auto-loads `CLAUDE.md` (conventions) and my saved memory — so the chat already knows the project.
-2. **If you changed the MCP server or `.mcp.json` since last time, fully restart Claude Code** so
-   the `training-tracker` tools reload. (New tools won't appear until you do.)
-3. That's it — everything else lives in the repo (`docs/PROJECT-STATUS.md` is the full handoff).
+## Before ANY new chat
 
-**What's guaranteed loaded:** `CLAUDE.md` + memory (auto). **Point the chat at:** `docs/PROJECT-STATUS.md`
-for the complete picture (the starter prompts below already do this).
+1. **Open the project folder** in Claude Code. This auto-loads `CLAUDE.md` (conventions) and saved
+   memory, so the chat already knows the project.
+2. **If you changed `.mcp.json` or anything under `mcp-coach/` or `mcp-garmin/` since last time,
+   fully restart Claude Code** so the tools reload. New tools will not appear until you do.
+3. That's it. Everything else lives in the repo, and each starter prompt points the chat at what it
+   needs.
+
+**What's guaranteed loaded:** `CLAUDE.md` + memory. **The full handoff** is
+[PROJECT-STATUS.md](PROJECT-STATUS.md); the starter prompts already point at it.
 
 ---
 
-## 🛠️ Development chat — starter prompt
-Paste this, then add today's task:
+## Keeping the prompts honest
 
-> You're the developer on **Training Tracker** — a two-person workout + health tracker on its way to
-> an all-round health & fitness hub. **First read `docs/PROJECT-STATUS.md` and `CLAUDE.md`** for the
-> full state, decisions and conventions. Then check the in-app improvement backlog with the
-> `training-tracker` **`suggestions`** tool: **auto-apply the easy/safe ones** (verify in the browser
-> — light + dark, no console errors — commit per feature, bump `sw.js` CACHE_NAME on any shell
-> change, then push to deploy), and **list the harder/riskier ones for me to decide**. Mark each one
-> you handle done with **`resolve_suggestion_tool`**. Today I want: **‹your task›**.
-
-Notes:
-- Pushing to `main` **auto-deploys** to https://daniel0469.github.io/Training-Tracker/ (~1 min).
-- The build order is in `docs/PROJECT-STATUS.md` → *Build order remaining* (next: Garmin MCP, then
-  the hub).
-
-## 🧠 Coaching chat — starter prompt
-Full version + follow-ups are in **`docs/coaching-prompt.md`**. Short version to paste:
-
-> You are the S&C coach for **Daniel** and **Cerys**, who share one Training Tracker. Use the
-> `training-tracker` MCP tools (don't ask me for data): `people`, then per person `goals`,
-> `recent_sessions`, `prs`, `bodyweight`, `running_form`, `progress`; read their session `feedback`
-> notes closely.
-> Then push concise, actionable coaching into their app with **`write_coaching(person, overall,
-> by_exercise, by_session, five_k)`** — prefer **`by_session`** = {exact session name: focus note} and
-> **`by_exercise`** = {exact exercise name: a concrete next step} over a generic `overall`. **Always
-> pass `five_k` as well** (from `running_form`) so the Estimated 5k card never goes stale. They see
-> it after their app syncs. Be specific, tie to goals + recent numbers, progress lifts
-> in small jumps, encourage Cerys, and treat pain notes conservatively (deload / mobility / "get it
-> checked", never diagnose). **Read `docs/coaching-method.md` first** — the training principles, what
-> we've already learned about each of them, and the equipment constraints (the treadmills take TIME
-> and SPEED only, in 5s steps, so run sessions must be written as time x speed blocks). Their logged
-> data overrides that file; their stated limiters override both. Start by reviewing both and give me
-> your read, then write coaching.
+**When something is added, changed or decided, update the prompt that owns it** - the same rule the
+in-app Guide and the README follow. A starter prompt describing a week, a tool or a convention that
+no longer exists is worse than no prompt, because the chat acts on it confidently. These are the
+only docs read by a chat that has no other context.
 
 ---
 
 ## Recurring rituals
-- **Weekly coaching (semi-auto for now):** once a week, open a coaching chat and paste the prompt.
-  *(Later option: a paid GitHub Action to do it hands-off — see PROJECT-STATUS "Automation".)*
-- **Backlog review:** whenever, open a dev chat — it'll pull your 💡 in-app suggestions and action
-  them.
+
+- **Weekly coaching:** open a coaching chat and paste [prompts/coaching.md](prompts/coaching.md).
+- **After a run block:** open a running chat and paste [prompts/running.md](prompts/running.md) to
+  pull the watches and re-prescribe.
+- **Backlog review:** open a dev chat - it pulls the in-app suggestions and actions them.
 
 ## Quick reference
-- **Live app:** https://daniel0469.github.io/Training-Tracker/  · **App repo:** Daniel0469/Training-Tracker
+
+- **Live app:** <https://daniel0469.github.io/Training-Tracker/> · **App repo:** Daniel0469/Training-Tracker
 - **Sync/data repo (private):** Daniel0469/Training-Data (`data.json`)
-- **MCP config:** `.mcp.json` (gitignored, on this laptop). Coach tools: `people`, `goals`,
-  `recent_sessions`, `session`, `prs`, `bodyweight`, `progress`, `running_form`, `limiters`,
-  `write_limiter`, `write_coaching`, `session_notes`, `write_session_notes`, `coaching_history`,
-  `suggestions`, `propose_suggestion_tool`, `resolve_suggestion_tool`.
-- **Key docs:** `PROJECT-STATUS.md` (handoff), `coaching-prompt.md`, `github-sync-setup.md`,
-  `mcp-coach/README.md`, `hub-and-coaching.md`, `running-import.md`.
-- **Home Hub (separate app, separate repo + chat):** `home-hub-link.md` (shared `meals` contract +
-  the work needed on this side) and `home-hub-starter-prompt.md` (the prompt to open the hub's own
-  Claude Code project with). Don't build hub features in this repo.
+- **MCP config:** `.mcp.json` (gitignored, on this laptop).
+  - **`training-tracker`** (coach): `people`, `goals`, `recent_sessions`, `session`, `prs`,
+    `bodyweight`, `progress`, `running_form`, `limiters`, `write_limiter`, `write_coaching`,
+    `session_notes`, `write_session_notes`, `run_session`, `write_run`, `write_log_entry`,
+    `coaching_history`, `program_changes`, `write_program_change`, `suggestions`,
+    `propose_suggestion_tool`, `resolve_suggestion_tool`.
+  - **`training-garmin`** (Daniel) and **`training-garmin-cerys`** (Cerys), one per person:
+    `garmin_recent_runs`, `garmin_recent_activities`, `garmin_activity`, `garmin_import_run`,
+    `garmin_enrich_session`, `garmin_fill_pending`, `garmin_wellness`, `garmin_hr_zones`,
+    `garmin_refresh_metrics`.
+- **Key docs:** [PROJECT-STATUS.md](PROJECT-STATUS.md) (handoff), [methods/](methods/) - all the
+  training reasoning, indexed by [methods/coaching-method.md](methods/coaching-method.md) -
+  [term-routine.md](term-routine.md) (the current week),
+  [github-sync-setup.md](github-sync-setup.md), [running-import.md](running-import.md),
+  `mcp-coach/README.md`.

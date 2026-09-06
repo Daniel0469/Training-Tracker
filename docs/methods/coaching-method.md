@@ -302,7 +302,7 @@ Dated. These are about these two people specifically and they expire - re-check 
 Daniel set these on 2026-09-02, after we rewrote all eight sessions together. They apply to every
 future write of a `warmupNote` or `cooldownNote`. The reasoning behind them - the flexibility
 ladder, stretch stacking, and why flexibility work is training rather than recovery - is in
-`docs/flexibility-method.md`. Read that before arguing with any of this.
+`docs/methods/flexibility-method.md`. Read that before arguing with any of this.
 
 **These are settled decisions, not suggestions, and the coach does not get to undo them.** Do not
 reinstate anything removed below, do not re-add a traffic light or a person-specific line to a note,

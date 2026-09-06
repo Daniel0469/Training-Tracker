@@ -9,26 +9,26 @@ lands here instead.
 ## Batch: 2 Sep 2026 - out of the research pass (five new method docs)
 
 Daniel asked for a broad research pass and it produced five new `docs/*-method.md` files plus three
-new sections on `flexibility-method.md`. **Nothing was written to the live store and no program was
+new sections on `methods/flexibility-method.md`. **Nothing was written to the live store and no program was
 changed** - the session was documentation only. What follows is what the research says should
 happen next, and every item needs Daniel's approval before anything moves.
 
 ### Second research pass, same day - all four areas picked
 
 Strength (previously parked), testing and benchmarking, the week itself, and treadmill-vs-outdoor.
-Produced `strength-method.md`, `week-method.md`, `testing-method.md` and a new Part 7 on
-`running-method.md`. **Nothing parked remains from either pass.** New items below.
+Produced `methods/strength-method.md`, `methods/week-method.md`, `methods/testing-method.md` and a new Part 7 on
+`methods/running-method.md`. **Nothing parked remains from either pass.** New items below.
 
 - [ ] **Move Lower 1 off the end of the week.** The highest-value structural change found. Lower 1
       is Friday, the week runs a day late and slips, and Lower 1 has been logged **twice since 20
       July** - which is the entire reason the deadlift has one logged top set. One of three named
       strength goals is sitting in the slot reserved for the session you are willing to drop.
-      `week-method.md` Part 2.
+      `methods/week-method.md` Part 2.
 - [ ] **Shorten the sessions before adding anything to the week.** Eight exercises on each upper and
       lower day, Lower 2 running to 88-92 minutes, and six weeks of "cut down to keep it under 90
       mins" / "ended early" / "cut short". Strength has steep diminishing returns to volume and
       frequency matters more than volume, so trimming costs less than it feels like. This is also
-      what makes a second run possible without a sixth day. `week-method.md` Part 3.
+      what makes a second run possible without a sixth day. `methods/week-method.md` Part 3.
 - [ ] **Use `Weekend run (optional)` - it already exists.** Built 11 Aug, Garmin-tracked,
       deliberately skippable. The second run needs using, not building. Saturday is the better
       default: running on legs tired from Friday's Lower 1 *is* compromised running, which is the
@@ -38,27 +38,27 @@ Produced `strength-method.md`, `week-method.md`, `testing-method.md` and a new P
       and **nothing reads it**. It is exactly the input autoregulated progression needs, the evidence
       says RIR-based autoregulation beats fixed loading over 12 weeks, and it is the honest version of
       "give him a target and a ceiling". Largest piece of unused information in the project.
-      `strength-method.md` Part 3.
+      `methods/strength-method.md` Part 3.
 - [ ] **Daniel: the 30-minute threshold field test.** Confirms his threshold of 173, improves every
       subsequent running prescription, and doubles as his longest ever continuous run. Run it
-      manually rather than as a programmed sequence, with auto-lap off. `testing-method.md` Part 5.
+      manually rather than as a programmed sequence, with auto-lap off. `methods/testing-method.md` Part 5.
 - [ ] **Station benchmarks at submaximal loads.** Five minutes each, they have the kit for seven of
       eight, and every Hyrox prescription is currently generic because nobody has any station data.
 - [ ] **Introduce hard-surface running as its own progression for Cerys.** Treadmills absorb ~71%
       more shock than asphalt; Hyrox is 2-4 laps per kilometre on an arena floor. A first race-floor
       run is a load increase that no watch metric will show, and her whole shin history is on the
-      forgiving end of the range. `running-method.md` Part 7.
+      forgiving end of the range. `methods/running-method.md` Part 7.
 
 ### Not a task, but the timing matters
 
 - **A new work schedule starts 7 September** (Daniel's 28 Aug session note), so the week is being
-  rebuilt anyway. `week-method.md` Part 7 lists the five questions worth answering while it is:
+  rebuilt anyway. `methods/week-method.md` Part 7 lists the five questions worth answering while it is:
   how many days honestly, what goes first, how long a session is allowed to be, whether the two empty
   weekend days get used, and whether the sessions should be the same for both of them.
 
 ### Proposals - program changes, need approval
 
-- [ ] **A second run per week, for both.** `running-method.md` Part 1: one run a week is enough to
+- [ ] **A second run per week, for both.** `methods/running-method.md` Part 1: one run a week is enough to
       complete a 5k and not enough to improve at one. Every stated running goal either of them has
       (sub-20, Hyrox's 8 km) is blocked on this. The hard part is that the reasons they run once a
       week are real - Cerys's shins, a full five-day week, and Daniel's fatigue notes - so this is a
@@ -70,11 +70,11 @@ Produced `strength-method.md`, `week-method.md`, `testing-method.md` and a new P
       evidence-to-effort ratio in the whole research pass.
 - [ ] **Add a hip-extension measure to the Mobility assessment.** The one gap the pass found: hip
       extension governs both the sled push and running stride length, and neither the pike nor the
-      deep-squat cluster tests it. `flexibility-method.md` section 11.
+      deep-squat cluster tests it. `methods/flexibility-method.md` section 11.
 - [ ] **Add eccentrics to Cerys's pull-up work.** Her strongest trend (47.8 kg effective, rising),
       her only stated strength goal, needs neither shins nor hips, and transfers to the Hyrox sled
-      pull. `female-athlete-method.md` Part 4.
-- [ ] **Where the flexibility session goes.** Already open in `flexibility-method.md` section 8, but
+      pull. `methods/female-athlete-method.md` Part 4.
+- [ ] **Where the flexibility session goes.** Already open in `methods/flexibility-method.md` section 8, but
       the research sharpens it: it must **not** land the day after a Lower day, which is the slot it
       would naturally fall into and the worst-ranked option in the method. A scheduling decision with
       a right answer, not a preference.
@@ -106,7 +106,7 @@ Produced `strength-method.md`, `week-method.md`, `testing-method.md` and a new P
 - [ ] **Get a medicine ball and mark a wall at 2.74 m and 3.00 m.** The cheapest fix on the whole
       backlog, and it converts the one un-rehearsable station into a trainable one. It matters more
       than "one station of eight" implies: wall balls are last, done on empty legs, and are where a
-      technical failure (missing depth, missing the line) costs the most. `hyrox-method.md` Part 4
+      technical failure (missing depth, missing the line) costs the most. `methods/hyrox-method.md` Part 4
       has the substitution ladder for until then.
 
 ---

@@ -1,7 +1,7 @@
 # Term routine - the week built for the uni timetable
 
 **Agreed with Daniel 2026-09-06.** Trialled 7-20 September, live from **21 September** when the
-timetable starts. This is the decision record; `split-method.md` is the reasoning it draws on.
+timetable starts. This is the decision record; `methods/split-method.md` is the reasoning it draws on.
 
 ## What changed, and why
 
@@ -9,7 +9,7 @@ The old week was Upper/Lower x2 plus one run, Monday to Friday, and it executed 
 slipped. Two things forced the rebuild: the uni timetable, and a **change of priorities**.
 
 **Daniel, 6 September:** *"the goal lifts are long term goals - train for fitness and hyrox first"*.
-That resolves the tension `split-method.md` Part 8 identified. The 100 kg bench, 200 kg squat and
+That resolves the tension `methods/split-method.md` Part 8 identified. The 100 kg bench, 200 kg squat and
 200 kg deadlift are now **long-term goals held at maintenance**; fitness and Hyrox lead. Nothing was
 dropped - this is Part 8's option 1, sequencing, which the minimal-dose literature says costs the
 barbell numbers nothing over a block of this length.
@@ -108,7 +108,7 @@ raise · dead bug
 ### Stations, and the honest limit
 
 Sled, ski erg, rower, farmers handles, sandbag and kettlebells are available; **no wall balls**.
-`hyrox-method.md` puts them in **Phase 0**, whose gate is *Daniel runs 8 km continuously* against a
+`methods/hyrox-method.md` puts them in **Phase 0**, whose gate is *Daniel runs 8 km continuously* against a
 3.45 km best. So the station work here is **technique at light loads**, not race-weight work, and
 there is no standalone Hyrox session yet. Sled push and pull are one exercise - push a length, pull
 it back, one round - which was Daniel's format and is better than splitting them: less setup, and it
@@ -132,7 +132,7 @@ progression**, which is what the optional third run exists to grow into.
 
 ## Wednesday, and the yoga
 
-**Wednesday evening, 60-75 min.** Giving flexibility its own slot is what `flexibility-method.md`
+**Wednesday evening, 60-75 min.** Giving flexibility its own slot is what `methods/flexibility-method.md`
 has been waiting for - its argument is that cool-downs stopped working precisely because the
 flexibility work was crammed into them. The lifting cool-downs are shortened accordingly.
 

@@ -150,7 +150,7 @@ item 3 — a meal in the store is currently invisible in the app.
 - Add a `nutrition(person, days)` tool to `mcp-coach/server.py` (daily kcal/protein totals, target
   adherence, `estimated` flagged).
 - Include a nutrition line in `coachBrief`.
-- Mention it in `docs/coaching-prompt.md` so the weekly chat actually uses it.
+- Mention it in `docs/prompts/coaching.md` so the weekly chat actually uses it.
 
 ### 5. Move the Garmin sync to the home server (free win)
 The Task Scheduler jobs run on the laptop, with the known caveat *"only runs while the laptop is on."*
@@ -165,7 +165,7 @@ and a re-login to cache each Garmin session there.
 coach - it pushes new coaching, with anything changing to the program either being pushed because I
 asked for the change, or any changes suggested by the coach are pushed to the app for me to agree to."*
 
-A cron job on the Pi runs Claude Code headless against `docs/coaching-prompt.md`, so a review happens
+A cron job on the Pi runs Claude Code headless against `docs/prompts/coaching.md`, so a review happens
 without anyone opening a chat. Feasible because the pieces are already portable:
 
 - Both MCP servers are Python reading the **GitHub store**, with no laptop-specific state - the same

@@ -15,41 +15,46 @@ GitHub Pages.
 - `docs/running-import.md` - how the built-in TCX/GPX run importer works (Garmin & Strava).
 - `docs/PROJECT-STATUS.md` - **full project status & handoff** (read first in a new chat).
 - `docs/CAPABILITIES.md` - **plain-English list of everything the app can do, and its limitations.**
-- `docs/CHATS.md` - **starter prompts for new dev + coaching chats** and how to give them context.
+- `docs/CHATS.md` - **how to start a new chat**, and which of the three starter prompts to use.
 - `docs/github-sync-setup.md` - one-time setup for the free GitHub cloud sync / backup.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
 - `mcp-garmin/` - a local MCP server that reads your runs from Garmin Connect and attaches what the
   watch recorded to the session you logged: heart rate and zones, **per-rep interval detail**,
   running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
   field, and which two are permanently blank on a treadmill (VO₂max, training status) and why.
-- `docs/coaching-prompt.md` - starter prompt for a dedicated Claude Code coaching chat.
-- **Method files** - the evidence base behind the coaching, one topic each. `docs/coaching-method.md`
+- `docs/prompts/` - the three chat starter prompts, one per kind of chat:
+  - `docs/prompts/dev.md` - building the app and actioning the in-app suggestion backlog.
+  - `docs/prompts/coaching.md` - coaching Daniel & Cerys from their live data.
+  - `docs/prompts/running.md` - pulling runs off the Garmin watches, enriching the logged
+    sessions, and writing the next run prescription.
+- **Method files** - the evidence base behind the coaching, one topic each. `docs/methods/coaching-method.md`
   is the operational one and indexes the rest:
-  - `docs/hyrox-method.md` - the event, the mixed-doubles format and loads, all eight stations, and
+  - `docs/methods/hyrox-method.md` - the event, the mixed-doubles format and loads, all eight stations, and
     a phase model for a build with no race date yet.
-  - `docs/running-method.md` - weekly structure and volume, intensity distribution, running economy
+  - `docs/methods/running-method.md` - weekly structure and volume, intensity distribution, running economy
     and the concurrent-training question, cadence, and progression rules.
-  - `docs/strength-method.md` - progression models by training age, volume and frequency,
+  - `docs/methods/strength-method.md` - progression models by training age, volume and frequency,
     autoregulation, what the 100/200/200 goals actually cost, and how much strength Hyrox needs.
-  - `docs/week-method.md` - the week as designed against the week as executed, session length as
+  - `docs/methods/week-method.md` - the week as designed against the week as executed, session length as
     the real constraint, and where a second run and a flexibility session could go.
-  - `docs/testing-method.md` - heart-rate zones and where theirs come from, the 30-minute threshold
+  - `docs/methods/testing-method.md` - heart-rate zones and where theirs come from, the 30-minute threshold
     field test, and which tests are actually worth a session.
-  - `docs/fuelling-method.md` - energy availability, protein, carbohydrate, supplements that have
+  - `docs/methods/fuelling-method.md` - energy availability, protein, carbohydrate, supplements that have
     evidence behind them, and race-day fuelling.
-  - `docs/recovery-method.md` - sleep, tissue tolerance and load management, and what the Garmin
+  - `docs/methods/recovery-method.md` - sleep, tissue tolerance and load management, and what the Garmin
     wellness metrics are and are not worth.
-  - `docs/female-athlete-method.md` - menstrual cycle evidence (weaker than advertised), iron and
+  - `docs/methods/female-athlete-method.md` - menstrual cycle evidence (weaker than advertised), iron and
     ferritin, bone stress, and the first pull-up.
-  - `docs/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
+  - `docs/methods/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
     session, the Flexibility pane and the warm-up / cool-down rules.
-  - `docs/exercise-notes.md` - what Daniel and Cerys have each said about individual exercises, in
+  - `docs/methods/exercise-notes.md` - what Daniel and Cerys have each said about individual exercises, in
     their own words and keyed by exercise so repeats show up, plus a bench of candidate swaps.
-  - `docs/exercise-selection-method.md` - which exercises earn a slot in the rebuilt routine, the
+  - `docs/methods/exercise-selection-method.md` - which exercises earn a slot in the rebuilt routine, the
     volume and pairing evidence behind shortening the sessions, and what to cut first.
-  - `docs/split-method.md` - which training split to run once the new timetable lands: the volume
+  - `docs/methods/split-method.md` - which training split to run once the new timetable lands: the volume
     and frequency dose-response, every candidate split judged, the 05:00-start and two-a-day
     evidence, and a scenario matrix keyed on how many days are honestly available.
+- `docs/term-routine.md` - the current training week and why each session sits where it does.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
   only (see "Notes & decisions" below - not committed to git).

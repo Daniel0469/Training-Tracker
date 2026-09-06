@@ -48,7 +48,7 @@ other rows cannot express: **the same exercise, over time, in their own words.**
    about a body go in the shared section at the end, so they are not written twice.
 4. **Keyed by the exercise name as the program spells it.** Same known weakness as everything else
    here: `Bench press` and `Flat press (DB)` fork, and so will their notes. See the open item in
-   [BACKLOG.md](BACKLOG.md).
+   [BACKLOG.md](../BACKLOG.md).
 5. **This file changes nothing on its own.** Program structure is not the coach's to change
    ([coaching-method.md](coaching-method.md) Part 3). Anything here that should become a program
    edit goes through `propose_suggestion_tool` or `write_program_change` for Daniel to approve.
@@ -330,7 +330,7 @@ the middle delt.
 3. **Log it under its own name, `Lu raise`.** Not as `Lateral raise`. Records, the Last column and
    the progress chart all key on the NAME, so reusing the lateral raise name would splice two
    different loads into one trend and read as a collapse. Same reasoning that kept
-   `Leg press calf raise` separate. See the exercise-name fork item in [BACKLOG.md](BACKLOG.md).
+   `Leg press calf raise` separate. See the exercise-name fork item in [BACKLOG.md](../BACKLOG.md).
 4. **Cerys before Daniel is the wrong order.** Her shoulder popped on 19 Aug and ached after pull-ups
    on 21 Aug, and has been quiet for exactly one session (2 Sep). One quiet session is not a pattern.
    Daniel can start now; she should wait, or start with the warm-up version only.
@@ -407,8 +407,8 @@ Then look only for repeats and open asks. Everything else in this file is contex
 
 Their own logged `feedback` fields, 2026-06-24 to 2026-08-21, plus
 [coaching-method.md](coaching-method.md), [hyrox-method.md](hyrox-method.md),
-[flexibility-method.md](flexibility-method.md), [BACKLOG.md](BACKLOG.md) and
-[PROJECT-STATUS.md](PROJECT-STATUS.md).
+[flexibility-method.md](flexibility-method.md), [BACKLOG.md](../BACKLOG.md) and
+[PROJECT-STATUS.md](../PROJECT-STATUS.md).
 
 Exercise candidates:
 - [Gluteus Medius Training - E3 Rehab](https://e3rehab.com/gluteusmedius/)

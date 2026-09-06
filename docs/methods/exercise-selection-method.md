@@ -88,7 +88,7 @@ The interference effect - blunted strength and hypertrophy when endurance work i
 
 Any new exercise gets its own name and keeps it. Records, the Last column and the progress chart all
 key on the name, so a rename orphans history and a reused name splices two different movements into
-one trend. See the exercise-name fork item in [BACKLOG.md](BACKLOG.md), which is already biting.
+one trend. See the exercise-name fork item in [BACKLOG.md](../BACKLOG.md), which is already biting.
 
 ---
 

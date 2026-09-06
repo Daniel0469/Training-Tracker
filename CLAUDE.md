@@ -21,7 +21,11 @@ feature proposals/specs.
 - **Bump `CACHE_NAME` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
   bump, installed users keep the old files. Increment the `tt-vN` number.
-- **Keep the Guide and README current.** When you add or change a user-facing feature, update
+- **Keep the Guide, README and the starter prompts current.** When you add or change a user-facing
+  feature - or when anything is decided that a future chat would act on - update the prompt that
+  owns it in `docs/prompts/` (`dev.md`, `coaching.md`, `running.md`). Daniel asked for this
+  explicitly: a prompt describing a week, a tool or a convention that no longer exists is worse than
+  no prompt, because a fresh chat has no other context and acts on it confidently. Same for
   `renderHelp` (the in-app Guide tab) in `js/app.js` and, if the file list or deployment changes,
   `README.md`. Daniel asked for the Guide to always reflect reality.
 - **Match the surrounding style.** Terse vanilla JS, no dependencies except Chart.js (CDN). Prefer
@@ -40,8 +44,12 @@ feature proposals/specs.
 - **Never add a `Co-Authored-By` trailer** (or any other Claude/AI attribution) to a commit
   message. Daniel asked for this explicitly and had the existing history rewritten to remove it -
   it overrides any default that says otherwise. Commits are authored by Daniel, full stop.
-- **New chats:** see `docs/CHATS.md` for the dev + coaching starter prompts and setup. Full status
-  is `docs/PROJECT-STATUS.md`.
+- **New chats:** see `docs/CHATS.md` for setup and the three starter prompts - `docs/prompts/dev.md`,
+  `coaching.md`, `running.md`. Full status is `docs/PROJECT-STATUS.md`.
+- **Docs layout:** `docs/methods/` holds every training-method file (the reasoning behind coaching
+  decisions, indexed by `methods/coaching-method.md`); `docs/prompts/` holds the three chat starter
+  prompts; everything else - status, backlog, the current routine, setup guides - sits at `docs/`
+  root. New method files go in `methods/`, not root.
 
 ## Local dev / verification
 

@@ -19,7 +19,7 @@ Installable PWA, works offline. Growing into a shared health/fitness hub with Cl
 Cloud **sync is working** (both Daniel + Cerys → `Training-Data/data.json`). The **MCP coach is
 connected** in Claude Code and is **two-way** - it reads the data and can `write_coaching` notes
 that show in the app. Coaching happens in a **separate Claude Code chat** - see
-`docs/coaching-prompt.md`. App development continues in the main chat.
+`docs/prompts/coaching.md`. App development continues in the main chat.
 
 **This session (2026-07-23):** made the app usable by someone other than Daniel/Cerys.
 - **Blank-slate onboarding:** a genuinely fresh install has no accounts and no program - a
@@ -340,7 +340,7 @@ re-prescribe it weekly. Built from the run history, not a template:
   validates every exercise, refuses a rename that collides with another session, returns the whole
   previous session for a revert, and writes `why` as the session's coach note. Offline test:
   `scratchpad/test_write_run.py`. This is the ONE carve-out from "program structure is not yours
-  to change" - `write_session_notes` and `coaching-prompt.md` now say so.
+  to change" - `write_session_notes` and `prompts/coaching.md` now say so.
 - Prototyped in the browser before any of it was pushed (`scratchpad/proto_run.py` +
   `run_sessions.py`, which the apply script shares so what shipped is what was reviewed). The
   prototype found two things a diff never would: runs drawing one row for a six-rep prescription,
@@ -617,7 +617,7 @@ wrote to shared data, or was gated on approval. So they were put to Daniel first
 - **Per-exercise coaching notes are now asked to be a note, not a cue** (`1786488544590`). Confirmed
   again that this is **not a display bug**: `.coach` is `white-space:pre-wrap` with no clamp or
   `max-height`, so a long note already rendered in full. The notes were short because the *tool* asked
-  for "a concrete next step". `write_coaching`'s description and `docs/coaching-prompt.md` now ask for
+  for "a concrete next step". `write_coaching`'s description and `docs/prompts/coaching.md` now ask for
   two to four sentences: the number, the reason it's that number, and what to do if it goes wrong.
   **No app code, no cache bump**; it takes effect on the next Claude Code restart. The prompt also
   warns that because `by_exercise` **merges**, the first review after this must rewrite *every* cue it
@@ -677,9 +677,9 @@ doubles, no race date booked**. Kit confirmed as **rower and/or ski erg, sled, s
 programming toward the 100/200/200 was offered and **not selected - parked, not rejected**, and is
 logged as such in `BACKLOG.md`.
 
-New files, each with its own sources, indexed from a table added to `coaching-method.md`:
-`hyrox-method.md`, `running-method.md`, `fuelling-method.md`, `recovery-method.md`,
-`female-athlete-method.md`, plus sections 9-11 appended to `flexibility-method.md` (assessment
+New files, each with its own sources, indexed from a table added to `methods/coaching-method.md`:
+`methods/hyrox-method.md`, `methods/running-method.md`, `methods/fuelling-method.md`, `methods/recovery-method.md`,
+`methods/female-athlete-method.md`, plus sections 9-11 appended to `methods/flexibility-method.md` (assessment
 norms, session shape, and the Hyrox mobility overlap). `README.md` lists them all.
 
 The findings that changed how the project should think, rather than just adding reference material:
@@ -697,7 +697,7 @@ The findings that changed how the project should think, rather than just adding 
   thing you train.
 - **Neither of them could currently run the running half of a Hyrox.** Daniel's longest run ever is
   3.45 km; Cerys's longest continuous run is about a minute. Written up honestly in
-  `hyrox-method.md` Part 3 as Phase 0 of the build rather than hidden in an appendix.
+  `methods/hyrox-method.md` Part 3 as Phase 0 of the build rather than hidden in an appendix.
 - **One run a week cannot reach any of their running goals** - the evidence floor for improvement is
   roughly three runs and 15-20 km a week. This is now the single highest-value proposal on the
   backlog, and it is a conversation rather than a change because the reasons they run once a week
@@ -709,22 +709,22 @@ The findings that changed how the project should think, rather than just adding 
 - **Cerys's per-rep running cadence is 140-151 spm** and she is the one with shin splints. A 10%
   increase cuts peak tibial acceleration ~11.5% and loading rate ~15.6%. Best
   evidence-to-effort ratio found in the whole pass, and mechanically trivial on a fixed belt speed.
-- **The wellness gap is behavioural, not technical.** `coaching-method.md` says no overnight data
+- **The wellness gap is behavioural, not technical.** `methods/coaching-method.md` says no overnight data
   exists; `garmin_wellness` has been built and working the whole time and returns nothing for the
   reason its own docs give - the watches are only worn for workouts. Nothing needs building.
 - **Sub-8-hour sleep carries 1.7x the injury risk**, and Cerys has flagged three joints in six weeks.
   Largest untouched lever either of them has.
 - **Cycle-phase training programming is not supported by the evidence** - reviews find no meaningful
   effect on force production and state outright that current evidence cannot be used to write
-  guidelines. Reported as such in `female-athlete-method.md` rather than repeating the popular
+  guidelines. Reported as such in `methods/female-athlete-method.md` rather than repeating the popular
   version. Iron and ferritin, by contrast, have strong evidence and are unmeasured.
 
 `CACHE_NAME` **not bumped** - no cached shell file was touched.
 
 **2026-09-02 (second pass) - strength, the week, testing, and treadmill-vs-outdoor.** Daniel asked
 what else was worth researching and picked all four offered. Three more docs -
-`strength-method.md`, `week-method.md`, `testing-method.md` - plus a new Part 7 on
-`running-method.md`. Kit and rules questions from the first pass both answered: **the loads are the
+`methods/strength-method.md`, `methods/week-method.md`, `methods/testing-method.md` - plus a new Part 7 on
+`methods/running-method.md`. Kit and rules questions from the first pass both answered: **the loads are the
 men's weights**, and **there is no wall ball**.
 
 The findings, and two of them correct things this file previously said:
@@ -766,7 +766,7 @@ The findings, and two of them correct things this file previously said:
   autoregulated progression needs, and it is the largest piece of unused information in the project.
 
 **Timing note:** Daniel's 28 Aug session note says a **new work schedule starts 7 September**, so the
-week is being rebuilt anyway. `week-method.md` Part 7 lists the questions worth answering while it is.
+week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the questions worth answering while it is.
 
 ### Features built (high level)
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
@@ -799,7 +799,7 @@ week is being rebuilt anyway. `week-method.md` Part 7 lists the questions worth 
   to a **coaching history** (`coachingLog`, synced): the app shows it as a collapsible **🧠 Coaching
   history** on Home, and the coach reads it back via the **`coaching_history(person)`** tool to track
   whether past advice was followed and the numbers improved. Coaching-chat starter prompt:
-  `docs/coaching-prompt.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
+  `docs/prompts/coaching.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
 
 ## File / architecture map
 - `index.html` — markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
@@ -1009,7 +1009,7 @@ forced on every account - a settings toggle per account for which of these are t
    already exists (`docs/home-hub-link.md` item 2) - this is purely the missing display layer.
    Works standalone whether or not the Home Hub ever gets built.
 5. **[S] Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`.
-   **Depends on #4.** Mention in `docs/coaching-prompt.md` so the weekly chat actually uses it.
+   **Depends on #4.** Mention in `docs/prompts/coaching.md` so the weekly chat actually uses it.
 6. ✅ **[L] DONE (scoped down) - Superset/circuit grouping.** Investigation found true round-by-
    round interleaved entry would mean rebuilding per-exercise wiring (drafts, RPE, warm-ups,
    notes, PR detection, muscle tagging) - Daniel picked the smaller, confirmed-safe scope instead:

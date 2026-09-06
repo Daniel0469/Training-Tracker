@@ -2804,7 +2804,7 @@ function renderNotSetupList(){
         ?'<b>Cloud sync</b> - configured on this device.'
         :'<b>Cloud sync</b> - not set up on this device. Needs a private GitHub repo + access token (above).')+'</p>'
     + '<p style="margin:0 0 8px"><b>Garmin auto-import</b> - not set up. Needs its own MCP server, a Garmin login, and a scheduled sync job on a laptop running Claude Code (see mcp-garmin/README.md).</p>'
-    + '<p style="margin:0 0 8px"><b>AI coaching</b> - not set up. Needs the coaching MCP server, plus someone running a coaching chat for you (see docs/coaching-prompt.md).</p>'
+    + '<p style="margin:0 0 8px"><b>AI coaching</b> - not set up. Needs the coaching MCP server, plus someone running a coaching chat for you (see docs/prompts/coaching.md).</p>'
     + '<div class="hint" style="margin:0">This device supports up to <b>2 accounts</b>. A third person needs their own separate device/install.</div>';
 }
 // A suggestion's statuses: "proposed" (the coach raised it, nobody has decided yet)

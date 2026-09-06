@@ -1240,7 +1240,7 @@ def _register(mcp):
         program and BOTH of them see the same text. So a note addressed to one of them does
         NOT belong here - put it in write_coaching(by_session=...), which is per person.
         Daniel's instruction, 2 Sep 2026: no person-specific lines in a warm-up or
-        cool-down. See docs/coaching-method.md, Part 3, "Writing warm-ups and cool-downs" -
+        cool-down. See docs/methods/coaching-method.md, Part 3, "Writing warm-ups and cool-downs" -
         it also settles what a cool-down is (stretches and breathing, never strength work),
         that decision rules and traffic lights do not go in a warm-up, and that a stated
         duration is computed from the list rather than guessed. Read it before writing one,
@@ -1304,7 +1304,7 @@ def _register(mcp):
 
         The notes follow the same rules as write_session_notes: no person-specific lines
         (those go in write_coaching), no decision rules in a warm-up, and a cool-down is
-        stretches and breathing rather than strength work. See docs/coaching-method.md,
+        stretches and breathing rather than strength work. See docs/methods/coaching-method.md,
         Part 3. Adding a session is structural, so unless Daniel has asked for it directly,
         raise it with propose_suggestion_tool first rather than creating it unannounced."""
         return json.dumps(add_session(name, day, exercises, person, warmup,
