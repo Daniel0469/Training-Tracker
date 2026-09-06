@@ -784,8 +784,8 @@ function renderLog(){
   const coach = (state.coaching && state.coaching[p]) || {};
   const coachFor = name => (coach.byExercise && coach.byExercise[name]) || "";
   const prevNote = prev
-    ? "Inputs start blank. "+esc(possessive(p))+" last session ("+relTime(prev.date)+") is shown in the <b>Last</b> column - beat it."
-    : "No previous "+esc(p)+" log for this session yet - today sets the baseline.";
+    ? "Inputs start blank. The <b>Last</b> column on each exercise is the most recent time "+esc(p)+" did <i>that movement</i>, whichever session it was in - beat it."
+    : "No previous "+esc(p)+" log for this session yet. Any exercise "+esc(p)+" has done elsewhere still shows its last numbers.";
 
   let html = '<div class="card">'
     + '<div class="flex-between" style="margin-bottom:12px">'
@@ -875,9 +875,24 @@ function renderLog(){
   exerciseBlocks(exs).forEach(block=>{
     const cardsHtml = block.eis.map(ei=>{
       const ex=exs[ei];
-      const last = prev && (prev.entries||[]).find(e=>e.name===ex.name);
-      const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, prev&&prev.garmin) : "";
-      return renderExForm(ex,ei,last,prev?prev.date:"",recentNote(p,ex,prev),coachFor(ex.name),lastRun);
+      // "Last" means the most recent time you did THIS exercise, in ANY session -
+      // not the last time you did this session. On a rotation where a lift shows
+      // up on more than one day, the same-session number can be a week old when a
+      // three-day-old one exists, and a program rewrite used to empty the column
+      // altogether. When the number came from somewhere else, the card says so.
+      const rec = latestEntryAnywhere(p, ex.name);
+      const sameSess = prev && (prev.entries||[]).find(e=>e.name===ex.name);
+      const last = rec ? rec.entry : sameSess;
+      // No entry means no date: a brand-new exercise used to borrow the previous
+      // log's date and render "Last · 3 weeks ago" over a column of dashes.
+      const lastLog = last ? (rec ? rec.log : prev) : null;
+      // Compared by KEY, not name. A session that gets renamed keeps its key, and
+      // comparing names made a rewritten session announce its own old name as if
+      // the numbers had come from somewhere else.
+      const lastFrom = (lastLog && lastLog.sessionKey && lastLog.sessionKey!==curSession
+        && lastLog.sessionName) ? lastLog.sessionName : "";
+      const lastRun = (last && isRunning(ex)) ? runSummaryFromEntry(last, lastLog&&lastLog.garmin) : "";
+      return renderExForm(ex,ei,last,lastLog?lastLog.date:"",lastFrom,coachFor(ex.name),lastRun);
     }).join("");
     // Grouped exercises get a wrapping .superset card; each inner .ex card is
     // otherwise unchanged, so every existing per-card system (wireExCard,
@@ -979,21 +994,10 @@ function setRowHtml(n,ex,prevCell){
     + '<td class="prev">'+prevCell+'</td>'
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
 }
-// "Most recent for this movement in ANY session" note; empty when the most
-// recent occurrence is the log already shown in the Last column.
-function recentNote(person, ex, prev){
-  if(!isLifting(ex)) return "";
-  const rec=latestEntryAnywhere(person, ex.name);
-  if(!rec || (prev && rec.log.id===prev.id)) return "";
-  // Best set by what it actually loaded, but shown as what was typed - this is a
-  // cue for what to key in next time, not a scoreboard.
-  let top=null, tw=-Infinity;
-  rec.entry.rows.forEach(r=>{ const w=setLoad(rec.entry, r[0], person, rec.log.date); if(!isNaN(w)&&w>tw){tw=w;top=r;} });
-  if(!top) return "";
-  if(top[0]==="" || top[0]==null) return "";
-  return 'Most recent: <b>'+esc(top[0])+' kg'+(top[1]!==""&&top[1]!=null?' × '+esc(top[1]):"")+'</b> · '
-    + relTime(rec.log.date)+' ('+esc(rec.log.sessionName)+')';
-}
+// recentNote() lived here: a "most recent for this movement in ANY session" line
+// that only appeared when the Last column was showing something older. The Last
+// column now IS the most recent occurrence anywhere, so the note could never say
+// anything the table above it wasn't already saying. Removed 2026-09-06.
 // Warm-up notes may use "NN%" tokens; resolve them to kg from a reference
 // weight (the top set entered so far, else last session's top set).
 function warmupBase(card){
@@ -1016,7 +1020,7 @@ function updateWarmup(card, ex){
   const span=card.querySelector("[data-warmup]"); if(!span) return;
   span.textContent=computeWarmupText(ex.warmup, warmupBase(card));
 }
-function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
+function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
   const running = isRunning(ex);
   // Set count comes from the program only (it used to be max(program, last log),
   // which permanently inflated it). A run left at sets=1 therefore gets the
@@ -1057,9 +1061,9 @@ function renderExForm(ex,ei,last,prevDate,recent,coach,lastRun){
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
       + '</div>'
     + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
-    + (recent?'<div class="recent">🕑 '+recent+'</div>':"")
+    + (lastFrom?'<div class="recent">🕑 <b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
-    + '<th class="prev" title="'+esc(prevDate)+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
+    + '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
     // RPE isn't a lifting-only idea - a treadmill interval session has an
     // effort level just as much as a set of squats does, and so does a set of
     // loaded lunges measured in metres. See ratesRpe: everything except the
@@ -3484,7 +3488,7 @@ function renderHelp(){
   h+=card('2 &middot; Log a workout',
       p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
-     +p('The <b>Last</b> column shows what that person did last time (as "3 days ago" - hover for the date). A <b>🕑 Most recent</b> chip appears when you did that movement more recently in another session. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
+     +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
