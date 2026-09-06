@@ -43,6 +43,13 @@ GitHub Pages.
     ferritin, bone stress, and the first pull-up.
   - `docs/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
     session, the Flexibility pane and the warm-up / cool-down rules.
+  - `docs/exercise-notes.md` - what Daniel and Cerys have each said about individual exercises, in
+    their own words and keyed by exercise so repeats show up, plus a bench of candidate swaps.
+  - `docs/exercise-selection-method.md` - which exercises earn a slot in the rebuilt routine, the
+    volume and pairing evidence behind shortening the sessions, and what to cut first.
+  - `docs/split-method.md` - which training split to run once the new timetable lands: the volume
+    and frequency dose-response, every candidate split judged, the 05:00-start and two-a-day
+    evidence, and a scenario matrix keyed on how many days are honestly available.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
   only (see "Notes & decisions" below - not committed to git).

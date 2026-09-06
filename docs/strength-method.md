@@ -1,7 +1,8 @@
 # Strength method - progression, and what the goals actually cost
 
 **Written 2026-09-02**, the same day it was parked. Daniel asked for it back in the second research
-pass.
+pass. **Revised 2026-09-03**, when Daniel produced his old competition lifts and roughly half of
+Part 1 turned out to be wrong.
 
 Two jobs, and they are not the same job:
 
@@ -26,6 +27,15 @@ There is a third thing this file has to do, which is tell the truth about timesc
 
 **Daniel, deadlift: one entry in the entire log.** 80 kg, 28 Aug.
 
+**Daniel, competition lifts, 8 April 2023:** squat **172.5**, bench **95**, deadlift **165**. A
+**432.5 kg total in the 82.5 kg class**, belted, with wraps and sleeves. That is three years and
+five months before the current log begins, and it is the most important fact in this file.
+
+**Equipment note, unresolved:** "wraps and sleeves" leaves it open whether the squat was
+knee-wrapped or in sleeves. Knee wraps are typically worth 5-10%, so a wrapped 172.5 is a
+raw-equivalent squat nearer **155-165**. Everything below uses 172.5 as recorded and flags where the
+distinction would change the conclusion.
+
 **Cerys, squat:** 12 (25 Jun) → 16 (4 Jul) → 20 (27 Jul) → 20 (11 Aug) → **30 (18 Aug)**. +18 kg in
 eight weeks.
 
@@ -33,39 +43,71 @@ eight weeks.
 
 **Cerys, pull-up:** 47.8 kg effective and rising, assist coming down 36 → 32.
 
-## The thing nobody had noticed: they are novices, and that is good news
+## The thing nobody had noticed: Daniel is not a novice, he is rebuilding
 
 `coaching-method.md` carries this observation, dated 2026-08-20:
 
 > "Responds to load faster than an incremental model predicts. Three times running he has overtaken
 > a prescribed progression and it landed."
 
-**That observation is correct about the behaviour and wrong about the cause.** It reads as though
-Daniel is unusual. He is not - he is a novice in the steepest part of the linear-progression curve,
-which is exactly where everyone adds weight faster than an incremental model predicts. Published
-novice expectations are **+40-100 kg on the squat in a year**. Daniel did +60 kg in eight weeks.
+**The observation is correct, and it now has an explanation.** Until 2026-09-03 this file explained
+it as a novice in the steepest part of the linear-progression curve. That was wrong. Daniel
+competed in April 2023 at a 432.5 kg total. He is a **detrained intermediate lifter reacquiring
+loads his body has already held**, which is a different phenomenon with a different shape.
 
-Two consequences, and both matter more than the correction itself:
+Against himself:
 
-1. **The practical advice stays exactly the same.** Give him a target and a ceiling and let him pick
-   inside it. That is the right way to programme a novice whose true capacity is ahead of any number
-   you could prescribe. Nothing about the current approach needs changing.
-2. **It will stop, and probably soon.** +60 kg in eight weeks annualises to roughly +390 kg, which is
-   not a thing that happens. Some of that curve is genuine adaptation and some is learning the
-   movement and finding out what he can hold onto. **When it stops it will look like failure and it
-   will not be** - it is the expected end of the novice phase, and having a plan for it is most of
-   what this document is for. See Part 3.
+| Lift | Comp, Apr 2023 | Best in the log | % of his own best |
+|---|---|---|---|
+| Squat | 172.5 | 100 (18 Aug) | **58%** |
+| Bench | 95 | 50 (19 Aug) | **53%** |
+| Deadlift | 165 | 80 (28 Aug) | **48%** |
 
-Cerys is on the same curve, less steep, and the same logic applies.
+**The uniformity is the signal.** Roughly half across all three is what even detraining looks like.
+There is no lift-specific hole to go hunting for.
 
-## The deadlift is not weak, it is untrained
+Three consequences, and they replace the two this section used to carry:
+
+1. **The practical advice is unchanged.** Give him a target and a ceiling and let him pick inside
+   it. It was the right way to programme a novice whose capacity is ahead of any number you could
+   prescribe, and it is the right way to programme a returner for exactly the same reason.
+2. **The prediction that it would stop soon was wrong.** That came from the novice plateau, and
+   there is no novice plateau here. He has roughly **70 kg of squat runway back to a number he has
+   already held**, and reacquisition is substantially faster than acquiring strength the first
+   time. Expect the fast phase to run **longer** than this file previously said, not shorter.
+3. **The expensive part is real but further out.** Past the old numbers the published intermediate
+   and advanced rates apply. The cliff sits somewhere near 172.5 / 95 / 165, not somewhere near now.
+
+**Cerys is still a novice**, on the same linear curve, less steep, and everything this section used
+to say applies to her unchanged.
+
+## One caution, because strength returns before tendons do
+
+Neural drive and the muscle he built by 2023 come back quickly. Tendon and connective tissue
+remodel far more slowly. Daniel knows 172.5 is in him, which makes 100 kg feel like an insult, and
+**closing that gap faster than the connective tissue rebuilds is the largest injury risk in this
+project**. He is also at 74.6 kg (12 Aug) against the 82.5 kg class he set those numbers in, so he
+is rebuilding toward absolute loads on a lighter frame than the one that lifted them
+(`fuelling-method.md` Part 1).
+
+This is a caution to hold, not a cap to impose. Asked directly on 2026-09-03, Daniel chose to
+**stay on pure RPE autoregulation** rather than add a calendar-based ceiling on how fast load may
+climb back. See Part 3.
+
+## The deadlift is not weak, it is untrained - and it was never meant to overtake the squat
 
 Daniel's deadlift is 80 kg against a 100 kg squat, which is **80% of his squat**. The population
 picture is the other way round: the deadlift typically sits at **110-125% of the squat**, and the
 median intermediate male squats about 86% of what he deadlifts.
 
-The obvious reading is a technique weak point or a posterior-chain deficit. **The data does not
-support that reading, because there is only one deadlift session on record, ever.** You cannot
+**Do not apply the population picture to him.** His own competition ratio was a deadlift at **96% of
+his squat** (165 against 172.5). He is a squat-dominant lifter whose pull sits at roughly parity,
+and parity is the ratio to rebuild toward. Even on the wrapped-squat reading his raw ratio was
+nearer **100-106%**, which is still parity rather than the 110-125% the tables predict. **Nobody
+should be waiting for a deadlift that runs away above his squat, because it never did.**
+
+So 80% against his own 96% is low, but it is low by about a sixth rather than by a third, and the
+reason is not mysterious. **There is only one deadlift session on record, ever.** You cannot
 diagnose a lift from n=1, and his own note on the day says what it was:
 
 > "only deadlift - focused on form and getting the right weight for next session"
@@ -105,8 +147,27 @@ roughly equal parts, and it is not.
 
 **This is the opposite of what most people assume.** The bench is the number that sounds hardest -
 it is the slowest-progressing lift and 100 kg is a landmark - but relative to a 74.6 kg bodyweight
-it is by far the most modest of the three. **The 200 kg squat is the hard one**, and a 200/200 squat
-and deadlift is an unusual pairing given that most lifters deadlift more than they squat.
+it is by far the most modest of the three.
+
+## Relative to what he has actually done
+
+The bodyweight table above is the population view. This one is the useful one, because these are
+loads he has already proved he can hold:
+
+| Goal | Comp best | Gap | As a climb |
+|---|---|---|---|
+| 100 kg bench | 95 | **+5 kg** | Re-achieve, then a landmark |
+| 200 kg squat | 172.5 | **+27.5 kg** | +16% on a lifetime best |
+| 200 kg deadlift | 165 | **+35 kg** | +21%, on his weaker lift |
+
+**The ranking flips.** This file used to say the 200 kg squat was the hard one. It is not - **the
+deadlift is**. It sits furthest above anything he has proved, it is the lift he was historically
+weaker at relative to his squat, and a 200/200 asks his squat:deadlift ratio to move from 0.96 to
+1.00 *while both numbers rise*. On the wrapped-squat reading the squat goal gets harder too and the
+two converge, but the deadlift still ranks first.
+
+**The 100 kg bench is not really a goal, it is a rebuild plus five kilos**, and it should be costed
+and talked about that way.
 
 ## The timescale, honestly
 
@@ -120,20 +181,35 @@ Published annual gains, by training phase:
 
 Beginners add weight roughly weekly, intermediates monthly, advanced lifters quarterly at best.
 
-**Daniel is at 100 / 50 / 80 and needs 200 / 100 / 200.** If the rest of the novice year delivers at
-the top of its range he could plausibly reach something like 180 / 85 / 175 - genuinely close - and
-then every subsequent kilogram gets much more expensive. So:
+**Those rates describe acquiring strength for the first time. None of them describe Daniel between
+now and 172.5.** Reacquisition after a layoff is faster than any row in that table, which is exactly
+why he keeps overtaking prescribed jumps.
 
-- **These are multi-year goals**, most likely three to five years of consistent training, not one.
-- **The next twelve months will deliver more of the distance than any twelve months after it.** That
-  is an argument for consistency now rather than for optimisation now.
-- **Falling bodyweight makes all three harder in absolute terms.** Daniel went 78.4 to 74.6 kg over
-  five weeks while chasing three absolute-load goals. That is not a criticism, it is an interaction
-  nobody has looked at - see `fuelling-method.md` Part 1.
+**Expect two phases, not one curve:**
+
+1. **The rebuild, from now to somewhere near 172.5 / 95 / 165.** Fast, and faster than this file
+   previously predicted. This is where he is, and where the current programme is working precisely
+   as it should. **The 100 kg bench most likely arrives inside this phase.**
+2. **Past the old numbers, on to 200 / 100 / 200.** Here the intermediate and advanced rows above
+   are the honest reference: +10 to 40 kg a year on the squat as an intermediate, and less than that
+   once he is genuinely advanced. Both 200s are phase-2 work.
+
+So:
+
+- **These are still multi-year goals**, but the reason has changed. It is not that the whole distance
+  is expensive; it is that **the last 27.5 kg of squat and the last 35 kg of deadlift are**, and
+  everything before that is a rebuild.
+- **The next twelve months will deliver more of the distance than any twelve months after it** -
+  more strongly than this file said before. That is an argument for consistency now rather than for
+  optimisation now.
+- **Falling bodyweight makes all three harder in absolute terms**, and he is now 8 kg below the class
+  he set those lifts in. He went 78.4 to 74.6 kg over five weeks while chasing three absolute-load
+  goals; the comparison to 82.5 kg makes that interaction sharper, not softer - see
+  `fuelling-method.md` Part 1.
 
 None of that is a reason to change the goals. It is a reason for the coaching not to imply they are
-twelve months away, and for progress to be judged against a multi-year curve rather than against
-the last eight weeks.
+twelve months away, and for progress to be judged against a two-phase curve rather than against the
+last eight weeks.
 
 ---
 
@@ -145,7 +221,9 @@ Periodisation is best understood as a continuum indexed by **training age**, not
 religions:
 
 - **Novice: linear progression.** Add weight every session or every week. It works because recovery
-  outpaces adaptation at this stage, and nothing more complicated beats it. **Both of them are here.**
+  outpaces adaptation at this stage, and nothing more complicated beats it. **Cerys is here.**
+  **Daniel is not, but linear is still right for him** - a returner reacquiring old loads gets the
+  same week-on-week progress a novice does, for a different reason, and gets it for longer.
 - **Intermediate: undulating (DUP).** Vary intensity and volume within the week rather than across
   months. In trained individuals, undulating produced **23.7-24.5% strength gains against 17.0-18.0%
   for linear** in one comparison, roughly 28% faster. Other work finds the two similar. The honest
@@ -154,7 +232,8 @@ religions:
 - **Advanced: block periodisation**, saturating one quality at a time.
 
 **Do not move Daniel or Cerys off linear progression while it is still working.** Complexity added
-early costs progress and buys nothing. The trigger for changing is in the next section.
+early costs progress and buys nothing. The trigger for changing is in the next section - and for
+Daniel, expect it somewhere near his old numbers rather than somewhere near now.
 
 ## The signs that linear progression has ended
 
@@ -201,6 +280,16 @@ project:
 - **It is also the honest fix for the observation in Part 1.** "Give him a target and a ceiling" is
   autoregulation done manually. The data to do it properly is already there.
 
+**One thing to watch, specific to the rebuild.** RPE is a subjective read, and a returner's read is
+calibrated against loads he used to handle. A weight can feel like RPE 7 to a nervous system that
+remembers 172.5 while the tendons underneath it are not three years' rebuilt. **Expect RPE to
+underread during phase 1.**
+
+Asked directly on 2026-09-03, Daniel's call was to **keep pure RPE autoregulation and not add a
+calendar-based ceiling** on how fast load may climb back. That is the decision. This note exists so
+that if something does flare, the first place to look is the gap between what he can lift and what
+he has recently lifted, not the programme.
+
 This is a proposal, not a coaching note. It is on the backlog.
 
 ---
@@ -239,8 +328,9 @@ training hours are better spent on the engine.
 That has two consequences here, pulling in opposite directions:
 
 1. **Daniel does not need to get stronger for Hyrox.** At a 100 kg squat and an 80 kg deadlift he is
-   already comfortably inside every mixed-doubles load. His barbell goals are worth pursuing for
-   their own sake - and they help his running economy (`running-method.md` Part 4) - but they are
+   already comfortably inside every mixed-doubles load, and he has previously squatted 172.5 and
+   pulled 165, so sufficiency is not in question at any point in the rebuild. His barbell goals are
+   worth pursuing for their own sake - and they help his running economy (`running-method.md` Part 4) - but they are
    **not** Hyrox preparation and should not be sold as such.
 2. **Cerys does need to get stronger for Hyrox**, because she is plausibly below sufficiency on the
    sled and the carries at a 30 kg squat. Her work is about **crossing a threshold**, not about
@@ -297,8 +387,14 @@ that a race date would make urgent.
   proposal would cite, not the proposal.
 - **Nothing here says the current programme is wrong.** Linear progression is the right model for
   where both of them are, and it is working. The value of this document is in knowing what to do when
-  it stops, and in not mistaking a normal novice curve for something special.
-- **The deadlift question stays open** until it has been trained more than once.
+  it stops, and in not mistaking a rebuild for a novice curve, or a novice curve for something
+  special.
+- **The deadlift ratio question is answered**: parity with the squat, from his own competition
+  numbers, not the 110-125% the population tables predict. **The lift itself is still open**, and
+  cannot be judged until it has been trained more than once.
+- **The equipment question is open.** Whether the 172.5 squat was in knee wraps or in sleeves moves
+  the raw-equivalent number by 5-10%, and is worth resolving before the 200 kg squat is costed
+  precisely.
 
 ---
 

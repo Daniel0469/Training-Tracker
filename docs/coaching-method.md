@@ -24,8 +24,8 @@ goals and past coaching all come from `training-tracker`. Read those too.
 ## The other method files, and when to read them
 
 This file is the operational one - read it every time. The others go deeper on one area each, and
-you read the one the session is about rather than all of them. All were written 2026-09-02 and
-carry their own sources.
+you read the one the session is about rather than all of them. All were written from 2026-09-02
+onwards and carry their own sources.
 
 | File | Read it when | The one thing in it |
 |---|---|---|
@@ -34,10 +34,13 @@ carry their own sources.
 | [fuelling-method.md](fuelling-method.md) | Tiredness, hunger or bodyweight comes up | Daniel's "ended early - hungry" notes and a 3.8 kg drop have never been looked at. Under-fuelling and overtraining present identically |
 | [recovery-method.md](recovery-method.md) | Injury, fatigue, or anyone proposes tracking something | Under 8 hours' sleep is **1.7x the injury risk**. The wellness pipeline already exists; it returns nothing because the watches are only worn for workouts |
 | [female-athlete-method.md](female-athlete-method.md) | Anything specific to Cerys's physiology | Cycle-phase programming is **not supported** by the evidence. Iron and ferritin are, and are unmeasured |
-| [strength-method.md](strength-method.md) | Any lifting decision, and before judging progress | They are **novices** - Daniel's squat went 40 to 100 in eight weeks and that will stop. The 100/200/200 goals are multi-year, and the 200 kg squat is much harder than the 100 kg bench, not the other way round |
+| [strength-method.md](strength-method.md) | Any lifting decision, and before judging progress | **Daniel is not a novice, he is rebuilding** - he competed in April 2023 at 172.5/95/165 and is at roughly half of each, so the fast phase runs longer than a novice curve would. Cerys is a novice. His deadlift belongs at **parity with his squat**, not the population's 110-125%. Of the 100/200/200 goals the **deadlift is the hardest**, and the bench is a rebuild plus 5 kg |
 | [week-method.md](week-method.md) | Where anything goes in the week | **Whatever sits last in the week is what you lose.** The week runs a day late, so Friday's Lower 1 keeps vanishing - which is the entire reason the deadlift has one logged set |
+| [split-method.md](split-method.md) | The timetable rebuild, and any decision about how many days or which split | **Frequency is the only variable with a proven dose-response for strength; volume plateaus at ~4 weekly sets per lift.** All three of Daniel's barbell goals are trained once a week, the weakest rung. Shorter, more frequent full-body sessions fix the frequency problem and the 90-minute problem at once. Part 5 shows a run and a lift can share a day (lift first, run easy, hours apart), which turns a five-session week into three days. Part 6 is a lookup table: count the honest days, read off the split |
 | [testing-method.md](testing-method.md) | Before trusting any number, and before adding a test | Cerys has **no threshold at all** - her zones are percentages of a maximum, Daniel's come from a real threshold estimate. A test only earns its place if the result changes a decision |
 | [flexibility-method.md](flexibility-method.md) | Warm-ups, cool-downs, mobility | The ladder, and why cool-downs stopped being stretching sessions. Sections 9-11 add assessment norms and the Hyrox mobility overlap |
+| [exercise-notes.md](exercise-notes.md) | **Every review** - see below. Also before proposing any exercise swap | What they have each said about individual exercises, in their own words, keyed by exercise so repeats are visible. Part 2 is a bench of candidate swaps |
+| [exercise-selection-method.md](exercise-selection-method.md) | The whole-week rebuild, and any decision about which exercises earn a slot | Time is the binding constraint, so judge an exercise on return per minute against a stated goal. **Supersets cut session duration by ~half with no loss of adaptation** - pair before you delete. The sled is the best-value exercise they own and is not in the program |
 
 **None of them override Part 3 of this file.** The overrides and do-nots stand regardless of what
 any piece of research says, and "the evidence says otherwise" is a reason to raise a proposal, not
@@ -60,6 +63,19 @@ second write on the same day that passes only `by_session` wipes `by_exercise`, 
 week after the run session itself had been corrected to 5 x 6:00 @ 11.0 - the correction was a
 `by_session`-only write. Read `coaching_history` first, carry forward everything still true, and pass
 `five_k` and `next_cardio` on every write rather than only the first one of the day.
+
+**Read [exercise-notes.md](exercise-notes.md) for whoever is being reviewed, and update it.** It is
+their own account of the individual exercises, keyed by exercise rather than by session, and it
+exists because that regrouping is the only way a repeat becomes visible. Cerys flagged her left hip
+four times in six weeks across two different exercises and both are still programmed unchanged - not
+because anyone dismissed it, but because `feedback` is keyed by session and date, so four flags
+looked like four remarks. You are reading it for exactly two things: **a repeat**, and **an ask that
+was never actioned** (hers for a plank-pull-through replacement was done in her run session and left
+undone in the cardio session she shares with Daniel).
+
+Then update it from any session logged since the last review, splitting each `feedback` line into
+what is an opinion on an exercise, what is a request, and what is an app problem. An unactioned
+request keeps its `open` status until it is done in **every** session containing that exercise.
 
 **Check the programmed set count before writing a milestone.** Daniel was told for two weeks to build
 to "four clean unassisted sets of 5" on pull-ups. Upper 2 prescribes three. He hit three on 29 Aug -
