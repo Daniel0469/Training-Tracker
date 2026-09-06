@@ -232,7 +232,8 @@ Dated. These are about these two people specifically and they expire - re-check 
   50 when 40 was asked, squat 80 to 100 when a rep target was asked. Give a target and a ceiling and
   let him pick inside it, rather than a single number.
 - **2026-08-20.** Huge speed reserve, thin endurance base. Held 13 km/h reps at 79% of max HR back in
-  July, but his longest run ever is 3.45km. Speed has never been the limiter; duration at pace is.
+  July, but his longest run is 6.48 km on the watch, about 5.9 km belt-corrected (26 Aug). Speed has
+  never been the limiter; duration at pace is.
 - **2026-08-20.** Paces conservatively when the distance is unfamiliar. In his first 2km trial he ran
   the whole first kilometre below threshold and finished at 91% of max HR, still climbing.
 - **2026-08-20.** Running cadence is 157-166 spm and is fine. Do not read whole-activity cadence -

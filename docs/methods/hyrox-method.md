@@ -226,7 +226,7 @@ This section is dated because it expires. Re-derive it from the tools rather tha
 | | Daniel | Cerys |
 |---|---|---|
 | 5k estimate | 25:30 (5:12/km), medium confidence | 40:00 (8:00/km), low confidence |
-| Longest run ever | 3.45 km | 2.25 km, run/walk |
+| Longest run ever | 6.48 km watch, ~5.9 km corrected (26 Aug) | 2.26 km, run/walk (26 Aug) |
 | Longest **continuous** effort | 13:44 at 11.0 km/h (26 Aug) | about 1 minute |
 | Max HR / resting | 200 / 52 | 199 / 67 |
 | Threshold HR | 173 (lactate-threshold method) | not established (HR-max method) |
@@ -234,8 +234,8 @@ This section is dated because it expires. Re-derive it from the tools rather tha
 
 Hyrox demands eight continuous kilometres, run eight separate times, on legs that have just been
 wrecked. **Cerys's longest continuous run is currently about one minute.** Daniel's longest run in
-his life is 3.45 km, less than half the race distance, and his single longest sustained effort is
-under fourteen minutes.
+his life is 6.48 km on the watch - about 5.9 km once the belt over-read is taken off - but it was
+run as reps, and his single longest *sustained* effort is still under fourteen minutes.
 
 Stated plainly, without softening it: **neither of them could currently complete the running half of
 a Hyrox**, and closing that is a multi-season project rather than a twelve-week plan. That is not a
@@ -504,7 +504,9 @@ honest reason this is not a twelve-week project.
 - **Cerys can run 20 minutes continuously, pain-free**, having built there through the MTSS
   return-to-run sequence in `coaching-method.md`. Today her longest continuous run is about a
   minute. This is the single longest item on the list.
-- **Daniel can run 8 km continuously**, at any pace. Today his longest is 3.45 km.
+- **Daniel can run 8 km continuously**, at any pace. Today his longest run is ~5.9 km corrected
+  (26 Aug) but broken into reps; his longest *continuous* effort is 13:44 / 2.76 km. Continuous is
+  the gate, so read the second number, not the first.
 - Both are running **at least twice a week**, which they currently are not - see `running-method.md`
   for why one run a week cannot get either of them there.
 - Cerys is comfortable under the **mixed-doubles station loads**, or the plan for who takes what is

@@ -695,8 +695,9 @@ The findings that changed how the project should think, rather than just adding 
 - **In doubles the running is 60-65% of the race**, not the ~49% it is solo, because the station work
   halves and the 8 km does not. So for a pair, running is not one of the things you train, it is the
   thing you train.
-- **Neither of them could currently run the running half of a Hyrox.** Daniel's longest run ever is
-  3.45 km; Cerys's longest continuous run is about a minute. Written up honestly in
+- **Neither of them could currently run the running half of a Hyrox.** Daniel's longest run is
+  6.48 km on the watch, ~5.9 km corrected (26 Aug), but run as reps - his longest *continuous* effort
+  is 13:44 / 2.76 km. Cerys's longest continuous run is about a minute. Written up honestly in
   `methods/hyrox-method.md` Part 3 as Phase 0 of the build rather than hidden in an appendix.
 - **One run a week cannot reach any of their running goals** - the evidence floor for improvement is
   roughly three runs and 15-20 km a week. This is now the single highest-value proposal on the

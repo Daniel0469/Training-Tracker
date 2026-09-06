@@ -366,10 +366,18 @@ def add_session(name, day="Optional", exercises=None, person="", warmup="", cool
     return result
 
 
-def _find_run_session(data, person):
-    """The session that BELONGS to `person` - the one the coach re-prescribes each
-    week. Ownership is the `person` field on the session, which is also what stops
-    the other one being offered it in the app. Returns (key, session) or (None, why).
+def _find_run_session(data, person, which=None):
+    """The run session that BELONGS to `person` - the one the coach re-prescribes each
+    week. Ownership is the `person` field on the session, which is also what stops the
+    other one being offered it in the app.
+
+    A person can own more than one (the term routine gives each of them an easy run and
+    a quality run), so `which` picks between them. It matches, case-insensitively, the
+    session key, its DAY, or any distinctive part of its name - so "easy", "quality",
+    "tuesday", "Easy run: Daniel" and "easyCerys" all work. Day is the stable handle: a
+    session gets renamed when its content changes shape, and the day usually does not.
+    With one session owned, `which` is optional and only has to not contradict it.
+    Returns (key, session) or (None, why).
     """
     sessions = ((data.get("program") or {}).get("sessions")) or {}
     hits = [(k, s) for k, s in sessions.items() if (s or {}).get("person") == person]
@@ -377,9 +385,28 @@ def _find_run_session(data, person):
         owned = {(s or {}).get("name"): (s or {}).get("person")
                  for s in sessions.values() if (s or {}).get("person")}
         return None, (f"No session belongs to {person!r}. Owned sessions: {owned or 'none'}.")
+
+    want = str(which or "").strip().lower()
+    if want:
+        picked = [(k, s) for k, s in hits
+                  if k.lower() == want
+                  or str(s.get("day") or "").lower() == want
+                  or want in str(s.get("name") or "").lower()]
+        if not picked:
+            owned = [f"{s.get('name')} ({s.get('day')}, key={k})" for k, s in hits]
+            return None, (f"No session of {person}'s matches which={which!r}. "
+                          f"They own: {owned}.")
+        if len(picked) > 1:
+            return None, (f"which={which!r} matches more than one of {person}'s sessions "
+                          f"({[s.get('name') for _, s in picked]}) - be more specific.")
+        return picked[0][0], picked[0][1]
+
     if len(hits) > 1:
-        return None, ("More than one session belongs to %r (%s) - that shouldn't happen; "
-                      "fix the program before prescribing." % (person, [s.get("name") for _, s in hits]))
+        owned = [f"{s.get('name')} ({s.get('day')}, key={k})" for k, s in hits]
+        return None, (f"{person} owns more than one run session ({owned}) - pass `which` to say "
+                      "which one you mean. It matches the key, the day, or part of the name, so "
+                      "which=\"tuesday\" or which=\"quality\" both work. A write replaces only "
+                      "the session you name.")
     return hits[0][0], hits[0][1]
 
 
@@ -420,9 +447,9 @@ def _clean_exercise(e, i):
     return out
 
 
-def get_run(data, person):
+def get_run(data, person, which=None):
     """`person`'s current run session, exactly as their phone will draw it."""
-    key, s = _find_run_session(data, person)
+    key, s = _find_run_session(data, person, which)
     if key is None:
         return {"error": s}
     return {"person": person, "session": s.get("name"), "day": s.get("day"),
@@ -433,7 +460,7 @@ def get_run(data, person):
 
 
 def set_run(person, exercises=None, why="", name=None, day=None,
-            warmup=None, cooldown=None, recording=None, setup=None):
+            warmup=None, cooldown=None, recording=None, setup=None, which=None):
     """Re-prescribe `person`'s own run session. See the write_run tool docstring."""
     failed = {}
 
@@ -441,7 +468,7 @@ def set_run(person, exercises=None, why="", name=None, day=None,
         if person not in (data.get("people") or []):
             failed["error"] = f"No such person {person!r}. People: {data.get('people')}"
             return None
-        key, s = _find_run_session(data, person)
+        key, s = _find_run_session(data, person, which)
         if key is None:
             failed["error"] = s
             return None
@@ -1311,25 +1338,41 @@ def _register(mcp):
                                       cooldown, setup, recording), indent=2)
 
     @mcp.tool()
-    def run_session(person: str) -> str:
+    def run_session(person: str, which: str = "") -> str:
         """`person`'s own run session as it currently stands - every exercise, target, set
         count, column and note, exactly as their phone will draw it. ALWAYS call this before
-        write_run: a write replaces the exercise list outright."""
-        return json.dumps(get_run(load_data(), person), indent=2)
+        write_run: a write replaces the exercise list outright.
+
+        `which` picks between run sessions when a person owns more than one - they each have
+        an easy run and a quality run. It matches the session key, its DAY, or any distinctive
+        part of the name, case-insensitively, so "tuesday", "easy" or "quality" all work. Day
+        is the most stable handle, since a session gets renamed when its content changes shape.
+        Omit it and the error lists what they own."""
+        return json.dumps(get_run(load_data(), person, which), indent=2)
 
     @mcp.tool()
     def write_run(person: str, exercises: list | None = None, why: str = "",
                   name: str | None = None, day: str | None = None,
                   warmup: str | None = None, cooldown: str | None = None,
-                  recording: str | None = None, setup: str | None = None) -> str:
-        """Re-prescribe ONE person's run session. This session is yours: Daniel's explicit
+                  recording: str | None = None, setup: str | None = None,
+                  which: str = "") -> str:
+        """Re-prescribe ONE of `person`'s run sessions. This session is yours: Daniel's explicit
         instruction (20 Aug 2026) is that the coach decides the optimal run each week from
         the data, and is NOT restricted to the formats used so far. Rep sessions, tempo,
         progression runs, fartlek, hills, a straight easy run, run-walk, a compromised
         run off a lifting station - if the data says it, prescribe it. Design it properly
         from the evidence rather than nudging last week's numbers.
 
-        Read FIRST, every time: `run_session(person)` (what's there now), `running_form(person)`
+        `which` says WHICH of their run sessions to write, because they each own two - an
+        easy run and a quality run, on different days. It matches the session key, its DAY, or
+        any distinctive part of the name, case-insensitively ("tuesday", "easy", "quality").
+        Prefer the day: it survives a rename, and renaming a run session is normal when its
+        content changes shape. It is required whenever more than one session belongs to them,
+        and the write replaces only that one.
+        The two are prescribed separately and should not be made the same shape: with two runs
+        a week the second one is the EASY one, not a second quality session.
+
+        Read FIRST, every time: `run_session(person, which)` (what's there now), `running_form(person)`
         (every logged run, rep by rep off the watch - fade, drift, HR recovery, time in zone),
         `limiters(person)` (their own account of what's holding the session back - it wins over
         your reading of the numbers), `goals(person)`, and `wellness`/`recent_sessions` for what
@@ -1353,16 +1396,30 @@ def _register(mcp):
         trends, while renaming it to "4x800m" starts a new and empty history. Put the
         prescription in `target` instead - that's what it's for.
 
-        `setup` is the TREADMILL PROGRAM: the session as a numbered list of time + speed
-        (+ incline where it matters) blocks to key in before starting, so the belt runs the
-        session and nothing has to be adjusted mid-run - which is the whole reason Daniel
-        programs it. Their treadmills take time and speed only, in 5-second steps, with no
-        distance target, so express every block that way rather than in metres. Cover the
-        warm-up, the reps AND their recoveries, and the cool-down: it is the session end to
-        end. Say the total, and what to do if the machine runs out of stages. Rewrite it
-        whenever the structure changes - a stale program is worse than none, because it is
-        keyed in before anyone reads the rest. Its own field, like `recording`: correcting
-        one speed must not mean re-sending the warm-up.
+        `setup` is HOW THE SESSION GETS PROGRAMMED before they start, so nothing has to be
+        adjusted mid-run - which is the whole reason Daniel programs it rather than running
+        to a card. Since the term routine it has TWO halves, and outdoors is the default, so
+        write both:
+
+        1. THE GARMIN WORKOUT, first, because it is the one they will use. Garmin Connect ->
+           Training & Planning -> Workouts -> Create a Workout -> Run (or Walk), as a table of
+           step / type / duration / target, then Send to Watch, then how to start it on the
+           day. A structured workout laps automatically at every step change, which replaces
+           hand-lapping entirely and is the fix for reps that stretch and for laps that get
+           forgotten. Use a Heart Rate target where HR is the point of the session; leave it
+           at No Target where it is not, and say why. Warn about HR lag on short reps - the
+           watch tells you to speed up for the first 45-60s of a rep when you are already
+           right, and chasing that arrow ruins a threshold session.
+        2. THE TREADMILL FALLBACK, for a morning too cold, wet or dark: the session as a
+           numbered list of time + speed (+ incline where it matters) blocks. Their treadmills
+           take time and speed only, in 5-second steps, with no distance target, so express
+           every block that way rather than in metres.
+
+        Both halves cover the warm-up, the reps AND their recoveries, and the cool-down: it is
+        the session end to end. Say the total for each, and what to do if the belt runs out of
+        stages. Rewrite it whenever the structure changes - a stale program is worse than none,
+        because it is keyed in before anyone reads the rest. Its own field, like `recording`:
+        correcting one speed must not mean re-sending the warm-up.
 
         `recording` is how to record THIS session on the watch, and it is its own field
         on purpose - it is NOT warm-up content and must not be put in `warmup`. It shows as
@@ -1371,8 +1428,10 @@ def _register(mcp):
         different structure, and it is the only way you can read a mixed activity back: a
         warm-up, a time trial and an easy jog all sit in ONE Garmin recording, so the
         activity-level averages are worthless without knowing which lap holds which piece.
-        Cover, in this order: whether it is one activity or several; where to press Start,
-        each Lap, and End; what each lap will hold, written for whoever reads it back later;
+        Cover, in this order: whether it is one activity or several; whether they are running
+        the Garmin workout from `setup` (in which case the laps are automatic and pressing Lap
+        by hand SPLITS a step and corrupts the read) or freestyle; where to press Start, each
+        Lap, and End; what each lap will hold, written for whoever reads it back later;
         anything to TYPE in as well (typed data is never overwritten by the sync, so a
         treadmill-belt number beats a wrist estimate); and anything to report back, like a
         treadmill-vs-watch distance check. Because it is separate, rewriting it never
@@ -1399,7 +1458,7 @@ def _register(mcp):
         if you might want to put it back. Reaches their phone on the next Sync now, never
         mid-workout."""
         return json.dumps(set_run(person, exercises, why, name, day, warmup, cooldown,
-                                  recording, setup), indent=2)
+                                  recording, setup, which), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,

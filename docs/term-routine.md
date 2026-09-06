@@ -67,8 +67,8 @@ still points at the right place.
 | Upper 1 | **Upper A** | Tue evening |
 | Upper 2 | **Upper B** | Thu evening |
 | Lower 1 | **Lower B** | Fri evening |
-| Cardio: Endurance + Core | **Easy run: Daniel** | Tue morning |
-| *(new)* | **Easy run: Cerys** | Tue morning |
+| Cardio: Endurance + Core | **Zone 2: Daniel** | Tue morning |
+| *(new)* | **Zone 2: Cerys** | Tue morning |
 | Run: Daniel | **Quality run: Daniel** | Thu morning |
 | Run: Cerys | **Quality run: Cerys** | Thu morning |
 | Weekend run (optional) | **Optional easy run** | Any |
@@ -108,8 +108,8 @@ raise · dead bug
 ### Stations, and the honest limit
 
 Sled, ski erg, rower, farmers handles, sandbag and kettlebells are available; **no wall balls**.
-`methods/hyrox-method.md` puts them in **Phase 0**, whose gate is *Daniel runs 8 km continuously* against a
-3.45 km best. So the station work here is **technique at light loads**, not race-weight work, and
+`methods/hyrox-method.md` puts them in **Phase 0**, whose gate is *Daniel runs 8 km continuously*
+against a longest continuous effort of 13:44 / 2.76 km. So the station work here is **technique at light loads**, not race-weight work, and
 there is no standalone Hyrox session yet. Sled push and pull are one exercise - push a length, pull
 it back, one round - which was Daniel's format and is better than splitting them: less setup, and it
 trains the changeover.
@@ -120,15 +120,26 @@ Currently **one run a week**, which the evidence says is enough to complete a 5k
 Two is not the target, it is the step; **three sessions and 15-20 km a week is the floor for real
 progression**, which is what the optional third run exists to grow into.
 
-- **Outdoors from home by default.** Each run session carries a **treadmill fallback** in its belt
-  program note for a morning that is too cold, wet or dark, plus a Garmin recording guide covering
-  both. Same standard as the sessions they replace.
-- **Tuesday, easy:** 30 min continuous, conversational, extending weekly toward the 8 km gate.
-- **Thursday, quality:** 10 min warm-up, 4 x 4:00 hard / 2:00 easy, 5 min down. Shorter reps than
-  the 5 x 6:00 they replace, because the slot is 40 minutes rather than 50.
-- **Cerys runs the same days in her own currency** - run/walk intervals per the MTSS return-to-run
-  sequence, shins governing. Her sessions are separate rather than shared, which is Daniel's call
-  and matches what the program already did.
+- **Outdoors from home by default**, and **built as a Garmin structured workout** - Connect ->
+  Workouts -> Create a Workout, then Send to Watch. The workout is the outdoor equivalent of
+  programming the belt: it holds the structure, buzzes at every step change, and **laps
+  automatically**, which is what removes hand-lapping from the session entirely. Each run session's
+  setup note carries the workout table AND a treadmill fallback for a morning too cold, wet or dark.
+- **Tuesday is a Zone 2 session for both of them**, governed by a heart-rate target on the watch
+  rather than by feel. Daniel's answer on 6 September, and it is what makes "easy" enforceable: the
+  watch shows an arrow the moment you leave the band, so nobody has to police it mid-run.
+- **Tuesday, Daniel:** 30 min continuous at **HR 120-139**, extending weekly toward the 8 km gate.
+  Every run he logged in August finished in Zone 3 or above, so the cap is the point of the session.
+- **Thursday, Daniel:** 10 min warm-up, 4 x 4:00 at **threshold (HR 165-173)** / 2:00 easy, 5 min
+  down. Shorter reps than the 5 x 6:00 they replace, because the slot is 40 minutes rather than 50 -
+  so the duration progression lives on Tuesday instead.
+- **Tuesday, Cerys: no running at all.** Her Zone 2 is a walk, not a run, by her own limiter, so this
+  is a 20-minute incline walk held at **HR 119-138**. It also keeps her off impact twelve hours after
+  Monday's sled push-pull, which is the one placement that would have cost a shin-limited runner.
+- **Thursday, Cerys:** 8 x 1:00 run / 2:00 walk, **rep length pinned at a strict minute** - the
+  workout's clock enforces it. On 26 August she ran ten reps at 72-81 seconds, and rep length is the
+  variable the MTSS sequence says to hold constant. Volume is held flat rather than grown because
+  moving off the belt is itself a load increase: pavement absorbs about 71% less shock.
 
 ## Wednesday, and the yoga
 

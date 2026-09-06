@@ -300,10 +300,12 @@ furthest distance in the last 30 days. The weekly total is much less important t
 
 This is directly actionable for both of them:
 
-- **Daniel's longest run is 3.45 km.** Under this rule his next long run tops out around 3.8 km, then
-  4.2, then 4.6. From 3.45 km to the 8 km a Hyrox needs is about **nine steps**, which at one long
-  run a fortnight is four to five months, and at one a week is about two. That is a much less
-  daunting number than it feels, and it is the argument for starting rather than waiting.
+- **Daniel's longest run is 6.48 km on the watch, about 5.9 km belt-corrected** (26 Aug 2026). Under
+  this rule his next long run tops out around 6.5 km corrected, then 7.1, then 7.8. From there to the
+  8 km a Hyrox needs is **three steps**, not the nine it was when this was written against 3.45 km.
+  The distance gate is close. The *continuous* gate is not: that same session was run as reps, and
+  his longest unbroken effort is 13:44 / 2.76 km. Read the two separately, because Phase 0 asks for
+  continuous and the spike rule asks for distance.
 - **Cerys's rule is the MTSS return-to-run sequence**, which is stricter still and already written in
   `coaching-method.md`: hold rep length constant and add reps first, because rep length is what loads
   shins hardest. The two rules agree.
@@ -320,7 +322,10 @@ that specific metric is not how to detect them.
 
 # Part 7 - The treadmill, and what happens when they run outdoors
 
-**Every kilometre either of them has ever run is on a belt.** Hyrox is not.
+**Every kilometre either of them has run in this block is on a belt.** Hyrox is not. Daniel has
+outdoor runs from March 2025 and Cerys from April-May 2026, but nothing since, and nothing that
+counts as current tissue tolerance for the surface. From 7 September the programmed runs are
+outdoors by default, so this section stops being hypothetical.
 
 ## Where Hyrox is actually run
 
@@ -408,9 +413,10 @@ Dated, because it expires. Check it against the tools rather than trusting it.
   21:01 remains too optimistic.
 - Max HR 200, resting 52, **threshold HR 173** (lactate-threshold method, so it is a real number
   rather than a formula).
-- Longest run **3.45 km**. Longest continuous effort **13:44 at 11.0 km/h with 9 bpm of drift**,
-  settling at 153 then 162 against a 173 threshold - which is comfortably sub-threshold and says
-  there is more duration available at that speed.
+- Longest run **6.48 km on the watch, ~5.9 km corrected** (26 Aug, run as 4 x 6:00 reps). Longest
+  continuous effort **13:44 at 11.0 km/h with 9 bpm of drift**, settling at 153 then 162 against a
+  173 threshold - which is comfortably sub-threshold and says there is more duration available at
+  that speed.
 - **The limiter is duration, unambiguously.** Speed has never been it.
 - Highest-value changes, in order: a second run; extend the long run under the 10% single-session
   rule; keep lifting heavy, which is helping his running rather than competing with it.
