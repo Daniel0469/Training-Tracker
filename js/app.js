@@ -978,7 +978,7 @@ function colInputMode(col){
   const c=String(col||"");
   if(/time|pace|note|comment/i.test(c)) return "";
   if(/kg|weight|dist|km|level|speed|incline|%/i.test(c)) return "decimal";
-  if(/rep|hr|bpm|cal|min|sec|watt|rpm|cadence|count|step|round/i.test(c)) return "numeric";
+  if(/rep|hr|bpm|cal|min|sec|watt|rpm|cadence|count|step|round|metre|length/i.test(c)) return "numeric";
   return "";
 }
 function setRowHtml(n,ex,prevCell){
@@ -3473,7 +3473,8 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, <b>💪 what the week trains</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+     +p('<b>💪 What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>💤 Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep and its stages, sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
@@ -3601,6 +3602,44 @@ function muscleColor(c,max){
 const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",adductors:"Adductors",
   calves:"Calves",chest:"Chest",delts:"Delts",triceps:"Triceps",lats:"Lats",traps:"Traps",
   biceps:"Biceps",forearms:"Forearms",abs:"Abs",lowerback:"Lower back"};
+// What the PROGRAMMED week trains, muscle by muscle - the gap check Daniel asked
+// for on 2026-09-06 ("keep an eye out for anything that is getting missed").
+// Counts PLANNED sets rather than logged ones on purpose: it answers "is anything
+// missing from the plan", which is a design question and wants answering before
+// adherence gets a say. Optional sessions don't count - they aren't the week.
+function weeklyCoverage(person){
+  const m={}; Object.keys(MUSCLE_LABELS).forEach(k=>m[k]=0);
+  orderedKeys().forEach(k=>{
+    const s=state.program.sessions[k];
+    if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
+    if(!ownsSession(k, person)) return;
+    (s.exercises||[]).forEach(ex=>{
+      const ms=(ex.muscles&&ex.muscles.length)?ex.muscles:classifyMuscles(ex.name||"");
+      const sets=Math.max(1, ex.sets||1);
+      ms.forEach(mk=>{ if(mk in m) m[mk]+=sets; });
+    });
+  });
+  return m;
+}
+function coverageCardHtml(person){
+  if(!orderedKeys().length) return "";
+  const m=weeklyCoverage(person), keys=Object.keys(MUSCLE_LABELS);
+  const max=Math.max.apply(null, keys.map(k=>m[k]));
+  if(!max) return "";
+  const missing=keys.filter(k=>!m[k]);
+  const rows=keys.filter(k=>m[k]).sort((a,b)=>m[b]-m[a]).map(k=>
+    '<div class="cov-row"><span class="cov-name">'+esc(MUSCLE_LABELS[k])+'</span>'
+    + '<span class="cov-bar"><i style="width:'+Math.round(m[k]/max*100)+'%;background:'+muscleColor(m[k],max)+'"></i></span>'
+    + '<span class="cov-n">'+m[k]+'</span></div>').join("");
+  return '<div class="card"><div class="sec-title">&#128170; What the week trains</div>'
+    + '<div class="hint" style="margin:0 0 9px">Planned sets per muscle across '+esc(possessive(person))
+    + ' programmed week. Optional sessions aren\'t counted.</div>'+rows
+    + (missing.length
+        ? '<div class="ex-meta" style="margin-top:10px">&#9888; Nothing trains: <b>'
+          + missing.map(k=>esc(MUSCLE_LABELS[k])).join(", ")+'</b></div>'
+        : '<div class="ex-meta" style="margin-top:10px">&#10003; Every muscle group has work in it.</div>')
+    + '</div>';
+}
 // Renders the exercise-dialog muscle-tag pills with `selected` pre-toggled.
 function renderMuscleTags(container, selected){
   container.innerHTML = Object.keys(MUSCLE_LABELS).map(function(k){
@@ -3613,15 +3652,22 @@ function readMuscleTags(container){
 function classifyMuscles(name){
   var n=String(name).toLowerCase(), m=[];
   function add(){for(var i=0;i<arguments.length;i++){if(m.indexOf(arguments[i])<0)m.push(arguments[i]);}}
-  if(/squat|leg press|lunge/.test(n)) add("quads","glutes");
+  if(/squat|leg press|lunge|step.?up/.test(n)) add("quads","glutes");
   if(/leg extension/.test(n)) add("quads");
   if(/(lying|seated|leg)\s*curl/.test(n) || /hamstring/.test(n)) add("hamstrings");
   if(/deadlift|romanian|rdl|good ?morning/.test(n)) add("hamstrings","glutes");
   if(/abduction|glute|hip thrust/.test(n)) add("glutes");
+  // Hyrox stations. None of these were recognised, so a session built around them
+  // read as a hole in the heatmap - see the weekly coverage card.
+  if(/sled/.test(n)) add("quads","glutes","hamstrings","traps");
+  if(/farmer|carry|suitcase/.test(n)) add("forearms","traps","abs");
+  if(/ski ?erg|\bski\b|row erg|rower|erg/.test(n)) add("lats","traps","abs");
+  if(/wall ball/.test(n)) add("quads","glutes","delts");
+  if(/pallof/.test(n)) add("abs");
   if(/adduction|adductor/.test(n)) add("adductors");
   if(/calf|calves/.test(n)) add("calves");
   if(/bench|incline|crossover|fly|pec|push.?up/.test(n) || (/chest/.test(n) && !/row/.test(n))) add("chest");
-  if(/press/.test(n) && !/overhead|shoulder|leg|ohp|military|chest/.test(n)) add("chest");
+  if(/press/.test(n) && !/overhead|shoulder|leg|ohp|military|chest|pallof/.test(n)) add("chest");
   if(/overhead press|shoulder press|ohp|military/.test(n)) add("delts");
   if(/lateral raise|side raise|rear delt|face pull|reverse fly/.test(n)) add("delts");
   if(/tricep|pushdown|skull|overhead ext/.test(n)) add("triceps");
@@ -3965,6 +4011,7 @@ function renderHome(){
   html += fiveKCardHtml(p);
   html += recoveryCardHtml(p);
   html += hrZonesCardHtml(p);
+  html += coverageCardHtml(p);
 
   if(bw.length>=2){
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">⚖️ Bodyweight trend</div>'

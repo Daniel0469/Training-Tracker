@@ -303,5 +303,13 @@
   .grow{flex:1}
   .toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:11px 20px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  /* Weekly coverage card: planned sets per muscle. The bar track is the same
+     neutral the muscle map uses when a group is unworked, so the two read as
+     one system in both themes; the fill is set inline from muscleColor(). */
+  .cov-row{display:flex;align-items:center;gap:9px;margin:3px 0}
+  .cov-name{flex:0 0 84px;font-size:12.5px;color:var(--muted)}
+  .cov-bar{flex:1;height:9px;border-radius:5px;background:var(--musc-base);overflow:hidden}
+  .cov-bar i{display:block;height:100%;border-radius:5px}
+  .cov-n{flex:0 0 22px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
   @media(max-width:520px){ .title small{display:none} body{padding:10px} td.prev,th.prev{width:74px}
-    .topbar{margin:-10px -10px 12px;padding:10px 10px 8px} }
+    .topbar{margin:-10px -10px 12px;padding:10px 10px 8px} .cov-name{flex-basis:72px} }
