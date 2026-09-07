@@ -48,8 +48,16 @@ written and pushed; these are the loose ends from that review.
       trailing "OUTDOORS IS THE DEFAULT" paragraph back to the watch half; content preserved on all
       four). It cannot be applied through the MCP tools until the coach server is restarted - it is
       still serving the pre-`garmin` code, the same staleness that blocked the `which` argument last
-      chat. Shipping the code without the data is safe: with no `garminNote` the new panel simply
-      does not render and the session reads exactly as it does today.
+      chat, and the servers are stdio children of the Claude Code client so only a client restart
+      respawns them. Shipping the code without the data is safe: with no `garminNote` the new panel
+      simply does not render and the session reads exactly as it does today.
+
+      **To finish after a restart:** `scratchpad/setup-split-writes.json` holds the four calls ready,
+      each with `person`, `which`, `garmin`, `setup` and `why`. Call `run_session(person, which)`
+      first, as always, and check that its `setupNote` equals the entry's `garmin` + `setup` with
+      whitespace normalised - if it does, the split is lossless and safe to write; if it does not,
+      the note has been edited since 7 Sep and the split needs regenerating with
+      `scratchpad/proto_setup_split.py` rather than applied blind.
 
 ---
 
