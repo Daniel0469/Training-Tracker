@@ -533,6 +533,9 @@ function renderCreateAccount(slotIndex){
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>switchTab(b.dataset.tab);
 });
+// Wired once here rather than in renderLog: the bar lives outside #view, so it
+// survives every re-render and would otherwise collect a handler per render.
+document.getElementById("restBar").onclick=stopRest;
 
 function latestLog(person, sessionKey){
   return state.logs.filter(l=>l.person===person && l.sessionKey===sessionKey)
@@ -732,6 +735,31 @@ function pauseTimer(){
   updateTimerUI();
 }
 function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) pauseTimer(); else startTimer(); }
+
+// Rest stopwatch: how long since the last set was ticked done. Counts UP - there
+// is no target to count down to, since what you rest is a judgement, not a
+// prescription. Deliberately NOT saved: it isn't a record of anything, it's a
+// glance between sets, so it lives in memory only and is gone on a reload. That
+// keeps it out of the drafts, out of the session, and out of sync entirely.
+let restStart = 0, restInterval = null;
+function startRest(){
+  restStart = Date.now();
+  const bar = document.getElementById("restBar");
+  if(bar) bar.hidden = false;
+  updateRestUI();
+  if(!restInterval) restInterval = setInterval(updateRestUI, 1000);
+}
+function stopRest(){
+  if(restInterval){ clearInterval(restInterval); restInterval = null; }
+  restStart = 0;
+  const bar = document.getElementById("restBar");
+  if(bar) bar.hidden = true;
+}
+function updateRestUI(){
+  const el = document.getElementById("restTime");
+  if(!el || !restStart){ stopRest(); return; }
+  el.textContent = fmtDuration((Date.now() - restStart) / 1000);
+}
 function resetTimer(){ delete sessionTimers[draftKey()]; saveDrafts(); updateTimerUI(); }
 // Auto-start on the first bit of data entered, but never fight a deliberate
 // pause: only starts when no timer has ever been created for this key.
@@ -1154,8 +1182,12 @@ function wireSetRow(tr, ex, best){
         if(range) repsInput.value=range.high;
       }
       updateSetMedal(tr, ex, best);
+      // Any tick restarts it, on any exercise, so it always reads "since the
+      // last set you finished" rather than since the first one.
+      startRest();
     } else {
       tr.querySelector("[data-medal]").hidden=true;
+      stopRest();  // unticking is an undo, so the rest it started goes too
     }
   });
   if(weightInput) weightInput.addEventListener("input", ()=>{ if(cb.checked) updateSetMedal(tr, ex, best); });
@@ -3526,6 +3558,7 @@ function renderHelp(){
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
+     +p('<b>&#9201; Rest</b> is a second, separate stopwatch: tick a set\'s <b>done</b> box and it appears at the foot of the screen counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts <b>up</b> rather than down to a target, and it is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
   h+=card('4 &middot; Cardio &amp; running',
@@ -4124,6 +4157,7 @@ function syncTabButtons(){
 // draft has just been cleared on purpose.
 function switchTab(tab, skipCapture){
   if(!skipCapture) captureDraft();
+  if(tab!=="log") stopRest();   // it only means anything against the log form
   activeTab=tab;
   syncTabButtons();
   renderView();

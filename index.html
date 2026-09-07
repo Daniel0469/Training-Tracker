@@ -33,6 +33,9 @@
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<!-- Rest stopwatch. Lives outside #view so it survives a re-render, and above
+     the nav bar so it stays readable wherever the log form is scrolled to. -->
+<div class="rest-bar" id="restBar" hidden>&#9201; Rest <b id="restTime">0:00</b><span>tap to dismiss</span></div>
 
 <dialog id="settingsDlg"><div class="dlg-body">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">

@@ -301,6 +301,19 @@
   .dlg-body{padding:18px}
   .dlg-body h3{margin-bottom:12px}
   .grow{flex:1}
+  /* Rest stopwatch: how long since the last set was ticked done. Fixed above the
+     nav bar rather than placed in the form, because the log form runs to ~3000px
+     on a phone - anything anchored to one spot in the page is off-screen for most
+     of a workout, which is exactly when you want to read it. Sits below the toast
+     (z-index 50) so a save message still wins for its two seconds. */
+  .rest-bar{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    z-index:40;display:flex;gap:8px;align-items:baseline;white-space:nowrap;cursor:pointer;
+    background:var(--card);border:1px solid var(--line);color:var(--ink);
+    padding:9px 16px;border-radius:30px;box-shadow:0 6px 20px rgba(20,30,55,.22);font-weight:600}
+  .rest-bar b{font-variant-numeric:tabular-nums;font-size:17px;color:var(--brand)}
+  .rest-bar span{color:var(--muted);font-weight:500;font-size:12px}
+  /* display:flex above beats the browser's [hidden] rule - same trap as .row. */
+  .rest-bar[hidden]{display:none}
   .toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:11px 20px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
   /* Weekly coverage card: planned sets per muscle. The bar track is the same

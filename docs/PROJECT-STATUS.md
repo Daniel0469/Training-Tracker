@@ -128,6 +128,65 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-09-07 - backlog session: the run segmentation fixed against the real trace, and a rest
+stopwatch.** Three suggestions were open; one was discarded, two built.
+- **The speed-trace rep segmentation inverted a jog-recovery session** (`1787791173601`, coach-raised)
+  and it was worse than the report said. Daniel's 26 Aug threshold run - 4 x 6:00 @ 11.0 with 1:30
+  floats at 7.5, run exactly as prescribed - came back as 3 reps of 178s/96s/122s with 8-10 minute
+  "recoveries" at 10.8-11.1 km/h, and stated in the stored text that the session had fallen apart.
+  **Two faults stacked.** `_levels_from_trace` compared each sample against a **running mean** of the
+  block so far with an 18% tolerance, so one noisy sample mid-rep started a new block and a
+  six-minute rep came back as 208s + 178s. Fragments sit on the noisy peaks, so the *fastest
+  qualifying set wins* rule then preferred them to the real reps and the rest of the rep material
+  became the recovery. So a contrast guard alone would not have fixed it - **the blocks it would
+  judge were already wrong.**
+  - Levels are now **clustered over the whole trace first** (`_speed_levels`, 1-D k-means, finest
+    split whose levels are genuinely apart), with the separation **scaled to the speed**. A flat
+    1.5 km/h threshold was tried first and split one belt speed into an "11.0" and a "12.9" level,
+    halving two of the four reps: the watch estimates from arm swing, so an 11.0 belt reads 11.0-13.4,
+    and on 29 Jul one belt speed came off the wrist as 10.8/11.1/11.4/11.8/14.2/14.8 across six reps.
+  - Blocks are grouped by **their own clustered level**, not by re-measuring how close two block
+    averages happen to be - that 37% within-session spread beat any proximity threshold narrow
+    enough to mean anything, and cost two of the 29 Jul reps to the minimum-share test.
+  - The pick is scored on **work-against-recovery contrast**: whatever sits between the chosen blocks
+    must be meaningfully slower than the blocks. That single test replaces *fastest wins* and catches
+    both failures it stood in for - picking the walk recoveries as the reps (29 Jul, "7 reps at 5.0"
+    for a session run at 13), and picking peaks out of the middle of one long rep (26 Aug).
+  - **`setupNote` matching was Daniel's call, against my recommendation, and is deliberately weak.**
+    The prescribed block list is parsed, compared, reported (`reps.setup_match`) and used to break a
+    tie between candidates the trace already supports. It cannot move a boundary or add a rep. **26
+    Aug proves the hazard in its own output:** the note now reads 5 x 6:00 (re-prescribed 6 Sep, "one
+    more rep") against a session that was 4 x 6:00, so anything stronger would hunt a fifth rep that
+    was never run - the third time this idea has had to be held back to annotation.
+  - **Verified against the real traces**, not synthetically: 26 Aug now **4 reps of 310/366/354/348s**
+    with 68/86/102s floats at 8.4/5.7/4.8, consistency 4.8%, fade 0%, drift +8 bpm. 29 Jul still **6**
+    with HR recovery 36. The 20 Aug time trial and the Zone 2 runs still correctly return nothing.
+    Cerys's still under-count (4 against 6) on her sparser ~7s sampling, unchanged - and hers never
+    reach this path, because Garmin's own method works when the recovery is a walk. Scripts:
+    `scratchpad/probe_trace26.py` (dumps a trace and what the segmenter makes of it) and
+    `scratchpad/test_refresh26.py` (whole enrich path against a **copy** of the store).
+  - **Machine-written run rows are now stamped `garmin.rows_from`**, so a later `--refresh` can
+    correct them. Without the stamp a bad segmentation was permanent: the "safe to replace" test only
+    recognised **lap**-derived rows. **Still open:** Daniel's 26 Aug log predates the stamp, so it
+    **still holds the three fictional rows** (0.63/2:58, 0.32/1:36, 0.45/2:02 against four ~1.2 km
+    reps). Correcting it is a `write_log_entry` one-off and needs his say-so - it writes real history.
+  - **Also for Daniel:** the recording notes still ask for a manual lap press per rep, kept "until a
+    real float trace gives ground truth". That condition is now met and the fix verified against it.
+    Relaxing them is a program-data change and was not made.
+- **⏱ Rest stopwatch** (`1788720193350`). Ticking a set's **done** box shows a sticky pill above the
+  nav bar counting how long you've been resting; any tick restarts it, so it reads *since the last set
+  you finished*; unticking or tapping it dismisses it; leaving the Session tab or saving stops it.
+  **Counts up, not down** - there is no target, what you rest is a judgement. **Not saved anywhere**,
+  on Daniel's instruction: memory only, so it never reaches the drafts, the session, the other phone
+  or the coach, and a reload starts it from nothing. Sticky rather than in the form because the log
+  form runs to ~6,100px on a 375px phone - verified still on screen at 2,200px down. `tt-v126`.
+  **Note this reverses two earlier decisions** recorded in this file - the exercise timer dropped on
+  17 Aug and "Phase 3 rest timer NOT wanted" - superseded by Daniel's own 6 Sep suggestion.
+- **Discarded: "get rid of leg press, switch abduction and adduction to friday"** (`1788016673293`).
+  Daniel's answer: *"discard this - program has been rewritten"*. Resolved without building. The
+  numbers, for the record if it comes back: it would have taken Lower 2 from 8 exercises to 6 and
+  Lower 1 from 7 to 8, moving the overrun onto Friday rather than removing it.
+
 **2026-08-01 — ⚡ Last intervals reports a pace, not a speed.** The two Home cardio cards sat side by
 side reporting the same thing in different units (`best 13 km/h` vs `best 5:22/km`), so comparing
 them meant doing 60/x in your head. `bestSpeedFromEntry()` now converts when the column's unit is
@@ -666,8 +725,9 @@ heaviest session comes off two rest days; Lower 1 (leg press/RDL) took Friday.
   the job no-ops when nothing is pending, but worth trimming next time they're touched.
 
 Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
-coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (rest timer,
-kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't resurrect these.
+coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't
+resurrect these. The **rest timer was on that list and is now built** (7 Sep, `tt-v126`) - Daniel
+asked for it himself on 6 Sep, which supersedes both this line and the 17 Aug decision below.
 
 **2026-09-02 - a research pass, and five new method documents. No code, no data, no program change.**
 Daniel asked for a broad research pass on "everything that will help me and Cerys", scoped by
@@ -1065,7 +1125,8 @@ a small build. Answering the first largely settles the second:
 - ✅ **"have coach be able to alter the warm up and cool downs"** (`1786574564394`) - built, shared-note
   mechanism, see the 17 Aug entry.
 - ❌ **"add an optional exercise timer"** (`1786488191424`) - **Daniel's answer was to drop it**.
-  Resolved without building. Don't re-raise; the Phase 3 rest timer is still not wanted either.
+  Resolved without building. **Superseded on 6 Sep**: Daniel raised a rest timer himself and it
+  shipped on 7 Sep - see the 2026-09-07 entry. The *exercise* timer is still not wanted.
 - ⏸ **"update export and import - ask specifics"** (`1786567246193`) - **left open on purpose**
   ("leave for now but keep"). Still in the backlog, not resolved.
 - ✅ **DONE (2026-08-12) - "coach should be able to push suggestions aswell"** (`1786491755166`).
@@ -1100,7 +1161,8 @@ a small build. Answering the first largely settles the second:
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
 - **PWA icons:** replace placeholder `icons/` with real branding when available.
 - Done: code review, GitHub Pages deploy, auto-sync, MCP coach (read + write), in-app suggestions.
-  **Phase 3 mini-features (rest timer, kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.**
+  **Phase 3 mini-features (kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.** The rest timer was
+  on that list until Daniel asked for one on 6 Sep; it shipped 7 Sep.
 
 ## Dev notes
 - Serve any static way; a **no-cache dev server** avoids the browser HTTP/bfcache serving stale
