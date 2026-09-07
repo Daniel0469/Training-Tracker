@@ -443,9 +443,17 @@ after it. With auto-lap off, the manual presses alone give clean per-rep splits.
 invert a jog-recovery session - it read that run as 3 reps of 178s/96s/122s with 8-10 minute
 "recoveries" at 10.8-11.1 km/h, when he had run 4 x 6:00 at 11.0 with 90-second floats exactly as
 prescribed. It now reads that trace as **4 reps of 310/366/354/348s** with 68/86/102s floats,
-consistency 4.8%, fade 0%, drift +8 bpm. Manual laps are still worth pressing - they remain the only
-thing that is measured rather than inferred, and they cost one press - but a missed press no longer
-means a session that reads as falling apart when it didn't.
+consistency 4.8%, fade 0%, drift +8 bpm.
+
+**The manual lap presses stay for now, and here is the condition for removing them.** Daniel's call
+on 7 Sep: keep them, but write down that they should go once the trace is *confirmed* to work. One
+verified session is not confirmation - it is the session the fix was built against, which is the
+weakest possible evidence. **Retire the lap-press instruction from the run sessions' `recordingNote`
+once three further float-recovery sessions have been segmented correctly against the laps that were
+pressed on them** - that is, run the laps and the trace side by side, compare, and stop asking for
+the press when the trace has matched three times running. Until then the presses are the ground
+truth and cost one button. Whoever clears that condition: it is a program-data change to the four
+run sessions, so it needs Daniel first.
 
 ---
 

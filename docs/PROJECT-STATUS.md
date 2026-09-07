@@ -170,9 +170,15 @@ stopwatch.** Three suggestions were open; one was discarded, two built.
     recognised **lap**-derived rows. **Still open:** Daniel's 26 Aug log predates the stamp, so it
     **still holds the three fictional rows** (0.63/2:58, 0.32/1:36, 0.45/2:02 against four ~1.2 km
     reps). Correcting it is a `write_log_entry` one-off and needs his say-so - it writes real history.
-  - **Also for Daniel:** the recording notes still ask for a manual lap press per rep, kept "until a
-    real float trace gives ground truth". That condition is now met and the fix verified against it.
-    Relaxing them is a program-data change and was not made.
+  - **The 26 Aug rows were corrected** (`write_log_entry`, Daniel's instruction): the three fictional
+    rows are gone and the log now carries the four real reps - 1.09/5:10, 1.26/6:06, 1.20/5:54,
+    1.23/5:48 - with the reason and the previous rows kept for an undo.
+  - **The manual lap presses stay, with a written exit condition** (Daniel's call: keep them, but
+    record what would retire them). One verified session is not confirmation - it is the session the
+    fix was built against. **Retire the lap-press instruction from the four run sessions'
+    `recordingNote` once three further float-recovery sessions have been segmented correctly against
+    the laps pressed on them.** Same wording in `methods/coaching-method.md`. It is a program-data
+    change, so it needs Daniel when the time comes.
 - **⏱ Rest stopwatch** (`1788720193350`). Ticking a set's **done** box shows a sticky pill above the
   nav bar counting how long you've been resting; any tick restarts it, so it reads *since the last set
   you finished*; unticking or tapping it dismisses it; leaving the Session tab or saving stops it.
