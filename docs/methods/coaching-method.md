@@ -439,9 +439,13 @@ at every kilometre as well, splitting each 6-minute rep into two laps and produc
 11-block session. The data was recoverable only by pairing each 1.00km auto-lap with the partial lap
 after it. With auto-lap off, the manual presses alone give clean per-rep splits.
 
-Until the trace segmentation is fixed, **manual laps are the ground truth** for any session whose
-recovery is a jog rather than a walk - the automatic rep detection inverts those, treating the
-threshold blocks as recovery.
+**The trace segmentation was fixed on 7 Sep and Daniel's 26 Aug run is what proved it.** It used to
+invert a jog-recovery session - it read that run as 3 reps of 178s/96s/122s with 8-10 minute
+"recoveries" at 10.8-11.1 km/h, when he had run 4 x 6:00 at 11.0 with 90-second floats exactly as
+prescribed. It now reads that trace as **4 reps of 310/366/354/348s** with 68/86/102s floats,
+consistency 4.8%, fade 0%, drift +8 bpm. Manual laps are still worth pressing - they remain the only
+thing that is measured rather than inferred, and they cost one press - but a missed press no longer
+means a session that reads as falling apart when it didn't.
 
 ---
 

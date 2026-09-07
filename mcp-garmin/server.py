@@ -648,31 +648,93 @@ def reps_from_typed_splits(typed, a, series=None):
 # reps he typed as 13.0 read 14.2-15.7 and the walk recoveries wander between 0.1
 # and 5.9. So this segments on RELATIVE level changes with a wide tolerance, and it
 # reports what it measured rather than pretending to recover the programmed number.
+#
+# 2026-09-07, and the important correction: the first version compared each sample
+# against a RUNNING MEAN of the block so far, which is why it inverted Daniel's
+# 26 Aug threshold session (4 x 6:00 @ 11.0 with 1:30 floats at 7.5, run exactly as
+# prescribed, reported as 3 reps of 178s/96s/122s with 8-10 minute "recoveries" at
+# 10.8-11.1 km/h). A running mean with an 18% tolerance drifts: one noisy sample
+# mid-rep falls outside it and starts a new block, so a six-minute rep came back as
+# 208s + 178s. The fragments sit on the noisy PEAKS, so "the fastest qualifying set
+# wins" then preferred them over the real reps, and the rep material left between
+# them became the recoveries. Levels are now clustered over the WHOLE trace first
+# (see _speed_levels) so a rep is one block however much it wobbles, and the pick is
+# scored on work-against-recovery CONTRAST instead of raw speed.
 _LEVEL_MIN_SEC = 15          # shorter than this is a blip, not a level
 _WORK_MIN_SHARE = 0.12       # a rep set is a real part of the session, not 5% of it
 _RECOVERY_MIN_SEC = 20       # below this, two blocks are one effort that wandered
+_CONTRAST_MIN = 1.15         # reps must be this much faster than what separates them
+
+def _level_sep(kmh):
+    """How far apart two speeds have to be to be different LEVELS rather than one
+    level with the watch's noise in it. Proportional, because the noise is: an
+    11.0 belt reads 11.0-13.4 on Daniel's 26 Aug trace, so a flat threshold split
+    that single rep speed into a "11.0" and a "12.9" level and cut two of his four
+    reps in half. The floor matters for the walk end, where 4.6 and 5.9 are equally
+    one level."""
+    return max(2.5, 0.25 * kmh)
+
+def _kmeans_1d(vals, k, iters=30):
+    """The k speeds this trace actually spends its time at, lowest first."""
+    vs = sorted(vals)
+    if len(vs) < k:
+        return None
+    cent = [vs[min(len(vs) - 1, int((i + 0.5) * len(vs) / k))] for i in range(k)]
+    for _ in range(iters):
+        groups = [[] for _ in range(k)]
+        for v in vs:
+            groups[min(range(k), key=lambda i: abs(v - cent[i]))].append(v)
+        new = [(sum(g) / len(g)) if g else cent[i] for i, g in enumerate(groups)]
+        if all(abs(a - b) < 1e-3 for a, b in zip(new, cent)):
+            cent = new
+            break
+        cent = new
+    return sorted(cent)
+
+def _speed_levels(vals):
+    """The distinct speed levels in the trace: the FINEST split whose levels are
+    still genuinely apart. Clustering the whole trace at once is the point - a rep
+    is then one level no matter how much the watch's arm-swing estimate wobbles
+    inside it, which a sequential running mean could never manage."""
+    best = None
+    for k in range(2, 6):
+        cent = _kmeans_1d(vals, k)
+        if not cent:
+            break
+        if all(b - a >= _level_sep(a) for a, b in zip(cent, cent[1:])):
+            best = cent
+    return best or [sum(vals) / len(vals)]
 
 def _levels_from_trace(pts, min_sec):
-    """The trace as a list of {at, sec, kmh} blocks at a roughly constant speed."""
+    """The trace as a list of {at, sec, kmh} blocks, one per stretch at a level."""
+    speeds = [k for _t, k in pts]
+    levels = _speed_levels(speeds)
+    lvl = lambda k: min(range(len(levels)), key=lambda i: abs(k - levels[i]))
     blocks = []
     for t, kmh in pts:
-        if blocks and abs(kmh - blocks[-1]["kmh"]) <= max(1.2, 0.18 * blocks[-1]["kmh"]):
+        i = lvl(kmh)
+        if blocks and blocks[-1]["lvl"] == i:
             b = blocks[-1]
             b["n"] += 1
             b["sum"] += kmh
-            b["kmh"] = b["sum"] / b["n"]        # running mean, so the level tracks
+            b["kmh"] = b["sum"] / b["n"]
             b["end"] = t
         else:
-            blocks.append({"at": t, "end": t, "kmh": kmh, "sum": kmh, "n": 1})
+            blocks.append({"at": t, "end": t, "kmh": kmh, "sum": kmh, "n": 1, "lvl": i})
     for b in blocks:
         b["sec"] = b["end"] - b["at"]
-    # Fold blips back into whichever neighbour they're closer to in speed, so one
-    # noisy sample mid-rep doesn't cut the rep in two.
+    # Fold blips back into the block before them, then re-join anything that leaves
+    # two same-level blocks touching - so one stray sample mid-rep doesn't cut the
+    # rep in three, which is the whole failure this was rewritten for.
     out = []
     for b in blocks:
-        if b["sec"] < min_sec and out:
-            out[-1]["end"] = b["end"]
-            out[-1]["sec"] = out[-1]["end"] - out[-1]["at"]
+        if out and (b["sec"] < min_sec or out[-1]["lvl"] == b["lvl"]):
+            p = out[-1]
+            p["sum"] += b["sum"]
+            p["n"] += b["n"]
+            p["kmh"] = p["sum"] / p["n"]
+            p["end"] = b["end"]
+            p["sec"] = p["end"] - p["at"]
         else:
             out.append(b)
     return [b for b in out if b["sec"] >= min_sec]
@@ -688,6 +750,53 @@ def _same_length_runs(blocks):
             out.append(cand)
     return sorted(out, key=lambda c: (-len(c), -sum(b["sec"] for b in c)))
 
+def _between_speed(pts, cand):
+    """Average speed of everything BETWEEN the chosen blocks - the recovery, if
+    these blocks really are reps. None when they don't leave a gap to measure."""
+    blocks = sorted(cand, key=lambda b: b["at"])
+    tot = n = 0.0
+    for a, b in zip(blocks, blocks[1:]):
+        for t, kmh in pts:
+            if a["end"] < t < b["at"]:
+                tot += kmh
+                n += 1
+    return (tot / n) if n else None
+
+def _setup_miss(setup, secs):
+    """How badly a candidate misses the prescribed blocks - a tiebreak key, 0 when
+    there is nothing to compare against so an unprescribed session ranks unchanged."""
+    if not setup or not secs:
+        return (0, 0)
+    want = sorted(b["sec"] for b in setup)
+    want = want[len(want) // 2]
+    got = sorted(secs)[len(secs) // 2]
+    return (abs(len(secs) - len(setup)), round(abs(got - want) / max(1.0, want), 1))
+
+_SETUP_ROW = re.compile(r"^\s*\d+\s+(\d+):(\d{2})\s+([\d.]+)\s+(.*\S)\s*$")
+
+def _prescribed_blocks(log, program):
+    """The REP rows of the session's `setupNote` - the treadmill program as numbered
+    time + speed blocks - as [{sec, kmh}], or None.
+
+    Used ONLY to rank candidate segmentations that have already passed every test
+    above, and to annotate the result. It never moves a block boundary and it can
+    never add or remove a rep, because THE SETUP NOTE IS THE CURRENT PRESCRIPTION
+    AND THE LOG MAY NOT BE. The proof is in this very session: `Run: Daniel` today
+    reads 5 x 6:00 (it was re-prescribed on 6 Sep, "same speed as last week, one
+    more rep"), while the 26 Aug session it would be read against was 4 x 6:00.
+    Letting it pick would therefore hunt for a fifth rep that was never run - the
+    same failure that turned the 20 Aug time trial into "4 reps" when the older
+    `sets`-based version was allowed to seed the detector.
+    """
+    sess = ((program or {}).get("sessions") or {}).get(log.get("sessionKey")) or {}
+    out = []
+    for line in (sess.get("setupNote") or "").splitlines():
+        m = _SETUP_ROW.match(line)
+        if m and re.search(r"\bREP\b", m.group(4), re.I):
+            out.append({"sec": int(m.group(1)) * 60 + int(m.group(2)),
+                        "kmh": float(m.group(3))})
+    return out or None
+
 def _prescribed_reps(log, program):
     """How many reps the program asks for on this session's running exercise, for
     ANNOTATION only - see reps_from_speed_trace. Returns None when the session has
@@ -698,7 +807,7 @@ def _prescribed_reps(log, program):
             return e.get("sets")
     return None
 
-def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
+def reps_from_speed_trace(series, expected=None, min_rep_sec=20, setup=None):
     """Per-rep detail segmented from the speed trace, in the same shape
     reps_from_typed_splits returns so both can feed the same readers.
 
@@ -709,6 +818,12 @@ def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
     today's `sets` says nothing about a session logged a fortnight ago, and letting
     it pick made Daniel's 20 Aug trial come back as "4 reps" that never happened.
     The trace is the evidence; the prescription is context.
+
+    `setup` is the session's prescribed block list from `_prescribed_blocks` - the
+    treadmill program as numbered time + speed rows. Same rule, one step further:
+    it breaks TIES between candidates the trace already supports, and it annotates,
+    and that is all it is allowed to do. See _prescribed_blocks for why anything
+    stronger would be wrong even though it looks like better information.
     """
     pts = [(t, kmh) for t, kmh, _h, _c in series if kmh is not None]
     if len(pts) < 30:
@@ -722,13 +837,16 @@ def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
     # "the reps": similar durations, more than one of them, and a real share of the
     # session. The share test is what stops three 40-second warm-up build-ups being
     # reported as a rep set - the trap the typed-splits version fell into.
-    groups = []
-    for b in sorted(work, key=lambda b: -b["kmh"]):
-        hit = next((g for g in groups if abs(g[0]["kmh"] - b["kmh"]) <= max(1.5, 0.2 * b["kmh"])), None)
-        if hit is None:
-            groups.append([b])
-        else:
-            hit.append(b)
+    # Grouping is by the block's own clustered LEVEL, not by re-measuring how close
+    # two block averages happen to be. On Daniel's 29 Jul session one belt speed
+    # came off the wrist as 10.8, 11.1, 11.4, 11.8, 14.2 and 14.8 - a 37% spread
+    # across six reps of the same effort - so any proximity threshold narrow enough
+    # to be meaningful split that set in two and lost two of the reps to the
+    # minimum-share test. The clustering has already answered this question once.
+    groups = {}
+    for b in work:
+        groups.setdefault(b["lvl"], []).append(b)
+    groups = [g for _lvl, g in sorted(groups.items(), key=lambda kv: -kv[0])]
     best = None
     for g in groups:
         # Within a speed group, keep only blocks that also match each other in
@@ -741,12 +859,24 @@ def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
             secs = [x["sec"] for x in cand]
             if sum(secs) < _WORK_MIN_SHARE * max(1, span):
                 continue
-            # The reps are the WORK, so the fastest qualifying set wins - not the
-            # longest. Scoring on duration picked the walk recoveries instead, which
-            # on Daniel's 29 Jul read as "7 reps at 5.0 km/h" when he did six at 13.
-            # Total time only breaks a tie between sets at the same speed.
+            # Reps are separated by RECOVERIES, so whatever sits between the blocks
+            # has to be slower than the blocks. This one test does the work the old
+            # "fastest set wins" rule was standing in for, and does it both ways
+            # round: picking the walk recoveries as reps (29 Jul, "7 reps at 5.0"
+            # for a session run at 13) leaves the RUNS in the gaps, so the contrast
+            # comes out below 1 and the candidate is thrown away. And picking peak
+            # fragments out of the middle of a rep (26 Aug) leaves the rest of that
+            # same rep in the gaps at almost the same speed, so it fails too.
             speed = sum(x["kmh"] * x["sec"] for x in cand) / max(1, sum(secs))
-            score = (-round(speed, 1), -sum(secs))
+            gap = _between_speed(pts, cand)
+            if gap is None or speed < _CONTRAST_MIN * gap:
+                continue
+            contrast = speed / max(0.5, gap)
+            # The setup note only ever gets to break a tie, and only between
+            # candidates that have already earned their place: how far this
+            # candidate's block count and typical length sit from the prescribed
+            # ones, rounded so it can't outrank a real difference in contrast.
+            score = (-round(contrast, 1), _setup_miss(setup, secs), -sum(secs))
             if best is None or score < best[0]:
                 best = (score, cand)
     if best is None:
@@ -806,6 +936,15 @@ def reps_from_speed_trace(series, expected=None, min_rep_sec=20):
     if expected and len(reps) != expected:
         out["note"] = ("%d reps prescribed, %d found in the trace - report what was "
                        "measured, don't assume the trace is wrong" % (expected, len(reps)))
+    if setup:
+        mid = sorted(b["sec"] for b in setup)[len(setup) // 2]
+        out["setup_match"] = ("session's setup note currently prescribes %d x %s @ %s km/h; "
+                              "the trace gives %d x ~%s. The note is the CURRENT "
+                              "prescription and these sessions are re-prescribed weekly, "
+                              "so a mismatch is as likely to mean the note has moved on as "
+                              "that the trace is wrong - it never overrides the trace."
+                              % (len(setup), _mmss(mid), setup[0]["kmh"],
+                                 len(reps), _mmss(sorted(r["sec"] for r in reps)[len(reps) // 2])))
     return out
 
 def rep_derived(reps):
@@ -1020,7 +1159,8 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
     series = extras.get("series") or []
     reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
     if not (reps and reps.get("reps")):
-        trace_reps = reps_from_speed_trace(series, expected=_prescribed_reps(log, program))
+        trace_reps = reps_from_speed_trace(series, expected=_prescribed_reps(log, program),
+                                           setup=_prescribed_blocks(log, program))
         if trace_reps:
             reps = trace_reps
     rep_rows = rows_from_reps(reps) if (reps and reps.get("reps")) else []
@@ -1044,12 +1184,20 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
         if rows:
             run_entry["cols"] = _run_cols(rows)
             run_entry["rows"] = rows
-    elif rep_rows and run_entry.get("rows") == splits_to_rows_hr(splits, a):
-        # The entry already holds rows, but they are EXACTLY what the laps produce -
-        # so they were written by an earlier sync, not typed by a person. Only then
-        # is it safe to replace them with the better per-rep version. Anything a
-        # person typed differs from the lap output and is left alone, which is the
-        # rule everywhere else here.
+            # Stamped so a later refresh knows a machine wrote these, not a person.
+            # Without the stamp a bad segmentation is permanent: the test below only
+            # recognises LAP-derived rows, so the three fictional reps the old
+            # detector wrote onto Daniel's 26 Aug log could never be corrected by
+            # fixing the detector - they had to be unpicked by hand.
+            log.setdefault("garmin", {})["rows_from"] = "reps" if rep_rows else "laps"
+    elif rep_rows and (run_entry.get("rows") == splits_to_rows_hr(splits, a)
+                       or str((log.get("garmin") or {}).get("rows_from", "")).startswith(("reps", "laps"))):
+        # The entry already holds rows, but they are EXACTLY what the laps produce,
+        # or they carry the stamp above - either way they were written by a sync,
+        # not typed by a person. Only then is it safe to replace them with the
+        # better per-rep version. Anything a person typed differs from the lap
+        # output and carries no stamp, so it is left alone, which is the rule
+        # everywhere else here.
         run_entry["cols"] = _run_cols(rep_rows)
         run_entry["rows"] = rep_rows
         log.setdefault("garmin", {})["rows_from"] = "reps (replaced lap-derived rows)"

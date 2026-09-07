@@ -53,6 +53,31 @@ neither, and her sessions simply arrive without those keys rather than with zero
   Daniel's 20 Aug trial holds three warm-up build-ups and one 2 km effort; calling those "4 reps"
   gave a consistency of 24.7% and a fade of 0%, describing nothing that happened. When the blocks
   are too unalike to be a set, no reps are stored and the reason is.
+- **Speed-trace segmentation, as a fallback only** — Garmin's run/walk detection can only find a
+  boundary when the **recovery is a walk**. Daniel's threshold session recovers with a 7.5 km/h
+  **jog float**, which is running throughout, so it returns nothing at all for exactly the session
+  shape the per-rep data is most wanted for. When it comes back empty, the reps are segmented from
+  the per-second **speed trace** instead. Three things about how, all learned from real traces:
+  - The trace is **not** a step function of the programmed speeds — the watch estimates speed from
+    arm swing, not the belt. Daniel's 26 Aug reps at a belt 11.0 read 11.0-13.4, and on 29 Jul one
+    belt speed came off the wrist as 10.8, 11.1, 11.4, 11.8, 14.2 and 14.8 across six reps. So the
+    whole trace is **clustered into speed levels** first (`_speed_levels`), with the separation
+    between levels scaled to the speed, and a rep is one block however much it wobbles inside.
+  - A candidate rep-set is kept only when whatever sits **between** its blocks is meaningfully
+    slower than the blocks themselves. Reps are separated by recoveries; anything else isn't a rep
+    set. That single test replaced an older "the fastest qualifying set wins" rule and catches both
+    failures it was standing in for — picking the walk recoveries as the reps, and picking noisy
+    peaks out of the middle of one long rep.
+  - It **under-counts on Cerys's watch** (4 against a correct 6 on 20 Aug) because the Vívoactive
+    samples roughly every 7 seconds and her reps are a minute long. That is why it is a fallback and
+    not a replacement: on her sessions Garmin's own method succeeds and is used.
+- **The prescription never picks the reps** (`garmin.reps.setup_match`, `garmin.reps.note`) — the
+  session's `setupNote` block list and its `sets` are read, compared, and **reported**, and they
+  break a tie between candidates the trace already supports. They cannot move a block boundary or
+  add a rep. These sessions are re-prescribed weekly, so the note is the *current* prescription and
+  the log may not be: on 26 Aug the note now reads 5 × 6:00 against a session that was 4 × 6:00, and
+  an earlier version that was allowed to seed the detector turned the 20 Aug time trial into "4 reps"
+  that never happened.
 - **Derived trend numbers** (`garmin.reps.derived`) — cardiac **drift** across the reps, average and
   best **HR recovery**, rep **consistency** and **fade**, best and average speed. Drift is only
   reported when the first and last rep were run at a similar speed; otherwise a `drift_skipped`
