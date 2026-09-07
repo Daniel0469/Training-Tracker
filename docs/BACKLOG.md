@@ -28,11 +28,16 @@ written and pushed; these are the loose ends from that review.
       so it adds about 60% to her running volume in an uncounted, continuous block - the one variable
       the MTSS protocol holds constant. Either rewrite it as walk plus mobility plus 4 x 20s strides,
       or, if she is genuinely fine with 5 unbroken minutes, raise the session prescription instead,
-      because that would be the more useful correction. **Awaiting Daniel's answer.**
-- [ ] **The Home "NEXT CARDIO" card still advertises the old 5 x 6:00 belt session** for Daniel. It
-      is a stored suggestion record, separate from the session, and `write_run` does not clear it, so
-      the first running thing he sees on opening the app contradicts Thursday's actual 4 x 4:00 and
-      describes a treadmill week. Not yet investigated.
+      because that would be the more useful correction. **Daniel's call, 7 Sep: leave the 5 minutes for now and adjust after she has run it.** So this is parked deliberately, not overlooked - revisit once Thursday gives a read on how she actually copes with it.
+- [x] **The Home "NEXT CARDIO" card advertised a session that no longer exists.** Fixed 7 Sep. Both
+      people's assignments pointed at `Run: Daniel` / `Run: Cerys`, renamed to `Quality run: ...` in
+      the term reset - and every lookup resolves by NAME, so the rename orphaned them silently. The
+      card kept rendering, badged "assigned", with a fortnight-old belt prescription. `app.js` now
+      guards on the assigned session still existing (`nextCardioLives`), in both the card and
+      `liveNextCardio`, so the card disappears instead. The stale records were left in the store:
+      they are inert behind the guard, and clearing them would lose the history. Session-picking was
+      never affected - it only consults the assignment when two sessions share a weekday, and since
+      the term reset the run sessions are on different days.
 - [ ] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Daniel's
       call, 7 Sep. The session card currently folds both halves under one summary still labelled
       "Treadmill program - enter this before you start", which now mislabels its own contents: the

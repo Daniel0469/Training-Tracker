@@ -330,10 +330,22 @@ function alternatedKey(keys){
 // the moment a cardio session is logged on or after the day it was written: the
 // advice was for that session, and leaving it up would have a fortnight-old
 // prescription still choosing which session Wednesday opens.
+// An assignment naming a session that no longer exists is dead. Renaming a run
+// session is normal - it happens whenever its content changes shape - and every
+// lookup here resolves by NAME, so a rename orphans the assignment silently. Left
+// unguarded, Home keeps a fortnight-old prescription up, still badged "assigned",
+// for a session nobody can open. Both people hit this when the run sessions were
+// renamed in the term reset.
+function nextCardioLives(nc){
+  if(!nc || !nc.session) return false;
+  var ss=(state.program&&state.program.sessions)||{};
+  return Object.keys(ss).some(function(k){ return (ss[k]||{}).name===nc.session; });
+}
 function liveNextCardio(){
   var p=state.people[state.activePerson];
   var nc=((state.coaching&&state.coaching[p])||{}).nextCardio;
   if(!nc || !nc.session || !nc.updated) return null;
+  if(!nextCardioLives(nc)) return null;
   var since=String(nc.updated).slice(0,10);
   var done=state.logs.some(function(l){
     if(l.person!==p || String(l.date)<since) return false;
@@ -3528,7 +3540,7 @@ function renderHelp(){
      +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
      +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')
-     +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. You can always pick another session from the list; it\'s a default, not a lock.')
+     +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. If the session it names gets <b>renamed or removed</b>, the card disappears rather than advertising a session you can no longer open. You can always pick another session from the list; it\'s a default, not a lock.')
      +p('<b>&#128681; What\'s holding this back</b> shows on a session when you\'ve told your coach what\'s limiting it - "haven\'t found my top working speed yet", "Zone 2 is a walk for me, not a run". It\'s in <b>your</b> words, kept apart from the coach\'s own read of your numbers, and it\'s the first thing the coach checks - because two people can produce the same heart-rate trace for completely opposite reasons.'));
 
   h+=card('7 &middot; Edit the program',
@@ -3885,7 +3897,7 @@ function fiveKCardHtml(person){
 // was asked for without a fortnight-old prescription still driving the app.
 function nextCardioCardHtml(person){
   const nc=((state.coaching&&state.coaching[person])||{}).nextCardio;
-  if(!nc || !nc.session) return "";
+  if(!nc || !nc.session || !nextCardioLives(nc)) return "";
   const live=!!liveNextCardio();
   const when=nc.updated ? "Coach · "+relTime(String(nc.updated).slice(0,10)) : "From your coach";
   return '<div class="card coach-card'+(live?'':' spent')+'">'
