@@ -862,8 +862,18 @@ function renderLog(){
   // whole session, is read once before you begin rather than followed during, and is
   // rewritten every time the structure changes, so it must not live inside the
   // warm-up where correcting one speed means re-sending the mobility work.
+  // The watch workout is first because outdoors is the default since the term
+  // reset, so this is the half they actually use; the belt is the wet-morning
+  // fallback. Separate fields rather than one note with two halves: correcting a
+  // heart-rate band must not mean re-sending the belt program, and the summary
+  // line has to name what is actually folded underneath it.
+  if(sess.garminNote){
+    html += '<details class="card setup-card"><summary class="sec-title">&#127919; Watch workout &middot; build this once</summary>'
+      + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.garminNote)+'</div></details>';
+  }
   if(sess.setupNote){
-    html += '<details class="card setup-card"><summary class="sec-title">&#127899;&#65039; Treadmill program &middot; enter this before you start</summary>'
+    html += '<details class="card setup-card"><summary class="sec-title">&#127899;&#65039; Treadmill program &middot; '
+      + (sess.garminNote ? 'if you are inside instead' : 'enter this before you start')+'</summary>'
       + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.setupNote)+'</div></details>';
   }
 
@@ -2440,9 +2450,11 @@ function autoGrow(ta){
   ta.style.height=(ta.scrollHeight + (ta.offsetHeight-ta.clientHeight))+"px";
 }
 function sessNotesHtml(k, s){
-  const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"", set=s.setupNote||"";
-  const has=!!(wu||cd||rec||set);
+  const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"", set=s.setupNote||"", gar=s.garminNote||"";
+  const has=!!(wu||cd||rec||set||gar);
   return '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+    + '<label class="fld" style="margin-bottom:8px">&#127919; Watch workout'
+      + '<textarea class="notes" data-sessnote="garminNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. Connect &gt; Workouts &gt; Create a Workout &gt; Run: warm up 10:00, repeat 4x (run 4:00 HR 165-173 / recover 2:00), cool down 5:00">'+esc(gar)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#127899;&#65039; Treadmill program'
       + '<textarea class="notes" data-sessnote="setupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 1: 5:00 at 8.0 warm-up jog / 2: 6:00 at 11.0 rep 1 / 3: 1:30 at 7.5 float">'+esc(set)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#8986; Recording (Garmin)'
@@ -2549,7 +2561,8 @@ function renderEdit(){
     saveProgram();
     toast(field==="warmupNote" ? "Warm-up note saved"
         : field==="recordingNote" ? "Recording note saved"
-        : field==="setupNote" ? "Treadmill program saved" : "Cool-down note saved");
+        : field==="setupNote" ? "Treadmill program saved"
+        : field==="garminNote" ? "Watch workout saved" : "Cool-down note saved");
   }));
   document.querySelectorAll("[data-pcapply]").forEach(b=>b.onclick=()=>applyProgramChange(b.dataset.pcapply));
   document.querySelectorAll("[data-pcdecline]").forEach(b=>b.onclick=()=>declineProgramChange(b.dataset.pcdecline));
@@ -3366,6 +3379,7 @@ function sessionShareCode(sessionKey){
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  if(s.garminNote) payload.garminNote=s.garminNote;
   if(s.setupNote) payload.setupNote=s.setupNote;
   if(s.recordingNote) payload.recordingNote=s.recordingNote;
   if(s.warmupNote) payload.warmupNote=s.warmupNote;
@@ -3396,6 +3410,7 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   let key=slugify(payload.name), n=2;
   while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
   state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.garminNote) state.program.sessions[key].garminNote=String(payload.garminNote);
   if(payload.setupNote) state.program.sessions[key].setupNote=String(payload.setupNote);
   if(payload.recordingNote) state.program.sessions[key].recordingNote=String(payload.recordingNote);
   if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
@@ -3551,7 +3566,7 @@ function renderHelp(){
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
-     +p('<b>&#127899;&#65039; Treadmill program</b> is the session written out as numbered time-and-speed blocks to key into the machine before you start, so the belt runs the session and there is nothing to adjust mid-run. Like the recording note it sits above the warm-up, folded up, and is its own field - so a single speed can be corrected without re-sending everything else.')
+     +p('<b>&#127919; Watch workout</b> is the session built once on Garmin Connect and sent to the watch, so it counts the reps and holds the heart-rate band for you outdoors - the same job the belt program does inside, and it laps itself at every step change. <b>&#127899;&#65039; Treadmill program</b> is the indoor fallback: the session written out as numbered time-and-speed blocks to key into the machine before you start, so the belt runs the session and there is nothing to adjust mid-run. Like the recording note it sits above the warm-up, folded up, and is its own field - so a single speed can be corrected without re-sending everything else.')
      +p('<b>&#8986; Recording</b> is a separate note for sessions you record on a <b>Garmin</b> - when to start the activity, where to press lap, when to end, and what to report back. It sits <b>above the warm-up</b> on the Session tab and starts <b>folded up</b>, so it never buries the warm-up; tap it to read it. It is kept apart from the warm-up so a coach can rewrite the recording plan when a session\'s structure changes without touching your mobility work.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')

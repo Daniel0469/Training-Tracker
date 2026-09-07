@@ -245,7 +245,7 @@ def get_session_notes(data, session=""):
             for k in keys]
 
 def set_session_notes(session, warmup=None, cooldown=None, append=False, recording=None,
-                      setup=None):
+                      setup=None, garmin=None):
     """Rewrite a session's warm-up and/or cool-down note. Shared by both people.
 
     Passing None for a field leaves it alone; passing "" clears it. `append` adds
@@ -264,7 +264,8 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False, recordi
                   "recordingNote": s.get("recordingNote", ""),
                   "setupNote": s.get("setupNote", "")}
         changed = []
-        for field, text in (("setupNote", setup), ("recordingNote", recording),
+        for field, text in (("garminNote", garmin), ("setupNote", setup),
+                            ("recordingNote", recording),
                             ("warmupNote", warmup), ("cooldownNote", cooldown)):
             if text is None:
                 continue
@@ -309,7 +310,7 @@ def _session_key(name, sessions):
 
 
 def add_session(name, day="Optional", exercises=None, person="", warmup="", cooldown="",
-                setup="", recording=""):
+                setup="", recording="", garmin=""):
     """Add a whole new session to the program. See the create_session tool docstring."""
     failed = {}
 
@@ -340,7 +341,8 @@ def add_session(name, day="Optional", exercises=None, person="", warmup="", cool
 
         key = _session_key(wanted, sessions)
         s = {"name": wanted, "day": str(day or "Optional").strip(), "exercises": cleaned}
-        for field, text in (("setupNote", setup), ("recordingNote", recording),
+        for field, text in (("garminNote", garmin), ("setupNote", setup),
+                            ("recordingNote", recording),
                             ("warmupNote", warmup), ("cooldownNote", cooldown)):
             if str(text or "").strip():
                 s[field] = str(text).strip()
@@ -453,6 +455,7 @@ def get_run(data, person, which=None):
     if key is None:
         return {"error": s}
     return {"person": person, "session": s.get("name"), "day": s.get("day"),
+            "garminNote": s.get("garminNote", ""),
             "setupNote": s.get("setupNote", ""),
             "recordingNote": s.get("recordingNote", ""),
             "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
@@ -460,7 +463,8 @@ def get_run(data, person, which=None):
 
 
 def set_run(person, exercises=None, why="", name=None, day=None,
-            warmup=None, cooldown=None, recording=None, setup=None, which=None):
+            warmup=None, cooldown=None, recording=None, setup=None, which=None,
+            garmin=None):
     """Re-prescribe `person`'s own run session. See the write_run tool docstring."""
     failed = {}
 
@@ -485,6 +489,7 @@ def set_run(person, exercises=None, why="", name=None, day=None,
             cleaned = None
 
         previous = {"name": s.get("name"), "day": s.get("day"),
+                    "garminNote": s.get("garminNote", ""),
                     "setupNote": s.get("setupNote", ""),
                     "recordingNote": s.get("recordingNote", ""),
                     "warmupNote": s.get("warmupNote", ""),
@@ -511,7 +516,8 @@ def set_run(person, exercises=None, why="", name=None, day=None,
         if day and str(day).strip() != s.get("day"):
             s["day"] = str(day).strip()
             changed.append("day")
-        for field, text in (("setupNote", setup), ("recordingNote", recording),
+        for field, text in (("garminNote", garmin), ("setupNote", setup),
+                            ("recordingNote", recording),
                             ("warmupNote", warmup), ("cooldownNote", cooldown)):
             if text is None:
                 continue
@@ -1257,7 +1263,8 @@ def _register(mcp):
     @mcp.tool()
     def write_session_notes(session: str, warmup: str | None = None,
                             cooldown: str | None = None, append: bool = False,
-                            recording: str | None = None, setup: str | None = None) -> str:
+                            recording: str | None = None, setup: str | None = None,
+                            garmin: str | None = None) -> str:
         """Rewrite a session's warm-up and/or cool-down note - use this when the fix is a
         change to what they do either side of the exercises, e.g. adding calf and ankle work
         to a cardio warm-up because someone's shins keep flaring, or dropping a stretch that
@@ -1273,9 +1280,9 @@ def _register(mcp):
         duration is computed from the list rather than guessed. Read it before writing one,
         and do not write back anything that section says was removed.
 
-        KEEP THE REST OF THE SESSION IN STEP. `setup`, `recording`, `warmup` and `cooldown`
-        describe one session between them, so changing any of them can leave the others
-        lying. If the block count or the structure moves, walk all four and fix every
+        KEEP THE REST OF THE SESSION IN STEP. `garmin`, `setup`, `recording`, `warmup` and
+        `cooldown` describe one session between them, so changing any of them can leave the
+        others lying. If the block count or the structure moves, walk all five and fix every
         reference: block numbers, lap counts, totals, "blocks 1-5", "when block 21 finishes".
         A recording note pointing at a block that no longer exists is worse than no note,
         because it is followed. This is how Cerys's recording note ended up telling her to
@@ -1287,8 +1294,9 @@ def _register(mcp):
         Omit a field to leave it untouched; pass "" to clear it. The previous text comes back
         in the response, so a bad write can be undone by writing it back.
 
-        `setup` is the treadmill program - the session as numbered time + speed blocks to
-        key in before starting. `recording` is how to record the session on a Garmin (start,
+        `garmin` is the watch workout - the session built once on Garmin Connect and sent to
+        the watch, which is how it gets programmed outdoors. `setup` is the treadmill program,
+        the indoor fallback, as numbered time + speed blocks to key in before starting. `recording` is how to record the session on a Garmin (start,
         laps, end, what to report back). Keep it out of `warmup` - it is its own collapsed block
         above the warm-up, so that the warm-up isn't buried and so either can be rewritten
         without disturbing the other. For a person's OWN run session, use write_run instead.
@@ -1298,12 +1306,12 @@ def _register(mcp):
         with ONE exception: each person's own run session, which is yours (see write_run).
         Everywhere else, raise it with propose_suggestion_tool for Daniel to approve."""
         return json.dumps(set_session_notes(session, warmup, cooldown, append, recording,
-                                           setup), indent=2)
+                                           setup, garmin), indent=2)
 
     @mcp.tool()
     def create_session(name: str, day: str = "Optional", exercises: list | None = None,
                        person: str = "", warmup: str = "", cooldown: str = "",
-                       setup: str = "", recording: str = "") -> str:
+                       setup: str = "", recording: str = "", garmin: str = "") -> str:
         """Add a NEW session to the program - a whole training day that does not exist yet.
 
         Use it when the work genuinely does not belong in any current session: a mobility
@@ -1335,7 +1343,7 @@ def _register(mcp):
         Part 3. Adding a session is structural, so unless Daniel has asked for it directly,
         raise it with propose_suggestion_tool first rather than creating it unannounced."""
         return json.dumps(add_session(name, day, exercises, person, warmup,
-                                      cooldown, setup, recording), indent=2)
+                                      cooldown, setup, recording, garmin), indent=2)
 
     @mcp.tool()
     def run_session(person: str, which: str = "") -> str:
@@ -1355,7 +1363,7 @@ def _register(mcp):
                   name: str | None = None, day: str | None = None,
                   warmup: str | None = None, cooldown: str | None = None,
                   recording: str | None = None, setup: str | None = None,
-                  which: str = "") -> str:
+                  which: str = "", garmin: str | None = None) -> str:
         """Re-prescribe ONE of `person`'s run sessions. This session is yours: Daniel's explicit
         instruction (20 Aug 2026) is that the coach decides the optimal run each week from
         the data, and is NOT restricted to the formats used so far. Rep sessions, tempo,
@@ -1396,30 +1404,31 @@ def _register(mcp):
         trends, while renaming it to "4x800m" starts a new and empty history. Put the
         prescription in `target` instead - that's what it's for.
 
-        `setup` is HOW THE SESSION GETS PROGRAMMED before they start, so nothing has to be
-        adjusted mid-run - which is the whole reason Daniel programs it rather than running
-        to a card. Since the term routine it has TWO halves, and outdoors is the default, so
-        write both:
+        `garmin` and `setup` are the two ways the session gets PROGRAMMED before they start,
+        so nothing has to be adjusted mid-run - which is the whole reason Daniel programs it
+        rather than running to a card. They are separate fields and separate folded panels on
+        the phone, because outdoors is the default and correcting a heart-rate band must not
+        mean re-sending the belt program. Write BOTH.
 
-        1. THE GARMIN WORKOUT, first, because it is the one they will use. Garmin Connect ->
-           Training & Planning -> Workouts -> Create a Workout -> Run (or Walk), as a table of
-           step / type / duration / target, then Send to Watch, then how to start it on the
-           day. A structured workout laps automatically at every step change, which replaces
-           hand-lapping entirely and is the fix for reps that stretch and for laps that get
-           forgotten. Use a Heart Rate target where HR is the point of the session; leave it
-           at No Target where it is not, and say why. Warn about HR lag on short reps - the
-           watch tells you to speed up for the first 45-60s of a rep when you are already
-           right, and chasing that arrow ruins a threshold session.
-        2. THE TREADMILL FALLBACK, for a morning too cold, wet or dark: the session as a
-           numbered list of time + speed (+ incline where it matters) blocks. Their treadmills
-           take time and speed only, in 5-second steps, with no distance target, so express
-           every block that way rather than in metres.
+        `garmin` is THE WATCH WORKOUT, and it is the one they will actually use. Garmin Connect
+        -> Training & Planning -> Workouts -> Create a Workout -> Run (or Walk), written as a
+        table of step / type / duration / target, then Send to Watch, then how to start it on
+        the day. A structured workout laps automatically at every step change, which replaces
+        hand-lapping entirely and is the fix both for reps that stretch and for laps that get
+        forgotten. Use a Heart Rate target where HR is the point of the session; leave it at
+        No Target where it is not, and say why. Warn about HR lag on short reps - the watch
+        tells you to speed up for the first 45-60s of a rep when you are already running
+        correctly, and chasing that arrow turns a threshold session into a 5k by rep three.
 
-        Both halves cover the warm-up, the reps AND their recoveries, and the cool-down: it is
-        the session end to end. Say the total for each, and what to do if the belt runs out of
-        stages. Rewrite it whenever the structure changes - a stale program is worse than none,
-        because it is keyed in before anyone reads the rest. Its own field, like `recording`:
-        correcting one speed must not mean re-sending the warm-up.
+        `setup` is THE TREADMILL FALLBACK, for a morning too cold, wet or dark: the session as
+        a numbered list of time + speed (+ incline where it matters) blocks. Their treadmills
+        take time and speed only, in 5-second steps, with no distance target, so express every
+        block that way rather than in metres, and say what to do if the belt runs out of its
+        20 stages.
+
+        Both cover the warm-up, the reps AND their recoveries, and the cool-down: each is the
+        session end to end, and each says its own total. Rewrite whichever the change touches -
+        a stale program is worse than none, because it is keyed in before anyone reads the rest.
 
         `recording` is how to record THIS session on the watch, and it is its own field
         on purpose - it is NOT warm-up content and must not be put in `warmup`. It shows as
@@ -1429,7 +1438,7 @@ def _register(mcp):
         warm-up, a time trial and an easy jog all sit in ONE Garmin recording, so the
         activity-level averages are worthless without knowing which lap holds which piece.
         Cover, in this order: whether it is one activity or several; whether they are running
-        the Garmin workout from `setup` (in which case the laps are automatic and pressing Lap
+        the Garmin workout from `garmin` (in which case the laps are automatic and pressing Lap
         by hand SPLITS a step and corrupts the read) or freestyle; where to press Start, each
         Lap, and End; what each lap will hold, written for whoever reads it back later;
         anything to TYPE in as well (typed data is never overwritten by the sync, so a
@@ -1441,12 +1450,12 @@ def _register(mcp):
         the coach note on that session, so they read it while they train, and it lands in
         the coaching history so the two of you can see whether the call worked.
 
-        WHEN THE SESSION CHANGES, WALK ALL FOUR FIELDS BEFORE YOU FINISH. `setup`,
+        WHEN THE SESSION CHANGES, WALK ALL FIVE FIELDS BEFORE YOU FINISH. `garmin`, `setup`,
         `recording`, `warmup` and `cooldown` describe one session between them, and a change
-        to the structure invalidates references scattered across the other three. Check every
+        to the structure invalidates references scattered across the other four. Check every
         block number, lap count and total in each: "blocks 1-5", "when block 21 finishes",
-        "that is 9 lap presses", "the whole session is 44:40 on the belt". Rewriting `setup`
-        and leaving the rest is the standard failure - it is how Cerys ended up with a
+        "that is 9 lap presses", "the whole session is 44:40 on the belt". Rewriting one of the
+        two programs and leaving the rest is the standard failure - it is how Cerys ended up with a
         recording note telling her to end at block 21 of an 18-block session, and a warm-up
         pointing at belt blocks that had moved to the bike. A stale note is worse than a
         missing one, because it gets followed.
@@ -1458,7 +1467,7 @@ def _register(mcp):
         if you might want to put it back. Reaches their phone on the next Sync now, never
         mid-workout."""
         return json.dumps(set_run(person, exercises, why, name, day, warmup, cooldown,
-                                  recording, setup, which), indent=2)
+                                  recording, setup, which, garmin), indent=2)
 
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,

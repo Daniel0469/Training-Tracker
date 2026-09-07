@@ -38,13 +38,18 @@ written and pushed; these are the loose ends from that review.
       they are inert behind the guard, and clearing them would lose the history. Session-picking was
       never affected - it only consults the assignment when two sessions share a weekday, and since
       the term reset the run sessions are on different days.
-- [ ] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Daniel's
-      call, 7 Sep. The session card currently folds both halves under one summary still labelled
-      "Treadmill program - enter this before you start", which now mislabels its own contents: the
-      note leads with the Garmin structured workout and the belt is the cold-and-dark fallback. Needs
-      a new session field, a second `<details>` panel in the log form, a second textarea in the
-      Program editor, a new `write_run` argument, the Guide paragraph, and a `CACHE_NAME` bump.
-      Not started.
+- [~] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Code
+      done 7 Sep, data migration still to run. `garminNote` is a new session field with its own
+      folded panel above the belt one ("Watch workout - build this once"), its own textarea in the
+      Program editor, and it rides the shared-session sync. `write_run`, `write_session_notes` and
+      `create_session` all take `garmin` now. **Outstanding: the four run sessions still hold both
+      halves in `setupNote`.** The split is written and verified against a copy by
+      `scratchpad/proto_setup_split.py` (splits on the "IF IT IS TOO COLD" line and moves the
+      trailing "OUTDOORS IS THE DEFAULT" paragraph back to the watch half; content preserved on all
+      four). It cannot be applied through the MCP tools until the coach server is restarted - it is
+      still serving the pre-`garmin` code, the same staleness that blocked the `which` argument last
+      chat. Shipping the code without the data is safe: with no `garminNote` the new panel simply
+      does not render and the session reads exactly as it does today.
 
 ---
 
