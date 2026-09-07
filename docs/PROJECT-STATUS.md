@@ -188,6 +188,32 @@ stopwatch.** Three suggestions were open; one was discarded, two built.
   form runs to ~6,100px on a 375px phone - verified still on screen at 2,200px down. `tt-v126`.
   **Note this reverses two earlier decisions** recorded in this file - the exercise timer dropped on
   17 Aug and "Phase 3 rest timer NOT wanted" - superseded by Daniel's own 6 Sep suggestion.
+- **Refresh run for both, and it needed one more guard.** Re-running `garmin_refresh_metrics` with
+  the fix put 26 Aug right (4 reps, consistency 4.8%, fade 0%, drift +8, HR recovery 25) and left the
+  corrected rows alone - but it also flipped Daniel's **4 Jul Zone 2 from "not a rep set" to 3 reps at
+  23.8% consistency**. The clustering merges fragments, so blocks that used to look uneven
+  ([124, 152, 198, 290]) came out even ([338, 358, 300]) and passed the existing test. That is the
+  question that had been open since 21 Aug, and Daniel's call was to **refuse rep metrics on Zone 2**.
+  - **What it keys on, and why not the obvious things.** HR does not separate them: Daniel's genuine
+    29 Jul intervals ran at **130-140 bpm**, squarely Zone 2, because 1 min on / 2 min off never gets
+    him near threshold. Consistency does not either: those same real intervals spread **32.4%**, wider
+    than the Zone 2 session's 23.8%. Absolute speed would need a made-up km/h constant. **The one
+    signal that separates all eleven rep sessions in the store is what happens BETWEEN the blocks** -
+    a recovery is something you do, not something you stop for. Every genuine rep set recovers at
+    **3.3-6.3 km/h**; Daniel's 4 Jul "recoveries" average **0.8** and Cerys's 4 Jul **1.1**, which is a
+    stopped belt. Blocks separated by a standstill are one interrupted effort, so `rep_derived` now
+    refuses fade/consistency/drift and says which reason applied. Per-block detail is kept either way.
+  - **Verified across every rep session in the store:** all Zone 2 / easy sessions refuse (on
+    unevenness or standstill), and all four genuine rep sets keep their numbers - Daniel 29 Jul
+    14.7%/-5.9, Cerys 29 Jul 30.8%/-27.7, Cerys 20 Aug 11.6%/-11.1, Daniel 26 Aug 4.8%/0.0.
+  - **Cerys's 29 Jul run rows were replaced** by the refresh - the pre-existing "rows exactly match
+    the lap output, so a sync wrote them" branch, firing for the first time on that log. Two lap lumps
+    reporting **8:50/km** became her **five actual reps at 4:12-5:45/km**; the laps had swallowed her
+    walk recoveries. **Her typed `11.0 / 6` intervals row is untouched**, as is every other typed row.
+  - **The running MCP server was still on the old code after the restart**, so the tool call refreshed
+    nothing. `scratchpad/run_refresh.py` runs the same `refresh_metrics` from a fresh process, backs
+    the store up first and prints a before/after diff of everything it changed - keep it, and prefer
+    it whenever a fix to this server has to reach already-linked sessions.
 - **Discarded: "get rid of leg press, switch abduction and adduction to friday"** (`1788016673293`).
   Daniel's answer: *"discard this - program has been rewritten"*. Resolved without building. The
   numbers, for the record if it comes back: it would have taken Lower 2 from 8 exercises to 6 and

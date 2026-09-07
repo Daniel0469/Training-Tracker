@@ -664,6 +664,7 @@ _LEVEL_MIN_SEC = 15          # shorter than this is a blip, not a level
 _WORK_MIN_SHARE = 0.12       # a rep set is a real part of the session, not 5% of it
 _RECOVERY_MIN_SEC = 20       # below this, two blocks are one effort that wandered
 _CONTRAST_MIN = 1.15         # reps must be this much faster than what separates them
+_RECOVERY_MIN_KMH = 2.0      # below this the belt was stopped, so it wasn't a recovery
 
 def _level_sep(kmh):
     """How far apart two speeds have to be to be different LEVELS rather than one
@@ -964,18 +965,35 @@ def rep_derived(reps):
     steady Zone 2 run on the same trend line as his interval sessions. The per-block
     detail is still worth having there - it is how you see the walk breaks, and how
     you see that Cerys's Zone 2 is a walk - so the blocks stay and only the
-    rep-set-specific numbers drop out."""
+    rep-set-specific numbers drop out. The second refusal, added 7 Sep, is the same
+    idea from the other side: blocks separated by a STANDSTILL are one interrupted
+    effort, not repeats."""
     if not reps:
         return {}
     speeds = [r["kmh"] for r in reps if r.get("kmh")]
     d = {}
     secs = sorted(r["sec"] for r in reps if r.get("sec"))
     even = bool(secs) and secs[-1] <= 1.6 * max(1, secs[0])
+    # A recovery is something you do, not something you stop for. When the gaps
+    # between the blocks are at a standstill, the blocks are one continuous effort
+    # that got interrupted - the belt stopped, or the recording paused - and fade
+    # and consistency across them describe nothing. Daniel's 4 Jul Zone 2 is the
+    # case: three blocks of 338/358/300s, even enough to pass the test above, with
+    # "recoveries" averaging 0.8 km/h. Every genuine rep set in the store recovers
+    # between 3.3 and 6.3 km/h, so this separates them without touching one.
+    recs = [r["recovery_kmh"] for r in reps if r.get("recovery_kmh") is not None]
+    moving = not recs or (sum(recs) / len(recs)) >= _RECOVERY_MIN_KMH
     if not even:
         d["rep_set"] = False
         d["not_a_rep_set"] = ("block lengths %s are too uneven for fade or consistency to "
                               "mean anything - this reads as a run/walk, not a set of reps"
                               % ([int(x) for x in secs],))
+    elif not moving:
+        even = False
+        d["rep_set"] = False
+        d["not_a_rep_set"] = ("the gaps between these blocks average %.1f km/h - a standstill, "
+                              "not a recovery - so this is one effort that was interrupted "
+                              "rather than a set of reps" % (sum(recs) / len(recs)))
     if len(speeds) >= 2:
         mean = sum(speeds) / len(speeds)
         best = max(speeds)
