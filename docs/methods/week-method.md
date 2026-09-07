@@ -161,6 +161,20 @@ Collected from the concurrent-training and hybrid-training evidence, in priority
    concurrent training did not significantly compromise strength or hypertrophy. It becomes a concern
    at four or five runs alongside four heavy lifting days, which nobody is proposing.
 
+8. **Watch what Monday night stacks onto Tuesday morning.** Since the 7 September reset, Lower A
+   (Monday evening) carries **sled push and pull** and a **leg press calf raise**, and the first run
+   of the week is **Tuesday morning, about twelve hours later**. Sled push loads calves and shins
+   hard; the calf raise then loads the same tissue directly, on the same evening, immediately before
+   the only overnight gap in the week. This is already the stated reason Cerys's Tuesday is an
+   incline walk rather than a run.
+
+   The argument, recorded 7 September 2026: **if a calf exercise has to go, Monday's is the
+   redundant one**, because the sled already covers that tissue on that day and Friday's has the
+   whole weekend behind it. Daniel decided the other way - the Friday standing calf raise was
+   proposed for removal instead, on the grounds that Friday is the longer session - so the Monday
+   stack stands. Revisit it if Tuesday's runs start reading flat, or if Cerys's shins flare on a
+   Tuesday specifically, because that is the pattern this rule predicts.
+
 ---
 
 # Part 5 - Where a second run could go

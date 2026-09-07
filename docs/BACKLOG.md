@@ -6,6 +6,43 @@ lands here instead.
 
 ---
 
+## Batch: 7 Sep 2026 - week 1 review, off the run prescriptions
+
+Raised while Daniel reviewed the first outdoor week in the browser. The four run sessions were
+written and pushed; these are the loose ends from that review.
+
+- [ ] **Reorder Lower B: sandbag lunges BEFORE Bulgarian split squat, and separate them.** Daniel's
+      rule - two exercises for the same muscle should not run back to back - and Lower B breaks it.
+      The sandbag lunge is the Hyrox station and currently gets done on legs emptied by 3x8-12 each
+      leg of Bulgarians, which contradicts the Phase 0 policy of technique at light loads. Target
+      order: deadlift, sandbag lunges, hip adduction, Bulgarian split squat, dead bug. **Daniel can
+      drag this in the Program tab** - `write_program_change` cannot reorder, only add/remove/retarget,
+      so proposing it would arrive as two separate ticks (remove, then re-add) and a half-accepted
+      pair would leave the exercise deleted. Reasoning written up in
+      `methods/exercise-selection-method.md` rule 6.
+- [ ] **Standing calf raise removal is proposed and waiting on a tick** in the Program tab, on Lower
+      B. When it is accepted, update the Lower B exercise list in `term-routine.md` (line 86), which
+      still names it.
+- [ ] **Cerys's Thursday warm-up still asks for a 5-minute continuous jog**, in front of a session
+      built on 1-minute reps. At her cadence that is ~350 steps per leg against the session's ~580,
+      so it adds about 60% to her running volume in an uncounted, continuous block - the one variable
+      the MTSS protocol holds constant. Either rewrite it as walk plus mobility plus 4 x 20s strides,
+      or, if she is genuinely fine with 5 unbroken minutes, raise the session prescription instead,
+      because that would be the more useful correction. **Awaiting Daniel's answer.**
+- [ ] **The Home "NEXT CARDIO" card still advertises the old 5 x 6:00 belt session** for Daniel. It
+      is a stored suggestion record, separate from the session, and `write_run` does not clear it, so
+      the first running thing he sees on opening the app contradicts Thursday's actual 4 x 4:00 and
+      describes a treadmill week. Not yet investigated.
+- [ ] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Daniel's
+      call, 7 Sep. The session card currently folds both halves under one summary still labelled
+      "Treadmill program - enter this before you start", which now mislabels its own contents: the
+      note leads with the Garmin structured workout and the belt is the cold-and-dark fallback. Needs
+      a new session field, a second `<details>` panel in the log form, a second textarea in the
+      Program editor, a new `write_run` argument, the Guide paragraph, and a `CACHE_NAME` bump.
+      Not started.
+
+---
+
 ## Batch: 2 Sep 2026 - out of the research pass (five new method docs)
 
 Daniel asked for a broad research pass and it produced five new `docs/*-method.md` files plus three

@@ -84,7 +84,33 @@ The interference effect - blunted strength and hypertrophy when endurance work i
   the concern anyway, the bike is the cheaper choice - which is what they both reached for
   independently as a warm-up on 20 August.
 
-## 6. Name discipline
+## 6. Don't put two exercises for the same muscle back to back
+
+Daniel's rule, stated 7 September 2026, and the program broke it in one place.
+
+**Lower B ran Bulgarian split squat straight into walking/sandbag lunges.** Both are unilateral,
+quad and glute dominant, 3 sets each. The split squat's own note admitted the pairing was deliberate
+- "the closest thing in the gym to the sandbag lunge that comes next" - so the intent was
+specificity: practise the pattern loaded, then do the station.
+
+The intent is right and the order was wrong. The sandbag lunge is the **Hyrox station**; the
+Bulgarian split squat is the strength exercise that feeds it. Running them in that order means the
+station is always performed on legs already emptied by 3x8-12 each leg, and technique is the first
+thing fatigue takes. `hyrox-method.md` puts the stations in **Phase 0**, whose whole policy is
+*technique at light loads* - so training the station pre-fatigued is Phase 2 thinking applied a
+phase early.
+
+The rule that falls out of it, in order of preference:
+
+1. **Station first, strength second.** Do the movement whose quality matters most while fresh, and
+   let the accessory absorb the fatigue.
+2. **Then separate them anyway.** Put something for another muscle between - hip adduction, in Lower
+   B's case - so the two never run consecutively even in the corrected order.
+
+Deliberate pre-fatigue is a real method and it has a place; that place is the phase where race
+simulation is the goal, not the phase whose gate is *Daniel runs 8 km continuously*.
+
+## 7. Name discipline
 
 Any new exercise gets its own name and keeps it. Records, the Last column and the progress chart all
 key on the name, so a rename orphans history and a reused name splices two different movements into
