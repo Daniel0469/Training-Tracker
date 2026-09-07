@@ -38,26 +38,25 @@ written and pushed; these are the loose ends from that review.
       they are inert behind the guard, and clearing them would lose the history. Session-picking was
       never affected - it only consults the assignment when two sessions share a weekday, and since
       the term reset the run sessions are on different days.
-- [~] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Code
-      done 7 Sep, data migration still to run. `garminNote` is a new session field with its own
-      folded panel above the belt one ("Watch workout - build this once"), its own textarea in the
-      Program editor, and it rides the shared-session sync. `write_run`, `write_session_notes` and
-      `create_session` all take `garmin` now. **Outstanding: the four run sessions still hold both
-      halves in `setupNote`.** The split is written and verified against a copy by
-      `scratchpad/proto_setup_split.py` (splits on the "IF IT IS TOO COLD" line and moves the
-      trailing "OUTDOORS IS THE DEFAULT" paragraph back to the watch half; content preserved on all
-      four). It cannot be applied through the MCP tools until the coach server is restarted - it is
-      still serving the pre-`garmin` code, the same staleness that blocked the `which` argument last
-      chat, and the servers are stdio children of the Claude Code client so only a client restart
-      respawns them. Shipping the code without the data is safe: with no `garminNote` the new panel
-      simply does not render and the session reads exactly as it does today.
+- [x] **Split the setup note into two sections - Garmin workout and treadmill fallback.** Done, code
+      and data both, 7 Sep. `garminNote` is a session field with its own folded panel above the belt
+      one ("Watch workout - build this once"), its own textarea in the Program editor, and it rides
+      the shared-session sync. `write_run`, `write_session_notes` and `create_session` all take
+      `garmin`. The belt panel keeps `setupNote` and renames itself to "if you are inside instead"
+      only when a watch workout exists.
 
-      **To finish after a restart:** `scratchpad/setup-split-writes.json` holds the four calls ready,
-      each with `person`, `which`, `garmin`, `setup` and `why`. Call `run_session(person, which)`
-      first, as always, and check that its `setupNote` equals the entry's `garmin` + `setup` with
-      whitespace normalised - if it does, the split is lossless and safe to write; if it does not,
-      the note has been edited since 7 Sep and the split needs regenerating with
-      `scratchpad/proto_setup_split.py` rather than applied blind.
+      **The data migration ran after the client restart**, applied through `write_run` to all four
+      run sessions - Zone 2 and Quality run for each of them. Each was read back with
+      `run_session(person, which)` first and its live `setupNote` re-split with the
+      `scratchpad/proto_setup_split.py` rule (split on the "IF IT IS TOO COLD" line, move the
+      trailing "OUTDOORS IS THE DEFAULT" paragraph back to the watch half): all four matched the
+      prepared text in `scratchpad/setup-split-writes.json` character for character, so nothing had
+      been edited in the meantime and nothing was lost. The store was read back afterwards to
+      confirm all four now hold two clean halves, and each write reported `changed:
+      [garminNote, setupNote]` only - no exercise, warm-up, cool-down or recording note was touched.
+      Verified in the browser against a copy of the live store, both people, both themes: the watch
+      panel renders first, the belt panel reads "if you are inside instead", and the `why` landed as
+      a coach note on each session. No app code changed, so no `CACHE_NAME` bump.
 
 ---
 

@@ -50,11 +50,14 @@ own credentials and token store, so calling the wrong one silently reads the wro
   count has to match the blocks actually prescribed. When the session is run as a Garmin structured
   workout the laps are AUTOMATIC, and pressing Lap by hand splits a step and corrupts the read - say
   so, and give the freestyle drill as the alternative rather than the default.
-- **`setup` has two halves now that outdoors is the default.** First the GARMIN WORKOUT - Connect ->
-  Training & Planning -> Workouts -> Create a Workout -> Run or Walk, written as a step / type /
-  duration / target table, then Send to Watch, then how to start it on the day. Then the TREADMILL
-  FALLBACK for a morning too cold, wet or dark. The workout is what holds the structure outdoors,
-  the same way the belt program does inside.
+- **`garmin` and `setup` are two separate fields, and you write BOTH.** `garmin` is THE WATCH
+  WORKOUT and the one they actually use, so it comes first on the phone: Connect -> Training &
+  Planning -> Workouts -> Create a Workout -> Run or Walk, written as a step / type / duration /
+  target table, then Send to Watch, then how to start it on the day. `setup` is the TREADMILL
+  FALLBACK for a morning too cold, wet or dark, as numbered time-and-speed blocks. The workout is
+  what holds the structure outdoors, the same way the belt program does inside. They were one
+  `setup` note until 7 Sep 2026 and are now split on every run session, so that correcting a
+  heart-rate band never means re-sending the belt program - do not fold them back together.
 - **Heart rate lags 45-60s behind effort**, so a HR target on a short rep tells them to speed up when
   they are already right. Warn about it whenever you set one, or the threshold session becomes a 5k.
 - **The treadmills take TIME and SPEED only, in 5s steps, and hold 20 stages.** A session written
