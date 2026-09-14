@@ -1130,9 +1130,22 @@ def resolve_suggestion(sid):
     return {"ok": True, "id": sid}
 
 def get_progress(data, person, exercise):
-    """Top set per session over time. Scored through _set_load, so a bodyweight or
-    assisted movement trends by what it actually loaded rather than by the number
-    typed - otherwise an assisted pull-up appears to go backwards as it improves."""
+    """Top set per session over time, with the RPE that produced it where they gave
+    one. Scored through _set_load, so a bodyweight or assisted movement trends by
+    what it actually loaded rather than by the number typed - otherwise an assisted
+    pull-up appears to go backwards as it improves.
+
+    **Read `rpe` alongside `top`, not after it.** The weight alone cannot tell you
+    whether to add load: the same number can mean opposite things. Daniel's squat
+    went 80kg at RPE 9 to 100kg at RPE 7 - more weight for less effort, which is the
+    clearest possible case for adding more. Cerys's Russian twists sat at 3kg across
+    four sessions while the RPE fell 8 to 6, which says the load stopped being a
+    stimulus rather than that she stalled. Same weight at a rising RPE means the
+    opposite again, and is the one pattern worth acting on quickly.
+
+    They do not rate every exercise - only 26 of 59 sessions carry any RPE - so a
+    point with no `rpe` key means it was not given, never that it was easy.
+    """
     pts = []
     for l in _person_logs(data, person):
         for e in l.get("entries", []):
@@ -1147,7 +1160,17 @@ def get_progress(data, person, exercise):
                 if v is not None:
                     vals.append(v)
             if vals:
-                pts.append({"date": l.get("date"), "top": round(max(vals), 1)})
+                pt = {"date": l.get("date"), "top": round(max(vals), 1)}
+                # Per-exercise, as the app collects it: one rating for the card, not
+                # per set. Omitted entirely when absent, so "no rpe" cannot be
+                # misread as a low one.
+                rpe = e.get("rpe")
+                if rpe not in (None, "", []):
+                    try:
+                        pt["rpe"] = float(rpe) if isinstance(rpe, str) else rpe
+                    except (TypeError, ValueError):
+                        pt["rpe"] = rpe
+                pts.append(pt)
     pts.sort(key=lambda p: p["date"])
     return pts
 

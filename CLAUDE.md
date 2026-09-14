@@ -42,6 +42,15 @@ feature proposals/specs.
   breaks:** start the thing as one person, switch, act as the other, switch back, and check the
   first person's is untouched. Daniel stated this as a standard on 14 Sep - it applies to features
   not yet built, not just the ones that have already been caught.
+- **An edit to `mcp-*/server.py` does NOT reach the running server.** Those processes load the file
+  once at startup and hold it, so after changing one the *tool* still runs the old code - and it
+  reports success while doing the old thing, which is the dangerous part. This has bitten twice:
+  `garmin_refresh_metrics` wrote the pre-fix rep data back over the corrected store (7 Sep), and a
+  coaching chat read an empty history and wrote its notes into the old location (14 Sep). **Never
+  conclude a server-side fix worked from the tool's own output** - verify by reading the store from
+  a fresh process (`scratchpad/run_refresh.py` is the pattern: import the server module, call the
+  same function, diff the result). Claude Code has to be restarted before any MCP change takes
+  effect, and until it is, say so rather than letting a chat act on stale output.
 - **Theme everything.** New surfaces must read in light AND dark. Use the CSS variables
   (`--bg/--card/--card-2/--input-bg/--ink/--muted/--line/--brand/--brand-soft/--musc-*`); don't
   hardcode light hex values, and remember SVG `fill` presentation attributes don't accept `var()`
