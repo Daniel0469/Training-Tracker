@@ -1,0 +1,84 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Icon options</title>
+<style>
+  body{font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:22px;background:#f6f7f9;color:#1c2330}
+  h1{font-size:17px;margin:0 0 4px}
+  p.sub{margin:0 0 20px;color:#697086}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .opt{background:#fff;border:1px solid #e4e7ee;border-radius:13px;padding:14px;text-align:center}
+  .name{font-weight:700;margin:0 0 2px}
+  .desc{color:#697086;font-size:12px;margin:0 0 12px;min-height:46px}
+  .row{display:flex;gap:12px;align-items:flex-end;justify-content:center;margin-bottom:10px}
+  .row.dark{background:#12151c;border-radius:10px;padding:10px 6px}
+  .cap{font-size:10px;color:#9aa3b2;margin-top:4px}
+  svg{display:block}
+  .big{width:96px;height:96px;border-radius:21px;overflow:hidden}
+  .mid{width:48px;height:48px;border-radius:11px;overflow:hidden}
+  .sml{width:28px;height:28px;border-radius:6px;overflow:hidden}
+  .mask{width:60px;height:60px;border-radius:50%;overflow:hidden}
+</style>
+<h1>PWA icon options &mdash; Training Tracker</h1>
+<p class="sub">Brand navy #1e3a8a, Cerys purple #7a1fe0. Shown at 96px, 48px and 28px (the size it
+actually is in a home-screen folder), then circular-masked as Android crops it.</p>
+<div class="grid" id="grid"></div>
+<script>
+const NAVY="#1e3a8a", NAVY_D="#16306e", PURPLE="#7a1fe0", PURPLE_L="#b57cff", WHITE="#ffffff";
+
+// Every icon is drawn in a 512 box. Content stays inside the middle ~80% so the
+// maskable crop cannot cut it.
+const OPTIONS = [
+  { name:"A · Dumbbell",
+    desc:"The obvious one. Reads instantly as a training app at any size.",
+    svg:`<rect width="512" height="512" fill="${NAVY}"/>
+      <g fill="${WHITE}">
+        <rect x="118" y="196" width="52" height="120" rx="18"/>
+        <rect x="342" y="196" width="52" height="120" rx="18"/>
+        <rect x="80"  y="222" width="40" height="68"  rx="15"/>
+        <rect x="392" y="222" width="40" height="68"  rx="15"/>
+        <rect x="160" y="236" width="192" height="40" rx="14"/>
+      </g>`},
+
+  { name:"B · Two bars",
+    desc:"Two people, one app — navy and purple, the colours already used for Daniel and Cerys.",
+    svg:`<rect width="512" height="512" fill="${NAVY_D}"/>
+      <rect x="140" y="118" width="86" height="276" rx="43" fill="${WHITE}"/>
+      <rect x="286" y="118" width="86" height="276" rx="43" fill="${PURPLE_L}"/>`},
+
+  { name:"C · Rising bars",
+    desc:"Progressive overload as a shape. Last bar purple so it is not just a chart icon.",
+    svg:`<rect width="512" height="512" fill="${NAVY}"/>
+      <g>
+        <rect x="112" y="300" width="64" height="104" rx="24" fill="${WHITE}" opacity=".55"/>
+        <rect x="200" y="244" width="64" height="160" rx="24" fill="${WHITE}" opacity=".75"/>
+        <rect x="288" y="180" width="64" height="224" rx="24" fill="${WHITE}"/>
+        <rect x="376" y="108" width="64" height="296" rx="24" fill="${PURPLE_L}"/>
+      </g>`},
+
+  { name:"D · Monogram",
+    desc:"Initials, with the bar of the second T carrying the purple. Most app-like, least literal.",
+    svg:`<rect width="512" height="512" fill="${NAVY}"/>
+      <g fill="${WHITE}">
+        <rect x="104" y="170" width="150" height="42" rx="16"/>
+        <rect x="158" y="170" width="42" height="180" rx="16"/>
+      </g>
+      <g fill="${PURPLE_L}">
+        <rect x="266" y="170" width="150" height="42" rx="16"/>
+        <rect x="320" y="170" width="42" height="180" rx="16"/>
+      </g>`},
+];
+
+function svg(o, cls){
+  return `<div class="${cls}"><svg viewBox="0 0 512 512" width="100%" height="100%"
+    xmlns="http://www.w3.org/2000/svg">${o.svg}</svg></div>`;
+}
+document.getElementById("grid").innerHTML = OPTIONS.map(o => `
+  <div class="opt">
+    <p class="name">${o.name}</p>
+    <p class="desc">${o.desc}</p>
+    <div class="row">${svg(o,"big")}${svg(o,"mid")}${svg(o,"sml")}</div>
+    <div class="cap">96 / 48 / 28 px</div>
+    <div class="row dark">${svg(o,"big")}${svg(o,"mask")}</div>
+    <div class="cap">on a dark home screen · circular crop</div>
+  </div>`).join("");
+</script>
