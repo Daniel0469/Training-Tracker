@@ -741,24 +741,29 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 // prescription. Deliberately NOT saved: it isn't a record of anything, it's a
 // glance between sets, so it lives in memory only and is gone on a reload. That
 // keeps it out of the drafts, out of the session, and out of sync entirely.
-let restStart = 0, restInterval = null;
-function startRest(){
-  restStart = Date.now();
-  const bar = document.getElementById("restBar");
-  if(bar) bar.hidden = false;
-  updateRestUI();
-  if(!restInterval) restInterval = setInterval(updateRestUI, 1000);
-}
-function stopRest(){
-  if(restInterval){ clearInterval(restInterval); restInterval = null; }
-  restStart = 0;
-  const bar = document.getElementById("restBar");
-  if(bar) bar.hidden = true;
-}
+// Keyed per person+session, exactly as formDrafts / sessionTimers / formExtras
+// are. Two people share one phone and swap the toggle between sets, so a single
+// global read Cerys your rest, still counting, the moment you handed her the
+// phone. Both rests now run at once and the bar shows whoever is selected -
+// hers is untouched while you're on yours, and yours is still right when you
+// come back. Start time is wall-clock, so a rest is correct however long the
+// phone spent showing the other person.
+let restStarts = {}, restInterval = null;
+function startRest(){ restStarts[draftKey()] = Date.now(); updateRestUI(); }
+function stopRest(){ delete restStarts[draftKey()]; updateRestUI(); }
+// Called from renderView, so every tab switch and every person switch lands the
+// bar on the right rest - or hides it - without each caller having to remember.
 function updateRestUI(){
-  const el = document.getElementById("restTime");
-  if(!el || !restStart){ stopRest(); return; }
-  el.textContent = fmtDuration((Date.now() - restStart) / 1000);
+  const bar = document.getElementById("restBar");
+  if(!bar) return;
+  const started = activeTab === "log" ? restStarts[draftKey()] : 0;
+  bar.hidden = !started;
+  if(!started){
+    if(restInterval){ clearInterval(restInterval); restInterval = null; }
+    return;
+  }
+  document.getElementById("restTime").textContent = fmtDuration((Date.now() - started) / 1000);
+  if(!restInterval) restInterval = setInterval(updateRestUI, 1000);
 }
 function resetTimer(){ delete sessionTimers[draftKey()]; saveDrafts(); updateTimerUI(); }
 // Auto-start on the first bit of data entered, but never fight a deliberate
@@ -1359,6 +1364,7 @@ function saveSession(){
   delete formDrafts[draftKey()];
   delete sessionTimers[draftKey()];
   delete formExtras[draftKey()];
+  delete restStarts[draftKey()];   // this person's session is over; the other's isn't
   saveDrafts();
   justSavedId=log.id;
   switchTab("history", true); // draft just cleared above — don't re-capture it
@@ -3559,6 +3565,7 @@ function renderHelp(){
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
      +p('<b>&#9201; Rest</b> is a second, separate stopwatch: tick a set\'s <b>done</b> box and it appears at the foot of the screen counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts <b>up</b> rather than down to a target, and it is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
+     +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
   h+=card('4 &middot; Cardio &amp; running',
@@ -4139,6 +4146,9 @@ function renderView(){
   else if(activeTab==="body"){ activeTab="progress"; progressPane="body"; renderProgress(); syncTabButtons(); }
   else if(activeTab==="edit") renderEdit();
   else if(activeTab==="help") renderHelp();
+  // Last, because the person toggle and every tab button come through here: the
+  // rest bar belongs to whoever is selected now, not whoever was a moment ago.
+  updateRestUI();
 }
 
 // Light up whichever bottom-bar button matches the active tab. Separate from
@@ -4157,7 +4167,6 @@ function syncTabButtons(){
 // draft has just been cleared on purpose.
 function switchTab(tab, skipCapture){
   if(!skipCapture) captureDraft();
-  if(tab!=="log") stopRest();   // it only means anything against the log form
   activeTab=tab;
   syncTabButtons();
   renderView();

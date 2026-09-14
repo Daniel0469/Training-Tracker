@@ -31,6 +31,17 @@ feature proposals/specs.
 - **Match the surrounding style.** Terse vanilla JS, no dependencies except Chart.js (CDN). Prefer
   reusing existing helpers (`esc`, `isLifting`, `isRunning`, `parseRange`, `bestWeightSoFar`,
   `fmtRow`, `relTime`, `addBodyweight`, `colIndex`, `updatePace`, …) over new abstractions.
+- **Two people, one phone. Every feature, no exceptions.** Daniel and Cerys train together off one
+  handset and swap the person toggle *between sets*, so any per-person state must be **keyed by
+  person** (`draftKey()` = person+session, the key `formDrafts` / `sessionTimers` / `formExtras`
+  already use) and any surface that shows it must re-read on the switch - `renderView()` runs on
+  every person change, so hang it there rather than asking each caller to remember. Both people's
+  state runs **at the same time**: switching away must never stop, reset or leak the other person's.
+  A plain module-level global is the trap - the rest stopwatch shipped as one on 7 Sep and showed
+  Cerys Daniel's rest, still counting, the moment he handed her the phone. **Verify it the way it
+  breaks:** start the thing as one person, switch, act as the other, switch back, and check the
+  first person's is untouched. Daniel stated this as a standard on 14 Sep - it applies to features
+  not yet built, not just the ones that have already been caught.
 - **Theme everything.** New surfaces must read in light AND dark. Use the CSS variables
   (`--bg/--card/--card-2/--input-bg/--ink/--muted/--line/--brand/--brand-soft/--musc-*`); don't
   hardcode light hex values, and remember SVG `fill` presentation attributes don't accept `var()`

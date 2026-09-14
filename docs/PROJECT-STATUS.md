@@ -128,6 +128,36 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-09-14 - the rest stopwatch is per person, and that became a stated standard.** Daniel: *"should
+be individual, usable when switching people - should be a standard that any feature can be used even
+when tracking two people on one phone."*
+- **The bug:** the stopwatch shipped on 7 Sep as a single module-level global (`restStart`). The
+  person toggle re-renders without touching it, so handing Cerys the phone mid-set showed her
+  **Daniel's rest, still counting**, and her first tick overwrote his. Now keyed by `draftKey()`
+  (person+session), the same key `formDrafts` / `sessionTimers` / `formExtras` already use. **Both
+  rests run at once** and the bar shows whoever is selected; start time is wall-clock, so a rest
+  stays correct however long the phone spent on the other person. Daniel chose **active person only,
+  no name** over labelling or showing both.
+- **`updateRestUI()` is called from `renderView()`**, which is what every tab button and the person
+  toggle go through - so the bar lands on the right rest without each caller remembering to ask.
+- **One behaviour change worth knowing:** leaving the Session tab used to *delete* the rest. It now
+  **hides it and keeps counting**, so checking History mid-rest and coming back no longer loses it.
+  It is still cleared by tapping it, unticking the set, and saving - and saving clears **only that
+  person's**, verified with both mid-rest.
+- **Verified the way it breaks**, not just that it renders: Daniel rests 0:03 → switch to Cerys (bar
+  hidden, she has none) → Cerys ticks, 0:01 → back to Daniel, **0:04**, his having counted right
+  through. Then tab away and back (0:17, kept), Daniel dismisses (his only), Cerys's survives at
+  0:14, her untick clears hers, and her save leaves his running. `tt-v127`.
+- **The audit that came with it:** every other module-level global was checked. `formDrafts`,
+  `sessionTimers` and `formExtras` are keyed per person; the session timer re-arms its tick per
+  person on every render (`renderLog`, `if(getTimer().running) ensureTimerTick()`); the rest are
+  view state that is *meant* to be shared (`activeTab`, `curSession`, `progressPane`, `timeSession`,
+  `flexTest`, `runMetric`) or Program-tab state, and the program is shared. **The stopwatch was the
+  only live violation.**
+- **Written into `CLAUDE.md` as a convention**, per Daniel's instruction that this is a standard and
+  not a one-off fix - including how to verify it (start as one person, switch, act as the other,
+  switch back, check the first is untouched).
+
 **2026-09-07 - backlog session: the run segmentation fixed against the real trace, and a rest
 stopwatch.** Three suggestions were open; one was discarded, two built.
 - **The speed-trace rep segmentation inverted a jog-recovery session** (`1787791173601`, coach-raised)
