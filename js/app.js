@@ -40,7 +40,10 @@ function load(){
       // (Daniel navy, Cerys purple) - no visual change from adding this feature.
       if(!Array.isArray(s.colors)) s.colors=["navy","purple"];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
-      if(!Array.isArray(s.coachingLog)) s.coachingLog=[];
+      // coachingLog deliberately NOT carried any more (14 Sep). It was 60% of the
+      // synced store and only the coach ever read it; it lives in its own file now.
+      // Dropped from any state that still has it, so the next push shrinks the store.
+      delete s.coachingLog;
       // Garmin heart-rate zones, keyed by person name like `coaching`. Written by
       // mcp-garmin (`--hrzones`), read-only in the app.
       if(!s.hrZones || typeof s.hrZones!=="object") s.hrZones={};
@@ -94,7 +97,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, coachingLog:[], suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -3023,7 +3026,7 @@ const importDlg=document.getElementById("importDlg");
 function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
-    coachingLog:state.coachingLog, suggestions:state.suggestions,
+    suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, program:state.program, logs:state.logs,
@@ -3101,8 +3104,10 @@ function mergeInData(data, adoptConfig, fromSync){
   if(data.racePredictions && typeof data.racePredictions==="object"){ if(!state.racePredictions) state.racePredictions={}; Object.keys(data.racePredictions).forEach(function(p){ state.racePredictions[p]=data.racePredictions[p]; }); }
   // Limiters: authored centrally like coaching, so incoming wins per person.
   if(data.limiters && typeof data.limiters==="object"){ if(!state.limiters) state.limiters={}; Object.keys(data.limiters).forEach(function(p){ state.limiters[p]=data.limiters[p]; }); }
-  // Coaching history: union by id (every past coach write, so improvement can be tracked).
-  if(Array.isArray(data.coachingLog)){ if(!Array.isArray(state.coachingLog)) state.coachingLog=[]; var cid={}; state.coachingLog.forEach(function(e){ cid[e.id]=true; }); data.coachingLog.forEach(function(e){ if(e&&e.id!=null&&!cid[e.id]){ state.coachingLog.push(e); cid[e.id]=true; } }); }
+  // Coaching history is deliberately NOT merged in. An older build still pushing
+  // its copy must not be able to put 367KB back into this phone and then back into
+  // the store on the next push - that is how the deleted-logs bug worked. The
+  // coach reads the history from its own file; nothing in the app needs it.
   // Improvement suggestions: union by id, and the further-along status wins from
   // either side — so resolving one in the coach/dev chat clears it on every device on
   // the next sync. (A plain union kept the local "open" copy and ignored the
@@ -3592,7 +3597,7 @@ function renderHelp(){
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Every past note is kept under <b>🧠 Coaching history</b> on Home, so you (and the coach) can see how the advice has changed and whether it worked. Tap <b>Sync now</b> to pull the latest coaching.')
+     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Your coach keeps its own record of everything it has told you before, so each week\'s advice builds on the last rather than starting fresh - but that record is the coach\'s working memory, not something to read on a phone, so it is kept out of the app and off your device entirely. What you see here is the advice that is <b>current</b>. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
      +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')
      +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. If the session it names gets <b>renamed or removed</b>, the card disappears rather than advertising a session you can no longer open. You can always pick another session from the list; it\'s a default, not a lock.')
@@ -4091,19 +4096,13 @@ function renderHome(){
             : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu'+(hasCoaching()?' so coaching can target them':'')+'.</div>')
     + '</div>';
 
-  // Coaching history — every past coach write, so improvement can be tracked over time.
-  const chist=(state.coachingLog||[]).filter(e=>e&&e.person===p).sort((a,b)=> (a.id<b.id?1:a.id>b.id?-1:0));
-  if(chist.length){
-    html+='<details class="card coach-hist"><summary class="sec-title">🧠 Coaching history · '+chist.length+'</summary>'
-      + chist.slice(0,15).map(e=>{
-          const parts=[];
-          if(e.overall) parts.push('<div><b>Overall:</b> '+esc(e.overall)+'</div>');
-          if(e.bySession) Object.keys(e.bySession).forEach(k=> parts.push('<div><b>'+esc(k)+':</b> '+esc(e.bySession[k])+'</div>'));
-          if(e.byExercise) Object.keys(e.byExercise).forEach(k=> parts.push('<div>'+esc(k)+' - '+esc(e.byExercise[k])+'</div>'));
-          return '<div class="hist-entry"><div class="ex-meta">'+esc(e.date||"")+'</div>'+(parts.join('')||'<div class="hint" style="margin:0">(no note)</div>')+'</div>';
-        }).join('')
-      + '</details>';
-  }
+  // The 🧠 Coaching history card lived here and was removed on 14 Sep (Daniel:
+  // "shouldn't be viewable - just for the coach to build on"). It is the coach's
+  // working memory, not a thing to read on a phone, and it had grown to 367KB of
+  // a 609KB store - 60% of everything both phones sync, every sync, for one
+  // collapsed card nobody opened. It now lives in its own file that only the
+  // coach reads and writes; see coachingLogPath in mcp-coach/server.py. The
+  // CURRENT notes (state.coaching) are untouched - those are the 🧠 Coach cards.
 
   document.getElementById("view").innerHTML=html;
 

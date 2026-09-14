@@ -90,9 +90,11 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   - a **per-session** focus note (keyed by session name),
   - an optional **overall/general** note,
   - a **per-exercise next-step** cue on each exercise.
-- Notes show as purple **🧠 Coach** cards on Home and the Log tab. Every write is appended to a
-  **🧠 Coaching history** (collapsible on Home, synced) so both you and the coach can see how advice
-  changed and whether the numbers improved.
+- Notes show as purple **🧠 Coach** cards on Home and the Log tab. What you see is the advice that is
+  **current**. Every write is also recorded in a coaching history the **coach** reads back, so each
+  week's advice builds on the last - but that history is the coach's working memory and is
+  deliberately **not shown in the app and not stored on the phones** (removed 14 Sep; it was 60% of
+  everything both phones synced). It lives in its own file in the sync repo.
 
 ### Program editor
 - Sessions are **collapsed by default** - one line each (name, day, exercise count) so the week fits

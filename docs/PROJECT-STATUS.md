@@ -128,6 +128,49 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-09-14 (later) - the coaching history left the store, and took 60% of it with it.** In-app
+suggestion `1788980056477` (Daniel, 9 Sep): *"coaching history shouldnt be viewable - just for the
+coach to build on - shouldnt take up space and storage/clutter."* All three complaints were right,
+and the measurement is the reason this was worth doing properly rather than just hiding a card:
+
+| | |
+|---|---|
+| `data.json` | **620 KB** |
+| `coachingLog` inside it | **370 KB - 60%** |
+| Everything else (logs, program, current notes, suggestions) | 250 KB |
+| Growth | ~24 entries/month |
+
+- **It is the coach's working memory, not a thing to read on a phone.** 214 distinct notes, only 12%
+  literal repeats - so the history is genuinely valuable, it was just in the wrong place, being
+  pushed and pulled by both phones on every sync for one collapsed card on Home.
+- **Now in its own `coaching-log.json`** in the sync repo (`TT_GITHUB_LOG_PATH`, defaults to a
+  sibling of `data.json`). New `_log_read_with_sha` / `_log_append` in `mcp-coach`, with the same
+  retry-on-409 as `_github_update`. **The append happens AFTER the `data.json` write, never inside
+  its `mutate`** - that mutate is re-run on a conflict, which would have appended twice; `_log_append`
+  also skips an id it already holds, so a retry can't duplicate either.
+- **`get_coaching_history` unions the file with `data.json`.** The fallback is not belt-and-braces:
+  a phone older than tt-v128 still carries `coachingLog` and pushes it back on its next sync, so
+  without the union those writes would go missing from the coach's view.
+- **App side, `tt-v128`:** card gone from Home, `coachingLog` deleted from state on load, dropped
+  from `exportPayload()` and **not merged back in** - an older build pushing its copy must not be
+  able to put 370 KB back on this phone and then back into the store, which is exactly how the
+  deleted-logs bug worked. Guide and `CAPABILITIES.md` rewritten to say the history exists, is the
+  coach's, and is deliberately not on the phone. Measured in the browser against a copy of the
+  store: local state **545.8 KB → 203.2 KB**, push payload the same.
+- **The verification earned itself.** `.coach-hist` looked dead once the card went, and removing its
+  two CSS rules broke Settings' *"What's not set up yet"* panel, which **borrows the class** for its
+  collapsible styling - `cursor` went from `pointer` to `auto`. Caught by checking the computed
+  style in the browser, not by reading the diff. The rules are back with a comment saying who
+  actually uses them. (`.hist-entry` is likewise still used by History - neither is dead code.)
+- **Migration: `scratchpad/apply_coachinglog_move.py`**, idempotent, dry-run by default. Backs
+  `data.json` up, writes the history file, **verifies every entry arrived by id**, and only then
+  removes the key. Re-runnable, which matters because an old phone will push some back.
+- **Closed a standing backlog item with a finding, not a fix:** *"bodyweight entries look
+  carried-forward"*. They are not - `addBodyweight` writes exactly what it is given and the CSV
+  import has no fill logic, so the eleven identical 77.2 kg readings came from the scale export
+  itself. The real issue is different and worth more: **no weigh-in since 12 August**, and Cerys
+  still has exactly one reading ever, which is what stops her pull-up scoring.
+
 **2026-09-14 - the rest stopwatch is per person, and that became a stated standard.** Daniel: *"should
 be individual, usable when switching people - should be a standard that any feature can be used even
 when tracking two people on one phone."*
@@ -919,9 +962,10 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   shown as purple 🧠 Coach cards on Home + Log: a **per-session** focus note (`by_session`, keyed by
   session name), an optional general `overall`, and a **per-exercise next-step** cue (`by_exercise`)
   on each exercise. (Replaced the old auto-generated per-exercise plan.) Every write is also appended
-  to a **coaching history** (`coachingLog`, synced): the app shows it as a collapsible **🧠 Coaching
-  history** on Home, and the coach reads it back via the **`coaching_history(person)`** tool to track
-  whether past advice was followed and the numbers improved. Coaching-chat starter prompt:
+  to a **coaching history**, which the coach reads back via the **`coaching_history(person)`** tool to
+  track whether past advice was followed and the numbers improved. **It is no longer in `data.json`
+  and no longer shown in the app** - see the 14 Sep entry; it lives in `coaching-log.json` in the
+  sync repo and the phones never carry it. Coaching-chat starter prompt:
   `docs/prompts/coaching.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
 
 ## File / architecture map

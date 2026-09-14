@@ -286,6 +286,11 @@
   .pchange-why{color:var(--muted);margin-top:3px;white-space:pre-wrap}
   .pchange-danger{border-color:var(--bad)}
   .pchange-danger .pchange-what{color:var(--bad)}
+  /* .coach-hist outlived the Coaching history card it was named for (removed 14
+     Sep). Settings' "What's not set up yet" panel in index.html borrows the class
+     for its collapsible styling, so these rules are load-bearing - the name is now
+     the only misleading thing about them. .hist-entry below is likewise still used
+     by the History tab's session list. Neither is dead; don't tidy them away. */
   .coach-hist summary{cursor:pointer}
   .coach-hist[open] summary{margin-bottom:6px}
   .hist-entry{font-size:13px;border-top:1px solid var(--line);padding:8px 0}

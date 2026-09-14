@@ -64,6 +64,63 @@ def _github_cfg():
                            "(token needs Contents: read AND write).")
     return repo, token, path
 
+# The coaching history lives in its OWN file, not in data.json. It is the coach's
+# working memory - what it has already said, so each week builds on the last - and
+# nothing in the app reads it. Kept in the store it had grown to 367KB of a 609KB
+# file, 60% of everything both phones push and pull on every sync, for a collapsed
+# card that was removed on 14 Sep. Same repo, same token, one file along.
+def _log_cfg():
+    repo, token, path = _github_cfg()
+    log = os.environ.get("TT_GITHUB_LOG_PATH")
+    if not log:
+        base = path.rsplit("/", 1)
+        log = (base[0] + "/coaching-log.json") if len(base) > 1 else "coaching-log.json"
+    return repo, token, log
+
+def _log_read_with_sha():
+    """The history file as (entries, sha, url, token). A missing file is not an
+    error - it is what the first write looks like - and comes back as ([], None)."""
+    repo, token, path = _log_cfg()
+    url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "tt-coach"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            j = json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return [], None, url, token
+        raise
+    entries = json.loads(base64.b64decode(j["content"]))
+    return (entries if isinstance(entries, list) else []), j["sha"], url, token
+
+def _log_append(rec, message, attempts=3):
+    """Append one entry to the history file, retrying on a race like _github_update.
+
+    Deliberately called AFTER the data.json write has succeeded, never inside its
+    `mutate`: that mutate is re-run on a 409, which would append the same entry
+    twice. The history is also the less important of the two - if this fails, the
+    coaching the athlete reads still landed."""
+    for attempt in range(attempts):
+        entries, sha, url, token = _log_read_with_sha()
+        if any(e.get("id") == rec.get("id") for e in entries if isinstance(e, dict)):
+            return True                       # already there, from an earlier attempt
+        entries.append(rec)
+        body = {"message": message,
+                "content": base64.b64encode(json.dumps(entries, indent=1).encode("utf-8")).decode("ascii")}
+        if sha:
+            body["sha"] = sha
+        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="PUT", headers={
+            "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "tt-coach"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                json.load(r)
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code not in (409, 412, 422) or attempt == attempts - 1:
+                raise
+    return False
+
 def _github_read_with_sha():
     repo, token, path = _github_cfg()
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
@@ -144,10 +201,8 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         entry["updated"] = _today()
         coaching[person] = entry
         data["coaching"] = coaching
-        # Append this write to the coaching history so progress can be tracked over time.
-        hist = data.get("coachingLog")
-        if not isinstance(hist, list):
-            hist = []
+        # Record this write in the coaching history - see _log_append for why it is
+        # staged here and written after, rather than inside this mutate.
         rec = {"id": int(time.time() * 1000), "date": _today(), "person": person}
         if overall: rec["overall"] = overall
         if by_session: rec["bySession"] = dict(by_session)
@@ -155,10 +210,12 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         if five_k: rec["fiveK"] = dict(five_k)
         if next_cardio: rec["nextCardio"] = dict(next_cardio)
         if len(rec) > 3:                  # something beyond id/date/person was written
-            hist.append(rec)
-            data["coachingLog"] = hist
+            pending["rec"] = rec
         return True
+    pending = {}
     _github_update(mutate, f"Coaching update for {person}")
+    if pending.get("rec"):
+        _log_append(pending["rec"], f"Coaching history: {person}")
     return {"ok": True, "person": person,
             "message": f"Saved. {person} will see it in the app after tapping Sync now."}
 
@@ -545,19 +602,18 @@ def set_run(person, exercises=None, why="", name=None, day=None,
             entry["updated"] = _today()
             coaching[person] = entry
             data["coaching"] = coaching
-            hist = data.get("coachingLog")
-            if not isinstance(hist, list):
-                hist = []
-            hist.append({"id": int(time.time() * 1000), "date": _today(),
-                         "person": person, "bySession": {s.get("name"): note}})
-            data["coachingLog"] = hist
+            pending["rec"] = {"id": int(time.time() * 1000), "date": _today(),
+                              "person": person, "bySession": {s.get("name"): note}}
 
         return {"person": person, "session": s.get("name"), "changed": changed,
                 "previous": previous, "exercises": s.get("exercises")}
 
+    pending = {}
     result = _github_update(mutate, lambda r: f"Run session for {r['person']}: {r['session']}")
     if result is None:
         return {"ok": False, **failed}
+    if pending.get("rec"):
+        _log_append(pending["rec"], f"Coaching history: {person}")
     result["ok"] = True
     result["message"] = (
         f"Saved. Only {person} sees this session; it reaches their phone on the next "
@@ -638,7 +694,23 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
     return result
 
 def get_coaching_history(data, person, limit=10):
-    log = [e for e in (data.get("coachingLog") or []) if e.get("person") == person]
+    """Past coaching writes, newest first, from the history file.
+
+    `data` is still read as a FALLBACK and unioned by id. Two reasons it earns its
+    keep: a phone on a build older than tt-v128 still carries `coachingLog` and will
+    push it back into data.json on its next sync, and the migration that moved the
+    history out is a one-off that could be run against a store someone had written
+    to in the meantime. Either way the entry is found rather than silently missing.
+    """
+    try:
+        entries, _sha, _url, _tok = _log_read_with_sha()
+    except Exception:
+        entries = []                       # no token, no network - fall back below
+    seen = {e.get("id") for e in entries if isinstance(e, dict)}
+    for e in (data.get("coachingLog") or []):
+        if isinstance(e, dict) and e.get("id") not in seen:
+            entries.append(e)
+    log = [e for e in entries if e.get("person") == person]
     log.sort(key=lambda e: e.get("id", 0), reverse=True)
     return log[:limit]
 
