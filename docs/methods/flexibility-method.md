@@ -165,12 +165,51 @@ today rather than as something that builds flexibility.
   share adductors, the calf group and the pelvic tilt, so they stack better than a lower/upper
   split would - at the cost of leaving Cerys's pull-up goal for the following block.
 
-**Open:**
+**Settled 2026-09-07, when both of them logged the assessment.** Every item that was open here is
+now closed, and the numbers are what closed them. Sections 1-7 are unchanged.
 
-- **Which skill leads**, and **which day the session gets** - both waiting on the uni timetable and
-  on the two of them actually doing the assessment.
-- **No mobility *training* session exists yet** - only the assessment. The 3-5 stacked exercises get
-  built from real numbers, not guessed in advance. That is the whole point of the ladder.
+- **The assessment was run.** Nine tests, fourteen measurements, both people, same evening. It is
+  now a RE-TEST rather than a weekly session: every 6 to 8 weeks, in place of the training session.
+- **Two mobility TRAINING sessions exist**, `Mobility: Daniel` and `Mobility: Cerys`, five exercises
+  each, ordered isolated-to-compound with assisted and resisted alternating. **One each rather than
+  one shared**, because their lowest rungs turned out to be different things - see below. This
+  matches how the run sessions are already scoped.
+- **The day is Wednesday**, for both. Two days clear of Lower A on Monday and two days before
+  Lower B on Friday, which is section 6's best-ranked slot rather than its worst.
+- **Which skill leads, per person:**
+  - **Daniel: pike + deep squat**, as originally chosen, and the assessment vindicated the pairing.
+    Both of his skills turned out to be stopped by the *same* rung, so one list genuinely serves
+    both.
+  - **Cerys: side split + deep squat.** Changed from pike. "Splits" is already on her goal list,
+    her pancake is her lowest rung and it is the side-split rung, and the pancake work is identical
+    either way - so the switch costs nothing and serves a goal she wrote down herself.
+
+**What the numbers actually said, because it is the method working exactly as advertised:**
+
+- **Daniel is hip-stopped.** Deep squat depth measured 37cm flat and 37cm on a 5cm wedge -
+  *identical* - so his ankles are not the hard stop, whatever his 7cm right knee-to-wall suggests
+  on its own. Pancake 42cm and Tailor's pose 35/29cm are. His passive-to-active straight-leg raise
+  gap is only about 10 degrees, so he needs **total range**, not strength into range.
+- **Cerys is ankle-stopped on the squat, and her fold is not a hamstring problem at all.** Passive
+  raise just under 90 degrees, active 85 - a 5 degree gap, near-normal range and near-full control -
+  and *still* 23cm off the floor standing. That only resolves one way: the pelvis will not tilt,
+  which her 50cm pancake confirms. On the squat, a 5cm wedge bought her 7cm of depth, so the ankle
+  is the hard stop there. **She would have stretched hamstrings by instinct and raised a rung that
+  was never her lowest.** This single result is the best argument for the assess-first method that
+  the program has produced.
+- **Both have a left/right asymmetry worth programming around**, in opposite directions: Daniel's
+  right ankle is 3cm worse than his left, Cerys's left is 3.5cm worse than her right and it is the
+  same side as her clicking hip.
+
+**Still open:**
+
+- **Daniel's 24cm supine overhead reach** is the loudest single restriction on either board and it
+  sits outside his chosen pair. It is what the rack-position pinch on back squats is, and it will
+  cap a shoulder press before strength does. Flagged on the test rather than programmed, because
+  section 6 says one or two skills at a time and he has two. It is the obvious candidate for the
+  block after this one.
+- **Cerys's pull-up goal** still waits on a later block, as this section originally noted - though
+  her 5cm overhead reach says shoulder flexion is not what is limiting it.
 
 ---
 
@@ -269,11 +308,19 @@ describes** if it sits the day after a lower-body session. Where it goes depends
 and on the uni timetable, which is why section 8 lists it as open. **It is a scheduling decision with
 a right answer, not a preference.**
 
-### What still cannot be written yet
+### Written 2026-09-07
 
-The exercises. They come from the assessment, because the whole method is that you train your lowest
-rung and nobody knows yet what either of theirs is. Guessing would produce a generic routine, which
-is the exact failure mode section 1 exists to prevent.
+The exercises now exist, built from the assessment exactly as this section required. See section 8
+for what the numbers said and why the two lists differ. The shape held: five exercises each,
+isolated-to-compound, assisted alternating with resisted, isometric holds for reps rather than long
+holds, one Wednesday session a week.
+
+The part worth carrying into the next block is what got left OUT of each list, because that is the
+method's actual discipline. Daniel's has no ankle work, despite a genuinely restricted right ankle,
+because his wedge test proved the ankle is not his lowest rung. Cerys's has no hamstring work at
+all, despite a 23cm standing fold, for the same reason. Raising anything above the lowest rung
+changes nothing, and both omissions will look like oversights to whoever reads the sessions next
+unless the reasoning travels with them.
 
 ## 11. What Hyrox actually demands, mobility-wise
 
@@ -300,9 +347,11 @@ already assess.
    rather than Hyrox reasons and it happens to be right for both.
 3. **Hip extension is not currently assessed.** It appears in two rows above - sled push and running
    stride - and neither the pike nor the deep-squat cluster tests it. **Adding a hip-extension
-   measure is the one gap in the assessment that this research pass found.** It is not urgent, since
-   there is no race date, and it is a program change rather than a coaching note - so it goes through
-   `propose_suggestion_tool` if it is wanted.
+   measure is the one gap in the assessment that this research pass found.** Daniel approved it on
+   2026-09-07 and a **modified Thomas test** was raised as a pending program change, placed after
+   Tailor's pose: lie back on the end of a bench, hug one knee in to flatten the lower back, and
+   measure the hanging thigh above the bench, left leg then right. Lower is better. It only gets run
+   on re-test days.
 
 **What this does not change:** nothing in section 6 or in `coaching-method.md` Part 3. Flexibility
 work is still training rather than recovery, it still does not go back into a cool-down because a

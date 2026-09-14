@@ -62,5 +62,6 @@ only docs read by a chat that has no other context.
 - **Key docs:** [PROJECT-STATUS.md](PROJECT-STATUS.md) (handoff), [methods/](methods/) - all the
   training reasoning, indexed by [methods/coaching-method.md](methods/coaching-method.md) -
   [term-routine.md](term-routine.md) (the current week),
+  [uni-timetable.md](uni-timetable.md) (Daniel's semester 1 classes, and what they free up),
   [github-sync-setup.md](github-sync-setup.md), [running-import.md](running-import.md),
   `mcp-coach/README.md`.

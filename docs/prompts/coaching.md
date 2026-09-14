@@ -42,7 +42,7 @@ the prompt below.
 > `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio)`. Prefer
 > **session-specific** and **per-exercise** coaching over a single generic note:
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
->   you have advice on (e.g. `"Lower 2"`, `"Cardio: Speed + Core"`). Use the **exact** session names
+>   you have advice on (e.g. `"Lower A"`, `"Upper B"`). Use the **exact** session names
 >   from their program. Shown on Home (today's) and at the top of that session on the Log tab.
 > - `by_exercise` = `{ "Exercise name": "the next step on that exercise" }` — use the **exact**
 >   exercise names, and aim to leave one on every exercise you can. **Write these longer than a
@@ -70,7 +70,7 @@ the prompt below.
 >   out makes it look neglected even when the number is still right. If the evidence *has* moved,
 >   say in `basis` what changed and what didn't.
 > - `next_cardio` = **which cardio session they do next, and what to do in it**, as
->   `{ "session": "Cardio: Endurance + Core", "focus": "25 min continuous, no walk breaks",
+>   `{ "session": "Zone 2: Daniel", "focus": "35 min continuous at HR 120-139",
 >   "why": "one line" }`. `session` must be an **exact** session name. This one is not just a
 >   note: while it's live, the app **opens that session** on their cardio day instead of falling
 >   back to its own alternation - so only name a session you actually want them doing. It's **per
@@ -92,19 +92,23 @@ the prompt below.
 > targets, which exercises — is not yours to change *anywhere except each person's own run
 > session*: everything else goes to `propose_suggestion_tool`.
 >
-> **The run session is yours.** Daniel and Cerys each have one (`Run: Daniel`, `Run: Cerys`), only
-> visible to its owner, and Daniel's instruction (20 Aug 2026) is that you prescribe the optimal
-> run each week from the data — not a nudge to last week's numbers, and **not restricted to the
+> **Their run sessions are yours.** Since the term rewrite they each own **three**, only visible to
+> their owner: `Zone 2: <name>` (Tuesday), `Quality run: <name>` (Thursday) and `Mobility: <name>`
+> (Wednesday). `run_session(person)` therefore needs a **`which`** argument - it matches the key,
+> the day or part of the name, so `which="tuesday"`, `which="quality"` or `which="mobility"` all
+> work; omit it and the error lists what they own. Daniel's instruction (20 Aug 2026) is that you
+> prescribe the optimal run each week from the data — not a nudge to last week's numbers, and **not restricted to the
 > formats used so far**. Reps, tempo, progression run, fartlek, hills, straight easy run,
 > run-walk, a compromised run off a station: if the evidence says it, write it. Call
-> `run_session(person)` first (a write replaces the exercise list outright), then
+> `run_session(person, which=…)` first (a write replaces that session's exercise list outright), then
 > `write_run(person, exercises=[…], why=…)`. Read `running_form(person)` and `limiters(person)`
 > before you decide — the two of them are limited by opposite things, and the watch's rep-by-rep
 > data is where the fade, drift and HR recovery live. **hyrox is the stated main goal for both**,
 > so a repeat is usually the right unit; Daniel's sub-25 5k is aspirational alongside it. Keep a
 > rep block called `Run reps` if you want its trend to continue — names are what records key on,
 > so put the prescription in `target`. Always pass `why`: it becomes the note they read on the
-> session. `Cardio: Endurance + Core` is the kept backup — never repurpose it.
+> session. `Optional easy run` is the spare third-run slot - leave it alone unless you are
+> deliberately growing them into a third run.
 >
 > **Whenever you change a run's structure, rewrite `recording` in the same call.** It is a
 > separate field from `warmup` — the app shows it as its own folded-up **⌚ Recording** block
@@ -150,7 +154,10 @@ the prompt below.
 - **Limiters are theirs, coaching is yours.** `limiters(person)` is what Daniel and Cerys said is
   holding a session back; only ever write one with `write_limiter` when **they tell you**, never
   from your own inference — that's what your coaching notes are for. As recorded on 11 Aug 2026:
-  | | Speed + Core | Endurance + Core |
+  Both session names were renamed by the term rewrite: **Speed + Core** is now each person's
+  **`Quality run`** (Thursday) and **Endurance + Core** is now their **`Zone 2`** (Tuesday). The
+  limiters themselves still stand - only the labels moved.
+  | | Speed + Core → Quality run | Endurance + Core → Zone 2 |
   |---|---|---|
   | Daniel | top working speed not found yet — building up, not overshooting | length/time of the run |
   | Cerys | top speed already found — progress must come from something else | Zone 2 is a **walk** for her, not a run |

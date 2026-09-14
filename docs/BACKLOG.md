@@ -122,16 +122,19 @@ Produced `methods/strength-method.md`, `methods/week-method.md`, `methods/testin
       loading rate ~15.6%; each extra step per minute is associated with ~5% lower bone stress injury
       risk. On a fixed treadmill speed it is mechanically trivial to implement and to measure. Best
       evidence-to-effort ratio in the whole research pass.
-- [ ] **Add a hip-extension measure to the Mobility assessment.** The one gap the pass found: hip
-      extension governs both the sled push and running stride length, and neither the pike nor the
-      deep-squat cluster tests it. `methods/flexibility-method.md` section 11.
+- [x] **Add a hip-extension measure to the Mobility assessment.** DONE 2026-09-07. Daniel approved
+      it and a **modified Thomas test** was raised as a pending program change, placed after Tailor's
+      pose, two rows (left leg, right leg), lower is better. Run on re-test days only.
+      `methods/flexibility-method.md` section 11.
 - [ ] **Add eccentrics to Cerys's pull-up work.** Her strongest trend (47.8 kg effective, rising),
       her only stated strength goal, needs neither shins nor hips, and transfers to the Hyrox sled
       pull. `methods/female-athlete-method.md` Part 4.
-- [ ] **Where the flexibility session goes.** Already open in `methods/flexibility-method.md` section 8, but
-      the research sharpens it: it must **not** land the day after a Lower day, which is the slot it
-      would naturally fall into and the worst-ranked option in the method. A scheduling decision with
-      a right answer, not a preference.
+- [x] **Where the flexibility session goes.** SETTLED 2026-09-07: **Wednesday**, for both of them.
+      Two days clear of Lower A on Monday and two days before Lower B on Friday, which is the
+      method's best-ranked slot rather than its worst. Two sessions were built off the assessment
+      numbers, `Mobility: Daniel` and `Mobility: Cerys` - one each rather than one shared, because
+      their lowest rungs turned out to be different things. `methods/flexibility-method.md` section 8
+      records the numbers and the reasoning.
 
 ### Data collection - no program change, but nothing else can be concluded without it
 

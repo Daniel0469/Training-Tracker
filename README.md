@@ -55,6 +55,8 @@ GitHub Pages.
     and frequency dose-response, every candidate split judged, the 05:00-start and two-a-day
     evidence, and a scenario matrix keyed on how many days are honestly available.
 - `docs/term-routine.md` - the current training week and why each session sits where it does.
+- `docs/uni-timetable.md` - the semester 1 timetable, decoded to real dates, and what it frees up
+  in the training week.
 - `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
 - `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
   only (see "Notes & decisions" below - not committed to git).
