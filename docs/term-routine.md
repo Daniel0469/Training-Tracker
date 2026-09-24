@@ -24,7 +24,7 @@ barbell numbers nothing over a block of this length.
 | | |
 |---|---|
 | **Uni** | *(stale)* Assumed 09:00-17:00 booked, all five weekdays. **Actual: Wed 09:00-11:00, Thu + Fri 14:00-16:00, Mon + Tue free** - `uni-timetable.md`. |
-| **Commute** | 2 hours round trip. Train at 07:50. Gym is 20-30 min from the station. |
+| **Commute** | 2 hours round trip. Train at 07:50 on Wednesday only. Gym is 20-30 min from the station, so a lecture day is **one trip**: train home, gym, home. |
 | **Morning slot** | *(stale)* Last rep ~06:55, to shower and drive, **40-45 min maximum** - sized by the 07:50 train. Only **Wednesday** still has that train. |
 | **Evening slot** | Home ~18:00, session runs to ~19:45, home ~20:15. **75-90 min.** |
 | **Weekend** | Saturday and Sunday shifts, from 7 September. |
@@ -33,14 +33,17 @@ barbell numbers nothing over a block of this length.
 
 ## The week
 
-| Day | Morning | Evening |
-|---|---|---|
-| **Mon** | yoga | **Lower A** - hack squat led, sled push+pull |
-| **Tue** | yoga + **easy run**, outdoors | **Upper A** - bench led, farmers carry |
-| **Wed** | yoga | **Mobility** - assessment wk 1, training after |
-| **Thu** | yoga + **quality run**, outdoors | **Upper B** - shoulder press led, ski/row |
-| **Fri** | yoga | **Lower B** - deadlift led, sandbag lunges |
-| **Sat/Sun** | yoga | Shifts. Optional third easy run. |
+**Days swapped 21 September 2026** - see "The lecture-day rule" below. The runs moved to the
+treadmill on 14 September, so the table says belt, not pavement.
+
+| Day | Morning | Evening | Uni |
+|---|---|---|---|
+| **Mon** | yoga + **quality run**, belt | **Upper A** - bench led, farmers carry | - |
+| **Tue** | yoga | **Lower A** - hack squat led, sled push+pull | - |
+| **Wed** | yoga | **Mobility** - assessment wk 1, training after | 09:00-11:00 |
+| **Thu** | yoga + **Zone 2 run**, belt | **Upper B** - shoulder press led, ski/row | 14:00-16:00 |
+| **Fri** | yoga | **Lower B** - deadlift led, sandbag lunges | 14:00-16:00 |
+| **Sat/Sun** | yoga | Shifts. Optional third easy run. | - |
 
 **Six sessions on four days**, plus Wednesday's mobility slot. Two days carry a morning run and an
 evening lift, twelve hours apart.
@@ -50,10 +53,22 @@ evening lift, twelve hours apart.
 - **Both runs pair with UPPER evenings.** Daniel's call on 6 September, and it is better than the
   Tue/Fri placement first proposed: it keeps every run away from a lower-body evening on the same
   day, and it leaves Friday as a single-session day before the Saturday shift.
-- **Thursday's quality run gets three days since Monday's squats.** A hard run on legs freshly
-  loaded is the one pairing that is expensive in both directions.
-- **Tuesday's easy run is 12 hours after Monday's squats.** Outside the window where lower-body
-  lifting hurts running economy, *for an easy run*. It would not be safe for the quality one.
+- **The lecture-day rule, 21 September: running before, lifting after.** Daniel's words. The gym is
+  near the station, so on a lecture day the evening lift happens on the way home from the train -
+  one trip - while a morning run means going to the gym and then straight on to uni, with no shower
+  at home in between. **So the lecture day takes the easy run and a free day takes the hard one.**
+  That is the whole reason the two runs swapped: *"zone 2 on a lecture day means I'm not very sweaty
+  before going to uni"*. Wednesday, the one 09:00 start, carries no morning session at all.
+- **Monday's quality run gets three days since Friday's squats.** A hard run on legs freshly loaded
+  is the one pairing that is expensive in both directions, so it gets the longest gap in the week -
+  and Monday has no class, no train and no clock, which suits the session that grows to six reps.
+- **Thursday's Zone 2 is two days after Tuesday's squats.** Well outside the window where
+  lower-body lifting hurts running economy, and it would not have mattered much anyway: the
+  12-hour version of this pairing was already judged safe *for an easy run*, and this is looser.
+- **The cost, stated honestly.** Zone 2 is the session climbing a nine-rung ladder to ~75 minutes,
+  and it now sits on a lecture day with a train to make, where it previously had no clock at all.
+  It still fits - Thursday's train is about 12:45 - but the notes on that session say there is no
+  train, and at the top of the ladder it is the longest session of the week on the busiest day.
 - **Runs in the morning, lifts in the evening.** Strength peaks in the evening; the spine is
   stiffest in the first hour after waking, which is a poor time to load a squat. *(The original
   reasoning here - that a 40-minute cap makes a complete easy run and a truncated lift, and that
@@ -144,10 +159,11 @@ progression**, which is what the optional third run exists to grow into.
   press as the rep program starts on Thursday) is all the hand-lapping there is. **"Calibrate &
   Save" with the belt's distance at the end of every indoor run** now matters permanently: the
   watch has no GPS to check itself against indoors and read about 6% high on 26 August.
-- **Tuesday is a Zone 2 session for both of them**, governed by a heart-rate target on the watch
+- **Thursday is a Zone 2 session for both of them** (Tuesday until the 21 September swap), governed
+  by a heart-rate target on the watch
   rather than by feel. Daniel's answer on 6 September, and it is what makes "easy" enforceable: the
   watch shows an arrow the moment you leave the band, so nobody has to police it mid-run.
-- **Tuesday, Daniel:** 30 min continuous at **HR 120-139**, on a written nine-rung ladder to the
+- **Thursday, Daniel:** 30 min continuous at **HR 120-139**, on a written nine-rung ladder to the
   8 km Phase 0 gate. Every run he logged in August finished in Zone 3 or above, so the HR ceiling is
   the point of the session. **Rewritten 14 September** once the timetable removed the morning cap:
   +5 min a week with a hold every fourth, switching from time to distance for the last two rungs
@@ -156,41 +172,62 @@ progression**, which is what the optional third run exists to grow into.
   destination, not just on the session. **A rung is earned, not scheduled:** the run must be unbroken
   with average HR under 140, or the same rung repeats. **All nine rungs, and the gate itself, will be
   run on the belt** - which suits this session, because a treadmill holds the easy pace that every
-  August run of his failed to.
-- **Thursday, Daniel:** ~16 min warm-up **including 4 x 30s strides**, 4 x 4:00 at **threshold
+  August run of his failed to. **Moved Tue -> Thu on 21 September**, and that is the one session the
+  swap costs something: it now sits on a lecture day with a ~12:45 train, where it previously had no
+  clock at all. The Garmin note carries the latest sensible start rung by rung - **11:00 at the
+  30-min rung, 10:30 once past 50 min** - worked back from the train with 20 min to shower and 10
+  min of slack. The standing instruction if it is tight is *take a later train, not a shorter run*:
+  a 40-min version of a 55-min rung is a repeat of an earlier rung, not that one. Week 0 (21-27 Sep)
+  has no classes, so the times start mattering from **Thu 1 October**.
+- **Monday, Daniel:** ~16 min warm-up **including 4 x 30s strides**, 4 x 4:00 at **threshold
   (HR 165-173)** / 2:00 easy, 10 min down. ~50 min total. **Revisited 14 September** when the cap
   lifted, and deliberately NOT returned to 5 x 6:00: that is 30 min at 165-173 against a longest-ever
   sustained effort of 13:44 at 153-162, and neither session has yet been run at all. **This session
   progresses by reps at a fixed 4:00** (4, then 5, then 6) before rep length is touched again;
-  Tuesday keeps the duration progression because it is the one attacking the gate. **Its job changed
+  **Thursday** keeps the duration progression because it is the one attacking the gate. **Its job changed
   with the move indoors:** the planned calibration was what his threshold costs when nothing chooses
   the pace, which a belt makes unanswerable. It is now a **speed-to-HR map** - run 11.0, and go to
   11.5 / hold / drop to 10.5 depending on where the heart rate lands. That suits his stated limiter
   (top working speed not found, approach in small steps) better than a road does. The self-paced
   read is deferred to spring, not dropped. Strides are 30s not 20s on a belt, done by hand before
   the program, because the belt spends 5-8s spinning up and as long coming down - which also keeps
-  the programmed table at 9 blocks so 6 reps still fits the 20-stage limit.
-- **Tuesday, Cerys: no running at all.** Her Zone 2 is a walk, not a run, by her own limiter, so this
-  is a 20-minute incline walk held at **HR 119-138**. It also keeps her off impact twelve hours after
-  Monday's sled push-pull, which is the one placement that would have cost a shin-limited runner.
+  the programmed table at 9 blocks so 6 reps still fits the 20-stage limit. **Moved Thu -> Mon on
+  21 September.** Gains three clear days since Friday's deadlifts, the freshest this session has ever
+  had; costs two weekend shifts immediately before it. On a belt the expected failure (rep 1 too
+  fast) is impossible because the speed is fixed, so what fatigue does instead is **inflate HR at a
+  fixed speed** - which would push the dial DOWN when 11.0 was right. Hence the rule now in the note:
+  **one reading never moves the dial, two agreeing readings do**, and the log asks whether he worked
+  the weekend and when Sunday finished. The map only needs to be internally consistent, and it will
+  be: every one of these sessions sits after two shifts, so it is a map of his Monday threshold,
+  which is the only day he runs it.
+- **Thursday, Cerys: no running at all.** Her Zone 2 is a walk, not a run, by her own limiter, so
+  this is a 20-minute incline walk held at **HR 119-138**. ~~It also keeps her off impact twelve hours
+  after Monday's sled push-pull.~~ **Moved Tue -> Thu on 21 September, and the spacing improved:** the
+  sled is now Tuesday evening, so this sits about **44 hours** after it rather than twelve. The walk
+  was never really justified by the sled anyway - her limiter is.
   **The move indoors is an upgrade for this session specifically.** Her limiter is that her top speed
   is already found and progress must come from something else; on this session that something else is
   the **gradient**, and a belt makes it an exact repeatable number where a hill never could. The
   progression rule is now written down: no buzz across the 20 min, add 1%; buzzed and eased, repeat
   the same gradient; three clean weeks at a gradient, and the 20:00 becomes 25:00.
-- **Thursday, Cerys:** 8 x 1:00 run / 2:00 walk at a fixed 10.0, **rep length pinned at a strict
+- **Monday, Cerys:** 8 x 1:00 run / 2:00 walk at a fixed 10.0, **rep length pinned at a strict
   minute** - the workout's clock enforces it. On 26 August she ran ten reps at 72-81 seconds, and rep
   length is the variable the MTSS sequence says to hold constant. ~~Volume is held flat because
   moving off the belt is itself a load increase: pavement absorbs about 71% less shock.~~ **That
   reason died on 14 September** when the runs moved indoors for the winter - she is not leaving the
   belt, so the surface step-up never arrives, and the 71% figure flips from a warning into an
   advantage: she builds tibial tolerance on the kindest surface available with no step-up waiting at
-  the end. **Eight still stands, for a different reason:** nineteen days without running, and a
-  strict 60s rep has never actually been executed - 8 strict minutes is *less* running than the
-  ~12.5 min she did on 26 August. **Ladder: 8 → 9 → 10 reps at a strict 1:00, then rep length.**
+  the end. **Eight still stands, for a different reason:** as of 21 September it is **twenty-six**
+  days without running (nothing logged at all since 9 Sep), and a strict 60s rep has never actually
+  been executed - 8 strict minutes is *less* running than the ~12.5 min she did on 26 August. **Ladder: 8 → 9 → 10 reps at a strict 1:00, then rep length.**
   Advance only on no shin pain during *or after* and no rep eased. Ten reps is the top of the belt
   table by design - at ten it is exactly 20 blocks, the machine's stage limit. Speed is not a
-  variable on this session, per her own limiter.
+  variable on this session, per her own limiter. **New pairing to watch, from the 21 September move:**
+  Tuesday evening's sled push now lands about **34 hours after** her run rather than three days
+  before it, so for the first time the sled loads shins that ran the day before. 34 hours is a fair
+  gap and a sled push is not impact, so nothing was changed - but it is unobserved, and her note asks
+  her to report how the shins feel walking into Tuesday. The log also now asks whether she worked the
+  weekend: a sore Monday after two standing shifts holds the rung rather than condemning the reps.
 
 ## Wednesday, and the yoga
 
@@ -245,6 +282,15 @@ you finished, and whether you made the train. The open questions the fortnight e
   Wednesday is now the one day with a commute - home about midday, afternoon clear. The 7 September
   baseline was taken on a **Monday evening**, so a Wednesday re-test already breaks the "same time"
   rule before the commute is even considered. Daniel's call.
+- **The four run sessions' notes still describe their old days.** The days moved on 21 September;
+  the content did not. `Zone 2: Daniel` says *"Tuesday has no class and no train now, so the session
+  is sized by the training rather than by a clock"* and its cool-down says *"there is no longer a
+  train to make"* - both false on Thursday. `Quality run: Daniel` reads as a Thursday session and
+  now sits on Monday. The coach's to rewrite.
+- **The coach's `next_cardio` assignment is two weeks old** and still says *"outdoors if you can"*,
+  which the 14 September treadmill decision reversed. It is also live, which is why Thursday opens
+  Zone 2 rather than Upper B while Monday opens Upper A - the assignment outranks the
+  least-recently-done alternation. The next coaching write clears it.
 - **Weekend shift times**, which decide whether the optional third run has a home.
 - **Gym layout**, which blocks supersets.
 - **Wednesday's training content**, which waits on the assessment numbers.

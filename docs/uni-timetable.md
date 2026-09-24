@@ -66,14 +66,26 @@ Three things the old assumption forced that the timetable does not:
 3. **The 75-90 minute evening ceiling** set by getting home at 18:00. Monday has no commute; Thursday
    and Friday get home nearer 17:00.
 
-What the timetable does **not** touch is which day each session sits on. That reasoning - both runs
-paired with upper-body evenings, the quality run three days clear of Monday's squats, the easy run
-twelve hours after them - is about spacing between sessions, not about uni. It stands unchanged.
+**It does touch which day each run sits on, though not in the way first assumed here.** The
+spacing reasoning - both runs paired with upper-body evenings, the quality run three days clear of
+squats, the easy run safe much closer to them - is about the gap between sessions and is unchanged.
+What uni adds is a *fourth* rule discovered on 21 September: a morning run on a lecture day ends at
+the station, not at home, so the lecture day has to take the easy run. That reordered the week
+without loosening any of the spacing rules. The four lifting sessions' relative spacing is
+preserved; see `term-routine.md`.
 
 ## Acting on it
 
-The clock changes belong to the coaching chat, not the dev chat: Tuesday's and Thursday's run
-sessions are the coach's own to rewrite. Nothing needs to move before **Wed 30 Sep**.
+**The clock changes were already made on 14 September**, before this file existed: the 40-45 minute
+cap is out of both of Daniel's run sessions, the Zone 2 ladder runs to a ~75-minute session at the
+8 km gate, and the quality run was re-decided on its merits and held at 4 x 4:00. Do not re-do that
+work - read the live sessions first.
+
+What the timetable re-opened instead is **which day each run sits on**, because on a lecture day a
+morning run ends at the station rather than at home. Daniel's rule is *running before, lifting
+after*, so the easy run takes the lecture day and the hard one takes a free day. **Decided and
+applied 21 September** - see `term-routine.md`. The run sessions' own notes still describe their
+old days and are the coach's to rewrite. Nothing else has to move before **Wed 30 Sep**.
 
 ## Caveats
 

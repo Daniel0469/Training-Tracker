@@ -8,6 +8,14 @@ the latest coaching tools (`write_coaching`, `coaching_history`, `propose_sugges
 added 17 Aug 2026 — `session_notes` / `write_session_notes`), then start a new chat and paste
 the prompt below.
 
+**It also runs on its own, every Friday at 20:30** (the desktop-app scheduled task `weekly-coach`,
+the same slot as the study plan; if the app is closed it runs on next launch). That run follows
+this prompt, but Daniel's rule (24 Sep 2026) limits it to `write_coaching` and
+`propose_suggestion_tool`. **Run changes (`write_run`), warm-up/cool-down changes, program changes
+and limiters happen only in a chat he is in**, so the Friday summary lists them under *Waiting for
+a chat*. When you open this chat, start with that list. Edits to this file reach the Friday run
+automatically, because it reads this file each time.
+
 ---
 
 ## Paste this to start a coaching session
@@ -155,8 +163,10 @@ the prompt below.
   holding a session back; only ever write one with `write_limiter` when **they tell you**, never
   from your own inference — that's what your coaching notes are for. As recorded on 11 Aug 2026:
   Both session names were renamed by the term rewrite: **Speed + Core** is now each person's
-  **`Quality run`** (Thursday) and **Endurance + Core** is now their **`Zone 2`** (Tuesday). The
-  limiters themselves still stand - only the labels moved.
+  **`Quality run`** and **Endurance + Core** is now their **`Zone 2`**. The limiters themselves
+  still stand - only the labels moved. **Days swapped again on 21 Sep 2026** by the lecture-day
+  rule: `Quality run` is **Monday**, `Zone 2` is **Thursday**. (An earlier version of this table
+  said Thursday/Tuesday - that was the pre-swap week.)
   | | Speed + Core → Quality run | Endurance + Core → Zone 2 |
   |---|---|---|
   | Daniel | top working speed not found yet — building up, not overshooting | length/time of the run |
@@ -173,4 +183,19 @@ the prompt below.
   rather than leaving one-liners sitting beside the fuller new ones.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
+- **The per-exercise `notes` field in the program is for machine settings only.** Daniel, 22 Sep
+  2026: *"why is there comments on the setup block - this should only be for machine settings ect"*.
+  The app renders that field as a setup block, so it should hold bar weights, machine starting
+  resistance, seat positions and the treadmill table - not reasoning. All coaching commentary goes
+  in `write_coaching`'s `by_exercise` / `by_session` cards, which is where they read it anyway.
+  Applies to `create_session`, `write_run` and the `add` form of `write_program_change`.
+- **`write_program_change` may be blocked by the sandbox.** On 22 Sep 2026 the auto-mode classifier
+  refused it as a shared-resource write. If that happens, don't work around it - finish the rest of
+  the review, then tell Daniel exactly which change you wanted to make and why, and let him rerun
+  it or approve the permission.
+- **The morning-run slot is under observation, not settled.** As of 22 Sep 2026 the evening lifts
+  execute reliably and the morning runs do not - last run 26 Aug, three written weeks unrun. Put to
+  Daniel on 22 Sep; his call was **leave it one more week** and judge the slot on a week where
+  neither of them was ill. Re-ask after the week of 28 Sep before proposing any change to which day
+  a run sits on.
 - Free: runs on the Claude subscription via MCP, no API billing.

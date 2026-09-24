@@ -161,7 +161,12 @@ and a re-login to cache each Garmin session there.
 
 ### 6. Run the coach itself on the Pi - unattended coaching
 
-**Status: agreed in principle 2026-08-19, nothing built.** Daniel's call: *"unattended is fine for the
+**Status: running on the laptop since 2026-09-24, no Pi needed.** A Claude desktop-app scheduled
+task (`weekly-coach`, Fridays 20:30) does this on the subscription. The write gap below was closed
+by restricting unattended runs to `write_coaching` + `propose_suggestion_tool` (the second option).
+Moving it to the Pi now only buys "runs while the laptop is off". The original design follows.
+
+**Agreed in principle 2026-08-19.** Daniel's call: *"unattended is fine for the
 coach - it pushes new coaching, with anything changing to the program either being pushed because I
 asked for the change, or any changes suggested by the coach are pushed to the app for me to agree to."*
 

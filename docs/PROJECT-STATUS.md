@@ -1035,7 +1035,9 @@ break something.**
   step to make it hands-free: add the Windows Task Scheduler job(s)** — see `mcp-garmin/README.md`.
   Caveat: runs when the laptop is on (the phone can't reach Garmin itself; slight delay also helps,
   since the watch uploads a few min after you finish).
-- **Coaching:** **semi-auto now** (open the coaching chat weekly, paste the prompt — free, on the
+- **Coaching:** ✅ **scheduled since 24 Sep 2026** - see *Automation to-do* item 2. The coaching
+  chat stays for anything beyond notes and suggestions. *(Superseded plan, kept for the record:)*
+  **semi-auto** (open the coaching chat weekly, paste the prompt — free, on the
   subscription, keeps a human in the loop while calibrating). **Later, optional — fully hands-free
   costs money:** a weekly **GitHub Action** calling the Anthropic API (a scheduled job can't use the
   subscription). Est. **pennies/run, well under £1/month**: ~£0.30–0.60/mo on Sonnet 5, ~£0.50–1.00
@@ -1067,10 +1069,18 @@ The two "make it hands-free" jobs:
    unblocked it was Cerys logging into connect.garmin.com in a browser on the laptop (cleared a
    verification challenge) plus fixing a library-API break — see `mcp-garmin/README.md`
    → *Troubleshooting sign-in*.
-2. **Hands-free coaching:** weekly **GitHub Action** calling the Anthropic API to write coaching,
-   instead of pasting the prompt weekly. **~£0.30–1/month** (Sonnet 5 vs Opus 4.8; a scheduled job
-   can't use the subscription). Turn on once the coaching quality feels calibrated — it pushes
-   coaching to the phones without Daniel reviewing it first.
+2. **Hands-free coaching:** ✅ **DONE 24 Sep 2026 - free, on the subscription.** The GitHub Action
+   plan above is dropped: a Claude desktop-app **scheduled task, `weekly-coach`**, runs **Fridays
+   20:30** (the same slot as the study plan; if the app is closed it runs on next launch). It runs
+   `garmin_fill_pending` for both, then reviews everything logged since each person's last coaching.
+   **Daniel's rule: unattended it may only `write_coaching` (live) and `propose_suggestion_tool`
+   (gated in the app); every other write - `write_run`, `write_session_notes`,
+   `write_program_change`, limiters - waits for a chat he is in.** It lists those under *Waiting for
+   a chat* in its summary. Enforced by the task prompt, not by the tools. Prompt:
+   `~/.claude/scheduled-tasks/weekly-coach/SKILL.md` (it reads `docs/prompts/coaching.md` for
+   everything else, so keep that current). A dry run on 24 Sep read the live store correctly and
+   wrote nothing, but there were no new sessions, so the write path is unproven until the first
+   Friday with new sessions.
 
 ## Build order remaining (each stops for review)
 1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
