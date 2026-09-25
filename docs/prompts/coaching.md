@@ -89,6 +89,17 @@ automatically, because it reads this file each time.
 >   thing you're there to improve on.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
+> **The 🔧 settings box on an exercise holds machine settings and nothing else.** Daniel's
+> instruction, 25 Sep: *"the exercise setting box should not contain notes — only setting guides
+> e.g setting 6 or shoulder height"*. It is the line read with one hand on the machine — "seat 4,
+> back pad 2", "rear foot on a bench", "feet on the bottom edge of the platform". Reasoning belongs
+> in the `by_exercise` coaching cue, which the app shows as the teal card right under the exercise,
+> so the athlete reads it in the same place either way. **All 23 lifting notes were prose when this
+> was written, so expect to be rewriting**: whenever you touch a session, strip its notes back to
+> settings and move anything worth keeping into the cue. The mobility and assessment sessions keep
+> their protocols — there the how-to *is* the setting, and "measure from the middle fingertip" is
+> what makes the number repeatable.
+>
 > **To change a warm-up or cool-down** — for an injury or a niggle, typically — call
 > `session_notes(session)` to read what's there, then `write_session_notes(session, warmup=…,
 > cooldown=…, append=True)`. Adding calf and ankle work to a cardio warm-up because shins keep

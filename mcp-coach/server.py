@@ -1422,7 +1422,7 @@ def _register(mcp):
 
         `exercises` is the list, in order, each
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
-           "notes": optional setup/how-to text}
+           "notes": MACHINE SETTINGS ONLY - see below}
         Columns decide how the app treats it. A Distance + Time pair makes it a run. Two
         free-text columns like ["Min", "Notes"] make it a plain timed block. A first column
         of "cm" makes it a flexibility test: it charts in Progress as a ladder rung and
@@ -1485,7 +1485,7 @@ def _register(mcp):
         `exercises` REPLACES the whole list, so pass every exercise you want them to do,
         in order. Each is
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
-           "notes": optional setup/how-to text, "garminRun": optional bool,
+           "notes": MACHINE SETTINGS ONLY - see below, "garminRun": optional bool,
            "groupId": optional str to circuit two together}
         Columns decide how the app treats it: a Distance + Time pair (e.g.
         ["Distance (km)", "Time (mm:ss)", "Pace"]) makes it a run - pace computes itself,
@@ -1493,6 +1493,24 @@ def _register(mcp):
         free-text columns like ["Min", "Notes"] make it a plain timed block. Anything else
         the watch records but that isn't distance+time (a speed-based interval, say) should
         set garminRun=true so heart rate still attaches.
+
+        **`notes` is the settings box, not a place to explain yourself.** Daniel's
+        instruction, 25 Sep: "the exercise setting box should not contain notes - only
+        setting guides e.g setting 6 or shoulder height". It is the line he reads with
+        one hand on the machine, so it holds what he has to DIAL IN and nothing else:
+        "seat 4, back pad 2", "shoulder height", "rear foot on a bench", "feet on the
+        bottom edge of the platform". No rationale, no history, no coaching.
+
+        Reasoning goes in `write_coaching`'s by_exercise cue, which is what the app
+        shows as the teal card under the exercise - that is where "why 3 sets and not
+        4" belongs, and the athlete reads it in the same place either way.
+
+        All 23 lifting notes were prose when this rule was written, so EXPECT to be
+        rewriting rather than writing fresh: when you touch a session, strip its notes
+        back to settings and move anything worth keeping into the coaching cue. The
+        mobility and assessment sessions are the exception and keep their protocols -
+        there the how-to IS the setting, and "measure from the middle fingertip" is
+        what makes the number repeatable.
 
         Keep an exercise NAME stable if you want its trend: records, the Last column and the
         progress chart all key on the name, so a rep block called "Run reps" every week
