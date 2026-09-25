@@ -3573,6 +3573,7 @@ function renderHelp(){
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, <b>💪 what the week trains</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>💪 What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
+     +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>💤 Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep and its stages, sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
@@ -3714,9 +3715,9 @@ function weeklyCoverage(person){
     if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
     if(!ownsSession(k, person)) return;
     (s.exercises||[]).forEach(ex=>{
-      const ms=(ex.muscles&&ex.muscles.length)?ex.muscles:classifyMuscles(ex.name||"");
+      const w=muscleWeights(ex.name||"", ex.muscles);
       const sets=Math.max(1, ex.sets||1);
-      ms.forEach(mk=>{ if(mk in m) m[mk]+=sets; });
+      Object.keys(w).forEach(mk=>{ if(mk in m) m[mk]+=sets*w[mk]; });
     });
   });
   return m;
@@ -3730,10 +3731,12 @@ function coverageCardHtml(person){
   const rows=keys.filter(k=>m[k]).sort((a,b)=>m[b]-m[a]).map(k=>
     '<div class="cov-row"><span class="cov-name">'+esc(MUSCLE_LABELS[k])+'</span>'
     + '<span class="cov-bar"><i style="width:'+Math.round(m[k]/max*100)+'%;background:'+muscleColor(m[k],max)+'"></i></span>'
-    + '<span class="cov-n">'+m[k]+'</span></div>').join("");
+    + '<span class="cov-n">'+fmtSets(m[k])+'</span></div>').join("");
   return '<div class="card"><div class="sec-title">&#128170; What the week trains</div>'
     + '<div class="hint" style="margin:0 0 9px">Planned sets per muscle across '+esc(possessive(person))
-    + ' programmed week. Optional sessions aren\'t counted.</div>'+rows
+    + ' programmed week. A muscle doing the lift counts a full set; one helping counts a half - so '
+    + 'bench press is a set of chest and half a set each of triceps and shoulders. Optional sessions '
+    + 'aren\'t counted, and running isn\'t sets so it doesn\'t appear.</div>'+rows
     + (missing.length
         ? '<div class="ex-meta" style="margin-top:10px">&#9888; Nothing trains: <b>'
           + missing.map(k=>esc(MUSCLE_LABELS[k])).join(", ")+'</b></div>'
@@ -3749,46 +3752,110 @@ function renderMuscleTags(container, selected){
 function readMuscleTags(container){
   return Array.prototype.slice.call(container.querySelectorAll("button.sel")).map(function(b){ return b.dataset.m; });
 }
-function classifyMuscles(name){
-  var n=String(name).toLowerCase(), m=[];
-  function add(){for(var i=0;i<arguments.length;i++){if(m.indexOf(arguments[i])<0)m.push(arguments[i]);}}
-  if(/squat|leg press|lunge|step.?up/.test(n)) add("quads","glutes");
-  if(/leg extension/.test(n)) add("quads");
-  if(/(lying|seated|leg)\s*curl/.test(n) || /hamstring/.test(n)) add("hamstrings");
-  if(/deadlift|romanian|rdl|good ?morning/.test(n)) add("hamstrings","glutes");
-  if(/abduction|glute|hip thrust/.test(n)) add("glutes");
-  // Hyrox stations. None of these were recognised, so a session built around them
-  // read as a hole in the heatmap - see the weekly coverage card.
-  if(/sled/.test(n)) add("quads","glutes","hamstrings","traps");
-  if(/farmer|carry|suitcase/.test(n)) add("forearms","traps","abs");
-  if(/ski ?erg|\bski\b|row erg|rower|erg/.test(n)) add("lats","traps","abs");
-  if(/wall ball/.test(n)) add("quads","glutes","delts");
-  if(/pallof/.test(n)) add("abs");
-  if(/adduction|adductor/.test(n)) add("adductors");
-  if(/calf|calves/.test(n)) add("calves");
-  if(/bench|incline|crossover|fly|pec|push.?up/.test(n) || (/chest/.test(n) && !/row/.test(n))) add("chest");
-  if(/press/.test(n) && !/overhead|shoulder|leg|ohp|military|chest|pallof/.test(n)) add("chest");
-  if(/overhead press|shoulder press|ohp|military/.test(n)) add("delts");
-  if(/lateral raise|side raise|rear delt|face pull|reverse fly/.test(n)) add("delts");
-  if(/tricep|pushdown|skull|overhead ext/.test(n)) add("triceps");
-  if(/pulldown|pull.?up|chin.?up/.test(n)) add("lats");
-  if(/row/.test(n)) add("traps");
-  if(/curl/.test(n) && !/leg|lying|seated/.test(n)) add("biceps");
-  if(/hammer|forearm|wrist/.test(n)) add("forearms");
-  // dead bug and russian twists matched nothing, so six core sets a week were
-  // invisible on the weekly heatmap and abs read low enough to look like a gap in
-  // the programming. They are not a gap; they were a hole in this list.
-  if(/crunch|plank|sit.?up|leg raise|hanging|dead ?bug|russian twist|ab wheel|woodchop/.test(n)) add("abs");
-  if(/back extension|hyperextension|lower back/.test(n)) add("lowerback");
-  return m;
+// What an exercise trains, split into the muscles that DO it and the ones that
+// help. Returns {p:[primary], s:[secondary]}.
+//
+// The split exists because counting every involved muscle equally flatters the
+// compounds: bench, shoulder press and pushdowns would each count a full set of
+// triceps, so a chest day reads as a triceps day. Counting only the prime mover -
+// which is what this did until 25 Sep - has the opposite fault, and it was the
+// bigger one: triceps and biceps got credit for their isolation sets alone, while
+// every press and every row they did went unrecorded.
+//
+// Secondaries are worth HALF a set (see muscleWeights). That is the usual
+// fractional-set-counting convention rather than a measured constant - EMG shows a
+// muscle is involved but does not convert cleanly into growth - so treat the map as
+// a balance check, not a dose.
+//
+// Order matters: the specific rules return before the general ones can misfire.
+function muscleRoles(name){
+  var n=String(name).toLowerCase(), p=[], s=[];
+  function P(){for(var i=0;i<arguments.length;i++){if(p.indexOf(arguments[i])<0)p.push(arguments[i]);}}
+  function S(){for(var i=0;i<arguments.length;i++){if(s.indexOf(arguments[i])<0)s.push(arguments[i]);}}
+
+  // Cardio first and it returns empty. This map counts SETS of resistance work;
+  // a run is not sets. It also fixes a real misread: "Incline walk" was matching
+  // the /incline/ in the bench-press rule, so Cerys's Zone 2 counted as chest.
+  if(/\b(walk|run|jog|cycle|bike|treadmill)\b/.test(n)) return {p:[], s:[]};
+
+  // Before the squat rule, or "Leg press calf raise" picks up quads and glutes
+  // from the /leg press/ in its own name - it was adding 3-4 phantom quad sets a
+  // week. It is a calf raise; the leg press is just the machine it uses.
+  if(/calf|calves/.test(n)) { P("calves"); return {p:p, s:s}; }
+  // Likewise before the generic /row/ rule, which would call an erg a barbell row.
+  if(/ski ?erg|row erg|rower|\berg\b|\bski\b/.test(n)) { P("lats","abs"); S("traps","triceps","biceps"); return {p:p, s:s}; }
+
+  if(/deadlift/.test(n) && !/romanian|rdl|stiff/.test(n)) { P("hamstrings","glutes","lowerback"); S("traps","forearms","quads"); }
+  else if(/romanian|rdl|stiff.?leg|good ?morning/.test(n)) { P("hamstrings","glutes"); S("lowerback","forearms"); }
+  else if(/squat|leg press|hack/.test(n)) { P("quads","glutes"); S("hamstrings","adductors","lowerback"); }
+  else if(/lunge|split squat|step.?up/.test(n)) { P("quads","glutes"); S("hamstrings","adductors"); }
+  if(/leg extension/.test(n)) P("quads");
+  if(/(lying|seated|leg)\s*curl/.test(n) || /hamstring/.test(n)) { P("hamstrings"); S("calves"); }
+  if(/abduction|glute|hip thrust/.test(n)) P("glutes");
+  if(/adduction|adductor/.test(n)) P("adductors");
+
+  // Hyrox stations. None of these were recognised originally, so a session built
+  // around them read as a hole in the heatmap - see the weekly coverage card.
+  if(/sled/.test(n)) { P("quads","glutes"); S("hamstrings","calves","traps","lats"); }
+  if(/farmer|carry|suitcase/.test(n)) { P("forearms","traps"); S("abs","delts"); }
+  if(/wall ball/.test(n)) { P("quads","glutes","delts"); S("abs"); }
+
+  if(/pallof/.test(n)) P("abs");
+  else if(/crunch|plank|sit.?up|leg raise|hanging|dead ?bug|russian twist|ab wheel|woodchop/.test(n)) P("abs");
+
+  if(/bench|chest press|incline (db |dumbbell )?press|crossover|fly|pec deck|push.?up/.test(n)
+     || (/chest/.test(n) && !/row/.test(n))) { P("chest"); S("triceps","delts"); }
+  else if(/overhead press|shoulder press|ohp|military/.test(n)) { P("delts"); S("triceps"); }
+  else if(/press/.test(n) && !/leg|pallof/.test(n)) { P("chest"); S("triceps","delts"); }
+
+  if(/lateral raise|side raise/.test(n)) P("delts");
+  if(/rear delt|face pull|reverse fly/.test(n)) { P("delts"); S("traps"); }
+  if(/tricep|pushdown|skull|overhead ext|dip\b/.test(n)) P("triceps");
+  if(/pulldown|pull.?up|chin.?up/.test(n)) { P("lats"); S("biceps","traps"); }
+  if(/row/.test(n)) { P("lats","traps"); S("biceps","delts"); }
+  if(/hammer/.test(n)) P("biceps","forearms");
+  else if(/curl/.test(n) && !/leg|lying|seated/.test(n)) { P("biceps"); S("forearms"); }
+  if(/forearm|wrist/.test(n)) P("forearms");
+  if(/back extension|hyperextension|lower back/.test(n)) { P("lowerback"); S("glutes","hamstrings"); }
+
+  // Nothing is both: being the prime mover wins.
+  s = s.filter(function(x){ return p.indexOf(x) < 0; });
+  return {p:p, s:s};
 }
+// Everything involved, prime movers first. Used where a flat list is wanted - the
+// exercise dialog's "Works" picker prefills from this.
+function classifyMuscles(name){
+  var r=muscleRoles(name);
+  return r.p.concat(r.s);
+}
+// Muscle -> how much of a set it earns, from the exercise NAME plus any "Works"
+// tags on it.
+//
+// The rules decide the weighting, and the tags only add muscles the rules missed.
+// That order matters and was got wrong once: nearly every exercise in the program
+// already carries a tag written when the session was built ("Bench press" is tagged
+// chest, "Seated cable row" lats/traps/biceps), so letting a tag win meant the new
+// primary/secondary weighting never ran on a single real exercise - triceps still
+// read 6 sets a week off their isolation work alone. The tags are also prime-mover
+// lists, which is exactly what they should be; they are not claims about dose.
+// Adding an untagged muscle at full weight keeps the picker doing its stated job -
+// rescuing an exercise whose name the rules can't read.
+function muscleWeights(name, tagged){
+  var w={}, r=muscleRoles(name||"");
+  r.p.forEach(function(k){ w[k]=1; });
+  r.s.forEach(function(k){ if(!(k in w)) w[k]=0.5; });
+  (tagged||[]).forEach(function(k){ if(!(k in w)) w[k]=1; });
+  return w;
+}
+// Set counts can now be fractional. Show them as "10.5" but "10", never "10.0".
+function fmtSets(v){ return (Math.round(v*10)/10).toString(); }
 // Muscle set-counts (warm-ups excluded) from a list of entries, and from logs.
 function muscleSetsFromEntries(entries){
   var m={};
   (entries||[]).forEach(function(en){
-    var ms=(en.muscles&&en.muscles.length) ? en.muscles : classifyMuscles(en.name||"");
+    var w=muscleWeights(en.name||"", en.muscles);
     var sets=((en.rows&&en.rows.length)||0)-((en.warmup&&en.warmup.length)||0);
-    ms.forEach(function(mk){ m[mk]=(m[mk]||0)+sets; });
+    Object.keys(w).forEach(function(mk){ m[mk]=(m[mk]||0)+sets*w[mk]; });
   });
   return m;
 }
