@@ -294,6 +294,17 @@ function sessionForDate(dstr){
   var keys=state.program.order.filter(function(k){
     return String(state.program.sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
   });
+  // 0. A one-week swap from the coach, which beats everything below. Checked
+  // BEFORE the single-session shortcut on purpose: the session it names is
+  // usually an Optional one, sitting outside the week precisely so it never
+  // turns up unasked, so it is not among `keys` and there is nothing to tie-break.
+  // This is what lets the Mobility assessment have no day of its own and still be
+  // put on a Wednesday when the coach wants a re-test (Daniel, 23 Sep).
+  var swap=liveSessionSwap();
+  if(swap && String(swap.day||"").toLowerCase()===target){
+    var sk=sessionKeyByName(swap.session);
+    if(sk && ownsSession(sk, me)) return sk;
+  }
   if(keys.length<2) return keys[0];
   // More than one session on this weekday - the two cardio sessions share
   // Wednesday. Which one is it today?
@@ -343,6 +354,29 @@ function nextCardioLives(nc){
   if(!nc || !nc.session) return false;
   var ss=(state.program&&state.program.sessions)||{};
   return Object.keys(ss).some(function(k){ return (ss[k]||{}).name===nc.session; });
+}
+function sessionKeyByName(name){
+  var ss=(state.program&&state.program.sessions)||{};
+  return Object.keys(ss).filter(function(k){ return (ss[k]||{}).name===name; })[0] || null;
+}
+// The coach's one-week session swap, or null once it's been used or gone stale.
+//
+// Same shape and the same three guards as the cardio assignment above, for the
+// same reasons: it names a session by NAME so a rename orphans it (hence the
+// existence check), and it is SPENT the moment that session is logged on or after
+// the day it was written, so a fortnight-old instruction can't still be moving
+// sessions around. Unlike the cardio one it also carries the day it applies to -
+// the session it names usually has no day of its own.
+function liveSessionSwap(){
+  var p=state.people[state.activePerson];
+  var sw=((state.coaching&&state.coaching[p])||{}).sessionSwap;
+  if(!sw || !sw.session || !sw.day || !sw.updated) return null;
+  if(!sessionKeyByName(sw.session)) return null;
+  var since=String(sw.updated).slice(0,10);
+  var done=state.logs.some(function(l){
+    return l.person===p && String(l.date)>=since && l.sessionName===sw.session;
+  });
+  return done ? null : sw;
 }
 function liveNextCardio(){
   var p=state.people[state.activePerson];
@@ -815,7 +849,7 @@ function hasCoaching(){
   const c=state.coaching||{};
   return Object.keys(c).some(k=>{
     const e=c[k]||{};
-    return e.overall || e.fiveK || e.nextCardio
+    return e.overall || e.fiveK || e.nextCardio || e.sessionSwap
       || Object.keys(e.bySession||{}).length || Object.keys(e.byExercise||{}).length;
   });
 }
@@ -868,6 +902,8 @@ function renderLog(){
   // read it, standing at the treadmill, rather than having to go back to Home.
   const nc=(coach.nextCardio&&sess&&coach.nextCardio.session===sess.name)?nextCardioCardHtml(p):"";
   html += nc;
+  // Same for a one-week swap: read it on the session it put in front of you.
+  if(coach.sessionSwap && sess && coach.sessionSwap.session===sess.name) html += sessionSwapCardHtml(p);
 
   // What this person said is holding this session back. Their words, not the
   // coach's read of the numbers - see limiters() in mcp-coach/server.py.
@@ -3630,6 +3666,7 @@ function renderHelp(){
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
      +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')
      +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. If the session it names gets <b>renamed or removed</b>, the card disappears rather than advertising a session you can no longer open. You can always pick another session from the list; it\'s a default, not a lock.')
+     +p('<b>&#129496; A one-week swap.</b> Your coach can also put a different session on a single weekday, just for that week - the <b>Mobility assessment</b> is what this was built for. It has <b>no day of its own</b>, so it never turns up unasked; when a re-test is due your coach puts it on the Wednesday in place of your usual mobility session, and a card tells you why. It\'s <b>per person</b>, so one of you can re-test without disturbing the other. Log that session and the swap is <b>spent</b> - the day goes back to normal on its own, with nothing to undo.')
      +p('<b>&#128681; What\'s holding this back</b> shows on a session when you\'ve told your coach what\'s limiting it - "haven\'t found my top working speed yet", "Zone 2 is a walk for me, not a run". It\'s in <b>your</b> words, kept apart from the coach\'s own read of your numbers, and it\'s the first thing the coach checks - because two people can produce the same heart-rate trace for completely opposite reasons.'));
 
   h+=card('7 &middot; Edit the program',
@@ -4071,6 +4108,23 @@ function nextCardioCardHtml(person){
              :' · done - the app is back to alternating until your coach looks again')+'</div>'
     + '</div>';
 }
+function sessionSwapCardHtml(person){
+  const sw=((state.coaching&&state.coaching[person])||{}).sessionSwap;
+  if(!sw || !sw.session || !sessionKeyByName(sw.session)) return "";
+  const live=!!liveSessionSwap();
+  const when=sw.updated ? "Coach · "+relTime(String(sw.updated).slice(0,10)) : "From your coach";
+  return '<div class="card coach-card'+(live?'':' spent')+'">'
+    + '<div class="flex-between" style="align-items:baseline">'
+      + '<div class="sec-title" style="margin:0">&#129496; This '+esc(sw.day)+'</div>'
+      + '<span class="conf" data-c="'+(live?'assigned':'done')+'">'+(live?'assigned':'done')+'</span>'
+    + '</div>'
+    + '<h3 style="margin:8px 0 2px">'+esc(sw.session)+'</h3>'
+    + (sw.why?'<div style="white-space:pre-wrap">'+esc(sw.why)+'</div>':'')
+    + '<div class="hint" style="margin-top:5px">'+esc(when)
+      + (live?' · this is the one the app will open on '+esc(sw.day)
+             :' · done - '+esc(sw.day)+' is back to its usual session')+'</div>'
+    + '</div>';
+}
 let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
@@ -4108,6 +4162,7 @@ function renderHome(){
     + '</div></div>';
 
   html += nextCardioCardHtml(p);
+  html += sessionSwapCardHtml(p);
 
   const coachSessNote=(coach.bySession && sess && coach.bySession[sess.name])||"";
   if(coachSessNote){

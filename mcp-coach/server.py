@@ -169,13 +169,14 @@ def _today():
     return datetime.date.today().isoformat()
 
 def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
-                 next_cardio=None):
+                 next_cardio=None, session_swap=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> the next step on that exercise (a few
     sentences, not a clipped cue - the card renders it in full); `five_k` is the
     estimated-5k card; `next_cardio` assigns which cardio session comes next and
-    what to do in it. All are merged into any existing coaching. Shows in the app on
+    what to do in it; `session_swap` puts a different session on one weekday for one
+    week. All are merged into any existing coaching. Shows in the app on
     Home + the log form after the person syncs."""
     def mutate(data):
         coaching = data.get("coaching") or {}
@@ -190,6 +191,10 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
             nc = dict(next_cardio)
             nc["updated"] = _today()
             entry["nextCardio"] = nc
+        if session_swap:
+            sw = dict(session_swap)
+            sw["updated"] = _today()
+            entry["sessionSwap"] = sw
         if by_session:
             merged = dict(entry.get("bySession") or {})
             merged.update(by_session)
@@ -209,6 +214,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         if by_exercise: rec["byExercise"] = dict(by_exercise)
         if five_k: rec["fiveK"] = dict(five_k)
         if next_cardio: rec["nextCardio"] = dict(next_cardio)
+        if session_swap: rec["sessionSwap"] = dict(session_swap)
         if len(rec) > 3:                  # something beyond id/date/person was written
             pending["rec"] = rec
         return True
@@ -1585,7 +1591,8 @@ def _register(mcp):
     @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
                        by_session: dict | None = None, five_k: dict | None = None,
-                       next_cardio: dict | None = None) -> str:
+                       next_cardio: dict | None = None,
+                       session_swap: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
@@ -1615,9 +1622,21 @@ def _register(mcp):
         first, because the two of them are usually limited by different things. The card
         marks itself done once they log a cardio session, and the app returns to
         alternating on its own until you write a new one.
+        `session_swap` = put a DIFFERENT session on one weekday, for one week, as
+        {"session": "Mobility assessment", "day": "Wednesday",
+         "why": "one line of reasoning"}. `session` must be an EXACT session name and
+        `day` a weekday name. Built for the Mobility assessment (Daniel, 23 Sep): it has
+        no day of its own so it never turns up unasked, and this is what puts it on a
+        Wednesday when a re-test is due, in place of that person's usual mobility
+        session. It works for any session, including an Optional one - that is the point,
+        since a session with no day cannot be reached by the automatic alternation.
+        Per person, so you can re-test one of them without disturbing the other. It is
+        SPENT as soon as they log that session, and the weekday goes back to normal on
+        its own - so write it the week you want it, not in advance.
         All merge into existing coaching. They see it after tapping Sync now."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
-                                       five_k or None, next_cardio or None), indent=2)
+                                       five_k or None, next_cardio or None,
+                                       session_swap or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
