@@ -366,6 +366,16 @@ function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(
 // drives pace auto-compute, splits and the run importer, which only make sense for
 // a real distance+time entry. This one only decides "expect a Garmin activity".
 function isGarminCardio(ex){ return isRunning(ex) || ex.garminRun===true; }
+// Does the Garmin sync apply to this SESSION? Daniel's rule, 25 Sep: "garmin sync
+// should be for cardio sessions". It is a property of the session, not of anything
+// inside it - Upper B is a lifting day that happens to contain a ski erg, and
+// flagging it meant every Upper B was tagged "awaiting run" and could never clear,
+// because the matcher only ever accepts runs. Two were stuck that way on 24 Sep.
+//
+// Deliberately an explicit flag rather than something derived. "Contains a cardio
+// exercise" is exactly what broke; "leads with one" would work on today's program
+// and break the first time a session is reordered, which is already on the backlog.
+function isCardioSession(sess){ return !!(sess && sess.cardio === true); }
 // A flexibility test measures a distance in centimetres - the gap from your
 // fingertips to the floor, how far your foot sits from the wall - rather than a
 // load. It is never a lifting entry, so it stays off the records table, out of
@@ -882,7 +892,7 @@ function renderLog(){
     html += hasGarmin()
       ? '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>'
       : '<div class="cardio-note">🏃 <b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>⬆ import</b> a TCX/GPX from Garmin or Strava instead.</div>';
-  } else if(exs.some(e=>isGarminCardio(e)) && hasGarmin()){
+  } else if(isCardioSession(sess) && exs.some(e=>isGarminCardio(e)) && hasGarmin()){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
     // the measurements it alone knows (HR, zones, calories) - it never overwrites.
     // Nothing useful to say here without a watch: you just type your paces in, and
@@ -1222,7 +1232,13 @@ function wireExCard(card, ex){
     });
   }
   const firstWeight = tbody.rows[0] && tbody.rows[0].querySelector('[data-c="0"]');
-  if(firstWeight && isLifting(ex)){
+  // Gated on the first column being a LOAD, not on the exercise being isLifting():
+  // that also demands a Reps column, so the station exercises whose second column
+  // is Distance or Rounds got no autofill at all. Daniel reported it twice - sleds
+  // (7 Sep) and farmers carry (21 Sep) - and Walking/sandbag lunges had it too
+  // without being reported. These are exactly the loads Hyrox needs trending, and a
+  // blank weight field every week is how one quietly stops progressing.
+  if(firstWeight && /kg|assist/i.test(ex.cols[0])){
     // Mirror the first set's weight into rows the user hasn't set themselves.
     // Track the last mirrored value so multi-digit entry keeps updating: typing
     // "6" then "0" fills every row with "60", not stuck at "6" (the old check
@@ -1354,10 +1370,9 @@ function saveSession(){
     entries, feedback, difficulty, volume, durationSec };
   // Cardio session: flag it so the Garmin sync (laptop) can link the activity's extra
   // data (HR, zones, cadence, calories, and splits when the run row was left blank).
-  // Checks the exercise definitions, not the saved entries, because an interval
-  // exercise carries a garminRun flag that the logged entry doesn't. Cleared once
-  // linked; see mcp-garmin.
-  if(exs.some(e=>isGarminCardio(e))) log.garminWanted=true;
+  // Keyed on the SESSION being cardio, not on it containing a cardio exercise - see
+  // isCardioSession. Cleared once linked; see mcp-garmin.
+  if(isCardioSession(sess)) log.garminWanted=true;
   state.logs.push(log); save();
   // Anything added for today that was actually logged is offered to the program
   // on the save popup - grab it before the form's extras are cleared.
@@ -2492,8 +2507,15 @@ function autoGrow(ta){
 }
 function sessNotesHtml(k, s){
   const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"", set=s.setupNote||"", gar=s.garminNote||"";
-  const has=!!(wu||cd||rec||set||gar);
+  const has=!!(wu||cd||rec||set||gar||s.cardio);
+  // The cardio toggle first: it decides whether the Garmin sync applies at all, and
+  // it sits on the SESSION because that is what it describes - a lifting day with a
+  // ski erg in it is not a cardio session.
   return '<div class="sessnotes" data-sessnotes-wrap="'+esc(k)+'"'+(has?"":" hidden")+'>'
+    + '<label class="row" style="margin-bottom:10px;gap:8px;flex-wrap:nowrap">'
+    + '<input type="checkbox" data-sesscardio="'+esc(k)+'"'+(s.cardio?" checked":"")+'>'
+    + '<span>&#8986; <b>Cardio session</b> - the watch records this one, so Garmin fills in '
+    + 'heart rate, zones and splits after it syncs.</span></label>'
     + '<label class="fld" style="margin-bottom:8px">&#127919; Watch workout'
       + '<textarea class="notes" data-sessnote="garminNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. Connect &gt; Workouts &gt; Create a Workout &gt; Run: warm up 10:00, repeat 4x (run 4:00 HR 165-173 / recover 2:00), cool down 5:00">'+esc(gar)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">&#127899;&#65039; Treadmill program'
@@ -2594,6 +2616,12 @@ function renderEdit(){
     autoGrow(ta);
     ta.addEventListener("input", ()=>autoGrow(ta));
   });
+  document.querySelectorAll("[data-sesscardio]").forEach(cb=>cb.addEventListener("change",()=>{
+    const sess=state.program.sessions[cb.dataset.sesscardio]; if(!sess) return;
+    if(cb.checked) sess.cardio=true; else delete sess.cardio;
+    saveProgram();
+    toast(cb.checked ? "Garmin will sync this session" : "Garmin will ignore this session");
+  }));
   document.querySelectorAll("[data-sessnote]").forEach(ta=>ta.addEventListener("change",()=>{
     const sess=state.program.sessions[ta.dataset.sesskey]; if(!sess) return;
     const field=ta.dataset.sessnote, v=ta.value.trim();
@@ -3747,7 +3775,10 @@ function classifyMuscles(name){
   if(/row/.test(n)) add("traps");
   if(/curl/.test(n) && !/leg|lying|seated/.test(n)) add("biceps");
   if(/hammer|forearm|wrist/.test(n)) add("forearms");
-  if(/crunch|plank|sit.?up|leg raise|hanging/.test(n)) add("abs");
+  // dead bug and russian twists matched nothing, so six core sets a week were
+  // invisible on the weekly heatmap and abs read low enough to look like a gap in
+  // the programming. They are not a gap; they were a hole in this list.
+  if(/crunch|plank|sit.?up|leg raise|hanging|dead ?bug|russian twist|ab wheel|woodchop/.test(n)) add("abs");
   if(/back extension|hyperextension|lower back/.test(n)) add("lowerback");
   return m;
 }
