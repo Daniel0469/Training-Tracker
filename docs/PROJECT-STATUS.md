@@ -128,6 +128,53 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-09-25 - backlog batch: Garmin sync, the muscle map, and a one-week session swap.**
+Five in-app suggestions, four cleared, plus Daniel's own question about Upper B which turned out to
+be the most valuable thing in the batch. `tt-v129` -> `tt-v131`.
+
+- **Upper B was tagged for Garmin and could never clear.** Daniel asked why a lifting day had Garmin
+  sync; the tag was inferred from any exercise carrying `garminRun`, and Upper B holds a ski erg.
+  `is_run()` is literally `"run" in activity_type()` and `fill_pending` only considers runs, so an
+  indoor row can never match - **both 24 Sep Upper B sessions were stuck "awaiting run" permanently**.
+  Daniel's refinement was the better rule: *"garmin sync should be for cardio sessions"*. It is now an
+  explicit `session.cardio` flag with a checkbox in the Program tab, **deliberately not derived** -
+  "contains a cardio exercise" is what broke, and "leads with one" would break the first time a
+  session is reordered, which is on the backlog. Cerys's Zone 2 keeps syncing: it is an incline walk
+  rather than a run, but it is her cardio session, which is what the rule is about.
+- **Weight autofill was gated on `isLifting()`**, which demands a Reps column - so Farmers carry
+  (Weight/Distance), Sled push + pull (Weight/Rounds) **and Walking/sandbag lunges** never autofilled.
+  Daniel reported two; the lunges nobody had noticed. Now gated on the first column being a load.
+- **The muscle map was wrong two ways** (`1790206098299`, left open - the programming question is the
+  coach's, not the app's). `Incline walk` matched the `/incline/` in the bench rule, so Cerys's Zone 2
+  counted as **chest**; `Leg press calf raise` matched `/leg press/` and added 3-4 phantom quad sets a
+  week. And every compound listed its prime mover only, so triceps and biceps got credit for their
+  isolation sets alone. `classifyMuscles` is now `muscleRoles`, primary 1.0 / secondary 0.5.
+  **The 0.5 is the usual fractional-set-counting convention, not a measured constant** - the card says
+  so. Counting helpers in full was tried and is worse: adductors 24, every chest day a triceps day.
+  **The trap worth remembering:** nearly every exercise already carries a `Works` tag from when the
+  session was built, and letting a tag win meant the new weighting **never ran on a single real
+  exercise** - triceps still read 6. Rules decide weighting; tags only add what the rules miss. Caught
+  by checking against a hand calculation, not by seeing the card change. Daniel's week now reads
+  glutes 32.5 ... **chest 6, the lowest** - a real observation for the coaching chat.
+- **A one-week session swap** (`1790205859371`). The Mobility assessment sat on Wednesday beside each
+  person's own mobility session, so alternation kept bringing a *re-test* round weekly. It is now
+  **Optional - no day at all** - and `write_coaching(session_swap={session, day, why})` puts it on a
+  Wednesday when a re-test is due. **The swap is checked before `sessionForDate`'s single-session
+  shortcut, which is the whole trick:** an Optional session is never among the candidates for a
+  weekday, so a tie-break could never reach it; it resolves by name instead. Per person, spent the
+  moment that session is logged, and it carries the rename guard that cost two stale cards in the
+  term reset.
+- **Cable external rotation** (`1790206006697`) - it was in **two** warm-ups, Upper A and Upper B.
+  The first search missed it because matches were capped at 200 characters, which discards any hit
+  inside a long warm-up note.
+- **The settings box rule went to the coach, not a migration** (`1790206060047`). All 23 lifting notes
+  are prose in the one field read with a hand on the machine. Daniel's call was to have the coach fix
+  them as it touches each session - it wrote them and knows which sentence was the setting. The rule
+  is in the `create_session` / `write_run` docstrings and `prompts/coaching.md`. **Mobility and the
+  assessment keep their protocols**: there the how-to *is* the setting, and stripping "measure from
+  the middle fingertip" would ruin the only measurements meant to be compared over months.
+- **Needs a Claude Code restart** before the coaching chat sees `session_swap` and the new docstrings.
+
 **2026-09-14 (later) - the coaching history left the store, and took 60% of it with it.** In-app
 suggestion `1788980056477` (Daniel, 9 Sep): *"coaching history shouldnt be viewable - just for the
 coach to build on - shouldnt take up space and storage/clutter."* All three complaints were right,
