@@ -128,6 +128,44 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-10-06 - the set tick becomes data, and three bugs that were not what they looked like.**
+Five open suggestions cleared, two coach proposals approved and one of them diagnosed. `tt-v132`.
+
+- **The tick was never saved.** `captureDraft` carried it, so a restored draft put the boxes back,
+  but `saveSession` rebuilt its entries from the inputs and dropped it - **0 of 345 logged entries
+  carry one**, against 977 rows that all have data. That answered the 29 Sep question ("does the
+  weekly muscle map track completed sets or just the program") flatly: just the program, and nothing
+  in the store could have said otherwise. Entries now carry `done` as indices into the **saved** rows
+  (not the drawn ones - an empty row is dropped at save and the lists drift apart otherwise).
+- **The muscle card now draws done against planned**: pale track for the plan, solid fill for what has
+  been ticked, count reading done/planned, resetting each Monday. **Weighted identically on both
+  sides** - a half set planned and a half set done have to mean the same thing or the bar lies.
+  Siblings rather than nested, because opacity on a parent drags its children with it. Daniel chose
+  "start saving the tick, then count ticks" knowing the done side therefore **starts from 6 Oct**; the
+  Guide and the cardio hint say so, and both have stopped claiming the tick is discarded.
+- **"Date autoselect doesnt work anymore"** was real and simple: `trainingDateStr()` ran **once**, at
+  module load. A phone never closes the app, it backgrounds it, so opening it on Thursday still showed
+  Monday's date and Monday's session. It now catches up on `visibilitychange` and `pageshow`, and
+  deliberately **will not** move a hand-picked date or re-render under an open draft. Verified all
+  four cases.
+- **The warm-up percentages were not broken - the data was gone.** Not one of 55 exercises has a
+  `warmup` field, though Lower A's squat visibly had "bar x8, 50kgx5, 75kgx3" in September.
+  `_exercise_in` accepts the field, but **the write schema never documented it**, so every coach
+  rebuild wrote an empty one and the feature had nothing to resolve. Documented on both write paths
+  with the percentage syntax and a warning that omitting it erases it. **The warm-ups themselves are
+  still missing and the coach has to put them back** - that is the remaining half of this one.
+- **The autofill re-raise was already fixed.** The coach asked for autofill "from the last time that
+  person logged it, the same way the lifts already do" - but no exercise prefills from last session,
+  every input starts blank by design. What Daniel actually hit was the row mirroring, fixed 25 Sep in
+  `tt-v129`. Confirmed with him before closing rather than building a second thing.
+- **Still open, deliberately:** "muscles look unbalanced - does this need adjusting?" The measurement
+  is fixed; the programming judgement is the coach's. Worth knowing going in: **chest is the lowest
+  at 6 sets**, two exercises of three.
+- **Approved and still to build:** the **Smith machine tick** on bench (`1791023024311`). Bench has
+  been on the Smith three times and the trend mixes two different lifts; the design question - whether
+  a Smith set splits the trend and the PR or only annotates the row - has not been put to Daniel yet.
+- **Needs a Claude Code restart** before the coaching chat sees the `warmup` schema change.
+
 **2026-09-25 - backlog batch: Garmin sync, the muscle map, and a one-week session swap.**
 Five in-app suggestions, four cleared, plus Daniel's own question about Upper B which turned out to
 be the most valuable thing in the batch. `tt-v129` -> `tt-v131`.
