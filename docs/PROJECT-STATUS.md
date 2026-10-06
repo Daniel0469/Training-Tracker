@@ -128,6 +128,46 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-10-06 (later still) - the coach tooling brief, worked through.** The coaching chat wrote
+`docs/coach-tooling-brief.md` listing what it is blocked on. **Every code claim in it was checked
+against the source before building; all held.** `tt-v135` -> `tt-v136`.
+
+- **`program_session(name)`** - there was no read path for a lifting session at all. `run_session`
+  covers runs, `session_notes` returns the notes, `session()` is a LOGGED session. The only way to
+  see an exercise list was a deliberately-failing write, read out of the error. It answered a real
+  blocked question on the first call: **both `Seated row` and `Seated cable row` were in Upper A**,
+  which is why the coach could not safely retire either on 28 Sep.
+- **`warmup` and `notes` on an `edit`.** The edit branch built its payload from `sets` and `target`
+  only, so restoring a ramp and stripping the settings box - two jobs already assigned to the coach -
+  were impossible rather than undone. Deliberately NOT "any field `add` accepts": `cols` decides how
+  an exercise is scored and drawn. Verified end to end - the ramp applies and the form resolves it to
+  `bar x8, 30kgx5, 45kgx3` off his last 60kg bench, which is the 28 Sep complaint working again.
+- **`move_after` reorders**, naming the exercise to follow or `""` for the front. The app applies it
+  with the **draft following the exercise**, not spliced past it - sets typed against a lift belong to
+  it wherever it lands. Verified: Farmers carry fifth to second takes its numbers, everything else
+  holds its own.
+- **`withdraw_program_change`** - a pending proposal could not be taken back or even replaced, since a
+  duplicate on (session, exercise, op) is refused while one is pending. Only `pending` is withdrawable.
+- **`recent_sessions` carries `sets_logged` / `sets_planned` / `sets_ticked`.** Adherence cost one
+  `session()` call each to judge. It reads immediately: **16 of 24 planned on 6 Oct, 15 of 27, 6 of
+  15** - the overrun story, now measurable. `sets_ticked` is **absent rather than zero** before 6 Oct.
+- **A bug of mine, caught here:** `write_program_change`'s wrapper passed `warmup` and `notes` to the
+  proposer while its own signature never declared them - an earlier edit wrote the call and died
+  before the signature. Every call would have raised `NameError`. Found by checking the signature
+  against the call, not by reading the diff.
+- **Upper A's row slot settled** (`scratchpad/apply_rowslot.py`): `Seated cable row` retired and
+  `Seated row` promoted from **position 8 - last** - into its slot at 3. Removing the cable row alone
+  would have left the real row where work goes to die. **The 15 cable-row logs keep their own name**
+  on Daniel's call: a cable stack and a plate-loaded row are not the same load, and merging would
+  splice two lifts into one PR - the reasoning that keeps `Flat press (DB)` out of `Bench press`.
+- **Declined this round, by Daniel:** per-person program state ("neither for now"), real PWA icons
+  ("skip it"). **`baseWeight` not built** - his answer was "no - leave as is", which reads two ways on
+  a change that rewrites logged history, so it is being confirmed rather than guessed.
+- **The permission rule is in `CHATS.md`**: auto mode refuses `write_program_change` intermittently and
+  it looks like a broken tool rather than a blocked one.
+- **Needs a Claude Code restart** before the coaching chat sees `program_session`,
+  `withdraw_program_change`, `move_after`, `warmup`/`notes` on edit, or the adherence fields.
+
 **2026-10-06 (later) - coaching changes come to you, and a silent draft bug went with them.**
 Daniel: *"if a program session has a coaching change it should say when you open the session - instead
 of it going unoticed in the program tab."* `tt-v134`.
