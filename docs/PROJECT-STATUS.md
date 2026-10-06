@@ -128,6 +128,29 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
   and the other five were left alone.
 
+**2026-10-06 (later) - coaching changes come to you, and a silent draft bug went with them.**
+Daniel: *"if a program session has a coaching change it should say when you open the session - instead
+of it going unoticed in the program tab."* `tt-v134`.
+
+- **A dialog, on his call**, not a card. Opening a session with a pending change asks about it there,
+  with the same Apply / No cards the Program tab uses and a **Later** that leaves it pending. Seen
+  changes are remembered **by id** (`pcSeen`), so the re-renders a sync causes don't reopen it while a
+  genuinely new change still gets through.
+- **It will not interrupt a session under way.** With a draft open the dialog is suppressed and the
+  form carries a quiet card instead, saying what is waiting and that it is left until the session is
+  saved. Daniel picked "act only before you start"; a modal over half-typed numbers is the wrong
+  moment to ask.
+- **The bug this would have made easy to hit, now fixed.** A draft's entries are indexed by POSITION
+  in the session, so applying a removal slid every later exercise up one while the draft stayed put -
+  **every set typed after the removed exercise came back against the wrong movement**, silently,
+  because the numbers still looked plausible. It was already reachable from the Program tab
+  mid-workout. `shiftDraftsForSession` now splices both people's drafts in step with the list, the
+  same move `removeTodayExercise` already made. Verified: removing Face pull (15) leaves Triceps 16,
+  Pallof 17 and Seated row 18 holding their own numbers.
+- **`applyProgramChange` / `declineProgramChange` now call `renderView`, not `renderEdit`** - from the
+  Session tab that would have painted the Program tab into the view while the tab bar still said
+  Session. Both surfaces share one wiring path (`wireChangeButtons`).
+
 **2026-10-06 - the set tick becomes data, and three bugs that were not what they looked like.**
 Five open suggestions cleared, two coach proposals approved and one of them diagnosed. `tt-v132`.
 
