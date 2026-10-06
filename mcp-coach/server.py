@@ -525,6 +525,50 @@ def get_run(data, person, which=None):
             "exercises": s.get("exercises") or []}
 
 
+def get_program_session(data, name=""):
+    """One PROGRAMMED session in full - what is prescribed, not what was logged.
+
+    The mirror of get_run for everything that isn't a run. Without it the only way to
+    see a lifting session's exercises was to send a deliberately-failing
+    write_program_change and read the list out of the error, which writes nothing but
+    looks like a write. Read this before proposing any change: it is the difference
+    between retiring the right row and leaving the session with none.
+    """
+    sessions = ((data.get("program") or {}).get("sessions") or {})
+    if not sessions:
+        return {"error": "No program yet."}
+    want = str(name or "").strip().lower()
+    key = None
+    if want:
+        for k, s in sessions.items():
+            s = s or {}
+            if want in (k.lower(), str(s.get("name") or "").lower(),
+                        str(s.get("day") or "").lower()):
+                key = k
+                break
+        if key is None:                       # fall back to a distinctive fragment
+            hits = [k for k, s in sessions.items()
+                    if want in str((s or {}).get("name") or "").lower()]
+            if len(hits) == 1:
+                key = hits[0]
+            elif len(hits) > 1:
+                return {"error": "%r matches more than one session" % name,
+                        "matches": [sessions[k].get("name") for k in hits]}
+    if key is None:
+        return {"error": "Name a session. Match on its name, key or day.",
+                "sessions": [{"name": (s or {}).get("name"), "day": (s or {}).get("day"),
+                              "person": (s or {}).get("person") or "both"}
+                             for s in sessions.values()]}
+    s = sessions[key] or {}
+    return {"session": s.get("name"), "key": key, "day": s.get("day"),
+            "person": s.get("person") or "both",
+            "cardio": bool(s.get("cardio")),
+            "garminNote": s.get("garminNote", ""), "setupNote": s.get("setupNote", ""),
+            "recordingNote": s.get("recordingNote", ""),
+            "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
+            "exercises": s.get("exercises") or []}
+
+
 def set_run(person, exercises=None, why="", name=None, day=None,
             warmup=None, cooldown=None, recording=None, setup=None, which=None,
             garmin=None):
@@ -639,7 +683,7 @@ def get_program_changes(data, include_done=False):
     return out
 
 def propose_program_change(session, exercise, why, sets=None, target=None,
-                           add=None, remove=False, after=""):
+                           add=None, remove=False, after="", warmup=None, notes=None):
     """Propose one change to the program. It waits on that exercise in the app's
     Program tab until someone ticks it, and THE APP applies it - see the tool
     docstring for why that matters.
@@ -666,8 +710,19 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
                 fields["sets"] = int(sets)
             if target is not None:
                 fields["target"] = str(target)
+            # warmup and notes were unreachable on an edit until 6 Oct, which made two
+            # jobs already assigned to the coach impossible rather than merely undone:
+            # restoring the warm-up ramps (none of the 55 exercises has one) and
+            # stripping the settings box back to machine settings. Deliberately NOT
+            # "any field add accepts" - `cols` decides how an exercise is scored and
+            # drawn, and changing it under a logged history is a different, worse thing.
+            if warmup is not None:
+                fields["warmup"] = str(warmup)
+            if notes is not None:
+                fields["notes"] = str(notes)
             if not fields:
-                failed["error"] = "Nothing to change - pass sets, target, add or remove."
+                failed["error"] = ("Nothing to change - pass sets, target, warmup, notes, "
+                                   "add or remove.")
                 return None
         if op in ("edit", "remove") and exercise not in names:
             failed["error"] = f"{exercise!r} is not in {session!r}."
@@ -1335,7 +1390,7 @@ def _register(mcp):
         Refuses a duplicate of a change already waiting, and refuses to edit or remove
         something that isn't in that session. One change per call."""
         return json.dumps(propose_program_change(session, exercise, why, sets, target,
-                                                 add, remove, after), indent=2)
+                                                 add, remove, after, warmup, notes), indent=2)
 
     @mcp.tool()
     def write_log_entry(session_id: str, exercise: str, rows: list, why: str = "") -> str:
@@ -1467,6 +1522,22 @@ def _register(mcp):
         return json.dumps(get_run(load_data(), person, which), indent=2)
 
     @mcp.tool()
+    def program_session(name: str = "") -> str:
+        """One PROGRAMMED session in full - every exercise in order with its target, sets,
+        columns, machine settings (`notes`), warm-up ramp (`warmup`) and load type, plus the
+        session's day, who owns it and its four note fields.
+
+        **Call this before proposing any program change.** It is what is PRESCRIBED, where
+        `session(session_id)` is what was LOGGED and `run_session` only covers the run
+        sessions. Without it there is no way to see a lifting session's exercises, and
+        changing one blind is how you retire the wrong row and leave a session with no row
+        at all.
+
+        `name` matches the session's name, its key or its day, case-insensitively, and falls
+        back to a distinctive fragment. Omit it and the error lists every session."""
+        return json.dumps(get_program_session(load_data(), name), indent=2)
+
+    @mcp.tool()
     def write_run(person: str, exercises: list | None = None, why: str = "",
                   name: str | None = None, day: str | None = None,
                   warmup: str | None = None, cooldown: str | None = None,
@@ -1507,6 +1578,13 @@ def _register(mcp):
         free-text columns like ["Min", "Notes"] make it a plain timed block. Anything else
         the watch records but that isn't distance+time (a speed-based interval, say) should
         set garminRun=true so heart rate still attaches.
+
+        `warmup` and `notes` can be changed on an EXISTING exercise from 6 Oct - before
+        that `edit` carried only `sets` and `target`, which made restoring a ramp or
+        stripping the settings box impossible rather than merely undone. Deliberately not
+        "any field": `cols` decides how an exercise is scored and drawn, and changing it
+        under a logged history is a different and worse thing. Call `program_session` first
+        to see what is actually there.
 
         **`warmup` is the warm-up sets, and it understands percentages.** Write it
         like "bar x8, 50%x5, 75%x3" and the app resolves each % against that person's

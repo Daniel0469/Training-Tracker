@@ -1930,8 +1930,15 @@ function describeChange(c){
   const bits=[];
   const key=sessionKeyByName(c.session);
   const ex=key ? (state.program.sessions[key].exercises||[]).find(e=>e.name===c.exercise) : null;
+  // sets and target are short enough to show both sides. warmup and notes - which
+  // an edit could only carry from 6 Oct - are whole lines of text, and "notes: feet
+  // on the bottom edge of the platform, press through the balls of the feet →
+  // setting 4, pad at shoulder height" is unreadable on a card. Name the field and
+  // show the NEW value, which is the part being decided.
+  const LONG={warmup:"Warm-up sets", notes:"Machine settings"};
   Object.keys(c.fields||{}).forEach(f=>{
     const was=ex ? ex[f] : undefined;
+    if(LONG[f]){ bits.push(LONG[f]+" → "+(String(c.fields[f]||"").trim()||"(cleared)")); return; }
     bits.push(f+": "+(was===undefined||was===""?"—":was)+" → "+c.fields[f]);
   });
   return bits.join(" · ") || "No change";
