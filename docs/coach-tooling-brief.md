@@ -6,6 +6,12 @@ right things get built), and what is the coach's own job (so the dev chat does n
 
 Everything below was verified against `mcp-coach/server.py` at commit `712d6fe`, not assumed.
 
+> **Status, updated 6 Oct after `6d1d876`.** The dev chat built the top two items the same day:
+> **3.1 and 3.2 are now DONE** and are kept below with their evidence, because the reasoning is
+> what justifies the rest of the list. Everything in 3.3 - 3.8 still stands. **The new tools do not
+> reach a running coach chat until Claude Code is restarted**, so a coach chat opened before
+> `6d1d876` still cannot do these jobs and should say so rather than trying.
+
 ---
 
 ## 1. How the coach reaches the app
@@ -59,7 +65,12 @@ first log, reverts itself, dead if it names a missing session. Worth copying for
 
 Ordered by how much they cost. Each one has the evidence and the concrete ask.
 
-### 3.1 Cannot set `warmup` or `notes` on an existing exercise - HIGHEST PRIORITY
+### 3.1 Cannot set `warmup` or `notes` on an existing exercise - DONE in `6d1d876`
+
+> **Fixed.** `edit` now carries `warmup` and `notes`. Deliberately not every field `add` accepts:
+> `cols` decides how an exercise is scored and drawn, and changing it under a logged history is a
+> worse thing. Verified end to end - the ramp resolves to "bar x8, 30kgx5, 45kgx3" off Daniel's
+> last 60kg bench, which is the 28 Sep complaint working again. The original case follows.
 
 `propose_program_change` builds its edit payload from `sets` and `target` only:
 
@@ -87,7 +98,13 @@ remove without the matching add deletes the lift from the program.
 **Ask:** let `edit` carry `warmup` and `notes` (and ideally any field `add` accepts). One line in
 the `fields` dict.
 
-### 3.2 No read path for a lifting session's exercises - HIGHEST PRIORITY
+### 3.2 No read path for a lifting session's exercises - DONE in `6d1d876`
+
+> **Fixed.** `program_session(name)` returns a programmed session in full: every exercise in order
+> with target, sets, cols, settings, ramp and load, plus the day, who owns it and the four note
+> fields. It answered the open question immediately - **Upper A has nine exercises and both
+> `Seated cable row` and `Seated row` are in it**, so the 28 Sep row swap is unblocked. The
+> original case follows.
 
 `run_session` returns exercises, but only for run sessions. `session_notes` returns name, day and
 the four note fields and nothing else. `session(session_id)` returns a **logged** session, not the
@@ -204,14 +221,24 @@ Leave these with the coach. They are written down so nobody builds a feature for
 
 ## 5. Suggested build order
 
-1. **`program_session(name)` read tool** (3.2) - unblocks everything else and stops the coach
-   guessing at the program.
-2. **`warmup` + `notes` on `edit`** (3.1) - turns two already-assigned coach jobs from impossible
-   into doable.
+1. ~~**`program_session(name)` read tool** (3.2)~~ - **done, `6d1d876`.**
+2. ~~**`warmup` + `notes` on `edit`** (3.1)~~ - **done, `6d1d876`.**
 3. **`op: "move"`** (3.4) - fixes the farmers carry and everything else dying at the end of a
-   session.
+   session. Now the top item.
 4. **`baseWeight`** (3.7) - retires a complaint that has come back four times across three machines.
 5. **Per-person program state** (3.3) - the hack squat needs it now; it will need it again.
 6. **done/planned on `recent_sessions`** (3.6), **withdraw** (3.5), **permission rule** (3.8).
 
-1 and 2 together are most of the value. Both look small.
+## 6. What the coach owes now that 3.1 and 3.2 are done
+
+These were impossible before `6d1d876` and are merely outstanding after it. **All of them need a
+Claude Code restart first.**
+
+- **Restore the warm-up ramps** on the main lifts - the first two exercises of each session, per
+  Daniel's 6 Oct scope. Syntax `"bar x8, 50%x5, 75%x3"`; `%` resolves against that person's top set.
+- **Strip the 23 lifting `notes` back to machine settings**, moving the reasoning into the
+  `by_exercise` cards. Carry `warmup` through on every edit or it gets erased again.
+- **Retire the `Seated cable row` slot in Upper A**, which Daniel asked for on 28 Sep - now that
+  `program_session` confirms both rows are in the session, the removal is safe.
+- **Rewrite the run sessions' notes for their real days** (`Zone 2: Daniel` still says Tuesday has
+  no train), and strip the prose out of their `setupNote`.

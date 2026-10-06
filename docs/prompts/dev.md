@@ -17,7 +17,9 @@ restart Claude Code so the `training-tracker` tools reload. New tools do not app
 > `training-tracker` **`suggestions`** tool: **auto-apply the easy/safe ones** (verify in the browser
 > - light + dark, no console errors - commit per feature, bump `sw.js` CACHE_NAME on any shell
 > change, then push to deploy), and **list the harder/riskier ones for me to decide**. Mark each one
-> you handle done with **`resolve_suggestion_tool`**. Today I want: **‹your task›**.
+> you handle done with **`resolve_suggestion_tool`**. Also read
+> **`docs/coach-tooling-brief.md`** - the coaching chat's own account of what it can and cannot do,
+> with the blocked coach-owned jobs and a suggested build order. Today I want: **‹your task›**.
 
 ---
 
@@ -34,6 +36,11 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 - **Bump `CACHE_NAME` in `sw.js`** on any change to a cached shell file. The service worker is
   cache-first; without a bump, installed users keep the old files.
 - **Keep the Guide, the README and these prompts current** when a feature or a decision changes.
+- **A coach-owned job can be impossible, not just undone.** Before assigning work to the coaching
+  chat, check the tool can actually do it - `docs/coach-tooling-brief.md` lists what cannot be
+  reached today. The 25 Sep settings-box cleanup and the 6 Oct warm-up ramps were both handed over
+  as coach jobs and neither is possible on a lifting exercise, because `write_program_change` can
+  only edit `sets` and `target`.
 - **No AI attribution in commit messages**, ever.
 
 ## Notes
