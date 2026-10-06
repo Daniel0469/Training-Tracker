@@ -212,9 +212,22 @@ automatically, because it reads this file each time.
   refused it as a shared-resource write. If that happens, don't work around it - finish the rest of
   the review, then tell Daniel exactly which change you wanted to make and why, and let him rerun
   it or approve the permission.
-- **The morning-run slot is under observation, not settled.** As of 22 Sep 2026 the evening lifts
-  execute reliably and the morning runs do not - last run 26 Aug, three written weeks unrun. Put to
-  Daniel on 22 Sep; his call was **leave it one more week** and judge the slot on a week where
-  neither of them was ill. Re-ask after the week of 28 Sep before proposing any change to which day
-  a run sits on.
+- **The morning-run slot is under observation, not settled.** The evening lifts execute reliably
+  and the morning runs do not - last run 26 Aug. Put to Daniel twice: 22 Sep ("leave it one more
+  week") and again **6 Oct, where his call was again "leave"**. By 6 Oct it was 41 days and five
+  lifting sessions each since 22 Sep with zero runs, but **both were ill 24 Sep - 2 Oct**, which
+  covers three of the four missed runs and where the advice was explicitly not to run. So the slot
+  has still never had a clean test. **Re-ask only if a fully well week produces no run**; do not
+  propose moving a run's day before that.
+- **Single-leg seated leg curl: lighter, not swapped.** Both reported it feels wrong (Daniel
+  "feels weird" at 25.5kg, stopped after 8, 29 Sep; Cerys "didn't feel right", logged no reps,
+  29 Sep). Daniel's call on 6 Oct was *"maybe try stick to a lighter weight and see how it goes"* -
+  so NOT a program change. Daniel 20kg, Cerys 12kg, with the pad/pivot setup checked. Swap it only
+  if a lighter load still feels wrong, and ask them to name what felt off (knee, hip, pad, cramp)
+  because that picks the replacement.
+- **Cerys's hack squat is skipped pending a hip check**, not deloaded: her hips hurt on 22 and
+  29 Sep both times with **no plates added**, so there is no lighter version to try. Daniel's is
+  progressing (70kg 3x8 RPE 7, PR) so this is a per-person coaching call, NOT a program change -
+  removing it from the shared Lower A would cost him his best lift. Ask each review whether the
+  hips have been looked at.
 - Free: runs on the Claude subscription via MCP, no API billing.
