@@ -89,6 +89,14 @@ automatically, because it reads this file each time.
 >   thing you're there to improve on.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
+> **The warm-up ramps are missing across the whole program and need putting back.** No exercise
+> carries a `warmup` any more - a rebuild wrote them all empty, because the field exists on the
+> exercise but was never documented on the write schema. It takes a string like
+> `"bar x8, 50%x5, 75%x3"` and the app resolves each `%` against that person's top set, rounded to
+> 2.5kg. **Scope, from Daniel on 6 Oct: the main lifts, normally the first two exercises of a
+> session.** A ramp belongs on the heavy compound you build up to and is noise on a lateral raise.
+> Carry `warmup` through whenever you rewrite a session, or you will erase it again.
+>
 > **The 🔧 settings box on an exercise holds machine settings and nothing else.** Daniel's
 > instruction, 25 Sep: *"the exercise setting box should not contain notes — only setting guides
 > e.g setting 6 or shoulder height"*. It is the line read with one hand on the machine — "seat 4,

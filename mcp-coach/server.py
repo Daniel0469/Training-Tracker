@@ -1176,6 +1176,12 @@ def get_progress(data, person, exercise):
                         pt["rpe"] = float(rpe) if isinstance(rpe, str) else rpe
                     except (TypeError, ValueError):
                         pt["rpe"] = rpe
+                # Done on a Smith machine. Present only when ticked, and it does NOT
+                # split the trend: Daniel's call is that the load is the same either
+                # way, so this annotates a point rather than forking the history.
+                # It is here so you stop having to ask him to write it in the Notes.
+                if e.get("smith"):
+                    pt["smith"] = True
                 pts.append(pt)
     pts.sort(key=lambda p: p["date"])
     return pts
@@ -1513,6 +1519,12 @@ def _register(mcp):
         how all 55 exercises ended up with none and why Daniel asked on 28 Sep why bench
         stopped suggesting warm-up weights. The feature was never broken; the data was
         overwritten by a rebuild. Read the session first and carry `warmup` through.
+
+        **Which exercises get one: the main lifts, normally the first two of a session**
+        (Daniel, 6 Oct). A ramp earns its place on the heavy compound you build up to -
+        bench, squat, deadlift, the shoulder press - and is noise on a lateral raise or a
+        face pull. The warm-ups are currently MISSING across the whole program; putting
+        them back on the first two exercises of each session is outstanding work.
 
         **`notes` is the settings box, not a place to explain yourself.** Daniel's
         instruction, 25 Sep: "the exercise setting box should not contain notes - only

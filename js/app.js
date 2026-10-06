@@ -427,6 +427,22 @@ function flexBetterHigher(ex){ return !!ex && ex.betterWhen==="higher"; }
 // gate, and both need a Reps or a Time column - so Walking/sandbag lunges
 // (Weight + Distance) had no RPE, which is what Daniel asked for.
 function ratesRpe(ex){ return !(ex.cols||[]).some(c=>/note/i.test(c)); }
+// Could this lift have been done on a Smith machine? Just a tick, and only so the
+// coach can read it - Daniel's call, 6 Oct: "the weight is the same", so it does
+// NOT split the trend or the PR, the way a renamed exercise would. Bench has been
+// on the Smith three times and coaching had to ask him to write it in the Notes
+// column each time.
+//
+// Name-matched rather than configured, because a tick on every lifting exercise is
+// clutter and a setup step for one flag is worse. On the current program it shows
+// on exactly Bench press, Back squat, Shoulder press and Bulgarian split squat, and
+// stays off the dumbbell press, the hack squat, the cables and the deadlift.
+function usesSmith(ex){
+  const n=String(ex.name||"").toLowerCase();
+  if(!isLifting(ex)) return false;
+  if(/\bdb\b|dumbbell|hack|goblet|leg press|pallof|cable|machine/.test(n)) return false;
+  return /bench|shoulder press|overhead press|chest press|\bsquat\b/.test(n);
+}
 function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
 function parseTimeToMin(s){
   s=String(s).trim(); if(!s) return NaN;
@@ -719,7 +735,8 @@ function captureDraft(){
     const rpeSel=card.querySelector('[data-exrpe] button.sel');
     const rpe=rpeSel?rpeSel.dataset.d:null;
     if(rpe!=null) any=true;
-    entries[ei]={rows,done,warm,rpe};
+    const smithEl=card.querySelector('[data-exsmith]');
+    entries[ei]={rows,done,warm,rpe,smith:!!(smithEl&&smithEl.checked)};
     // A changed set count is worth persisting on its own, so sets you add or
     // remove survive a re-render even before anything has been typed.
     // Runs deliberately render one blank split row whatever the program says
@@ -776,6 +793,7 @@ function restoreDraft(){
       const b=card.querySelector('[data-exrpe] button[data-d="'+d.rpe+'"]');
       if(b) b.classList.add("sel");
     }
+    if(d.smith){ const sm=card.querySelector('[data-exsmith]'); if(sm) sm.checked=true; }
   });
   if(draft.difficulty!=null){
     const b=document.querySelector('#diff button[data-d="'+draft.difficulty+'"]');
@@ -1201,6 +1219,9 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
         + '<span class="hint" style="margin:0;flex:none">RPE</span><div class="diff diff-sm" data-exrpe>'
         + [1,2,3,4,5,6,7,8,9,10].map(n=>'<button type="button" data-d="'+n+'">'+n+'</button>').join("")
         + '</div></div>' : '')
+    + (usesSmith(ex) ? '<label class="row smith-tick" style="margin-top:6px;gap:7px;flex-wrap:nowrap">'
+        + '<input type="checkbox" data-exsmith>'
+        + '<span class="hint" style="margin:0">On the Smith machine</span></label>' : '')
     + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button>'
     + (isRunning(ex)?'<button class="mini" data-runimport style="margin-left:auto">⬆ Import run (TCX/GPX)</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
@@ -1408,6 +1429,10 @@ function saveSession(){
       // entries carry one - so the bar necessarily starts from today.
       if(done.length) en.done=done;
       if(rpeSel) en.rpe=rpeSel.dataset.d;
+      // Just a tick, for the coach to read - it does NOT split the trend or the
+      // PR, because the load is the same either way (Daniel, 6 Oct).
+      const smithEl=card.querySelector('[data-exsmith]');
+      if(smithEl && smithEl.checked) en.smith=true;
       // Stamp the load type onto the entry so it scores the same for ever, even
       // if the exercise is later re-flagged or dropped from the program.
       if(ex.load){ en.load=ex.load; if(ex.bwPct) en.bwPct=ex.bwPct; }
@@ -1725,7 +1750,7 @@ function entryDetailHtml(e){
     return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'
       + '<div class="splits-wrap"><table class="splits">'+head+body+totals+'</table></div></td></tr>';
   }
-  return '<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'+(e.rpe!=null?' <span class="hint" style="margin:0">RPE '+esc(e.rpe)+'</span>':'')+'</td><td>'
+  return '<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'+(e.smith?' <span class="hint" style="margin:0">Smith</span>':'')+(e.rpe!=null?' <span class="hint" style="margin:0">RPE '+esc(e.rpe)+'</span>':'')+'</td><td>'
     + e.rows.map((r,ri)=>{
         let s=fmtRow(e.cols||[], r);
         return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s;
@@ -3661,6 +3686,7 @@ function renderHelp(){
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
+     +p('<b>On the Smith machine</b> appears as a tick on the big barbell lifts - bench, squat, shoulder press. It is <b>only a label for your coach</b>: the weight counts the same either way, so your trend and your PRs are unaffected and the lift stays one history rather than splitting in two. It shows on the session in <b>History</b> so you can see which ones were Smith.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
