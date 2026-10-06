@@ -160,9 +160,20 @@ against the source before building; all held.** `tt-v135` -> `tt-v136`.
   would have left the real row where work goes to die. **The 15 cable-row logs keep their own name**
   on Daniel's call: a cable stack and a plate-loaded row are not the same load, and merging would
   splice two lifts into one PR - the reasoning that keeps `Flat press (DB)` out of `Bench press`.
-- **Declined this round, by Daniel:** per-person program state ("neither for now"), real PWA icons
-  ("skip it"). **`baseWeight` not built** - his answer was "no - leave as is", which reads two ways on
-  a change that rewrites logged history, so it is being confirmed rather than guessed.
+- **A weight with no reps no longer saves as a set.** The mirroring fills the rows below the one
+  being typed, so stopping at one set left "60kg and no reps" rows behind - saved, because they held
+  data, and counted by the weekly muscle card. Volume and PRs were always safe (both need reps); the
+  set COUNT was not, which is what the new done-against-planned bar reads. The rule fires only when
+  the first column is a **load** - 23 exercises in, 20 out, and the out list is every run, flexibility
+  test and mobility movement - and only looks at the second column, so a **reps-with-no-weight set
+  still saves**, which is how Cerys logs the hack squat. The blank run row Garmin fills is untouched;
+  verified, along with tick and warm-up indices staying aligned across a dropped middle row. `tt-v137`.
+- **Declined by Daniel, 6 Oct:** per-person program state ("neither for now"), real PWA icons ("skip
+  it"), and **`baseWeight` - "dont build"**. The machine offsets (hack squat 47.6kg, Smith RDL 20kg,
+  Smith bench 10kg) stay uncounted, so those lifts' volume and PRs understate what was moved and
+  Cerys's hack squat is logged with a blank weight. Don't re-raise it as a bug; it is a decision.
+- **The warm-up ramps and the settings-box cleanup are unblocked and Daniel is doing them in a
+  coaching chat**, not here.
 - **The permission rule is in `CHATS.md`**: auto mode refuses `write_program_change` intermittently and
   it looks like a broken tool rather than a blocked one.
 - **Needs a Claude Code restart** before the coaching chat sees `program_session`,
