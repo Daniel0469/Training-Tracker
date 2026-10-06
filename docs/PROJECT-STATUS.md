@@ -161,9 +161,22 @@ Five open suggestions cleared, two coach proposals approved and one of them diag
 - **Still open, deliberately:** "muscles look unbalanced - does this need adjusting?" The measurement
   is fixed; the programming judgement is the coach's. Worth knowing going in: **chest is the lowest
   at 6 sets**, two exercises of three.
-- **Approved and still to build:** the **Smith machine tick** on bench (`1791023024311`). Bench has
-  been on the Smith three times and the trend mixes two different lifts; the design question - whether
-  a Smith set splits the trend and the PR or only annotates the row - has not been put to Daniel yet.
+- **Smith tick built** (`1791023024311`, `tt-v133`). Daniel's design call: *"just a tick - for coach
+  to read - the weight is the same"*, so it **does not split the trend or the PR**. Bench stays one
+  history with the Smith sessions marked, rather than forking into two half-empty lines - the same
+  argument that keeps `Flat press (DB)` out of `Bench press`, running the other way. Name-matched
+  rather than configured (a tick on every lifting exercise is clutter, a setup step for one flag is
+  worse): it shows on bench, squat, shoulder press and the Bulgarian split squat, and stays off the
+  dumbbell press, the hack squat, the cables and the deadlift. Rides the draft, shows in History,
+  reaches the coach on each `get_progress` point.
+- **Warm-up scope, from Daniel 6 Oct: the main lifts, normally the first two exercises of a session.**
+  A ramp earns its place on the compound you build up to and is noise on a lateral raise. Written into
+  the tool docstring and `prompts/coaching.md`. **The ramps are still missing program-wide** and are
+  the coach's to put back.
+- **Worth a look, not acted on:** the weight mirroring fills rows below the one being typed, and a row
+  holding a weight with no reps is still SAVED as a set - it has data in it, so `saveSession` keeps it.
+  Volume and PRs are unaffected (both need reps), but it inflates `rows.length`, which is what the
+  History week heatmap counts. Pre-existing, and only bites when a set is left part-filled.
 - **Needs a Claude Code restart** before the coaching chat sees the `warmup` schema change.
 
 **2026-09-25 - backlog batch: Garmin sync, the muscle map, and a one-week session swap.**
