@@ -950,6 +950,18 @@ function renderLog(){
 
   // What this person said is holding this session back. Their words, not the
   // coach's read of the numbers - see limiters() in mcp-coach/server.py.
+  // Mid-workout the dialog is suppressed (see maybeShowChangeDialog), so say it
+  // quietly here instead - the change is real and waiting, it just isn't something
+  // to action with a half-filled form open.
+  const pcWaiting=sess ? changesForSession(sess.name) : [];
+  if(pcWaiting.length && formDrafts[draftKey()]){
+    html += '<div class="card"><div class="sec-title">&#129504; Coach change waiting</div>'
+      + '<div>'+pcWaiting.map(c=>esc(describeChange(c))).join('<br>')+'</div>'
+      + '<div class="hint" style="margin-top:5px">Left until this session is saved - applying it now '
+      + 'would move the exercises around under what you have already typed. It is in the Program tab '
+      + 'when you are done.</div></div>';
+  }
+
   const limiter=((state.limiters&&state.limiters[p])||{})[sess?sess.name:""]||"";
   if(limiter){
     html += '<div class="card"><div class="sec-title">&#128681; What\'s holding this back</div>'
@@ -1114,6 +1126,8 @@ function renderLog(){
   });
   updateTimerUI();
   if(getTimer().running) ensureTimerTick();
+  // Last, so the form is wired and on screen before anything is put over it.
+  maybeShowChangeDialog(sess);
 }
 
 // Which on-screen keyboard a column asks for. This used to be decided per
@@ -1922,6 +1936,25 @@ function describeChange(c){
   });
   return bits.join(" · ") || "No change";
 }
+// Keep an open draft lined up with the exercise list when a change adds or
+// removes one. A draft's entries are indexed by position in the session, so
+// removing exercise 2 slides 3 into its place and every set typed after it would
+// come back against the wrong movement - silently, since the numbers still look
+// plausible. Same splice the today-only ✕ does (see removeTodayExercise).
+//
+// Both people, not just whoever is looking: formDrafts is keyed person|session,
+// and a change to the session touches every draft open against it.
+function shiftDraftsForSession(sessionKey, pos, delta){
+  let touched=false;
+  Object.keys(formDrafts).forEach(function(dk){
+    if(!dk.endsWith("|"+sessionKey)) return;
+    const d=formDrafts[dk];
+    if(!d || !Array.isArray(d.entries)) return;
+    if(delta<0) d.entries.splice(pos,1); else d.entries.splice(pos,0,undefined);
+    touched=true;
+  });
+  if(touched) saveDrafts();
+}
 function setChangeStatus(c, status){
   c.status=status;
   c[status==="applied"?"appliedAt":"declinedAt"]=new Date().toISOString();
@@ -1939,29 +1972,72 @@ function applyProgramChange(id){
     if(i<0){ toast("That exercise isn't in the session any more"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
     Object.keys(c.fields||{}).forEach(f=>{ exs[i][f]=c.fields[f]; });
   }else if(c.op==="remove"){
-    if(i<0){ toast("Already gone"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+    if(i<0){ toast("Already gone"); setChangeStatus(c,"declined"); save(); renderView(); return; }
     exs.splice(i,1);
+    shiftDraftsForSession(key, i, -1);
     cleanupSoloGroups(key);
   }else if(c.op==="add"){
-    if(i>=0){ toast(c.exercise+" is already in "+c.session); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
+    if(i>=0){ toast(c.exercise+" is already in "+c.session); setChangeStatus(c,"declined"); save(); renderView(); return; }
     const def=Object.assign({name:c.exercise, warmup:"", notes:"", target:"", sets:3,
       cols:["Weight (kg)","Reps"]}, c.fields||{});
     const after=c.after ? exs.findIndex(e=>e.name===c.after) : -1;
-    exs.splice(after>=0 ? after+1 : exs.length, 0, def);
+    const pos=after>=0 ? after+1 : exs.length;
+    exs.splice(pos, 0, def);
+    shiftDraftsForSession(key, pos, +1);
   }
   setChangeStatus(c,"applied");
   // saveProgram stamps updatedAt and pushes, so it reaches the other phone - but
   // never mid-workout, mergeInData refuses to adopt a program while a draft is open.
   saveProgram();
-  renderEdit();
+  // renderView, not renderEdit: these are reachable from the Session tab now, and
+  // renderEdit would paint the Program tab into the view while the tab bar still
+  // said Session.
+  renderView();
   toast("Applied: "+describeChange(c));
 }
 function declineProgramChange(id){
   const c=(state.programChanges||[]).find(x=>String(x.id)===String(id));
   if(!c || c.status!=="pending") return;
   setChangeStatus(c,"declined");
-  save(); autoSync(); renderEdit();
+  save(); autoSync(); renderView();
   toast("Declined - the coach can see that, and won't re-raise it");
+}
+// Which changes have already been put in front of someone this app session, so
+// opening the same session twice, or any of the re-renders a sync causes, doesn't
+// keep reopening the dialog. Keyed by change id, so a NEW change still interrupts.
+const pcSeen=new Set();
+// Coaching changes used to wait quietly in the Program tab and get missed, so a
+// session that has any says so when you open it (Daniel, 6 Oct).
+//
+// Not while a draft is open. Applying an add or a remove mid-workout re-renders
+// the form under half-typed numbers, and a dialog over it is exactly the wrong
+// moment to ask - renderLog shows a quiet line instead, and it waits until the
+// session is saved.
+function maybeShowChangeDialog(sess){
+  if(!sess) return;
+  const dlg=document.getElementById("pcDlg");
+  if(!dlg || dlg.open) return;
+  if(formDrafts[draftKey()]) return;
+  const fresh=changesForSession(sess.name).filter(c=>!pcSeen.has(String(c.id)));
+  if(!fresh.length) return;
+  fresh.forEach(c=>pcSeen.add(String(c.id)));
+  document.getElementById("pcDlgTitle").textContent =
+    fresh.length>1 ? "Your coach has "+fresh.length+" changes" : "Your coach has a change";
+  document.getElementById("pcDlgSub").textContent =
+    "For "+sess.name+". Decide now, or tap Later and it stays in the Program tab.";
+  document.getElementById("pcDlgList").innerHTML = fresh.map(changeCardHtml).join("");
+  wireChangeButtons();
+  dlg.showModal();
+}
+function wireChangeButtons(){
+  document.querySelectorAll("[data-pcapply]").forEach(b=>b.onclick=()=>{
+    const dlg=document.getElementById("pcDlg"); if(dlg&&dlg.open) dlg.close();
+    applyProgramChange(b.dataset.pcapply);
+  });
+  document.querySelectorAll("[data-pcdecline]").forEach(b=>b.onclick=()=>{
+    const dlg=document.getElementById("pcDlg"); if(dlg&&dlg.open) dlg.close();
+    declineProgramChange(b.dataset.pcdecline);
+  });
 }
 function changeCardHtml(c){
   const danger = c.op==="remove";
@@ -2728,8 +2804,7 @@ function renderEdit(){
         : field==="setupNote" ? "Treadmill program saved"
         : field==="garminNote" ? "Watch workout saved" : "Cool-down note saved");
   }));
-  document.querySelectorAll("[data-pcapply]").forEach(b=>b.onclick=()=>applyProgramChange(b.dataset.pcapply));
-  document.querySelectorAll("[data-pcdecline]").forEach(b=>b.onclick=()=>declineProgramChange(b.dataset.pcdecline));
+  wireChangeButtons();
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>groupSelected(b.dataset.group));
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.ungroup.split(":");
@@ -3586,6 +3661,9 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   toast("Added "+(payload.name||"session"));
 };
 const sessionDlg=document.getElementById("sessionDlg");
+// "Later" just closes it - the change stays pending in the Program tab, and
+// pcSeen stops it reopening every time the form re-renders.
+document.getElementById("pcDlgLater").onclick=()=>document.getElementById("pcDlg").close();
 document.getElementById("sessCancel").onclick=()=>sessionDlg.close();
 document.getElementById("sessSave").onclick=()=>{
   const name=(document.getElementById("sessName").value||"").trim();
@@ -3733,6 +3811,7 @@ function renderHelp(){
   h+=card('7 &middot; Edit the program',
       p('Sessions are listed <b>closed</b>, one line each with the day and how many exercises are in it, so the whole week fits on a screen and you can find the one you want. <b>Tap a session</b> to open it; open as many as you like. They stay open while you\'re using the app - including if you nip to another tab - and start closed again next time you open it.')
      +p('If a coach proposes a change to your program - "bench press: 4 sets → 3" - it appears on that exercise here as a <b>🧠 Coach suggests</b> card with the reason, and nothing happens until you tap <b>✓ Apply</b>. Applying makes the change and syncs it to both phones; <b>✕ No</b> declines it and the coach can see you said no, so it won\'t come back. A proposal to <b>remove</b> an exercise is marked in red - your past logs of it are kept either way, removing it only stops it being prescribed.')
+     +p('<b>It also finds you.</b> Open a session that has a change waiting and it asks you there, rather than sitting in this tab unnoticed - decide it on the spot, or tap <b>Later</b> and it stays here. It won\'t ask twice for the same change, and it won\'t ask at all once you\'ve started entering numbers: adding or removing an exercise shuffles the list under a half-filled form, so mid-session it just tells you what\'s waiting and leaves it until you\'ve saved.')
      +p('<b>You don\'t have to go looking.</b> While anything is waiting, the <b>Program</b> tab is outlined, and each session that has proposals on it shows a <b>waiting</b> count on its row while it is still closed - so you can see which session to open rather than opening all of them. Both clear themselves as soon as the last proposal on them is applied or declined.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>&#10133; Add session</b> creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')

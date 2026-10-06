@@ -209,6 +209,17 @@
   <button class="btn btn-primary" id="saveDlgOk" style="margin-top:10px">Nice 💪</button>
 </div></dialog>
 
+<!-- Coaching changes waiting on the session you just opened. A dialog rather than a
+     card on Daniel's call (6 Oct) - in the Program tab they went unnoticed. -->
+<dialog id="pcDlg"><div class="dlg-body">
+  <h3 id="pcDlgTitle">Your coach has a change</h3>
+  <div class="hint" style="margin:-4px 0 12px" id="pcDlgSub"></div>
+  <div id="pcDlgList"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:12px">
+    <button class="btn btn-ghost" id="pcDlgLater">Later</button>
+  </div>
+</div></dialog>
+
 <dialog id="sessionDlg"><div class="dlg-body">
   <h3>Add session</h3>
   <label class="fld" style="margin-bottom:9px">Name<input id="sessName" type="text" placeholder="e.g. Push day" autocomplete="off"></label>
