@@ -1927,6 +1927,7 @@ function sessionKeyByName(name){
 function describeChange(c){
   if(c.op==="remove") return "Remove "+c.exercise;
   if(c.op==="add") return "Add "+c.exercise;
+  if(c.op==="move") return "Move "+c.exercise+(c.after ? " after "+c.after : " to the start");
   const bits=[];
   const key=sessionKeyByName(c.session);
   const ex=key ? (state.program.sessions[key].exercises||[]).find(e=>e.name===c.exercise) : null;
@@ -1951,6 +1952,20 @@ function describeChange(c){
 //
 // Both people, not just whoever is looking: formDrafts is keyed person|session,
 // and a change to the session touches every draft open against it.
+// A move has to carry the draft WITH it, not drop it: the sets already typed
+// against that exercise belong to it wherever it ends up. Splice out, splice in.
+function moveDraftsForSession(sessionKey, from, to){
+  let touched=false;
+  Object.keys(formDrafts).forEach(function(dk){
+    if(!dk.endsWith("|"+sessionKey)) return;
+    const d=formDrafts[dk];
+    if(!d || !Array.isArray(d.entries)) return;
+    const held=d.entries.splice(from,1)[0];
+    d.entries.splice(to,0,held);
+    touched=true;
+  });
+  if(touched) saveDrafts();
+}
 function shiftDraftsForSession(sessionKey, pos, delta){
   let touched=false;
   Object.keys(formDrafts).forEach(function(dk){
@@ -1982,6 +1997,16 @@ function applyProgramChange(id){
     if(i<0){ toast("Already gone"); setChangeStatus(c,"declined"); save(); renderView(); return; }
     exs.splice(i,1);
     shiftDraftsForSession(key, i, -1);
+    cleanupSoloGroups(key);
+  }else if(c.op==="move"){
+    if(i<0){ toast("That exercise isn't in the session any more"); setChangeStatus(c,"declined"); save(); renderView(); return; }
+    const held=exs.splice(i,1)[0];
+    // c.after is "" for "move to the front", and the name to follow otherwise. It is
+    // resolved AFTER the splice, so the index is correct in the shortened list.
+    const afterIdx=c.after ? exs.findIndex(e=>e.name===c.after) : -1;
+    const to=c.after ? (afterIdx>=0 ? afterIdx+1 : exs.length) : 0;
+    exs.splice(to,0,held);
+    moveDraftsForSession(key, i, to);
     cleanupSoloGroups(key);
   }else if(c.op==="add"){
     if(i>=0){ toast(c.exercise+" is already in "+c.session); setChangeStatus(c,"declined"); save(); renderView(); return; }
@@ -3351,6 +3376,7 @@ function mergeInData(data, adoptConfig, fromSync){
         cur.status=c.status;
         if(c.appliedAt) cur.appliedAt=c.appliedAt;
         if(c.declinedAt) cur.declinedAt=c.declinedAt;
+        if(c.withdrawnAt) cur.withdrawnAt=c.withdrawnAt;
         if(c.by) cur.by=c.by;
         updated++;
       }

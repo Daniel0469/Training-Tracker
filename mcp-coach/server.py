@@ -683,7 +683,8 @@ def get_program_changes(data, include_done=False):
     return out
 
 def propose_program_change(session, exercise, why, sets=None, target=None,
-                           add=None, remove=False, after="", warmup=None, notes=None):
+                           add=None, remove=False, after="", warmup=None, notes=None,
+                           move_after=None):
     """Propose one change to the program. It waits on that exercise in the app's
     Program tab until someone ticks it, and THE APP applies it - see the tool
     docstring for why that matters.
@@ -699,7 +700,21 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
             failed["sessions"] = [s.get("name") for s in sessions.values()]
             return None
         names = [e.get("name") for e in (sess.get("exercises") or [])]
-        if remove:
+        if move_after is not None:
+            # Order is the one thing the coach could never change, and it is the
+            # reason work gets missed: Daniel's farmers carry has gone unlogged four
+            # reviews running because it sits at the end of Upper A. "" means move it
+            # to the front; otherwise name the exercise it should follow.
+            dest = str(move_after).strip()
+            if dest and dest not in names:
+                failed["error"] = f"{dest!r} is not in {session!r}, so nothing to move after."
+                failed["exercises"] = names
+                return None
+            if dest == str(exercise).strip():
+                failed["error"] = "An exercise cannot be moved after itself."
+                return None
+            op, fields = "move", {}
+        elif remove:
             op, fields = "remove", {}
         elif add is not None:
             op, fields = "add", dict(add)
@@ -724,7 +739,7 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
                 failed["error"] = ("Nothing to change - pass sets, target, warmup, notes, "
                                    "add or remove.")
                 return None
-        if op in ("edit", "remove") and exercise not in names:
+        if op in ("edit", "remove", "move") and exercise not in names:
             failed["error"] = f"{exercise!r} is not in {session!r}."
             failed["exercises"] = names
             return None
@@ -743,6 +758,10 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
                "fields": fields, "why": str(why or "").strip(), "source": "coach"}
         if op == "add" and after:
             rec["after"] = str(after)
+        if op == "move":
+            # "" is meaningful here and must survive: it means move to the front,
+            # where `add` treats a missing `after` as "put it at the end".
+            rec["after"] = str(move_after).strip()
         data.setdefault("programChanges", []).append(rec)
         return rec
 
@@ -816,10 +835,39 @@ def get_goals(data, person):
         return {"person": person, "goals": goals[i] if i < len(goals) else ""}
     return {"error": f"Unknown person '{person}'"}
 
+def _adherence(data, log):
+    """Sets logged and sets ticked against what the session prescribes.
+
+    Adherence is most of what a weekly review is, and judging it one get_session
+    call at a time is expensive. `done` is only saved from 6 Oct, so `ticked` is
+    absent on anything older rather than reported as zero - a missing tick is not
+    the same claim as a set that was skipped.
+    """
+    sessions = ((data.get("program") or {}).get("sessions") or {})
+    sess = sessions.get(log.get("sessionKey")) or {}
+    planned = sum(max(1, int(e.get("sets") or 1)) for e in (sess.get("exercises") or []))
+    logged = ticked = 0
+    any_done = False
+    for e in log.get("entries") or []:
+        warm = e.get("warmup") or []
+        rows = e.get("rows") or []
+        logged += sum(1 for i, r in enumerate(rows)
+                      if i not in warm and any(str(v).strip() for v in (r or [])))
+        done = e.get("done")
+        if isinstance(done, list) and done:
+            any_done = True
+            ticked += sum(1 for i in done if i not in warm)
+    out = {"sets_logged": logged}
+    if planned:
+        out["sets_planned"] = planned
+    if any_done:
+        out["sets_ticked"] = ticked
+    return out
+
 def list_sessions(data, person, limit=10):
     rows = []
     for l in _person_logs(data, person)[:limit]:
-        rows.append({
+        row = {
             "id": l.get("id"),
             "date": l.get("date"),
             "session": l.get("sessionName"),
@@ -827,8 +875,42 @@ def list_sessions(data, person, limit=10):
             "difficulty": l.get("difficulty"),
             "duration_sec": l.get("durationSec"),
             "feedback": l.get("feedback") or "",
-        })
+        }
+        row.update(_adherence(data, l))
+        rows.append(row)
     return rows
+
+def withdraw_program_change_tool(change_id):
+    """Take back a pending program change the coach got wrong.
+
+    Without this a bad proposal sat in the Program tab until someone ticked or
+    declined it, and could not be corrected in place - propose_program_change
+    refuses a duplicate on (session, exercise, op) while one is pending, so the
+    coach could not even replace it. Only `pending` can be withdrawn: a decision
+    someone has already made is theirs, not the coach's to erase.
+    """
+    failed = {}
+
+    def mutate(data):
+        c = next((x for x in (data.get("programChanges") or [])
+                  if str(x.get("id")) == str(change_id)), None)
+        if c is None:
+            failed["error"] = f"No program change with id {change_id}."
+            return None
+        if c.get("status") != "pending":
+            failed["error"] = (f"That change is already {c.get('status')!r} - "
+                               "a decision they have made is not yours to undo.")
+            return None
+        c["status"] = "withdrawn"
+        c["withdrawnAt"] = _now_iso()
+        return {"session": c.get("session"), "exercise": c.get("exercise"), "op": c.get("op")}
+
+    result = _github_update(mutate, lambda r: "Coach withdraws: %s on %s" % (r["op"], r["session"]))
+    if result is None:
+        return {"ok": False, **failed}
+    result["ok"] = True
+    result["message"] = "Withdrawn - it disappears from their Program tab on the next sync."
+    return result
 
 def get_session(data, session_id):
     for l in data.get("logs", []):
@@ -1361,7 +1443,9 @@ def _register(mcp):
     @mcp.tool()
     def write_program_change(session: str, exercise: str, why: str, sets: int | None = None,
                              target: str | None = None, add: dict | None = None,
-                             remove: bool = False, after: str = "") -> str:
+                             remove: bool = False, after: str = "",
+                             warmup: str | None = None, notes: str | None = None,
+                             move_after: str | None = None) -> str:
         """Propose ONE change to the program. It appears on that exercise in their
         Program tab with the reason and a tick, and the APP applies it when they accept
         - you are not waiting on a developer, and neither are they. This is how a set
@@ -1390,7 +1474,8 @@ def _register(mcp):
         Refuses a duplicate of a change already waiting, and refuses to edit or remove
         something that isn't in that session. One change per call."""
         return json.dumps(propose_program_change(session, exercise, why, sets, target,
-                                                 add, remove, after, warmup, notes), indent=2)
+                                                 add, remove, after, warmup, notes,
+                                                 move_after), indent=2)
 
     @mcp.tool()
     def write_log_entry(session_id: str, exercise: str, rows: list, why: str = "") -> str:
@@ -1522,6 +1607,17 @@ def _register(mcp):
         return json.dumps(get_run(load_data(), person, which), indent=2)
 
     @mcp.tool()
+    def withdraw_program_change(change_id: str) -> str:
+        """Take back a PENDING program change you got wrong, before anyone acts on it.
+
+        Use it when you proposed the wrong thing, or want to replace a proposal:
+        propose_program_change refuses a duplicate on (session, exercise, op) while one
+        is pending, so a bad one has to be withdrawn before a corrected one can be
+        raised. Only `pending` can be withdrawn - once they have ticked or declined it,
+        the decision is theirs."""
+        return json.dumps(withdraw_program_change_tool(change_id), indent=2)
+
+    @mcp.tool()
     def program_session(name: str = "") -> str:
         """One PROGRAMMED session in full - every exercise in order with its target, sets,
         columns, machine settings (`notes`), warm-up ramp (`warmup`) and load type, plus the
@@ -1578,6 +1674,13 @@ def _register(mcp):
         free-text columns like ["Min", "Notes"] make it a plain timed block. Anything else
         the watch records but that isn't distance+time (a speed-based interval, say) should
         set garminRun=true so heart rate still attaches.
+
+        `move_after` REORDERS an existing exercise: pass the name of the one it should
+        follow, or "" to move it to the front. Order is why work gets missed - Daniel's
+        farmers carry went unlogged four reviews running because it sits at the end of
+        Upper A, and the same is true of anything behind a session that overruns. Place
+        what matters early. A move changes nothing else, so it is safe to raise
+        alongside the real content decision rather than instead of it.
 
         `warmup` and `notes` can be changed on an EXISTING exercise from 6 Oct - before
         that `edit` carried only `sets` and `target`, which made restoring a ramp or

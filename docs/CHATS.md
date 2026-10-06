@@ -59,6 +59,11 @@ only docs read by a chat that has no other context.
     `garmin_recent_runs`, `garmin_recent_activities`, `garmin_activity`, `garmin_import_run`,
     `garmin_enrich_session`, `garmin_fill_pending`, `garmin_wellness`, `garmin_hr_zones`,
     `garmin_refresh_metrics`.
+- **One permission rule worth adding.** Auto mode classifies
+  `mcp__training-tracker__write_program_change` as "Modify Shared Resources" and refuses it
+  intermittently - two calls on 22 Sep, one on 6 Oct, while letting others through. It looks like a
+  broken tool rather than a blocked one, so the coaching chat wastes a turn diagnosing it. Allow that
+  tool by name and it stops.
 - **Key docs:** [PROJECT-STATUS.md](PROJECT-STATUS.md) (handoff), [methods/](methods/) - all the
   training reasoning, indexed by [methods/coaching-method.md](methods/coaching-method.md) -
   [term-routine.md](term-routine.md) (the current week),
