@@ -1419,9 +1419,23 @@ function saveSession(){
     const ex=exs[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
     const name=ex.name || card.dataset.name;
     const rows=[], warmup=[], done=[];
+    // A loaded exercise whose second column is empty is not a set. The weight
+    // mirroring fills the rows below the one being typed, so stopping at one set
+    // left "60kg and no reps" rows behind - saved, because they had data in them,
+    // and counted as sets by the weekly muscle card. Volume and PRs were always
+    // safe (both need reps), the set COUNT was not.
+    //
+    // Narrow on purpose. It fires only when the first column is a load, which is
+    // every lift and every station exercise and NOTHING else: a run is
+    // Distance/Time, so the blank row Garmin fills later is untouched, and so are
+    // the cm flexibility tests, the Min/Notes walk and the Rounds/Notes mobility
+    // work. It also only looks at the SECOND column, so a set logged with reps and
+    // no weight - which is how Cerys logs the hack squat - still saves.
+    const loaded=/kg|assist/i.test((ex.cols||[""])[0]);
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let has=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
+      if(has && loaded && !String(vals[1]||"").trim()) return;
       if(has){
         if(tr.classList.contains("wset")) warmup.push(rows.length);
         // Indices into the SAVED rows, not the drawn ones - a row left empty is
