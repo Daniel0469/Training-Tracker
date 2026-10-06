@@ -672,6 +672,31 @@ function flushDraftSave(){ clearTimeout(draftSaveTimer); draftSaveTimer=null; ca
 // and pagehide/hidden is the only notice we get before it happens.
 window.addEventListener("pagehide", flushDraftSave);
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushDraftSave(); });
+// The date was worked out ONCE, when the script first ran, and never again. On a
+// phone the app is never actually closed - it is backgrounded - so opening it on
+// Thursday showed Monday's date and Monday's session, which is Daniel's "date
+// autoselect doesnt work anymore" (27 Sep). Catch it up whenever the app comes
+// back into view, and on pageshow, which is what fires when it is restored from
+// the back/forward cache rather than re-rendered.
+//
+// Two things it deliberately will NOT do: move a date that was picked by hand,
+// and interrupt a session in progress. autoDate is what the app last chose for
+// itself, so curDate !== autoDate means a person chose it and it is not ours to
+// change; an open draft means someone is mid-workout and a re-render under them
+// would be worse than a stale date.
+let autoDate = curDate;
+function catchUpDate(){
+  const today=trainingDateStr();
+  if(today===autoDate) return;
+  if(curDate!==autoDate) { autoDate=today; return; }
+  if(formDrafts[draftKey()]) return;
+  autoDate=curDate=today;
+  const sk=sessionForDate(curDate);
+  if(sk) curSession=sk;
+  renderView();
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") catchUpDate(); });
+window.addEventListener("pageshow", catchUpDate);
 // Read the live log form into formDrafts under the current person+session,
 // or drop the draft if nothing has been entered. Call before any action that
 // re-renders the form (person/session/date change, tab switch).
@@ -926,7 +951,7 @@ function renderLog(){
   // mentioned at all.
   if(exs.some(e=>isRunning(e))){
     html += hasGarmin()
-      ? '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Tick its box or don\'t</b> - that\'s only an on-screen "done" marker, it never types anything in and isn\'t saved, so the row stays free for Garmin either way. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>'
+      ? '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Ticking its box is optional</b> - it never types anything in, so the row stays free for Garmin either way. Ticks are saved now, and they\'re what fills the done bar on your weekly muscle card. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>'
       : '<div class="cardio-note">🏃 <b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>⬆ import</b> a TCX/GPX from Garmin or Strava instead.</div>';
   } else if(isCardioSession(sess) && exs.some(e=>isGarminCardio(e)) && hasGarmin()){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
@@ -1358,12 +1383,16 @@ function saveSession(){
   document.querySelectorAll("#exForm .ex").forEach(card=>{
     const ex=exs[+card.dataset.ei] || {cols:["Weight (kg)","Reps"], name:card.dataset.name};
     const name=ex.name || card.dataset.name;
-    const rows=[], warmup=[];
+    const rows=[], warmup=[], done=[];
     card.querySelectorAll("tbody tr").forEach(tr=>{
       const vals=[]; let has=false;
       tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
       if(has){
         if(tr.classList.contains("wset")) warmup.push(rows.length);
+        // Indices into the SAVED rows, not the drawn ones - a row left empty is
+        // dropped above, so the two lists drift apart without this.
+        const cb=tr.querySelector("[data-done]");
+        if(cb && cb.checked) done.push(rows.length);
         rows.push(vals);
       }
     });
@@ -1373,6 +1402,11 @@ function saveSession(){
     // hint in renderLog): the Garmin sync fills the blank row in later, but
     // only if the entry (and garminWanted below) actually exists to fill.
     if(rows.length || isRunning(ex)){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup;
+      // Which sets were ticked. Saved from 6 Oct so the weekly muscle card can
+      // show what has actually been DONE against what was planned (Daniel's
+      // ask, 2 Oct). Before that the tick was discarded at save - 0 of 345
+      // entries carry one - so the bar necessarily starts from today.
+      if(done.length) en.done=done;
       if(rpeSel) en.rpe=rpeSel.dataset.d;
       // Stamp the load type onto the entry so it scores the same for ever, even
       // if the exercise is later re-flagged or dropped from the program.
@@ -3609,6 +3643,7 @@ function renderHelp(){
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, <b>💪 what the week trains</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
      +p('<b>💪 What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
+     +p('<b>Once you start ticking sets, the bar shows two things:</b> the pale track is what the week <i>plans</i>, and the solid fill over it is what you have actually <b>ticked</b> so far, with the count reading done/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
@@ -3642,7 +3677,7 @@ function renderHelp(){
       p('On a <b>cardio day</b> the easiest thing is to just <b>log &amp; save</b> - a banner reminds you. If you wear your <b>Garmin</b>, the run\'s distance, per-km <b>splits</b>, pace and ♥ HR fill in automatically once it syncs, and it shows a <b>🏃 Last run</b> summary to beat. Prefer to enter it yourself? Type the splits (pace is computed for you) or import a file.')
      +p('<b>A run gets a row per rep or per km</b> when it\'s prescribed that way - <i>6 x 400m</i> draws six rows, a 5km easy run draws five - so you can fill each one in as you go and see a rep fading while you\'re still on the treadmill. <b>Leaving them blank is fine and is the point</b>: empty rows are dropped when you save, and the Garmin sync then fills the real splits in exactly as it always has. Type into them only when you\'re running <b>without the watch</b>, and use <b>+ set</b> if you need another row.')
      +p('<b>Interval / speed sessions</b> work slightly differently: you type your own <b>hard and easy paces</b>, and Garmin adds only what it alone measures - <b>♥ HR, heart-rate zones and calories</b> - without overwriting anything you entered. That works because the exercise is ticked <b>⌚ Garmin records this</b> in Edit Program (real distance+time runs are detected automatically; tick it for cardio logged as paces instead). These hard efforts are also the most valuable data for your <b>🏁 Estimated 5k</b>.')
-     +p('<b>Should you tick the run\'s box?</b> Entirely up to you - it\'s only a visual "done" marker, it\'s never saved, and on a run it fills nothing in (the auto-fill only applies to lifting), so the saved result is identical either way. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
+     +p('<b>Should you tick the run\'s box?</b> Up to you - on a run it fills nothing in (the auto-fill only applies to lifting), so what gets saved is otherwise the same either way. Ticks <i>are</i> saved now and feed the done bar on your weekly muscle card, so tick it if you want the run counted there. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)')
      +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ 🏃 Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
@@ -3759,16 +3794,50 @@ function weeklyCoverage(person){
   });
   return m;
 }
+// Weighted sets this person has actually TICKED this week, per muscle. Same
+// weighting as the planned side so the two bars are comparable - a half set
+// planned and a half set done have to mean the same thing or the bar lies.
+// Warm-up sets are excluded here exactly as they are everywhere else.
+function weeklyDone(person){
+  const m={}, wk=weekMonday(trainingDateStr());
+  state.logs.forEach(function(l){
+    if(!l || l.person!==person || weekMonday(l.date)!==wk) return;
+    (l.entries||[]).forEach(function(en){
+      const done=en.done||[], warm=en.warmup||[];
+      if(!done.length) return;
+      const n=done.filter(function(i){ return warm.indexOf(i)<0; }).length;
+      if(!n) return;
+      const w=muscleWeights(en.name||"", en.muscles);
+      Object.keys(w).forEach(function(k){ m[k]=(m[k]||0)+n*w[k]; });
+    });
+  });
+  return m;
+}
 function coverageCardHtml(person){
   if(!orderedKeys().length) return "";
   const m=weeklyCoverage(person), keys=Object.keys(MUSCLE_LABELS);
   const max=Math.max.apply(null, keys.map(k=>m[k]));
   if(!max) return "";
   const missing=keys.filter(k=>!m[k]);
-  const rows=keys.filter(k=>m[k]).sort((a,b)=>m[b]-m[a]).map(k=>
-    '<div class="cov-row"><span class="cov-name">'+esc(MUSCLE_LABELS[k])+'</span>'
-    + '<span class="cov-bar"><i style="width:'+Math.round(m[k]/max*100)+'%;background:'+muscleColor(m[k],max)+'"></i></span>'
-    + '<span class="cov-n">'+fmtSets(m[k])+'</span></div>').join("");
+  // What has actually been ticked this week, drawn inside the planned bar so the
+  // two are read against each other rather than side by side.
+  const dn=weeklyDone(person);
+  const anyDone=Object.keys(dn).some(k=>dn[k]>0);
+  const rows=keys.filter(k=>m[k]).sort((a,b)=>m[b]-m[a]).map(k=>{
+    const planned=Math.round(m[k]/max*100);
+    // Capped at the planned width: doing more than the plan is a good thing, not
+    // a bar that overflows its track.
+    const doneW=Math.min(planned, Math.round(Math.min(dn[k]||0, m[k])/max*100));
+    const col=muscleColor(m[k],max);
+    // Planned is the pale track, done is the solid fill over it - siblings, not
+    // nested, because opacity on a parent drags its children down with it.
+    return '<div class="cov-row"><span class="cov-name">'+esc(MUSCLE_LABELS[k])+'</span>'
+    + '<span class="cov-bar'+(anyDone?' has-done':'')+'">'
+      + '<i style="width:'+planned+'%;background:'+col+'"></i>'
+      + (doneW ? '<b style="width:'+doneW+'%;background:'+col+'"></b>' : '')
+      + '</span>'
+    + '<span class="cov-n">'+(anyDone ? fmtSets(dn[k]||0)+'/' : '')+fmtSets(m[k])+'</span></div>';
+  }).join("");
   return '<div class="card"><div class="sec-title">&#128170; What the week trains</div>'
     + '<div class="hint" style="margin:0 0 9px">Planned sets per muscle across '+esc(possessive(person))
     + ' programmed week. A muscle doing the lift counts a full set; one helping counts a half - so '

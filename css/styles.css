@@ -326,8 +326,14 @@
      one system in both themes; the fill is set inline from muscleColor(). */
   .cov-row{display:flex;align-items:center;gap:9px;margin:3px 0}
   .cov-name{flex:0 0 84px;font-size:12.5px;color:var(--muted)}
-  .cov-bar{flex:1;height:9px;border-radius:5px;background:var(--musc-base);overflow:hidden}
+  .cov-bar{flex:1;height:9px;border-radius:5px;background:var(--musc-base);overflow:hidden;position:relative}
   .cov-bar i{display:block;height:100%;border-radius:5px}
-  .cov-n{flex:0 0 22px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
+  /* Once anything has been ticked this week the bar reads as two things: the
+     planned sets as a pale track, and what's actually been done solid over it.
+     Siblings rather than nested - opacity on a parent takes its children with
+     it, so a nested "done" segment could never be more solid than its track. */
+  .cov-bar.has-done i{position:absolute;left:0;top:0;opacity:.3}
+  .cov-bar.has-done b{position:absolute;left:0;top:0;height:100%;border-radius:5px}
+  .cov-n{flex:0 0 46px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
   @media(max-width:520px){ .title small{display:none} body{padding:10px} td.prev,th.prev{width:74px}
     .topbar{margin:-10px -10px 12px;padding:10px 10px 8px} .cov-name{flex-basis:72px} }

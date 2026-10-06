@@ -1428,7 +1428,8 @@ def _register(mcp):
 
         `exercises` is the list, in order, each
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
-           "notes": MACHINE SETTINGS ONLY - see below}
+           "notes": MACHINE SETTINGS ONLY - see below,
+           "warmup": optional str - the warm-up SETS for this lift}
         Columns decide how the app treats it. A Distance + Time pair makes it a run. Two
         free-text columns like ["Min", "Notes"] make it a plain timed block. A first column
         of "cm" makes it a flexibility test: it charts in Progress as a ladder rung and
@@ -1492,6 +1493,7 @@ def _register(mcp):
         in order. Each is
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
            "notes": MACHINE SETTINGS ONLY - see below, "garminRun": optional bool,
+           "warmup": optional str - the warm-up SETS for this lift,
            "groupId": optional str to circuit two together}
         Columns decide how the app treats it: a Distance + Time pair (e.g.
         ["Distance (km)", "Time (mm:ss)", "Pace"]) makes it a run - pace computes itself,
@@ -1499,6 +1501,18 @@ def _register(mcp):
         free-text columns like ["Min", "Notes"] make it a plain timed block. Anything else
         the watch records but that isn't distance+time (a speed-based interval, say) should
         set garminRun=true so heart rate still attaches.
+
+        **`warmup` is the warm-up sets, and it understands percentages.** Write it
+        like "bar x8, 50%x5, 75%x3" and the app resolves each % against that person's
+        top set, rounded to 2.5kg - from what they have already typed into the exercise
+        today, falling back to their last session. It is per exercise and separate from
+        the session's warmupNote, which is mobility work.
+
+        **It is silently dropped if you leave it out.** Passing `exercises` REPLACES the
+        list, and an exercise with no `warmup` is written with an empty one - which is
+        how all 55 exercises ended up with none and why Daniel asked on 28 Sep why bench
+        stopped suggesting warm-up weights. The feature was never broken; the data was
+        overwritten by a rebuild. Read the session first and carry `warmup` through.
 
         **`notes` is the settings box, not a place to explain yourself.** Daniel's
         instruction, 25 Sep: "the exercise setting box should not contain notes - only
