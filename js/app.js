@@ -921,8 +921,16 @@ const ICONS={
   upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   run:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
-  timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/>'
+  timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/>',
+  bolt:'<path d="M13 2.5 4.5 14H11l-1 7.5L18.5 10H12l1-7.5z"/>',
+  heart:'<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  dumbbell:'<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+  trend:'<path d="m4.5 16 5-5 3.5 3.5 6.5-7"/><path d="M15 7.5h4.5V12"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>'
 };
+// The gold PR badge (design v3), in place of the old medal emoji.
+const PR_BADGE='<span class="pr-badge">PR</span>';
 function ico(name){ return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||"")+'</svg>'; }
 // Column header / placeholder text in the set table, where every pixel of a 375px
 // phone is spoken for: "Weight (kg)" reads "kg", "Distance (km)" reads "km" and
@@ -1685,8 +1693,8 @@ function intervalStructureText(g){
   return "reps on the watch: "+s+(extra.length?" · "+extra.join(" · "):"");
 }
 function garminStatus(l){
-  if(l.garminActivityId) return ' · ⌚ Garmin';
-  if(l.garminWanted) return ' · ⌚ awaiting run…';
+  if(l.garminActivityId) return ' · Garmin';
+  if(l.garminWanted) return ' · awaiting run…';
   return "";
 }
 // Parse "m:ss" / "h:mm:ss" to seconds; blank/invalid -> null.
@@ -3831,14 +3839,14 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut), any <b>🧠 Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>🏃 last Zone 2 run</b> and <b>⚡ last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - ❤ average and max HR, and the time-in-zone bar), your <b>❤️ heart rate zones</b>, <b>💪 what the week trains</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>💪 What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
-     +p('<b>Once you start ticking sets, the bar shows two things:</b> the pale track is what the week <i>plans</i>, and the solid fill over it is what you have actually <b>ticked</b> so far, with the count reading done/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), any <b>Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>what the week trains</b>, <b>sleep &amp; recovery</b>, your <b>heart rate zones</b>, the <b>estimated 5k</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+     +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
+     +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
-     +p('<b>❤️ Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
-     +p('<b>💤 Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep and its stages, sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
-     +p('<b>🏁 Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
+     +p('<b>Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
+     +p('<b>Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep, its stages as one coloured bar (deep, REM, light, awake), sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
+     +p('<b>Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
      +p('<b>Updating your zones:</b> they only refresh when someone runs the zone sync on the laptop, because zones barely ever change so it isn\'t worth doing automatically. After changing them on Garmin, run <code>python mcp-garmin/server.py --hrzones training-garmin</code> (or <code>--hrzones training-garmin-cerys</code>). That refreshes the ranges <i>and</i> tidies up past runs - filling in a missing zone bar, and restoring the run itself into the exercise list on any older cardio session that only shows the <b>⌚ Garmin</b> summary line. It\'s safe to re-run any time - it does nothing when nothing has changed.'));
 
   h+=card('1 &middot; Pick who you are',
@@ -4020,25 +4028,23 @@ function coverageCardHtml(person){
     // Capped at the planned width: doing more than the plan is a good thing, not
     // a bar that overflows its track.
     const doneW=Math.min(planned, Math.round(Math.min(dn[k]||0, m[k])/max*100));
-    const col=muscleColor(m[k],max);
-    // Planned is the pale track, done is the solid fill over it - siblings, not
-    // nested, because opacity on a parent drags its children down with it.
+    // Design v3: planned is a grey track, ticked is the person's colour over it.
+    // Siblings, not nested, so the fill is never dimmed by its track.
     return '<div class="cov-row"><span class="cov-name">'+esc(MUSCLE_LABELS[k])+'</span>'
-    + '<span class="cov-bar'+(anyDone?' has-done':'')+'">'
-      + '<i style="width:'+planned+'%;background:'+col+'"></i>'
-      + (doneW ? '<b style="width:'+doneW+'%;background:'+col+'"></b>' : '')
+    + '<span class="cov-bar v3">'
+      + '<i style="width:'+planned+'%"></i>'
+      + (doneW ? '<b style="width:'+doneW+'%"></b>' : '')
       + '</span>'
-    + '<span class="cov-n">'+(anyDone ? fmtSets(dn[k]||0)+'/' : '')+fmtSets(m[k])+'</span></div>';
+    + '<span class="cov-n">'+fmtSets(dn[k]||0)+'/'+fmtSets(m[k])+'</span></div>';
   }).join("");
-  return '<div class="card"><div class="sec-title">&#128170; What the week trains</div>'
-    + '<div class="hint" style="margin:0 0 9px">Planned sets per muscle across '+esc(possessive(person))
-    + ' programmed week. A muscle doing the lift counts a full set; one helping counts a half - so '
-    + 'bench press is a set of chest and half a set each of triceps and shoulders. Optional sessions '
-    + 'aren\'t counted, and running isn\'t sets so it doesn\'t appear.</div>'+rows
+  // The full counting rule (full set for the muscle doing the lift, half for a
+  // helper; optional sessions and running left out) is in the Guide.
+  return '<div class="card"><div class="sec-title">'+ico("dumbbell")+'What the week trains</div>'
+    + '<div class="hint" style="margin:0 0 10px">Ticked / planned sets per muscle this week.</div>'+rows
     + (missing.length
-        ? '<div class="ex-meta" style="margin-top:10px">&#9888; Nothing trains: <b>'
+        ? '<div class="ex-meta" style="margin-top:10px">Nothing trains: <b>'
           + missing.map(k=>esc(MUSCLE_LABELS[k])).join(", ")+'</b></div>'
-        : '<div class="ex-meta" style="margin-top:10px">&#10003; Every muscle group has work in it.</div>')
+        : '<div class="ex-meta" style="margin-top:10px">Every muscle group has work in it.</div>')
     + '</div>';
 }
 // Renders the exercise-dialog muscle-tag pills with `selected` pre-toggled.
@@ -4253,16 +4259,24 @@ function recoveryCardHtml(person){
   const dates=Object.keys(all).filter(d=>all[d]&&Object.keys(all[d]).length).sort();
   if(!dates.length) return "";
   const last=dates[dates.length-1], w=all[last];
+  // Design v3: duration big, score beside it, the stages as one stacked bar,
+  // then HRV / resting HR / breathing as a row of stats; the rest on a small line.
   const big=[];
-  if(w.sleep) big.push('<span class="pill">😴 '+esc(w.sleep)+'</span>');
-  if(w.sleep_score!=null) big.push('<span class="pill">score '+w.sleep_score+'/100</span>');
-  if(w.readiness!=null) big.push('<span class="pill">ready '+w.readiness+'/100</span>');
+  if(w.sleep) big.push('<span class="sleep-dur num">'+esc(w.sleep)+'</span>');
+  if(w.sleep_score!=null) big.push('<span class="pill num">score '+w.sleep_score+'</span>');
+  const stat=(v,lab)=>'<div class="mstat"><b class="num">'+v+'</b><span>'+lab+'</span></div>';
+  const stats=[];
+  if(w.hrv_ms!=null) stats.push(stat(w.hrv_ms+'<small> ms</small>', 'HRV'+(w.hrv_status?' · '+esc(w.hrv_status):'')));
+  if(w.resting_hr!=null) stats.push(stat(w.resting_hr, 'resting HR'));
+  if(w.respiration!=null) stats.push(stat(w.respiration, 'breaths/min'));
   const bits=[];
-  if(w.hrv_ms!=null) bits.push("HRV "+w.hrv_ms+" ms"+(w.hrv_status?" ("+esc(w.hrv_status)+")":""));
-  if(w.resting_hr!=null) bits.push("resting ♥ "+w.resting_hr);
-  if(w.overnight_hr!=null) bits.push("overnight ♥ "+w.overnight_hr);
-  if(w.respiration!=null) bits.push("breathing "+w.respiration+"/min");
+  if(w.readiness!=null) bits.push("readiness "+w.readiness+"/100");
+  if(w.overnight_hr!=null) bits.push("overnight HR "+w.overnight_hr);
   if(w.sleep_stress!=null) bits.push("stress "+w.sleep_stress);
+  const stg=[["deep",w.deep_sec,"Deep"],["rem",w.rem_sec,"REM"],["light",w.light_sec,"Light"],["awake",w.awake_sec,"Awake"]].filter(x=>x[1]>0);
+  const stTot=stg.reduce((t,x)=>t+x[1],0);
+  const stageBar = stTot ? '<div class="stagebar">'+stg.map(x=>'<i class="stg-'+x[0]+'" style="width:'+(x[1]/stTot*100).toFixed(1)+'%"></i>').join("")+'</div>'
+    + '<div class="stagekey">'+stg.map(x=>'<span><i class="stg-'+x[0]+'"></i>'+x[2]+' <b class="num">'+fmtHm(x[1])+'</b></span>').join("")+'</div>' : '';
   // Sleep stages as one line rather than a second chart - it's context for the
   // duration above, not something anyone trends off a phone card. Deliberately NOT
   // fmtDuration: that gives h:mm:ss, so 6 minutes awake printed as "6:00" next to
@@ -4272,11 +4286,12 @@ function recoveryCardHtml(person){
   if(w.rem_sec!=null) st.push("REM "+fmtHm(w.rem_sec));
   if(w.light_sec!=null) st.push("light "+fmtHm(w.light_sec));
   if(w.awake_sec) st.push("awake "+fmtHm(w.awake_sec));
-  if(!big.length && !bits.length) return "";
-  return '<div class="card"><div class="sec-title" style="margin:0 0 6px">💤 Sleep &amp; recovery</div>'
-    + (big.length?'<div class="row" style="gap:6px;margin-bottom:6px">'+big.join("")+'</div>':'')
-    + (bits.length?'<div class="ex-meta">'+bits.join(' · ')+'</div>':'')
-    + (st.length?'<div class="ex-meta" style="margin-top:4px">'+esc(st.join(' · '))+'</div>':'')
+  if(!big.length && !stats.length && !bits.length) return "";
+  return '<div class="card"><div class="sec-title">'+ico("moon")+'Sleep &amp; recovery</div>'
+    + (big.length?'<div class="row" style="gap:10px;align-items:center;margin-bottom:8px">'+big.join("")+'</div>':'')
+    + (stageBar || (st.length?'<div class="ex-meta">'+esc(st.join(' · '))+'</div>':''))
+    + (stats.length?'<div class="mstats">'+stats.join("")+'</div>':'')
+    + (bits.length?'<div class="ex-meta num" style="margin-top:8px">'+bits.join(' · ')+'</div>':'')
     + '<div class="hint" style="margin-top:6px">From Garmin · '+esc(relTime(last))
     + (dates.length>1?' · '+dates.length+' nights on record':'')+'</div></div>';
 }
@@ -4293,8 +4308,8 @@ function hrZonesCardHtml(person){
       + '<span class="hrz-name">Z'+(i+1)+' <span class="hrz-sub">'+esc(HR_ZONE_NAMES[i])+'</span></span>'
       + '<span class="hrz-range">'+esc(hi!=null ? lo+"-"+hi : lo+"+")+' bpm</span></div>';
   }).join("");
-  return '<div class="card"><div class="sec-title" style="margin:0 0 6px">❤️ Heart rate zones</div>'
-    + (stats.length?'<div class="ex-meta" style="margin-bottom:8px">'+stats.join(' · ')+' bpm</div>':'')
+  return '<div class="card"><div class="sec-title">'+ico("heart")+'Heart rate zones</div>'
+    + (stats.length?'<div class="ex-meta num" style="margin-bottom:8px">'+stats.join(' · ')+' bpm</div>':'')
     + rows
     + '<div class="hint" style="margin-top:6px">From Garmin'
     + (z.updated?' · updated '+esc(relTime(String(z.updated).slice(0,10))):'')+'</div></div>';
@@ -4339,7 +4354,7 @@ function fiveKCardHtml(person){
     when=pred.updated ? "Garmin · "+relTime(String(pred.updated).slice(0,10)) : "From Garmin";
   } else return "";
   return '<div class="card"><div class="flex-between" style="align-items:baseline">'
-    + '<div class="sec-title" style="margin:0">🏁 Estimated 5k</div>'
+    + '<div class="sec-title" style="margin:0">'+ico("flag")+'Estimated 5k</div>'
     + (conf?'<span class="conf" data-c="'+esc(conf)+'">'+esc(conf)+(conf==="unreviewed"?"":" confidence")+'</span>':'')
     + '</div>'
     + '<div class="fivek">'+esc(time)+(pace?'<span class="sub"> · '+esc(pace)+' /km</span>':'')+'</div>'
@@ -4358,10 +4373,10 @@ function nextCardioCardHtml(person){
   const when=nc.updated ? "Coach · "+relTime(String(nc.updated).slice(0,10)) : "From your coach";
   return '<div class="card coach-card'+(live?'':' spent')+'">'
     + '<div class="flex-between" style="align-items:baseline">'
-      + '<div class="sec-title" style="margin:0">&#9889; Next cardio</div>'
+      + '<div class="sec-title" style="margin:0">'+ico("bolt")+'Next cardio</div>'
       + '<span class="conf" data-c="'+(live?'assigned':'done')+'">'+(live?'assigned':'done')+'</span>'
     + '</div>'
-    + '<h3 style="margin:8px 0 2px">'+esc(nc.session)+'</h3>'
+    + '<h3 class="home-h">'+esc(nc.session)+'</h3>'
     + (nc.focus?'<div style="white-space:pre-wrap">'+esc(nc.focus)+'</div>':'')
     + (nc.why?'<div class="ex-meta" style="margin-top:4px">'+esc(nc.why)+'</div>':'')
     + '<div class="hint" style="margin-top:5px">'+esc(when)
@@ -4376,10 +4391,10 @@ function sessionSwapCardHtml(person){
   const when=sw.updated ? "Coach · "+relTime(String(sw.updated).slice(0,10)) : "From your coach";
   return '<div class="card coach-card'+(live?'':' spent')+'">'
     + '<div class="flex-between" style="align-items:baseline">'
-      + '<div class="sec-title" style="margin:0">&#129496; This '+esc(sw.day)+'</div>'
+      + '<div class="sec-title" style="margin:0">'+ico("calendar")+'This '+esc(sw.day)+'</div>'
       + '<span class="conf" data-c="'+(live?'assigned':'done')+'">'+(live?'assigned':'done')+'</span>'
     + '</div>'
-    + '<h3 style="margin:8px 0 2px">'+esc(sw.session)+'</h3>'
+    + '<h3 class="home-h">'+esc(sw.session)+'</h3>'
     + (sw.why?'<div style="white-space:pre-wrap">'+esc(sw.why)+'</div>':'')
     + '<div class="hint" style="margin-top:5px">'+esc(when)
       + (live?' · this is the one the app will open on '+esc(sw.day)
@@ -4412,27 +4427,31 @@ function renderHome(){
   // scheduled and curSession is just a fallback.
   const todayKey=sessionForDate(trainingDateStr());
   const isToday=!!todayKey && curSession===todayKey;
-  let html='<div class="card">'
-    + '<div class="sec-title" style="margin:0">👋 '+esc(possessive(p))+' hub</div>'
-    + '<div class="flex-between" style="align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">'
-    + '<div>'+(isToday?'Today’s session':'Selected session')+': <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
+  // Anything else already saved today (the run on a run + core day): a ticked
+  // line, so the card doesn't look like the whole day is still to do.
+  const doneToday=pLogs.filter(l=>l.date===trainingDateStr() && l.sessionKey!==curSession);
+  let html='<div class="card today-card">'
+    + '<div class="sec-title">'+(isToday?'Today’s session':'Selected session')+'</div>'
+    + '<div class="today-name">'+esc(sess?sess.name:"-")+'</div>'
+    + (sess?'<div class="today-day">'+esc(sess.day)+'</div>':'')
+    + doneToday.map(l=>'<div class="today-done">'+ico("check")+esc(l.sessionName)+' logged today</div>').join("")
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
-    + '</div></div>';
+    + '</div>';
 
   html += nextCardioCardHtml(p);
   html += sessionSwapCardHtml(p);
 
   const coachSessNote=(coach.bySession && sess && coach.bySession[sess.name])||"";
   if(coachSessNote){
-    html+='<div class="card coach-card"><div class="sec-title">🧠 Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+    html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
   }
   if(coach.overall){
-    html+='<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+    html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
   }
 
-  html+='<div class="tiles">'
+  html+='<div class="tiles home-tiles">'
     + '<div class="tile"><div class="big">'+wkLogs.length+'</div><div class="lbl">sessions this week</div></div>'
     + '<div class="tile"><div class="big">'+wkVol.toLocaleString()+'</div><div class="lbl">kg volume this week</div></div>'
     + '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'-')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>'
@@ -4443,8 +4462,8 @@ function renderHome(){
     const pr=(last.entries||[]).some(e=>e.pr);
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">Last session</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
-      + '<h3 style="margin:8px 0 2px">'+esc(last.sessionName)+(pr?' 🥇':'')+' <span class="pill" data-sw="'+pc+'">'+relTime(last.date)+'</span></h3>'
-      + '<div class="ex-meta">'+esc(last.date)+(last.difficulty?' · difficulty '+last.difficulty+'/10':"")+(last.volume?' · '+last.volume.toLocaleString()+' kg':"")+(last.durationSec?' · ⏱ '+fmtDuration(last.durationSec):"")+garminStatus(last)+'</div>'
+      + '<h3 class="home-h">'+esc(last.sessionName)+(pr?' '+PR_BADGE:'')+' <span class="pill" data-sw="'+pc+'">'+relTime(last.date)+'</span></h3>'
+      + '<div class="ex-meta num">'+esc(last.date)+(last.difficulty?' · difficulty '+last.difficulty+'/10':"")+(last.volume?' · '+last.volume.toLocaleString()+' kg':"")+(last.durationSec?' · '+fmtDuration(last.durationSec):"")+garminStatus(last)+'</div>'
       + '</div>';
   } else {
     html+='<div class="card empty">No sessions logged yet.<br>Tap <b>Log it</b> on <b>Home</b> to record your first one.</div>';
@@ -4463,18 +4482,18 @@ function renderHome(){
     // and everything beside it (HR, the zone bar) already is. The timer covers
     // the whole gym session, so on a cardio+core day it read 1:12:33 next to an
     // 18:31 zone bar. Falls back to the timer when there's no watch data.
-    if(g.moving_time) bits.push('⏱ '+g.moving_time);
-    else if(log.durationSec) bits.push('⏱ '+fmtDuration(log.durationSec));
+    if(g.moving_time) bits.push(g.moving_time);
+    else if(log.durationSec) bits.push(fmtDuration(log.durationSec));
     // Red heart for the average, orange for the peak - the same direction the
     // zone palette runs (--hrz2 green through --hrz4 orange to --hrz5 red), so
     // the hotter number reads as the hotter colour rather than needing the label.
-    if(g.avg_hr!=null) bits.push('❤ '+g.avg_hr+' avg');
-    if(g.max_hr!=null) bits.push('🧡 '+g.max_hr+' max');
+    if(g.avg_hr!=null) bits.push(g.avg_hr+' avg HR');
+    if(g.max_hr!=null) bits.push(g.max_hr+' max');
     return '<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+title+'</div>'
       + '<button class="mini" data-home-go="history">History →</button></div>'
-      + '<h3 style="margin:8px 0 2px">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
-      + '<div class="ex-meta">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(log)+'</div>'
-      + (intervalStructureText(g)?'<div class="ex-meta" style="margin-top:3px">⚙ '+esc(intervalStructureText(g))+'</div>':'')
+      + '<h3 class="home-h">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
+      + '<div class="ex-meta num">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(log)+'</div>'
+      + (intervalStructureText(g)?'<div class="ex-meta" style="margin-top:3px">'+esc(intervalStructureText(g))+'</div>':'')
       + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
   };
 
@@ -4483,26 +4502,27 @@ function renderHome(){
     const km=(runEntry.rows||[]).reduce((t,r)=>t+(parseFloat(r[0])||0),0);
     const best=bestPaceFromEntry(runEntry);
     const lead=[km?(Math.round(km*100)/100)+' km':'', best?'best '+best:''].filter(Boolean).join(' · ');
-    html+=cardioCard(lastRun, runEntry, '🏃 Last Zone 2 run', lead);
+    html+=cardioCard(lastRun, runEntry, ico("run")+'Last Zone 2 run', lead);
   }
   if(lastIntervals){
     const ivEntry=(lastIntervals.entries||[]).find(e=>isIntervalEntry(e));
     const best=bestSpeedFromEntry(ivEntry);
-    html+=cardioCard(lastIntervals, ivEntry, '⚡ Last intervals', best?'best '+best:'');
+    html+=cardioCard(lastIntervals, ivEntry, ico("bolt")+'Last intervals', best?'best '+best:'');
   }
 
-  html += fiveKCardHtml(p);
+  // Design v3 order: the week, then recovery and zones, then the extras.
+  html += coverageCardHtml(p);
   html += recoveryCardHtml(p);
   html += hrZonesCardHtml(p);
-  html += coverageCardHtml(p);
+  html += fiveKCardHtml(p);
 
   if(bw.length>=2){
-    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">⚖️ Bodyweight trend</div>'
+    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("trend")+'Bodyweight trend</div>'
       + '<button class="mini" data-home-go="body">Body →</button></div>'
       + '<div class="chart-box" style="height:150px"><canvas id="homeBwChart"></canvas></div></div>';
   }
 
-  html+='<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
+  html+='<div class="card"><div class="sec-title">'+ico("target")+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
             : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu'+(hasCoaching()?' so coaching can target them':'')+'.</div>')
     + '</div>';
