@@ -112,16 +112,14 @@ automatically, because it reads this file each time.
 > session.** A ramp belongs on the heavy compound you build up to and is noise on a lateral raise.
 > Carry `warmup` through whenever you rewrite a session, or you will erase it again.
 >
-> **The 🔧 settings box on an exercise holds machine settings and nothing else.** Daniel's
-> instruction, 25 Sep: *"the exercise setting box should not contain notes — only setting guides
-> e.g setting 6 or shoulder height"*. It is the line read with one hand on the machine — "seat 4,
-> back pad 2", "rear foot on a bench", "feet on the bottom edge of the platform". Reasoning belongs
-> in the `by_exercise` coaching cue, which the app shows as the teal card right under the exercise,
-> so the athlete reads it in the same place either way. **All 23 lifting notes were prose when this
-> was written, so expect to be rewriting**: whenever you touch a session, strip its notes back to
-> settings and move anything worth keeping into the cue. The mobility and assessment sessions keep
-> their protocols — there the how-to *is* the setting, and "measure from the middle fingertip" is
-> what makes the number repeatable.
+> **Machine settings are not yours to write.** Since 13 Oct each of them keeps their own (seat
+> height, pins, cable height) per exercise, and only they edit them, in the app - `program_session`
+> shows them to you read-only as `machine_settings`. You have no way to set them: `create_session`,
+> `write_run` and `write_program_change` all drop or refuse `notes`. Every cue, how-to and reason
+> goes in `write_coaching`'s `by_exercise` note, shown under the exercise. **Some of those notes
+> start with a "How to:" paragraph** - the drill instructions and assessment test protocols, moved
+> there out of the old settings box on 13 Oct. **Keep that paragraph whenever you rewrite the note**:
+> it is the only copy, and the next re-test depends on it.
 >
 > **To change a warm-up or cool-down** — for an injury or a niggle, typically — call
 > `session_notes(session)` to read what's there, then `write_session_notes(session, warmup=…,
@@ -217,12 +215,10 @@ automatically, because it reads this file each time.
   rather than leaving one-liners sitting beside the fuller new ones.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
-- **The per-exercise `notes` field in the program is for machine settings only.** Daniel, 22 Sep
-  2026: *"why is there comments on the setup block - this should only be for machine settings ect"*.
-  The app renders that field as a setup block, so it should hold bar weights, machine starting
-  resistance, seat positions and the treadmill table - not reasoning. All coaching commentary goes
-  in `write_coaching`'s `by_exercise` / `by_session` cards, which is where they read it anyway.
-  Applies to `create_session`, `write_run` and the `add` form of `write_program_change`.
+- **Machine settings belong to Daniel and Cerys, each their own, and you cannot write them**
+  (Daniel, 13 Oct - after the settings box had filled with coaching prose despite the 22 Sep rule).
+  All coaching commentary and how-to goes in `write_coaching`'s `by_exercise` / `by_session` cards.
+  Keep any "How to:" paragraph already in a `by_exercise` note when you rewrite it.
 - **`write_program_change` may be blocked by the sandbox.** On 22 Sep 2026 the auto-mode classifier
   refused it as a shared-resource write. If that happens, don't work around it - finish the rest of
   the review, then tell Daniel exactly which change you wanted to make and why, and let him rerun

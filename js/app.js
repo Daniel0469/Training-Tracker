@@ -67,6 +67,26 @@ function load(){
       // of them today and the card that reads it renders nothing until it isn't.
       if(!s.wellness || typeof s.wellness!=="object") s.wellness={};
       if(!Array.isArray(s.meals)) s.meals=[];
+      // Machine settings (the wrench), each person's own since 13 Oct: person ->
+      // exercise NAME -> {text, updatedAt}. By name, so one machine in two sessions
+      // is one entry. They used to be one shared `notes` on the program exercise.
+      if(!s.machineSettings || typeof s.machineSettings!=="object") s.machineSettings={};
+      // Migrate the old shared notes - but only on an install WITHOUT cloud sync. A
+      // synced phone takes its settings from the store, where they were migrated
+      // with the coaching prose sorted out (scratchpad/apply_machine_settings.py);
+      // copying this phone's local prose first would push it straight back up.
+      var hasSync=false;
+      try{ var sc=JSON.parse(localStorage.getItem("flLiveTracker_sync_v1")||"{}"); hasSync=!!(sc.repo&&sc.token); }catch(e){}
+      if(!hasSync) Object.keys(s.program.sessions).forEach(function(k){
+        (s.program.sessions[k].exercises||[]).forEach(function(ex){
+          if(ex.notes) (s.people||[]).forEach(function(pn){
+            if(!pn) return;
+            var by=s.machineSettings[pn]||(s.machineSettings[pn]={});
+            if(!by[ex.name]) by[ex.name]={text:String(ex.notes), updatedAt:0};
+          });
+          delete ex.notes;
+        });
+      });
       if(!Array.isArray(s.bodyweights)){
         // Migrate: seed history from each person's current single weight.
         s.bodyweights=[];
@@ -97,7 +117,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -692,6 +712,18 @@ function relTime(dateStr){
 }
 
 function draftKey(){ return state.people[state.activePerson]+"|"+curSession; }
+// Machine settings for one person on one exercise (see machineSettings in load).
+// Only the person writes them, in the app - the coach can read them but not set
+// them (Daniel, 13 Oct). Clearing keeps an empty, stamped entry so a sync can't
+// bring the old text back.
+function msGet(person, name){ const e=((state.machineSettings||{})[person]||{})[name]; return (e&&e.text)||""; }
+function msSet(person, name, text){
+  if(!person || !name) return;
+  if(!state.machineSettings) state.machineSettings={};
+  const by=state.machineSettings[person]||(state.machineSettings[person]={});
+  by[name]={text:String(text||""), updatedAt:Date.now()};
+  save(); autoSync();
+}
 // The exercise list the Log form works from: the session's programmed exercises
 // followed by anything added for today only. Every `data-ei` on the log form
 // indexes into THIS, not state.program - so the extras get set rows, drafts,
@@ -1275,9 +1307,10 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
   const warmupHtml = ex.warmup
     ? '<div class="warmup">Warm-up: <span data-warmup>'+esc(computeWarmupText(ex.warmup, lastTop>-Infinity?lastTop:null))+'</span></div>'
     : "";
+  const setting=msGet(state.people[state.activePerson], ex.name);
   return '<div class="card ex'+(ex.todayOnly?" ex-today":"")+'" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
-      + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">'+ico("wrench")+'</button>'
+      + '<button type="button" class="wrench'+(setting?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">'+ico("wrench")+'</button>'
       + (ex.todayOnly?'<span class="pill today-pill">Today only</span>':'')
       + '</div><div class="ex-meta num">'+esc(ex.target)
       + (ex.todayOnly?' <button type="button" class="mini" data-delextra="'+ei+'" title="Remove from today">&#10005;</button>':'')
@@ -1287,9 +1320,9 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
     // Saved machine settings read out in place - no point hiding the seat height
     // behind a tap when you're stood at the machine. The 🔧 still opens the
     // editor (which replaces this line while it's open).
-    + '<div class="notes" data-exnotes-view'+(ex.notes?'':' hidden')+'>'+ico("wrench")+'<span>'+esc(ex.notes||"")+'</span></div>'
+    + '<div class="notes" data-exnotes-view'+(setting?'':' hidden')+'>'+ico("wrench")+'<span>'+esc(setting)+'</span></div>'
     + '<div class="notes-wrap" data-notes-wrap hidden>'
-      + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
+      + '<textarea class="notes" data-exnotes rows="2" placeholder="Your seat height, pins, machine settings…">'+esc(setting)+'</textarea>'
       + '</div>'
     + (coach?'<div class="coach">'+ico("chat")+'<div>'+esc(coach)+'</div></div>':"")
     + (lastFrom?'<div class="recent">'+ico("clock")+'<b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
@@ -1425,9 +1458,11 @@ function wireExCard(card, ex){
     updateWarmup(card, ex);
     tbody.addEventListener("input", ()=>updateWarmup(card, ex));
   }
-  // Machine settings are editable mid-session: `ex` is the live program object,
-  // so changes stick for next time too. Saved on blur to avoid writing on every
-  // keystroke; autoSync on change so the other phone picks the settings up.
+  // Machine settings are editable mid-session and are the SELECTED person's own
+  // (msGet/msSet), so they stick for next time and never touch the other person's.
+  // `who` is fixed when the card is wired: a person switch re-renders the form.
+  // Saved on blur rather than per keystroke; msSet syncs so the other phone gets it.
+  const who=state.people[state.activePerson];
   const notesEl=card.querySelector("[data-exnotes]");
   const notesWrap=card.querySelector("[data-notes-wrap]");
   const notesBtn=card.querySelector("[data-exnotes-toggle]");
@@ -1436,8 +1471,9 @@ function wireExCard(card, ex){
   // them is on screen at a time.
   const showView=()=>{
     if(!notesView) return;
-    notesView.innerHTML=ico("wrench")+'<span>'+esc(ex.notes||"")+'</span>';
-    if(ex.notes) notesView.removeAttribute("hidden"); else notesView.setAttribute("hidden","");
+    const cur=msGet(who, ex.name);
+    notesView.innerHTML=ico("wrench")+'<span>'+esc(cur)+'</span>';
+    if(cur) notesView.removeAttribute("hidden"); else notesView.setAttribute("hidden","");
   };
   if(notesBtn && notesWrap){
     notesBtn.onclick=()=>{
@@ -1457,8 +1493,8 @@ function wireExCard(card, ex){
     notesEl.addEventListener("input", ()=>autoGrow(notesEl));
     notesEl.addEventListener("change", ()=>{
       const v=notesEl.value.trim();
-      if(v===(ex.notes||"")) return;
-      ex.notes=v; saveProgram();
+      if(v===msGet(who, ex.name)) return;
+      msSet(who, ex.name, v);
       if(notesBtn) notesBtn.classList.toggle("has", !!v); // wrench stays lit when settings are saved
       toast("Machine settings saved");
     });
@@ -2084,7 +2120,7 @@ function applyProgramChange(id){
   const i=exs.findIndex(e=>e.name===c.exercise);
   if(c.op==="edit"){
     if(i<0){ toast("That exercise isn't in the session any more"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
-    Object.keys(c.fields||{}).forEach(f=>{ exs[i][f]=c.fields[f]; });
+    Object.keys(c.fields||{}).forEach(f=>{ if(f!=="notes") exs[i][f]=c.fields[f]; });
   }else if(c.op==="remove"){
     if(i<0){ toast("Already gone"); setChangeStatus(c,"declined"); save(); renderView(); return; }
     exs.splice(i,1);
@@ -2102,8 +2138,9 @@ function applyProgramChange(id){
     cleanupSoloGroups(key);
   }else if(c.op==="add"){
     if(i>=0){ toast(c.exercise+" is already in "+c.session); setChangeStatus(c,"declined"); save(); renderView(); return; }
-    const def=Object.assign({name:c.exercise, warmup:"", notes:"", target:"", sets:3,
+    const def=Object.assign({name:c.exercise, warmup:"", target:"", sets:3,
       cols:["Weight (kg)","Reps"]}, c.fields||{});
+    delete def.notes; // settings are the athlete's own, never part of a coach change
     const after=c.after ? exs.findIndex(e=>e.name===c.after) : -1;
     const pos=after>=0 ? after+1 : exs.length;
     exs.splice(pos, 0, def);
@@ -2834,7 +2871,7 @@ function exRowHtml(k, ei, ex){
   return '<div class="prog-row">'
     + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
     + '<div class="row-grow"><div class="ex-name">'+esc(ex.name)+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</div>'
-    + '<div class="ex-meta"><span class="num">'+esc(ex.target)+'</span>'+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(ex.notes?' · setup saved':"")+'</div></div>'
+    + '<div class="ex-meta"><span class="num">'+esc(ex.target)+'</span>'+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(msGet(state.people[state.activePerson], ex.name)?' · settings saved':"")+'</div></div>'
     + '<div class="row actions">'
     + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
     + '<button class="mini ico" data-downex="'+ref+'" title="Move down" aria-label="Move down">&darr;</button>'
@@ -3101,7 +3138,9 @@ function openExDlg(sessionKey,ei,todayOnly){
   document.getElementById("exRemove").hidden = !(editing && !todayOnly);
   document.getElementById("exName").value=ex.name;
   document.getElementById("exWarmup").value=ex.warmup||"";
-  document.getElementById("exNotes").value=ex.notes||"";
+  // The selected person's own machine settings, not a field of the shared program.
+  document.getElementById("exNotes").value=editing ? msGet(state.people[state.activePerson], ex.name) : "";
+  document.getElementById("exNotesLab").childNodes[0].nodeValue=possessive(state.people[state.activePerson])+" machine settings (optional)";
   document.getElementById("exTarget").value=ex.target||"";
   document.getElementById("exSets").value=ex.sets||3;
   document.getElementById("exCol0").value=ex.cols[0];
@@ -3172,8 +3211,8 @@ document.getElementById("exSave").onclick=()=>{
               document.getElementById("exCol1").value.trim()||"Reps"];
   const c2=document.getElementById("exCol2").value.trim();
   if(c2) cols.push(c2);
+  const settingsText=document.getElementById("exNotes").value.trim();
   const ex={ name, warmup:document.getElementById("exWarmup").value.trim(),
-    notes:document.getElementById("exNotes").value.trim(),
     target:document.getElementById("exTarget").value.trim()||"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
@@ -3196,6 +3235,15 @@ document.getElementById("exSave").onclick=()=>{
     toast("Added "+ex.name+" for today");
     return;
   }
+  // Settings are the selected person's, keyed by name. A rename carries everyone's
+  // settings to the new name unless that name already has its own.
+  const who=state.people[state.activePerson];
+  const oldName=(exDlgCtx.ei!=null && !exDlgCtx.todayOnly) ? (state.program.sessions[exDlgCtx.sessionKey].exercises[exDlgCtx.ei]||{}).name : null;
+  if(oldName && oldName!==name) Object.keys(state.machineSettings||{}).forEach(pn=>{
+    const by=state.machineSettings[pn];
+    if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
+  });
+  if(settingsText!==msGet(who, name)) msSet(who, name, settingsText);
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
@@ -3415,7 +3463,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -3488,6 +3536,18 @@ function mergeInData(data, adoptConfig, fromSync){
   // Same per-person overwrite as coaching: Garmin is the source of truth for zones.
   if(data.hrZones && typeof data.hrZones==="object"){ if(!state.hrZones) state.hrZones={}; Object.keys(data.hrZones).forEach(function(p){ state.hrZones[p]=data.hrZones[p]; }); }
   if(data.racePredictions && typeof data.racePredictions==="object"){ if(!state.racePredictions) state.racePredictions={}; Object.keys(data.racePredictions).forEach(function(p){ state.racePredictions[p]=data.racePredictions[p]; }); }
+  // Machine settings: written on the phones, per person per exercise, so neither
+  // side is the authority - the newer edit of each entry wins.
+  if(data.machineSettings && typeof data.machineSettings==="object"){
+    if(!state.machineSettings) state.machineSettings={};
+    Object.keys(data.machineSettings).forEach(function(pn){
+      var theirs=data.machineSettings[pn]||{}, mine=state.machineSettings[pn]||(state.machineSettings[pn]={});
+      Object.keys(theirs).forEach(function(n){
+        var tv=theirs[n], mv=mine[n];
+        if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[n]=tv; updated++; }
+      });
+    });
+  }
   // Limiters: authored centrally like coaching, so incoming wins per person.
   if(data.limiters && typeof data.limiters==="object"){ if(!state.limiters) state.limiters={}; Object.keys(data.limiters).forEach(function(p){ state.limiters[p]=data.limiters[p]; }); }
   // Coaching history is deliberately NOT merged in. An older build still pushing
@@ -3713,7 +3773,7 @@ function peopleInPayload(d){
   (d.logs||[]).forEach(l=>{ if(l) add(l.person); });
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -3734,7 +3794,7 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
@@ -3969,7 +4029,7 @@ function renderHelp(){
       p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tap a set\'s <b>&#10003;</b> when done: it fills in your colour, fills empty reps to the top of the target range, and turns the row gold with a <b>PR</b> badge right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
-     +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>wrench</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
+     +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. They are <b>each person\'s own</b>: tap the <b>wrench</b> next to the name to write or change yours - switch person and you see theirs. You can do it <b>mid-session</b>, they\'re kept for next time under that exercise\'s name (so the same machine in two sessions shares them), and only you can change them - your coach can read them but not write them. Instructions and tips come from your coach in the note under the exercise instead. The wrench stays highlighted when you have settings stored.')
      +p('<b>On the Smith machine</b> appears as a tick on the big barbell lifts - bench, squat, shoulder press. It is <b>only a label for your coach</b>: the weight counts the same either way, so your trend and your PRs are unaffected and the lift stays one history rather than splitting in two. It shows on the session in <b>History</b> so you can see which ones were Smith.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
@@ -4710,12 +4770,19 @@ function syncTabButtons(){
 // draft has just been cleared on purpose.
 // Where the Guide's Back button returns to - the tab it was opened from.
 let guideFrom="home";
+// Where each person's Session was scrolled to, so hopping to History mid-workout
+// and back lands on the same exercise. Every other tab opens at the top - it used
+// to keep the previous tab's scroll, which opened Progress at its bottom.
+const sessionScroll={};
 function switchTab(tab, skipCapture){
   if(!skipCapture) captureDraft();
+  const from=activeTab;
+  if(from==="log") sessionScroll[draftKey()]=window.scrollY;
   if(tab==="help" && activeTab!=="help") guideFrom=activeTab;
   activeTab=tab;
   syncTabButtons();
   renderView();
+  if(tab!==from) window.scrollTo(0, tab==="log" ? (sessionScroll[draftKey()]||0) : 0);
 }
 
 // Preset account colours - hex values mirror the CSS vars in css/styles.css
