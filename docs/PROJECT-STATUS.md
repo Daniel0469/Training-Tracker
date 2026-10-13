@@ -1160,7 +1160,7 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   after 12h — deliberately **not** part of the export/sync payload.
 - `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
   change to a cached file.** Currently `tt-v117`.
-- `manifest.webmanifest`, `icons/` — PWA (icons are placeholders; TODO real branding).
+- `manifest.webmanifest`, `icons/` — PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
 - `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
   `sample-activity.json`). Reads runs from Garmin Connect + imports one into the shared store;
@@ -1447,7 +1447,7 @@ a small build. Answering the first largely settles the second:
   exercises**, which now duplicate the session's warm-up and cool-down note cards. Ask Daniel
   whether to remove them from the program (their logged history would stay).
 - **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
-- **PWA icons:** replace placeholder `icons/` with real branding when available.
+- **PWA icons:** done 13 Oct - the design v3 dumbbell mark (see README).
 - Done: code review, GitHub Pages deploy, auto-sync, MCP coach (read + write), in-app suggestions.
   **Phase 3 mini-features (kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.** The rest timer was
   on that list until Daniel asked for one on 6 Sep; it shipped 7 Sep.
