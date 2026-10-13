@@ -433,10 +433,10 @@
   .timer-card .btn{min-height:36px;padding:6px 14px;font-size:14px;border-radius:12px}
   .timer-row{margin-bottom:2px}
   .diff.diff-sm button{height:32px;font-size:12.5px;border-radius:9px}
-  #exForm table.sets input:not([type=checkbox]){min-height:30px;height:30px;padding:3px 7px;border-radius:8px;font-size:14px}
+  #exForm table.sets input:not([type=checkbox]){min-height:26px;height:26px;padding:2px 7px;border-radius:7px;font-size:13.5px}
   td.done-cell,th.done-cell{width:36px}
-  #exForm td.done-cell input[type="checkbox"]{width:28px;min-width:0;height:28px;border-radius:8px}
-  td.done-cell input[type="checkbox"]::after{width:10px;height:5px}
+  #exForm td.done-cell input[type="checkbox"]{width:24px;min-width:0;height:24px;border-radius:7px}
+  td.done-cell input[type="checkbox"]::after{width:9px;height:4.5px;border-width:0 0 2px 2px}
   .medal{top:-3px}
 
   /* ---- Home (design v3) ---- */
@@ -477,3 +477,8 @@
   .hrz-row{padding:7px 0}
   .hrz-dot{width:12px;height:12px;border-radius:4px}
   .pill.num:not([data-sw]){background:var(--card-2);color:var(--ink-2);font-size:12px;padding:3px 10px}
+  /* A gap between set rows (Daniel, 13 Oct). Vertical spacing only, so the row
+     tint still runs edge to edge across a row. */
+  #exForm table.sets{border-spacing:0 5px}
+  #exForm table.sets td{padding-top:2px;padding-bottom:2px}
+  #exForm .medal{top:-4px;right:0}
