@@ -45,7 +45,6 @@
   :root[data-theme="dark"] .fb,:root[data-theme="dark"] .notes{background:#2a2716;border-color:#4a431f;color:#e8dca0}
   :root[data-theme="dark"] .garminbox{background:#16202e;border-color:#26364c;color:#acc4e6}
   :root[data-theme="dark"] .recent{background:var(--card-2);border-color:var(--line);color:var(--muted)}
-  :root[data-theme="dark"] tr.done td{background:#173026}
   :root[data-theme="dark"] table.sets input[readonly]{background:var(--card-2)}
   dialog{background:var(--card);color:var(--ink)}
   *{box-sizing:border-box}
@@ -151,14 +150,16 @@
   textarea.notes{width:100%;font-family:inherit;line-height:1.35;resize:vertical;min-height:24px;overflow:hidden}
   textarea.notes::placeholder{color:#a89a60;opacity:1}
   :root[data-theme="dark"] textarea.notes::placeholder{color:#8a7f4e}
-  .coach{font-size:12.5px;color:#145a4b;background:#e2f2ee;border:1px solid #c4e2d9;border-radius:7px;padding:5px 9px;display:block;margin-bottom:7px;white-space:pre-wrap}
-  .coach-card{border-color:#c4e2d9}
-  :root[data-theme="dark"] .coach{background:#12241f;border-color:#244a40;color:#6fd0b8}
-  :root[data-theme="dark"] .coach-card{border-color:#244a40}
+  .coach{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2);background:transparent;border:1px solid var(--line-2);border-radius:12px;padding:8px 11px;margin-bottom:8px;white-space:pre-wrap}
+  .coach svg.ico{width:16px;height:16px;color:var(--brand);margin-top:2px}
+  /* Coach surfaces (design v3): an outlined card, no fill, chat icon in the
+     person's colour - reads as "from your coach" without a colour of its own. */
+  .coach-card{background:transparent;border:1.5px solid var(--line-2)}
+  .coach-card .sec-title svg.ico{color:var(--brand)}
   .timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;color:var(--muted);min-width:58px;text-align:center}
   .timer.running{color:var(--brand)}
   .sets-wrap{overflow-x:auto}
-  table.sets{width:100%;border-collapse:collapse}
+  table.sets{width:100%;border-collapse:separate;border-spacing:0}
   table.sets input[readonly]{background:#eef1f6;color:var(--muted);cursor:default;font-weight:600}
   table.sets th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;font-weight:700;padding:2px 6px}
   /* 4px sides, not 6: the 20px page gutter (design v3) took the width back. */
@@ -168,7 +169,8 @@
      cell until its own value is clipped - "5:27" was rendering as "5:2" on a
      375px phone. The table scrolls inside .sets-wrap instead. */
   table.sets input{width:100%;padding:7px 8px;min-width:3.4em;border-radius:10px}
-  .setno{color:var(--muted);font-weight:700;width:30px;text-align:center;font-size:13px;cursor:pointer;user-select:none}
+  .setno{color:var(--muted);font-family:var(--mono);font-weight:700;width:30px;text-align:center;font-size:13px;cursor:pointer;user-select:none}
+  th.setno-h,th.done-cell{text-align:center}
   .setno[data-setno]:hover{color:var(--brand)}
   tr.wset td{opacity:.55}
   tr.wset .setno{opacity:1;color:var(--warn)}
@@ -178,10 +180,24 @@
   table.rec td{padding:5px 8px;border-top:1px solid var(--line);white-space:nowrap}
   table.rec tbody tr:first-child td{border-top:0}
   td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
-  td.done-cell,th.done-cell{width:38px;text-align:center;white-space:nowrap}
-  td.done-cell input[type="checkbox"]{width:19px;height:19px;cursor:pointer;accent-color:var(--good)}
-  tr.done td{background:#eaf7ee}
-  .medal{margin-left:3px;font-size:14px}
+  td.done-cell,th.done-cell{width:48px;text-align:center;white-space:nowrap}
+  /* The tick: a 40px rounded button, filled with the person's colour when done.
+     appearance:none so it can be drawn; the check mark is the ::after. */
+  td.done-cell{position:relative}
+  td.done-cell input[type="checkbox"]{-webkit-appearance:none;appearance:none;width:40px;height:40px;margin:0;display:grid;place-content:center;
+    border:1.5px solid var(--line-2);border-radius:12px;background:var(--input-bg);cursor:pointer;vertical-align:middle}
+  td.done-cell input[type="checkbox"]::after{content:"";width:13px;height:7px;border:solid var(--muted);border-width:0 0 2.5px 2.5px;
+    transform:translate(0,-2px) rotate(-45deg);opacity:.4}
+  td.done-cell input[type="checkbox"]:checked{background:var(--brand);border-color:var(--brand)}
+  td.done-cell input[type="checkbox"]:checked::after{border-color:var(--on-brand);opacity:1}
+  /* Done rows get a faint wash of the person's colour; a PR row's gold wins. */
+  tr.done td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
+  tr.pr td{background:var(--pr-tint)}
+  tr.done td:first-child,tr.pr td:first-child{border-radius:10px 0 0 10px}
+  tr.done td:last-child,tr.pr td:last-child{border-radius:0 10px 10px 0}
+  .medal{position:absolute;top:-1px;right:0;min-width:20px;height:16px;padding:0 4px;border-radius:999px;
+    background:var(--gold);color:var(--gold-ink);font:800 9px/16px var(--font);letter-spacing:.04em;text-align:center;pointer-events:none}
+  .medal[hidden]{display:none}
   /* One button shape everywhere. inline-flex + min-height so a text button, an
      emoji one and a bare arrow all come out the same height and line up on a
      row - they used to differ by a few px depending on their glyph. */
@@ -334,12 +350,14 @@
      on a phone - anything anchored to one spot in the page is off-screen for most
      of a workout, which is exactly when you want to read it. Sits below the toast
      (z-index 50) so a save message still wins for its two seconds. */
-  .rest-bar{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);
-    z-index:40;display:flex;gap:8px;align-items:baseline;white-space:nowrap;cursor:pointer;
-    background:var(--card);border:1px solid var(--line);color:var(--ink);
-    padding:9px 16px;border-radius:30px;box-shadow:0 6px 20px rgba(20,30,55,.22);font-weight:600}
-  .rest-bar b{font-variant-numeric:tabular-nums;font-size:17px;color:var(--brand)}
-  .rest-bar span{color:var(--muted);font-weight:500;font-size:12px}
+  /* Design v3: a full-width pill in the selected person's colour, so whose rest
+     it is reads from across the gym as well as from the header. */
+  .rest-bar{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));max-width:748px;margin:0 auto;
+    z-index:40;display:flex;gap:10px;align-items:center;white-space:nowrap;cursor:pointer;
+    background:var(--brand);color:var(--on-brand);min-height:50px;padding:0 20px;border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);font-weight:800}
+  .rest-bar b{font-size:21px;font-weight:700}
+  .rest-bar span{margin-left:auto;opacity:.75;font-weight:600;font-size:12px}
   /* display:flex above beats the browser's [hidden] rule - same trap as .row. */
   .rest-bar[hidden]{display:none}
   .toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:11px 20px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50}
@@ -362,3 +380,46 @@
      stays 20px (design v3). */
   @media(max-width:520px){ td.prev,th.prev{width:74px} .cov-name{flex-basis:72px}
     .title h1{font-size:24px} .title small{font-size:12px} }
+
+  /* ---- Session (design v3) ---- */
+  .sec-title svg.ico,.recent svg.ico,.warmup svg.ico,.add-row svg.ico,.mini svg.ico{width:15px;height:15px;vertical-align:-3px;margin-right:6px}
+  .mini svg.ico{margin-right:0}
+  .rest-bar svg.ico{width:20px;height:20px}
+  .sess-pick{display:grid;grid-template-columns:minmax(0,1fr) 148px;gap:10px}
+  .sess-pick select,.sess-pick input{width:100%;min-width:0}
+  .timer-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .timer-card .timer{font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink);text-align:left;margin-right:auto;min-width:0}
+  .timer-card .timer.running{color:var(--brand)}
+  .cardio-note{background:var(--card-2);border-color:var(--line);color:var(--ink-2);border-radius:14px}
+  .cardio-note svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:var(--brand)}
+  #exForm .ex{background:var(--card);border-radius:20px;padding:14px;margin-bottom:12px}
+  #exForm .ex-name{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  #exForm .ex-head{flex-wrap:wrap;row-gap:2px}
+  #exForm .ex-meta.num{font-size:12.5px;font-weight:500}
+  #exForm .superset{background:transparent;border-left:3px solid var(--brand);border-radius:0;padding:2px 0 0 10px;margin-bottom:12px}
+  #exForm .warmup{border-radius:10px;padding:6px 10px;font-weight:600;margin-bottom:8px}
+  #exForm .recent{border-radius:10px;padding:6px 10px;margin-bottom:8px}
+  #exForm div.notes{display:flex;gap:8px;align-items:flex-start;background:var(--card-2);border:0;color:var(--ink-2);border-radius:12px;padding:8px 11px;font-size:13px;margin-bottom:8px}
+  #exForm div.notes[hidden]{display:none}
+  #exForm div.notes svg.ico{width:15px;height:15px;color:var(--muted);margin-top:2px}
+  #exForm textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
+  #exForm textarea.notes::placeholder{color:var(--muted)}
+  .wrench{color:var(--muted);padding:0 0 0 7px}
+  .wrench svg.ico{width:16px;height:16px;vertical-align:-2px}
+  .wrench.has{color:var(--brand)}
+  .rpe{margin-top:10px}
+  .rpe-lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .diff.diff-sm{gap:4px}
+  .diff.diff-sm button{height:40px;font-size:13px}
+  .ex-foot{margin-top:10px;flex-wrap:nowrap}
+  .smith-tick{display:flex;align-items:center;gap:7px;min-width:0;cursor:pointer}
+  .smith-tick input{width:20px;height:20px;accent-color:var(--brand);flex:none}
+  .add-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;margin:0 0 12px;padding:13px 16px;
+    border:1.5px dashed var(--line-2);border-radius:20px;background:transparent;color:var(--muted);font:inherit;font-size:14px;text-align:left;cursor:pointer}
+  .add-row b{color:var(--brand);font-weight:800}
+  .save-row{margin-bottom:30px;flex-wrap:nowrap}
+  /* "Last · 1 week ago" wraps under itself rather than holding the column at
+     117px - it was what pushed the set table into a sideways scroll. */
+  table.sets th.prev{white-space:normal;line-height:1.25}
+  #exForm .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
+  #exForm .superset-label svg.ico{width:15px;height:15px}

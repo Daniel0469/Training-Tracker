@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1 built (13 Oct, not yet pushed); screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Step 1 and Session built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 

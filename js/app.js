@@ -904,6 +904,35 @@ function hasCoaching(){
       || Object.keys(e.bySession||{}).length || Object.keys(e.byExercise||{}).length;
   });
 }
+// Line icons (design v3): stroke-only paths drawn in currentColor, styled by
+// svg.ico in css/styles.css. Used in place of emoji in the UI.
+const ICONS={
+  chat:'<path d="M20.5 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.4a8 8 0 1 1 15-4.1z"/>',
+  flame:'<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-3.6 2-5.6.9 1.2 1.6 1.9 2.6 2.1C11.6 7 11 5 12 3z"/>',
+  snow:'<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/>',
+  flag:'<path d="M5 21V4h11l-2 4 2 4H5"/>',
+  watch:'<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 6V3h6v3M9 18v3h6v-3M12 9.5V12l1.5 1.5"/>',
+  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6"/>',
+  sliders:'<path d="M5 20v-6M5 10V4M12 20v-8M12 8V4M19 20v-4M19 12V4M3 14h4M10 8h4M17 16h4"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
+  swap:'<path d="M7 4 3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7"/>',
+  upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  run:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/>'
+};
+function ico(name){ return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||"")+'</svg>'; }
+// Column header / placeholder text in the set table, where every pixel of a 375px
+// phone is spoken for: "Weight (kg)" reads "kg", "Distance (km)" reads "km" and
+// "Time (mm:ss)" reads "Time". The column's real name is unchanged everywhere else.
+function colLabel(c){
+  if(/weight/i.test(c)) return "kg";
+  const m=/^distance\s*\((.+)\)$/i.exec(c); if(m) return m[1];
+  return String(c).replace(/\s*\(mm:ss\)$/i,"");
+}
+
 function renderLog(){
   const p = state.people[state.activePerson];
   // Swapping person can leave you pointed at the other one's run session. Move to
@@ -930,21 +959,21 @@ function renderLog(){
     ? "Inputs start blank. The <b>Last</b> column on each exercise is the most recent time "+esc(p)+" did <i>that movement</i>, whichever session it was in - beat it."
     : "No previous "+esc(p)+" log for this session yet. Any exercise "+esc(p)+" has done elsewhere still shows its last numbers.";
 
+  // Who is logging is the header pill's job now, so the hint no longer says it.
   let html = '<div class="card">'
-    + '<div class="flex-between" style="margin-bottom:12px">'
-    + '<label class="fld grow" style="max-width:340px">Session<select id="sessionSel">'+opts+'</select></label>'
-    + '<label class="fld" style="width:160px">Date<input id="logDate" type="date" value="'+curDate+'"></label>'
-    + '</div><div class="hint" style="margin-top:-4px">Logging for <b>'+esc(p)+'</b>. '+prevNote+'</div>'
-    + '<div class="row" style="margin-top:11px;gap:8px;align-items:center">'
+    + '<div class="sess-pick">'
+    + '<label class="fld">Session<select id="sessionSel">'+opts+'</select></label>'
+    + '<label class="fld">Date<input id="logDate" type="date" value="'+curDate+'"></label>'
+    + '</div><div class="hint" style="margin-top:10px">'+prevNote+'</div></div>'
+    + '<div class="card timer-card"><div class="timer-row">'
     + '<span class="timer" id="timerDisplay">0:00</span>'
-    + '<button class="mini" id="timerToggle">Start</button>'
-    + '<button class="mini" id="timerReset">Reset</button>'
-    + '<span class="hint" style="margin:0">Workout time - saved with the session.</span>'
-    + '</div></div>';
+    + '<button class="btn btn-ghost" id="timerToggle">Start</button>'
+    + '<button class="btn btn-ghost" id="timerReset">Reset</button>'
+    + '</div><div class="hint">Workout time - saved with the session.</div></div>';
 
   const sessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
   if(sessNote){
-    html += '<div class="card coach-card"><div class="sec-title">🧠 Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
+    html += '<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap"><b>'+esc(sess.name)+':</b> '+esc(sessNote)+'</div>'
       + '</div>';
   }
@@ -963,7 +992,7 @@ function renderLog(){
   // to action with a half-filled form open.
   const pcWaiting=sess ? changesForSession(sess.name) : [];
   if(pcWaiting.length && formDrafts[draftKey()]){
-    html += '<div class="card"><div class="sec-title">&#129504; Coach change waiting</div>'
+    html += '<div class="card"><div class="sec-title">'+ico("chat")+'Coach change waiting</div>'
       + '<div>'+pcWaiting.map(c=>esc(describeChange(c))).join('<br>')+'</div>'
       + '<div class="hint" style="margin-top:5px">Left until this session is saved - applying it now '
       + 'would move the exercises around under what you have already typed. It is in the Program tab '
@@ -972,7 +1001,7 @@ function renderLog(){
 
   const limiter=((state.limiters&&state.limiters[p])||{})[sess?sess.name:""]||"";
   if(limiter){
-    html += '<div class="card"><div class="sec-title">&#128681; What\'s holding this back</div>'
+    html += '<div class="card"><div class="sec-title">'+ico("flag")+'What\'s holding this back</div>'
       + '<div style="white-space:pre-wrap">'+esc(limiter)+'</div>'
       + '<div class="hint" style="margin-top:5px">'+esc(possessive(p))+' own words. Your coach reads this before the numbers.</div></div>';
   }
@@ -989,14 +1018,14 @@ function renderLog(){
   // mentioned at all.
   if(exs.some(e=>isRunning(e))){
     html += hasGarmin()
-      ? '<div class="cardio-note">⌚ <b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Ticking its box is optional</b> - it never types anything in, so the row stays free for Garmin either way. Ticks are saved now, and they\'re what fills the done bar on your weekly muscle card. Prefer to do it yourself? Type the splits below, or <b>⬆ import</b> a file.</div>'
-      : '<div class="cardio-note">🏃 <b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>⬆ import</b> a TCX/GPX from Garmin or Strava instead.</div>';
+      ? '<div class="cardio-note">'+ico("watch")+'<b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Ticking its box is optional</b> - it never types anything in, so the row stays free for Garmin either way. Ticks are saved now, and they\'re what fills the done bar on your weekly muscle card. Prefer to do it yourself? Type the splits below, or <b>import</b> a file.</div>'
+      : '<div class="cardio-note">'+ico("run")+'<b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>Import</b> a TCX/GPX from Garmin or Strava instead.</div>';
   } else if(isCardioSession(sess) && exs.some(e=>isGarminCardio(e)) && hasGarmin()){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
     // the measurements it alone knows (HR, zones, calories) - it never overwrites.
     // Nothing useful to say here without a watch: you just type your paces in, and
     // the columns already say that.
-    html += '<div class="cardio-note">⌚ <b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
+    html += '<div class="cardio-note">'+ico("watch")+'<b>Cardio day.</b> Fill in your paces as normal - if you wear your Garmin, it adds your <b>♥ HR, heart-rate zones and calories</b> to this session once it syncs, without touching anything you typed.</div>';
   }
 
   // The session's own warm-up / cool-down notes (Program tab) bracket the
@@ -1013,11 +1042,11 @@ function renderLog(){
   // heart-rate band must not mean re-sending the belt program, and the summary
   // line has to name what is actually folded underneath it.
   if(sess.garminNote){
-    html += '<details class="card setup-card"><summary class="sec-title">&#127919; Watch workout &middot; build this once</summary>'
+    html += '<details class="card setup-card"><summary class="sec-title">'+ico("target")+'Watch workout &middot; build this once</summary>'
       + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.garminNote)+'</div></details>';
   }
   if(sess.setupNote){
-    html += '<details class="card setup-card"><summary class="sec-title">&#127899;&#65039; Treadmill program &middot; '
+    html += '<details class="card setup-card"><summary class="sec-title">'+ico("sliders")+'Treadmill program &middot; '
       + (sess.garminNote ? 'if you are inside instead' : 'enter this before you start')+'</summary>'
       + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.setupNote)+'</div></details>';
   }
@@ -1029,12 +1058,12 @@ function renderLog(){
   // it. Collapsed rather than merely moved, because that is the half of the
   // complaint a separate section alone doesn't fix.
   if(sess.recordingNote){
-    html += '<details class="card rec-card"><summary class="sec-title">&#8986; Recording &middot; how to record this one</summary>'
+    html += '<details class="card rec-card"><summary class="sec-title">'+ico("watch")+'Recording &middot; how to record this one</summary>'
       + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.recordingNote)+'</div></details>';
   }
 
   if(sess.warmupNote){
-    html += '<div class="card"><div class="sec-title">&#128293; Warm-up</div>'
+    html += '<div class="card"><div class="sec-title">'+ico("flame")+'Warm-up</div>'
       + '<div style="white-space:pre-wrap">'+esc(sess.warmupNote)+'</div></div>';
   }
 
@@ -1065,23 +1094,22 @@ function renderLog(){
     // otherwise unchanged, so every existing per-card system (wireExCard,
     // drafts, RPE, warm-ups) keeps working exactly as it does for a standalone
     // exercise - see docs/PROJECT-STATUS.md "Next up" item 6 for why.
-    html += block.type==="group" ? '<div class="superset"><div class="superset-label">&#8646; Superset</div>'+cardsHtml+'</div>' : cardsHtml;
+    html += block.type==="group" ? '<div class="superset"><div class="superset-label">'+ico("swap")+'Superset</div>'+cardsHtml+'</div>' : cardsHtml;
   });
   html += '</div>';
 
-  html += '<div class="row" style="margin:-3px 0 13px;align-items:center">'
-    + '<button class="mini" id="addTodayEx">&#10133; Add an exercise for today</button>'
-    + '<span class="hint" style="margin:0;flex:1">Machine taken, or swapping something? Just this session - your program stays as it is.</span></div>';
+  html += '<button type="button" class="add-row" id="addTodayEx"><span>Machine taken? <b>'+ico("plus")+'Add exercise</b></span>'
+    + '<span class="hint" style="margin:0">Just this session - your program stays as it is.</span></button>';
 
   if(sess.cooldownNote){
-    html += '<div class="card"><div class="sec-title">&#129482; Cool-down</div>'
+    html += '<div class="card"><div class="sec-title">'+ico("snow")+'Cool-down</div>'
       + '<div style="white-space:pre-wrap">'+esc(sess.cooldownNote)+'</div></div>';
   }
 
   html += '<div class="card"><div class="sec-title">How did the session feel?</div>'
     + '<div class="row" style="margin-bottom:10px"><div class="grow">'
     + '<div class="hint" style="margin-bottom:4px">Difficulty (1 easy &middot; 10 max effort)</div>'
-    + '<div class="diff" id="diff">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-d="'+n+'">'+n+'</button>').join("")+'</div>'
+    + '<div class="diff diff-sm" id="diff">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-d="'+n+'">'+n+'</button>').join("")+'</div>'
     + '</div></div>'
     // Grows to fit (see autoGrow, wired below): a long note used to scroll inside
     // the 64px box, so most of what you'd just written was out of sight while you
@@ -1090,11 +1118,11 @@ function renderLog(){
     // Only worth saying to someone who actually has a coach. On an install with
     // no coaching and no cloud sync it promised a feature that was never coming,
     // and pointed at a "sync" that isn't set up.
-    + (hasCoaching() ? '<div class="hint">🧠 Coaching notes show at the top and on each exercise after a sync.</div>' : '')
+    + (hasCoaching() ? '<div class="hint">Coaching notes show at the top and on each exercise after a sync.</div>' : '')
     + '</div>'
-    + '<div class="row" style="justify-content:flex-end;margin-bottom:30px">'
+    + '<div class="row save-row">'
     + '<button class="btn btn-ghost" id="clearForm">Clear</button>'
-    + '<button class="btn btn-primary" id="saveSession">Save session &check;</button></div>';
+    + '<button class="btn btn-primary grow" id="saveSession">Save session</button></div>';
 
   document.getElementById("view").innerHTML = html;
 
@@ -1157,11 +1185,13 @@ function setRowHtml(n,ex,prevCell){
     const im=colInputMode(c);
     let attr = im ? ' inputmode="'+im+'"' : "";
     if(ci===paceIdx) attr += ' readonly';
-    cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(c)+'"></td>';
+    cells += '<td><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(colLabel(c))+'"></td>';
   });
+  // A run has no per-row Last (its splits don't line up week to week - see
+  // renderExForm), so it drops the column and its three inputs get the width.
   return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells
-    + '<td class="prev">'+prevCell+'</td>'
-    + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>&#129351;</span></td></tr>';
+    + (isRunning(ex) ? '' : '<td class="prev">'+prevCell+'</td>')
+    + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>PR</span></td></tr>';
 }
 // recentNote() lived here: a "most recent for this movement in ANY session" line
 // that only appeared when the Last column was showing something older. The Last
@@ -1215,39 +1245,40 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
     : "";
   return '<div class="card ex'+(ex.todayOnly?" ex-today":"")+'" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
-      + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">&#128295;</button>'
+      + '<button type="button" class="wrench'+(ex.notes?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">'+ico("wrench")+'</button>'
       + (ex.todayOnly?'<span class="pill today-pill">Today only</span>':'')
-      + '</div><div class="ex-meta">'+esc(ex.target)
+      + '</div><div class="ex-meta num">'+esc(ex.target)
       + (ex.todayOnly?' <button type="button" class="mini" data-delextra="'+ei+'" title="Remove from today">&#10005;</button>':'')
       + '</div></div>'
     + warmupHtml
-    + (running && lastRun ? '<div class="recent">🏃 Last run: <b>'+esc(lastRun)+'</b></div>' : "")
+    + (running && lastRun ? '<div class="recent">'+ico("run")+'Last run: <b>'+esc(lastRun)+'</b></div>' : "")
     // Saved machine settings read out in place - no point hiding the seat height
     // behind a tap when you're stood at the machine. The 🔧 still opens the
     // editor (which replaces this line while it's open).
-    + '<div class="notes" data-exnotes-view'+(ex.notes?'':' hidden')+'>&#128295; '+esc(ex.notes||"")+'</div>'
+    + '<div class="notes" data-exnotes-view'+(ex.notes?'':' hidden')+'>'+ico("wrench")+'<span>'+esc(ex.notes||"")+'</span></div>'
     + '<div class="notes-wrap" data-notes-wrap hidden>'
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Seat height, pins, machine settings…">'+esc(ex.notes||"")+'</textarea>'
       + '</div>'
-    + (coach?'<div class="coach">🧠 Coach: '+esc(coach)+'</div>':"")
-    + (lastFrom?'<div class="recent">🕑 <b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
-    + '<div class="sets-wrap"><table class="sets"><thead><tr><th></th>'+ex.cols.map(c=>'<th>'+esc(c)+'</th>').join("")
-    + '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th><th class="done-cell"></th></tr></thead><tbody>'+body+'</tbody></table></div>'
+    + (coach?'<div class="coach">'+ico("chat")+'<div>'+esc(coach)+'</div></div>':"")
+    + (lastFrom?'<div class="recent">'+ico("clock")+'<b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
+    + '<div class="sets-wrap"><table class="sets"><thead><tr><th class="setno-h">Set</th>'+ex.cols.map(c=>'<th>'+esc(colLabel(c))+'</th>').join("")
+    + (running ? '' : '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th>')
+    + '<th class="done-cell">&#10003;</th></tr></thead><tbody>'+body+'</tbody></table></div>'
     // RPE isn't a lifting-only idea - a treadmill interval session has an
     // effort level just as much as a set of squats does, and so does a set of
     // loaded lunges measured in metres. See ratesRpe: everything except the
     // Min/Notes warm-up and cool-down rows.
-    + (ratesRpe(ex) ? '<div class="row" style="margin-top:6px;align-items:center;gap:6px;flex-wrap:nowrap">'
-        + '<span class="hint" style="margin:0;flex:none">RPE</span><div class="diff diff-sm" data-exrpe>'
+    + (ratesRpe(ex) ? '<div class="rpe"><div class="rpe-lbl">RPE</div><div class="diff diff-sm" data-exrpe>'
         + [1,2,3,4,5,6,7,8,9,10].map(n=>'<button type="button" data-d="'+n+'">'+n+'</button>').join("")
         + '</div></div>' : '')
-    + (usesSmith(ex) ? '<label class="row smith-tick" style="margin-top:6px;gap:7px;flex-wrap:nowrap">'
-        + '<input type="checkbox" data-exsmith>'
+    // Smith tick and the set buttons share one row (design v3).
+    + '<div class="row ex-foot">'
+    + (usesSmith(ex) ? '<label class="smith-tick"><input type="checkbox" data-exsmith>'
         + '<span class="hint" style="margin:0">On the Smith machine</span></label>' : '')
-    + '<div class="row" style="margin-top:8px"><button class="mini" data-addset>+ set</button>'
+    + '<span class="row actions" style="margin-left:auto"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button>'
-    + (isRunning(ex)?'<button class="mini" data-runimport style="margin-left:auto">⬆ Import run (TCX/GPX)</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
-    + '</div></div>';
+    + (isRunning(ex)?'<button class="mini" data-runimport title="Import a TCX/GPX file">'+ico("upload")+'Import run</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
+    + '</span></div></div>';
 }
 // Drop a today-only exercise again (added by mistake, or the machine freed up).
 // The draft's entries are indexed by the same `ei` space, so they have to shift
@@ -1290,6 +1321,7 @@ function updateSetMedal(tr, ex, best){
   const w=setLoad(ex, tr.querySelector('[data-c="0"]').value, state.people[state.activePerson], curDate);
   // Warm-up sets never earn a PR medal.
   medal.hidden = !(isLifting(ex) && !tr.classList.contains("wset") && !isNaN(w) && best>-Infinity && w>best);
+  tr.classList.toggle("pr", !medal.hidden);
 }
 function wireSetRow(tr, ex, best){
   const cb=tr.querySelector("[data-done]");
@@ -1308,7 +1340,7 @@ function wireSetRow(tr, ex, best){
       // last set you finished" rather than since the first one.
       startRest();
     } else {
-      tr.querySelector("[data-medal]").hidden=true;
+      tr.querySelector("[data-medal]").hidden=true; tr.classList.remove("pr");
       stopRest();  // unticking is an undo, so the rest it started goes too
     }
   });
@@ -1372,7 +1404,7 @@ function wireExCard(card, ex){
   // them is on screen at a time.
   const showView=()=>{
     if(!notesView) return;
-    notesView.innerHTML="&#128295; "+esc(ex.notes||"");
+    notesView.innerHTML=ico("wrench")+'<span>'+esc(ex.notes||"")+'</span>';
     if(ex.notes) notesView.removeAttribute("hidden"); else notesView.setAttribute("hidden","");
   };
   if(notesBtn && notesWrap){
@@ -1742,20 +1774,20 @@ function runSummary(l){
 function lastTimeHtml(sess, prev){
   if(!sess || String(sess.day||"").toLowerCase()!=="optional") return "";
   if(!prev){
-    return '<div class="cardio-note">&#128197; <b>First time for '+esc(sess.name)+'.</b> Nothing to match - '
+    return '<div class="cardio-note">'+ico("calendar")+'<b>First time for '+esc(sess.name)+'.</b> Nothing to match - '
       + 'just do what you fancy and it\'ll be here for reference next time.</div>';
   }
   const bits=[];
   const rs=runSummary(prev);
   if(rs) bits.push(rs);
   const g=prev.garmin||{};
-  if(g.max_hr!=null) bits.push("🧡 "+g.max_hr+" max");
+  if(g.max_hr!=null) bits.push(g.max_hr+" max HR");
   if(prev.volume) bits.push(prev.volume.toLocaleString()+" kg");
-  if(prev.durationSec) bits.push("⏱ "+fmtDuration(prev.durationSec));
+  if(prev.durationSec) bits.push(fmtDuration(prev.durationSec));
   if(prev.difficulty) bits.push("difficulty "+prev.difficulty+"/10");
-  return '<div class="cardio-note">&#128197; <b>Last time</b> · '+esc(relTime(prev.date))+' ('+esc(prev.date)+')'
+  return '<div class="cardio-note">'+ico("calendar")+'<b>Last time</b> · '+esc(relTime(prev.date))+' ('+esc(prev.date)+')'
     + (bits.length?'<div style="margin-top:4px">'+bits.map(esc).join(' · ')+'</div>':'')
-    + (prev.feedback?'<div class="ex-meta" style="margin-top:4px">📝 '+esc(prev.feedback)+'</div>':'')
+    + (prev.feedback?'<div class="ex-meta" style="margin-top:4px">'+esc(prev.feedback)+'</div>':'')
     + '</div>';
 }
 // One entry's detail row. Runs render as a proper splits table (per-lap
@@ -3816,19 +3848,19 @@ function renderHelp(){
 
   h+=card('2 &middot; Log a workout',
       p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
-     +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tick a set\'s <b>checkbox</b> when done: it fills empty reps to the top of the target range, and shows a gold <b>🥇 medal</b> right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
+     +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tap a set\'s <b>&#10003;</b> when done: it fills in your colour, fills empty reps to the top of the target range, and turns the row gold with a <b>PR</b> badge right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
-     +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>🔧</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
+     +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. Tap the <b>wrench</b> next to the name to write or change them; you can do it <b>mid-session</b> and they\'re saved to the program for next time. The wrench stays highlighted when settings are stored.')
      +p('<b>On the Smith machine</b> appears as a tick on the big barbell lifts - bench, squat, shoulder press. It is <b>only a label for your coach</b>: the weight counts the same either way, so your trend and your PRs are unaffected and the lift stays one history rather than splitting in two. It shows on the session in <b>History</b> so you can see which ones were Smith.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
-     +p('<b>&#10133; Add an exercise for today</b> (under the last exercise) covers the gym being busy, a niggle, or just fancying something else - it logs exactly like a normal exercise but shows a dashed <b>Today only</b> card, and your <b>program is untouched</b>. Tap the <b>&#10005;</b> on the card to drop it again. When you save, the popup offers to <b>add it to the program</b> if you want to keep it.')
+     +p('<b>Machine taken? + Add exercise</b> (the dashed row under the last exercise) covers the gym being busy, a niggle, or just fancying something else - it logs exactly like a normal exercise but shows a dashed <b>Today only</b> card, and your <b>program is untouched</b>. Tap the <b>&#10005;</b> on the card to drop it again. When you save, the popup offers to <b>add it to the program</b> if you want to keep it.')
      +p('<b>Your entry is kept safe.</b> What you\'ve typed is stored on the device as you go, so nothing is lost by leaving the app, switching person, a sync landing mid-set, or your phone dropping the page and reloading it - come back and the sets (and the running timer) are still there. It\'s cleared once you save the session, tap <b>Clear</b>, or leave it more than about 12 hours.'));
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
-     +p('<b>&#9201; Rest</b> is a second, separate stopwatch: tick a set\'s <b>done</b> box and it appears at the foot of the screen counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts <b>up</b> rather than down to a target, and it is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
+     +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts <b>up</b> rather than down to a target, and it is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
      +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
@@ -3837,7 +3869,7 @@ function renderHelp(){
      +p('<b>A run gets a row per rep or per km</b> when it\'s prescribed that way - <i>6 x 400m</i> draws six rows, a 5km easy run draws five - so you can fill each one in as you go and see a rep fading while you\'re still on the treadmill. <b>Leaving them blank is fine and is the point</b>: empty rows are dropped when you save, and the Garmin sync then fills the real splits in exactly as it always has. Type into them only when you\'re running <b>without the watch</b>, and use <b>+ set</b> if you need another row.')
      +p('<b>Interval / speed sessions</b> work slightly differently: you type your own <b>hard and easy paces</b>, and Garmin adds only what it alone measures - <b>♥ HR, heart-rate zones and calories</b> - without overwriting anything you entered. That works because the exercise is ticked <b>⌚ Garmin records this</b> in Edit Program (real distance+time runs are detected automatically; tick it for cardio logged as paces instead). These hard efforts are also the most valuable data for your <b>🏁 Estimated 5k</b>.')
      +p('<b>Should you tick the run\'s box?</b> Up to you - on a run it fills nothing in (the auto-fill only applies to lifting), so what gets saved is otherwise the same either way. Ticks <i>are</i> saved now and feed the done bar on your weekly muscle card, so tick it if you want the run counted there. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
-     +p('On a running exercise, <b>⬆ Import run (TCX/GPX)</b> pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
+     +p('On a running exercise, <b>Import run</b> (TCX/GPX) pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)')
      +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ 🏃 Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
 
@@ -3875,7 +3907,7 @@ function renderHelp(){
      +p('<b>&#127919; Watch workout</b> is the session built once on Garmin Connect and sent to the watch, so it counts the reps and holds the heart-rate band for you outdoors - the same job the belt program does inside, and it laps itself at every step change. <b>&#127899;&#65039; Treadmill program</b> is the indoor fallback: the session written out as numbered time-and-speed blocks to key into the machine before you start, so the belt runs the session and there is nothing to adjust mid-run. Like the recording note it sits above the warm-up, folded up, and is its own field - so a single speed can be corrected without re-sending everything else.')
      +p('<b>&#8986; Recording</b> is a separate note for sessions you record on a <b>Garmin</b> - when to start the activity, where to press lap, when to end, and what to report back. It sits <b>above the warm-up</b> on the Session tab and starts <b>folded up</b>, so it never buries the warm-up; tap it to read it. It is kept apart from the warm-up so a coach can rewrite the recording plan when a session\'s structure changes without touching your mobility work.')
      +p('<b>&#128293; Warm-up / &#129482; cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
-     +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, 🥇 medals) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
+     +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, PR badges) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
      +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); the volume total already saved against past sessions is left as it was logged. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')
      +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
      +p('<b>&#128279; Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>&#128229; Import shared session</b> at the top of this tab to add it as a new session on their program.')
