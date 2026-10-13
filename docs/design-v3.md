@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Every screen built in dark (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Every screen built in dark and pushed (13 Oct, tt-v151); light mode still to do.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -127,7 +127,7 @@ Text unchanged.
   RPE (and session difficulty) buttons 26px, smaller timer (Daniel found the first pass too big). Run tables drop the
   always-empty Last column. Session + Date sit side by side with a narrow date box.
 - The **PR badge replaces the 🥇 medal** on History and Home's Last session too, when those steps land.
-- The restyle is committed locally step by step and **pushed in one go at the end**.
+- The restyle was committed step by step and pushed in one go on 13 Oct.
 - Home keeps the four cards the mockup left out (Last intervals, Estimated 5k, Bodyweight trend,
   Goals) and follows the doc's order with them added: Today · Next cardio · Swap · Coach · tiles ·
   Last session · Last Zone 2 run · Last intervals · What the week trains · Sleep · HR zones · 5k ·
@@ -165,4 +165,4 @@ Text unchanged.
   **all closed**, numbered badges (icons for Home and Quick tips); text unchanged apart from labels
   that no longer exist. Create account: centred, a dumbbell mark filled with the picked swatch, which
   also colours the name border and the Create button as you tap swatches.
-- **All screens done (13 Oct). Light mode is next, when Daniel asks.** Nothing pushed yet.
+- **All screens done and pushed (13 Oct, tt-v151). Light mode is next, when Daniel asks.**
