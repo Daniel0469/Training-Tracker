@@ -107,6 +107,47 @@ Nothing new needed — it reads `data.json` directly:
 - **Latest bodyweight:** newest `bodyweights` entry for that person (kg).
 - **Today's session:** derived from `program` + weekday + the 5am rollover. Not a stored field.
 
+## Data contract — `bodyweights` (hub writes)
+
+The hub captures weigh-ins (see *Division of labour*). It writes into the existing
+`bodyweights` array — there is no separate hub array, because `setLoad`, records,
+Home's tiles and the coach all read this one.
+
+**Row shape** — what this app already writes, plus the hub's stamp:
+
+    { "person": "Daniel", "date": "2026-10-13", "kg": 82.4, "updatedAt": 1791875529000 }
+
+- `person` — exactly as spelled in `people`.
+- `date` — the training day, using the same ~5am local-time rollover as meals
+  (`trainingDateStr` in `js/app.js`), so a 1 am weigh-in lands on the same day as that
+  night's meals.
+- `kg` — a number, kilograms, one decimal place. No unit field.
+- `updatedAt` — ms epoch, the same form as on meals (`mergeRecord` reads it with `+`, so an
+  ISO string would count as 0). The hub stamps it on every row it writes or rewrites.
+  **This app currently drops it on save, which is harmless:** bodyweight rows don't go
+  through `mergeRecord` — `mergeInData` replays each incoming row through
+  `addBodyweight(person, date, kg)`, which keeps only those three fields on a new row and
+  only overwrites `kg` on an existing one, and the push then writes `state.bodyweights` over
+  the store's array. Nothing here resolves a bodyweight conflict by `updatedAt`; incoming
+  `kg` wins on a phone's pull. Don't rely on any other field on a bodyweight row surviving
+  a phone sync either.
+
+**Identity is `(person, date)`, not an id.** Bodyweight rows have never had an `id`. A
+write for a person and date that already has a row **replaces its `kg`** (and
+`updatedAt`) rather than adding a second row — the same upsert `addBodyweight` does.
+
+**`weights[]` stays in step.** When the written row is now that person's newest by
+`date`, the hub also sets `weights[people.indexOf(person)] = String(kg)`, exactly as
+`addBodyweight` does via `latestBw`. A backdated entry leaves `weights[]` alone.
+
+**Concurrency** is the same as meals: pull → merge → push with the file's `sha`;
+on 409, re-read, re-apply this upsert and retry.
+
+**Body metrics (later).** The scale-screenshot record (`PROJECT-STATUS.md` → *Scale
+input via phone screenshot*) writes its weight *through* to this array by the same
+rule; its other metrics go in a separate open-schema record, to be specified here
+before the hub writes it.
+
 ## Work needed in this app
 
 Ordered; each is independently useful and stops for review, per the usual convention.
