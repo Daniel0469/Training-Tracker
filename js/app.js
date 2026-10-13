@@ -663,6 +663,15 @@ function weeklyVolumes(person){
   state.logs.filter(function(l){return l.person===person;}).forEach(function(l){ var wk=weekMonday(l.date); map[wk]=(map[wk]||0)+(l.volume||0); });
   return Object.keys(map).sort().map(function(wk){ return {week:wk, volume:map[wk]}; });
 }
+// relTime's short form, for a table column on a phone: "today", "5d", "3w", "4mo", "1y".
+function relShort(dateStr){
+  var d=daysAgo(dateStr);
+  if(d<=0) return "today";
+  if(d<7) return d+"d";
+  if(d<56) return Math.round(d/7)+"w";
+  if(d<700) return Math.round(d/30.44)+"mo";
+  return Math.round(d/365.25)+"y";
+}
 function relTime(dateStr){
   var d=daysAgo(dateStr);
   if(d<=0) return "today";
@@ -1961,7 +1970,7 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like openSessions in the Program tab.
 let progressPane="lifts";
-const PANE_LABELS={lifts:"🏋 Lifts", run:"🏃 Run", flex:"🤸 Flexibility", time:"⏱ Time", body:"⚖ Body"};
+const PANE_LABELS={lifts:"Lifts", run:"Run", flex:"Flex", time:"Time", body:"Body"};
 // 🏃 Run only joins the toggle once there's running data to put in it, so a
 // lifting-only install sees the same two-way toggle it always did rather than a
 // third tab of empty cards.
@@ -2224,7 +2233,7 @@ function renderFlex(){
     wirePaneToggle();
     return;
   }
-  html+='<div class="card"><div class="sec-title">&#129692; Flexibility ladder - '+esc(p)+'</div>'
+  html+='<div class="card"><div class="sec-title">'+ico("trend")+'Flexibility ladder · '+esc(p)+'</div>'
     + '<div class="hint" style="margin-bottom:10px">Your lowest rung is what limits the skill - '
     + 'that is the one to train, not whichever stretch you feel the most. A test done on both '
     + 'sides reports the worse side.</div>'
@@ -2241,7 +2250,7 @@ function renderFlex(){
           + (d>0?"&#9650;":"&#9660;")+Math.abs(d)+' cm</span>';
         return '<tr><td>'+esc(h.name)
           + (h.higher?' <span class="ex-meta">(higher is better)</span>':"")
-          + '</td><td><b>'+(Math.round(last.v*10)/10)+' cm</b></td><td>'+change
+          + '</td><td class="num"><b>'+(Math.round(last.v*10)/10)+'</b> cm</td><td class="num">'+change
           + '</td><td class="ex-meta">'+relTime(last.date)+'</td></tr>';
       }).join("")
     + '</tbody></table></div></div>';
@@ -2295,7 +2304,7 @@ function renderTime(){
   let html=progressTabsHtml()
     + '<div class="card">'
     + '<div class="row" style="margin-bottom:12px">'
-    + '<label class="fld grow" style="max-width:280px">Session<select id="timeSession">'
+    + '<label class="fld grow">Session<select id="timeSession">'
     + '<option value=""'+(timeSession?"":" selected")+'>All sessions</option>'
     + keys.map(k=>'<option value="'+esc(k)+'"'+(k===timeSession?' selected':'')+'>'
         + esc(state.program.sessions[k].name)+'</option>').join("")
@@ -2304,17 +2313,18 @@ function renderTime(){
     + 'Only sessions you ran the timer on appear.</div>'
     + '<div class="chart-box"><canvas id="timeChart"></canvas></div></div>';
   if(logs.length){
-    html+='<div class="card"><div class="tiles">'
-      + '<div class="tile"><b>'+fmtDuration(avg*60)+'</b><span>Average</span></div>'
-      + '<div class="tile"><b>'+fmtDuration(last.durationSec)+'</b><span>Last'
+    // The same 2x2 tiles as Home (design v3).
+    html+='<div class="tiles home-tiles">'
+      + '<div class="tile"><div class="big">'+fmtDuration(avg*60)+'</div><div class="lbl">average</div></div>'
+      + '<div class="tile"><div class="big">'+fmtDuration(last.durationSec)+'</div><div class="lbl">last'
         + (Math.abs(delta)>=1? ' <span style="color:var('+(delta<0?"--good":"--bad")+')">'
-            +(delta<0?"▼":"▲")+Math.round(Math.abs(delta))+'m</span>' : "")+'</span></div>'
-      + '<div class="tile"><b>'+fmtDuration(Math.max.apply(null,mins)*60)+'</b><span>Longest</span></div>'
-      + '<div class="tile"><b>'+logs.length+'</b><span>Timed</span></div>'
-      + '</div></div>'
-      + '<div class="card"><div class="sec-title">⏱ Sessions - '+esc(p)+'</div>'
+            +(delta<0?"▼":"▲")+Math.round(Math.abs(delta))+'m</span>' : "")+'</div></div>'
+      + '<div class="tile"><div class="big">'+fmtDuration(Math.max.apply(null,mins)*60)+'</div><div class="lbl">longest</div></div>'
+      + '<div class="tile"><div class="big">'+logs.length+'</div><div class="lbl">timed</div></div>'
+      + '</div>'
+      + '<div class="card"><div class="sec-title">'+ico("clock")+'Sessions · '+esc(p)+'</div>'
       + logs.slice().reverse().map(l=>'<div class="hist-entry"><div class="ex-meta">'
-          + esc(l.sessionName)+' &middot; '+relTime(l.date)+'</div><div>'
+          + esc(l.sessionName)+' &middot; '+relTime(l.date)+'</div><div class="num">'
           + fmtDuration(l.durationSec)
           + (l.volume? ' &middot; '+l.volume.toLocaleString()+' kg' : "")
           + (l.difficulty? ' &middot; difficulty '+l.difficulty+'/10' : "")
@@ -2383,25 +2393,32 @@ function renderProgress(){
   const pc = personSwatch(p);
   const recs=personRecords(p);
   const recNames=Object.keys(recs).sort();
+  // Design v3: pickers, the selected person's current number, the chart, then
+  // Records. Reps fold into Best ("80 × 8"); a best set in the last 14 days is
+  // picked out in PR gold.
   let recTable;
   if(recNames.length){
-    recTable='<div class="sets-wrap"><table class="rec"><thead><tr><th>Exercise</th><th>Best</th><th>Reps</th><th>e1RM</th><th>When</th></tr></thead><tbody>'
+    recTable='<div class="sets-wrap"><table class="rec"><thead><tr><th>Exercise</th><th>Best</th><th>e1RM</th><th>When</th></tr></thead><tbody>'
       + recNames.map(function(n){ const r=recs[n]; const e=epley(r.kg, r.reps);
-          return '<tr><td>'+esc(n)+'</td><td><b>'+(Math.round(r.kg*10)/10)+' kg</b>'+loadBreakdown(r)+'</td><td>'+(r.reps!=null?r.reps:"–")+'</td><td>'+(isNaN(e)?"–":Math.round(e)+" kg")+'</td><td class="ex-meta">'+relTime(r.date)+'</td></tr>'; }).join("")
+          const recent=daysAgo(r.date)<=14;
+          return '<tr'+(recent?' class="rec-new"':'')+'><td>'+esc(n)+'</td><td class="num"><b>'+(Math.round(r.kg*10)/10)+'</b>'+(r.reps!=null?' × '+r.reps:'')+loadBreakdown(r)+'</td>'
+            + '<td class="num">'+(isNaN(e)?"–":Math.round(e))+'</td><td class="ex-meta num" title="'+esc(r.date)+'">'+relShort(r.date)+'</td></tr>'; }).join("")
       + '</tbody></table></div>';
   } else {
     recTable='<div class="hint">No lifting bests for '+esc(p)+' yet.</div>';
   }
-  document.getElementById("view").innerHTML=progressTabsHtml()+'<div class="card">'
-    + '<div class="sec-title">🏅 Records - '+esc(p)+' <span class="pill" data-sw="'+pc+'">current bests</span></div>'
-    + recTable + '</div>'
+  document.getElementById("view").innerHTML=progressTabsHtml()
     + '<div class="card">'
-    + '<div class="row" style="margin-bottom:12px">'
-    + '<label class="fld grow" style="max-width:280px">Exercise chart<select id="progEx">'
+    + '<div class="sess-pick" style="margin-bottom:12px">'
+    + '<label class="fld">Exercise<select id="progEx">'
     + allEx.map(n=>'<option>'+esc(n)+'</option>').join("")+'</select></label>'
-    + '<label class="fld" style="width:150px">Metric<select id="progMetric"><option value="weight">Top-set weight</option><option value="e1rm">Est. 1RM</option></select></label></div>'
-    + '<div class="hint" style="margin-bottom:10px">Per session, for both people. Warm-up sets are excluded.</div>'
-    + '<div class="chart-box"><canvas id="progChart"></canvas></div></div>';
+    + '<label class="fld">Metric<select id="progMetric"><option value="weight">Top set</option><option value="e1rm">Est. 1RM</option></select></label></div>'
+    + '<div id="progBig" class="big-stat"></div>'
+    + '<div class="chart-box" style="height:240px"><canvas id="progChart"></canvas></div>'
+    + '<div class="hint">Per session, for both people. Warm-up sets are excluded.</div></div>'
+    + '<div class="card">'
+    + '<div class="sec-title">'+ico("flag")+'Records · '+esc(p)+' <span class="pill" data-sw="'+pc+'">current bests</span></div>'
+    + recTable + '</div>';
   wirePaneToggle();
   document.getElementById("progEx").onchange=drawChart;
   document.getElementById("progMetric").onchange=drawChart;
@@ -2422,6 +2439,18 @@ function drawChart(){
     return {label:p,data:pts,borderColor:swatchColor(state.colors[i],dark),
       backgroundColor:swatchColor(state.colors[i],dark),tension:.25,spanGaps:true};
   });
+  // The big number: the selected person's latest value, and how far it has moved
+  // since their first time on this exercise.
+  const big=document.getElementById("progBig");
+  if(big){
+    const mine=(series[state.activePerson]||{}).data||[];
+    if(mine.length){
+      const lastP=mine[mine.length-1], d=Math.round((lastP.y-mine[0].y)*10)/10;
+      big.innerHTML='<b class="num">'+lastP.y+'<small> kg</small></b>'
+        + '<span>'+(metric==="e1rm"?"est. 1RM":"top set")+' · '+esc(relTime(lastP.x))
+        + (mine.length>1&&d?' · <i class="'+(d>0?'up':'down')+'">'+(d>0?'▲ ':'▼ ')+Math.abs(d)+' kg</i> since '+esc(mine[0].x):'')+'</span>';
+    } else big.innerHTML='<span>No sets for '+esc(state.people[state.activePerson])+' on this one yet.</span>';
+  }
   if(chart) chart.destroy();
   const tickCol=dark?"#9aa3b2":"#697086";
   const gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
@@ -2522,7 +2551,7 @@ function renderRun(){
     + '<div class="hint" style="margin-bottom:10px">Per session, for both people. '+esc(RUN_METRICS[runMetric].axis)+'.</div>'
     + '<div class="chart-box"><canvas id="runChart"></canvas></div></div>';
   if(logs.length){
-    html+='<div class="card"><div class="sec-title">🏃 Sessions - '+esc(p)
+    html+='<div class="card"><div class="sec-title">'+ico("run")+'Sessions · '+esc(p)
       + ' <span class="pill" data-sw="'+personSwatch(p)+'">'+logs.length+'</span></div>'
       + logs.slice().reverse().map(runSessionHtml).join("")+'</div>';
   } else {
@@ -2547,7 +2576,7 @@ function runSessionHtml(l){
   // already on garminLine's "reps on the watch" line, which History shows too.
   return '<div class="ex" style="margin-bottom:8px"><div class="ex-head"><div>'
     + '<b>'+esc(l.sessionName||"Run")+'</b>'
-    + '<div class="ex-meta">'+esc(l.date)+' · '+relTime(l.date)
+    + '<div class="ex-meta num">'+esc(l.date)+' · '+relTime(l.date)
     + (bits.length?' · '+esc(bits.join(" · ")):"")+garminStatus(l)+'</div></div></div>'
     + garminLine(l)+hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+repTableHtml(l)+'</div>';
 }
@@ -2559,8 +2588,8 @@ function repTableHtml(l){
   const rows=reps.reps;
   const hasPwr=rows.some(r=>r.power_w!=null), hasCad=rows.some(r=>r.cadence_spm!=null);
   const hasRec=rows.some(r=>r.recovery_sec!=null);
-  return '<div class="sets-wrap" style="margin-top:6px"><table class="sets"><thead><tr>'
-    + '<th>Rep</th><th>Dist</th><th>Time</th><th>Pace</th><th>♥ avg</th><th>♥ max</th>'
+  return '<div class="sets-wrap" style="margin-top:6px"><table class="sets reps"><thead><tr>'
+    + '<th>Rep</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR avg</th><th>HR max</th>'
     + (hasCad?'<th>Cad</th>':'')+(hasPwr?'<th>W</th>':'')
     + (hasRec?'<th>Recovery</th>':'')+'</tr></thead><tbody>'
     + rows.map(r=>'<tr><td><b>'+r.n+'</b></td><td>'+(r.dist_m!=null?r.dist_m+" m":"–")+'</td>'
@@ -2570,7 +2599,7 @@ function repTableHtml(l){
         + (hasCad?'<td>'+(r.cadence_spm!=null?r.cadence_spm:"–")+'</td>':'')
         + (hasPwr?'<td>'+(r.power_w!=null?r.power_w:"–")+'</td>':'')
         + (hasRec?'<td>'+(r.recovery_sec!=null?fmtMmSs(r.recovery_sec):"–")
-            + (r.hr_drop!=null?'<div class="ex-meta">♥ −'+r.hr_drop+'</div>':"")+'</td>':'')
+            + (r.hr_drop!=null?'<div class="ex-meta">HR −'+r.hr_drop+'</div>':"")+'</td>':'')
         + '</tr>').join("")
     + '</tbody></table></div>'
     + '<div class="hint" style="margin-top:4px">Read off the watch. '
@@ -2675,29 +2704,31 @@ function renderBody(){
   const goal=(state.goals&&state.goals[state.activePerson])||"";
   // Body is the second pane of the Progress tab, so it carries the same toggle.
   // Reached directly (Home's ⚖ arrow), it sets progressPane itself first.
+  // Design v3 order: goals, the trend (what you open it for), add a weigh-in,
+  // import, then the list.
   let html=progressTabsHtml()
-    + '<div class="card"><div class="sec-title">🎯 '+esc(possessive(p))+' goals</div>'
+    + '<div class="card"><div class="sec-title">'+ico("target")+esc(possessive(p))+' goals</div>'
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
             : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu.</div>')
     + '</div>';
-  html+='<div class="card">'
-    + '<div class="flex-between" style="margin-bottom:10px"><div>'
-    + '<h3>'+esc(p)+' <span class="pill" data-sw="'+pc+'">bodyweight</span></h3>'
-    + '<div class="ex-meta">'+(latest? latest.kg+' kg · '+relTime(latest.date) : 'No entries yet')+'</div></div></div>'
-    + '<div class="row" style="align-items:flex-end;gap:8px">'
-    + '<label class="fld"><span>Weight (kg)</span><input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76" style="width:120px"></label>'
-    + '<label class="fld"><span>Date</span><input id="bwDate" type="date" value="'+trainingDateStr()+'" style="width:150px"></label>'
+  html+='<div class="card"><div class="sec-title">'+ico("trend")+'Bodyweight · '+esc(p)+'</div>'
+    + '<div class="big-stat">'+(latest
+        ? '<b class="num">'+latest.kg+'<small> kg</small></b><span>'+esc(relTime(latest.date))+'</span>'
+        : '<span>No bodyweight logged for '+esc(p)+' yet - add one below, or import from your scale app.</span>')+'</div>'
+    + (hist.length?'<div class="chart-box" style="height:220px"><canvas id="bwChart"></canvas></div>':'')
+    + '</div>';
+  html+='<div class="card"><div class="sec-title">Add a weigh-in</div>'
+    + '<div class="bw-add">'
+    + '<label class="fld">Date<input id="bwDate" type="date" value="'+trainingDateStr()+'"></label>'
+    + '<label class="fld">kg<input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>'
     + '<button class="btn btn-primary" id="bwAdd">Add</button>'
-    + '<button class="mini" id="bwImport" style="margin-left:auto">⬆ Import from scale (CSV)</button>'
-    + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
     + '</div>'
-    + '<div class="hint" style="margin-top:6px">Import a CSV exported from your scale app (e.g. 1byone Health). Date + weight columns are detected automatically.</div>'
+    + '<button class="mini" id="bwImport" style="margin-top:12px">'+ico("upload")+'Import from scale (CSV)</button>'
+    + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
+    + '<div class="hint" style="margin-top:6px">A CSV exported from your scale app (e.g. 1byone Health). Date + weight columns are detected automatically.</div>'
     + '</div>';
   if(hist.length){
-    html+='<div class="card"><div class="sec-title">Trend</div><div class="chart-box"><canvas id="bwChart"></canvas></div></div>';
-    html+='<div class="card"><div class="sec-title">History - '+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
-  } else {
-    html+='<div class="card empty">No bodyweight logged for '+esc(p)+' yet.<br>Add one above, or import from your scale app.</div>';
+    html+='<div class="card"><div class="sec-title">'+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
   }
   document.getElementById("view").innerHTML=html;
   wirePaneToggle();
@@ -2717,8 +2748,8 @@ function renderBody(){
   };
   if(hist.length){
     const list=document.getElementById("bwList");
-    list.innerHTML=hist.map(b=>'<div class="log-row" style="padding:4px 0;border-bottom:1px solid var(--line)">'
-      + '<div><b>'+b.kg+' kg</b> <span class="ex-meta">'+esc(b.date)+' · '+relTime(b.date)+'</span></div>'
+    list.innerHTML=hist.map(b=>'<div class="log-row bw-row">'
+      + '<div><b class="num">'+b.kg+' kg</b> <span class="ex-meta num">'+esc(b.date)+' · '+relTime(b.date)+'</span></div>'
       + '<button class="mini" data-bwdel="'+esc(b.person)+'|'+esc(b.date)+'" style="color:var(--bad)">Delete</button></div>').join("");
     list.querySelectorAll("[data-bwdel]").forEach(btn=>btn.onclick=()=>{
       const a=btn.dataset.bwdel.split("|");
@@ -3856,7 +3887,7 @@ function renderHelp(){
      +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
-     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>🏋 Lifts</b>, <b>🏃 Run</b> once you\'ve logged a run, <b>🤸 Flexibility</b> once you\'ve logged a mobility test, and <b>⚖ Body</b> side by side at the top) and <b>Program</b>.')
+     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top) and <b>Program</b>.')
      +p('<b>Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep, its stages as one coloured bar (deep, REM, light, awake), sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
      +p('<b>Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
@@ -3892,20 +3923,20 @@ function renderHelp(){
      +p('<b>Should you tick the run\'s box?</b> Up to you - on a run it fills nothing in (the auto-fill only applies to lifting), so what gets saved is otherwise the same either way. Ticks <i>are</i> saved now and feed the done bar on your weekly muscle card, so tick it if you want the run counted there. What actually matters is leaving the run\'s row <b>empty</b>: anything typed there counts as your own data and Garmin won\'t overwrite it, so the splits won\'t come through.')
      +p('On a running exercise, <b>Import run</b> (TCX/GPX) pulls a run exported from Garmin or Strava straight into the splits - export the file on your laptop, then import.')
      +p('<b>Garmin auto-link (⌚):</b> when you save a cardio session it\'s tagged <i>⌚ awaiting run…</i>; the Garmin sync on the laptop then finds that day\'s run and adds the extra info - <b>heart rate, cadence, elevation, calories, moving time, training effect</b>, and per-km splits if you left them blank - shown as a <b>⌚ Garmin</b> line in History. It never overwrites what you typed. (Set up in <code>mcp-garmin</code>; needs the laptop.)')
-     +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ 🏃 Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
+     +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a square for each day (filled when you saved a session that day, outlined for today) and the last eight weeks\' volume as bars, this week in your colour - then lists every saved session (newest first). Switch between <b>Everyone</b> and each person at the top, and <b>tap a session</b> to fold its full detail open; a gold <b>PR</b> badge marks a session with a best in it, and each exercise that set one. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>Your own notes can be added or changed after the event.</b> Tap a session open and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
      +p('<b>Delete session</b> sits at the bottom of a session\'s open detail (so it can\'t be hit while scrolling) and removes it on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
-     +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6. <b>⏱ Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
-     +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
+     +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
+     +p('<b>Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')
-     +p('<b>🤸 Flexibility</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
+     +p('<b>Flex</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
      +p('The <b>Mobility assessment</b> session in Program is what fills it. It is a set of measurements rather than a workout - a tape measure, a wall and a flat floor - and each test\'s 🔧 <b>setup</b> line says exactly how to set it up and what it is telling you. Measure <b>cold</b>, before training: stretching buys you a few centimetres that wear off within hours, so warming up first measures the warm-up rather than your flexibility. Same conditions, same landmark, no forcing - a number you had to fight for won\'t repeat next time.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
-      p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
+      p('<b>Body lives inside Progress</b>, on the <b>Body</b> half of the toggle at the top of that tab (<b>Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')

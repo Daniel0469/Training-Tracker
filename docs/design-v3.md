@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1, Session, Home and History built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Step 1, Session, Home, History and Progress built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -138,3 +138,10 @@ Text unchanged.
   tap the row to fold it open, **Delete session** sits inside the open detail. The person filter
   stays as an Everyone / person switch, starting on Everyone. PR badge on the row and on each PR
   exercise inside.
+- Progress: pane labels are plain words (Lifts · Run · Flex · Time · Body). Lifts follows the doc -
+  pickers, big current value with change since first, chart, then Records (Exercise · Best as
+  weight × reps · e1RM · compact When), bests from the last 14 days in PR gold. Run is restyled
+  as-is (rep tables still scroll sideways - up to nine columns of watch data). Flex has **no
+  "lowest rung" tag**: the app can't compute it (it is the coach's call per the flexibility
+  method) - parked as a follow-up needing a coach-written field, not dropped. Time keeps its four
+  tiles in the Home tile style. Body is goals · chart · add weigh-in · import · list.
