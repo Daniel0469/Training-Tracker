@@ -141,6 +141,18 @@ wins; an unstamped row loses to any stamped edit; two unstamped rows fall back t
 wins. So a hub write beats an older phone copy and vice versa — **an unstamped hub write
 loses silently**.
 
+**Deletions: `deletedBodyweights`.** Top-level array of tombstones,
+`{ "person": "Daniel", "date": "2026-10-13", "deletedAt": 1791875529000 }` (ms epoch), the
+weigh-in equivalent of `deletedLogs`. A row is deleted when a tombstone for its
+`(person, date)` has `deletedAt >= row.updatedAt` (unstamped rows count as 0). A row stamped
+*after* the tombstone is a fresh weigh-in and stands. Tombstones are kept for ever. The hub must:
+- **Preserve the array** on every write (mutate the file, never rebuild it without this key).
+- **Treat a tombstoned row as absent** when reading: for the latest weight, `weights[]`, and
+  anything it shows.
+- **Never write back a row it read earlier.** Only write a weigh-in taken now (stamped now),
+  which then correctly beats an older tombstone.
+- **To delete**, add or raise the tombstone (`deletedAt` = now) and remove the row.
+
 **`weights[]` stays in step.** When the written row is now that person's newest by
 `date`, the hub also sets `weights[people.indexOf(person)] = String(kg)`, exactly as
 `addBodyweight` does via `latestBw`. A backdated entry leaves `weights[]` alone.

@@ -57,6 +57,8 @@ function load(){
       if(!Array.isArray(s.programChanges)) s.programChanges=[];
       // Ids of sessions deleted here, so a sync can't bring them back. See tombstoneLog.
       if(!Array.isArray(s.deletedLogs)) s.deletedLogs=[];
+      // Same for weigh-ins, keyed person+date. See tombstoneBodyweight.
+      if(!Array.isArray(s.deletedBodyweights)) s.deletedBodyweights=[];
       // What each person says is holding a session back, keyed person -> session
       // name. Written by the coach when they tell it (mcp-coach write_limiter),
       // read-only in the app.
@@ -97,7 +99,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -2622,6 +2624,7 @@ function syncWeightFromBw(person){
 // Rows from before stamping carry none and count as 0, so any stamped edit beats them.
 function mergeBodyweight(b){
   const inc=Object.assign({}, b, {kg:parseFloat(b.kg)});
+  if(bwIsDeleted(inc)) return;
   const existing=state.bodyweights.find(x=>x.person===inc.person && x.date===inc.date);
   if(existing) mergeRecord(existing, inc); else state.bodyweights.push(inc);
   syncWeightFromBw(inc.person);
@@ -2732,9 +2735,8 @@ function renderBody(){
       + '<button class="mini" data-bwdel="'+esc(b.person)+'|'+esc(b.date)+'" style="color:var(--bad)">Delete</button></div>').join("");
     list.querySelectorAll("[data-bwdel]").forEach(btn=>btn.onclick=()=>{
       const a=btn.dataset.bwdel.split("|");
-      state.bodyweights=state.bodyweights.filter(b=>!(b.person===a[0] && b.date===a[1]));
-      const pi=state.people.indexOf(p); if(pi>=0){ const lb=latestBw(p); state.weights[pi]=lb?String(lb.kg):""; }
-      save(); renderPeople(); renderBody(); toast("Deleted");
+      tombstoneBodyweight(a[0], a[1]);
+      save(); renderPeople(); renderBody(); toast("Deleted"); autoSync();
     });
     drawBwChart(p);
   }
@@ -3345,7 +3347,7 @@ function exportPayload(){
     programChanges:state.programChanges, meals:state.meals,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, program:state.program, logs:state.logs,
-    deletedLogs:state.deletedLogs};
+    deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
 // phone pushes its copy back - Cerys's three 1 Aug cardio saves were merged and
@@ -3357,6 +3359,22 @@ function tombstoneLog(id){
   if(!Array.isArray(state.deletedLogs)) state.deletedLogs=[];
   if(!isDeletedLog(id)) state.deletedLogs.push(id);
   state.logs=state.logs.filter(function(l){ return l && String(l.id)!==String(id); });
+}
+// The same tombstone for weigh-ins, with one difference: a log id is never reused, but a
+// person+date is - delete a wrong weight and you may well re-weigh that morning. So the
+// tombstone carries `deletedAt` (ms epoch) and only beats rows edited no later than that:
+// the stale copy any other writer still holds loses, a fresh weigh-in for the day wins.
+// Unstamped rows count as 0, so they always lose to a tombstone.
+function bwTombstone(person, date){ return (state.deletedBodyweights||[]).find(function(t){ return t && t.person===person && t.date===date; }); }
+function bwIsDeleted(b){ var t=bwTombstone(b.person, b.date); return !!t && !((+b.updatedAt||0) > (+t.deletedAt||0)); }
+function tombstoneBodyweight(person, date, at){
+  if(!Array.isArray(state.deletedBodyweights)) state.deletedBodyweights=[];
+  if(at==null) at=Date.now();
+  var t=bwTombstone(person, date);
+  if(t){ if(at>(+t.deletedAt||0)) t.deletedAt=at; } else state.deletedBodyweights.push({person:person, date:date, deletedAt:at});
+  var before=state.bodyweights.length;
+  state.bodyweights=state.bodyweights.filter(function(b){ return !(b.person===person && b.date===date && bwIsDeleted(b)); });
+  if(state.bodyweights.length!==before){ var pi=state.people.indexOf(person); if(pi>=0){ var lb=latestBw(person); state.weights[pi]=lb?String(lb.kg):""; } }
 }
 // Merge an exported/synced payload into local state. Logs upsert by id and
 // bodyweights by person+date (both idempotent). Config (program/people/
@@ -3411,6 +3429,8 @@ function mergeInData(data, adoptConfig, fromSync){
     var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
     data.logs.forEach(function(l){ if(!l || isDeletedLog(l.id)) return; if(byId[l.id]!=null){ if(mergeRecord(state.logs[byId[l.id]], l)) updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
   }
+  // Weigh-in deletions replay first for the same reason as deletedLogs above.
+  if(Array.isArray(data.deletedBodyweights)) data.deletedBodyweights.forEach(function(t){ if(t&&t.person&&t.date) tombstoneBodyweight(t.person, t.date, +t.deletedAt||0); });
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) mergeBodyweight(b); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
@@ -3659,7 +3679,7 @@ function remapPeople(d, map){
   const out=clone(d);
   const to=n=> (map && map[n]!==undefined) ? map[n] : n;
   const gone=n=> to(n)==="";
-  ["logs","bodyweights","meals"].forEach(k=>{
+  ["logs","bodyweights","meals","deletedBodyweights"].forEach(k=>{
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
@@ -3916,7 +3936,7 @@ function renderHelp(){
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
-     +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time - there is no 5am rollover like sessions have, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>.')
+     +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time - there is no 5am rollover like sessions have, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>. <b>Delete</b> also carries across: a deleted weigh-in stays deleted on every phone and won\'t be brought back by a sync, but you can still weigh in again for that day afterwards.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
