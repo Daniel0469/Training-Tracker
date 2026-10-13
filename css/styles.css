@@ -585,3 +585,38 @@
   #view .prog-sess textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
   #view .prog-sess textarea.notes::placeholder{color:var(--muted)}
   .prog-sess .sessnotes{margin:6px 0 12px}
+
+  /* ---- Settings, Guide, Create account (design v3) ---- */
+  .set-top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:16px}
+  .set-top .pane-toggle{background:var(--bg)}
+  .set-top .pane-toggle button.active{background:var(--card-2);color:var(--ink)}
+  .sync-status{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .sync-status .hint{flex:1;min-width:0}
+  .sync-status .btn{min-height:40px;padding:6px 14px;font-size:14px}
+  .sync-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--muted)}
+  .sync-dot[data-s="ok"]{background:var(--good)}
+  .sync-dot[data-s="bad"]{background:var(--bad)}
+  .sync-dot[data-s="busy"]{background:var(--gold);animation:syncPulse 1s ease-in-out infinite alternate}
+  @keyframes syncPulse{from{opacity:.35}to{opacity:1}}
+  .sync-cfg{margin-bottom:14px}
+  .sync-cfg summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .guide-sec{padding:0}
+  .guide-sec summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+  .guide-sec summary::-webkit-details-marker{display:none}
+  .g-badge{flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-content:center;background:var(--brand-soft);color:var(--brand);
+    font:700 13px var(--mono)}
+  .g-badge svg.ico{width:16px;height:16px}
+  .g-title{flex:1;font-weight:800;font-size:15px}
+  .guide-sec[open] .log-chev{transform:rotate(90deg)}
+  .g-body{padding:0 16px 8px;color:var(--ink-2);font-size:14px}
+  #guideBack svg.ico{width:15px;height:15px}
+  .ca-card{text-align:center;padding:28px 20px 22px;--ca:var(--brand)}
+  .ca-card[data-c="navy"]{--ca:var(--me)} .ca-card[data-c="purple"]{--ca:var(--partner)}
+  .ca-card[data-c="teal"]{--ca:var(--sw-teal)} .ca-card[data-c="rose"]{--ca:var(--sw-rose)}
+  .ca-card[data-c="amber"]{--ca:var(--sw-amber)} .ca-card[data-c="green"]{--ca:var(--sw-green)}
+  .ca-mark{width:64px;height:64px;margin:0 auto 14px;border-radius:20px;display:grid;place-content:center;background:var(--ca);color:var(--on-brand);transition:background .15s}
+  .ca-mark svg.ico{width:34px;height:34px}
+  .ca-title{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+  .ca-card #caName{border:1.5px solid var(--ca)}
+  .ca-card #caCreate{background:var(--ca)}
+  .ca-card .swatchpick{justify-content:center}

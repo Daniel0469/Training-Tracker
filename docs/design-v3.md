@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1, Session, Home, History, Progress and Program built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Every screen built in dark (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -156,3 +156,13 @@ Text unchanged.
   into the Edit dialog; superset tick-boxes only appear after "Group as superset" (Group (n) /
   Cancel). The intro hint card is gone; "+ Add session" and "Import shared session" are dashed
   rows at the bottom.
+- Program session notes start **closed** behind the Session notes button (they used to open
+  whenever a session had any), and stay open across re-renders once opened.
+- Settings: theme is a Light / Dark switch; cloud sync shows a status dot (green / red / pulsing /
+  grey) and "Sync now", with repo / path / token folded under "Change sync settings" once set up.
+  The person details and the version line stay where they were (Daniel didn't take those two).
+  Emoji gone from every button. Guide: Back button, intro card, the ten sections as fold-out panels,
+  **all closed**, numbered badges (icons for Home and Quick tips); text unchanged apart from labels
+  that no longer exist. Create account: centred, a dumbbell mark filled with the picked swatch, which
+  also colours the name border and the Create button as you tap swatches.
+- **All screens done (13 Oct). Light mode is next, when Daniel asks.** Nothing pushed yet.

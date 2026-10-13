@@ -567,22 +567,28 @@ function renderCreateAccount(slotIndex){
   document.getElementById("settingsBtn").style.display="none";
   const isSecond = slotIndex===1 && state.people[0];
   setHeader(isSecond?"Add account":"Welcome");
-  let html='<div class="card">'
-    + '<div class="sec-title" style="margin:0 0 4px">'+(isSecond?"Add a second account":"Welcome - create your account")+'</div>'
-    + '<div class="hint" style="margin-bottom:16px">'+(isSecond
+  // Design v3: centred, with an app mark that takes on whichever colour is
+  // picked (data-c on the card drives --ca in css/styles.css), so you see your
+  // colour before the account exists.
+  let html='<div class="card ca-card" id="caCard">'
+    + '<div class="ca-mark">'+ico("dumbbell")+'</div>'
+    + '<h2 class="ca-title">'+(isSecond?"Add a second account":"Welcome")+'</h2>'
+    + '<div class="hint" style="margin:0 0 18px">'+(isSecond
         ?"Optional - this device can be shared by up to two people."
         :"Give your tracker a name and a colour to get started. Nothing is sent anywhere; it's saved on this device.")+'</div>'
-    + '<label class="fld" style="margin-bottom:14px">Name<input id="caName" type="text" placeholder="e.g. Alex" autocomplete="off"></label>'
-    + '<label class="fld" style="margin-bottom:18px">Colour<div class="swatchpick" id="caColor"></div></label>'
-    + '<div class="row" style="justify-content:flex-end">'
-    + (isSecond?'<button class="btn btn-ghost" id="caSkip">Skip - just me for now</button>':"")
-    + '<button class="btn btn-primary" id="caCreate">Create account</button>'
-    + '</div></div>';
+    + '<label class="fld" style="margin-bottom:14px;text-align:left">Name<input id="caName" type="text" placeholder="e.g. Alex" autocomplete="off"></label>'
+    + '<label class="fld" style="margin-bottom:20px;text-align:left">Colour<div class="swatchpick" id="caColor"></div></label>'
+    + '<button class="btn btn-primary" id="caCreate" style="width:100%">Create account</button>'
+    + (isSecond?'<button class="btn btn-ghost" id="caSkip" style="width:100%;margin-top:8px">Skip - just me for now</button>':"")
+    + '</div>';
   document.getElementById("view").innerHTML=html;
   const colorEl=document.getElementById("caColor");
   const otherColor = state.people[1-slotIndex] ? state.colors[1-slotIndex] : null;
   renderSwatchPicker(colorEl, firstAvailableSwatch(otherColor), otherColor);
   wireSwatchPicker(colorEl);
+  const caCard=document.getElementById("caCard");
+  caCard.dataset.c=readSwatchPicker(colorEl);
+  colorEl.addEventListener("click", ()=>{ caCard.dataset.c=readSwatchPicker(colorEl); });
   const reveal=()=>{
     document.getElementById("tabs").style.display="";
     document.getElementById("ptoggle").style.display="";
@@ -943,6 +949,8 @@ const ICONS={
   dumbbell:'<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
   trend:'<path d="m4.5 16 5-5 3.5 3.5 6.5-7"/><path d="M15 7.5h4.5V12"/>',
   check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/>',
+  back:'<path d="m15 6-6 6 6 6"/>',
   chevron:'<path d="m9 6 6 6-6 6"/>'
 };
 // The gold PR badge (design v3), in place of the old medal emoji.
@@ -3219,6 +3227,8 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("ghPath").value=sc.path||"";
   document.getElementById("ghToken").value=sc.token||"";
   setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
+  // The sync fields are only worth showing when there is nothing to show instead.
+  document.getElementById("ghCfg").open = !(sc.repo&&sc.token);
   document.getElementById("sugText").value="";
   renderSuggestions();
   renderNotSetupList();
@@ -3879,7 +3889,15 @@ function ghPutFile(cfg, payloadStr, sha){
     return r.json();
   });
 }
-function setSyncStatus(msg){ const el=document.getElementById("ghStatus"); if(el) el.textContent=msg; }
+// The status line drives the dot beside it (design v3): green when synced or
+// set up, red when the last attempt failed, pulsing while it runs, grey when
+// sync isn't configured. Read off the message so no caller has to pass it.
+function setSyncStatus(msg){
+  const el=document.getElementById("ghStatus"); if(el) el.textContent=msg;
+  const dot=document.getElementById("ghDot"); if(!dot) return;
+  dot.dataset.s = /fail/i.test(msg) ? "bad" : /Syncing/.test(msg) ? "busy"
+    : /^(Synced|Configured|Saved\. Ready)/.test(msg) ? "ok" : "off";
+}
 // Pull remote -> merge (logs+bodyweights union) -> push merged local back.
 // quiet=true for automatic syncs (on save / on open): no toasts, best-effort.
 function syncNow(quiet){
@@ -3916,11 +3934,20 @@ function syncNow(quiet){
 function autoSync(){ const c=loadSync(); if(c.repo && c.token) syncNow(true); }
 
 function renderHelp(){
-  function card(title, body){ return '<div class="card"><div class="sec-title">'+title+'</div>'+body+'</div>'; }
+  // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
+  // a contents list. A numbered title ("3 &middot; Time it...") keeps its number
+  // as the badge; Home and Quick tips get an icon instead.
+  function card(title, body){
+    const m=/^(\d+) &middot; (.*)$/.exec(title);
+    const badge = m ? m[1] : ico(title==="Home"?"home":"check");
+    return '<details class="card guide-sec"><summary><span class="g-badge">'+badge+'</span>'
+      + '<span class="g-title">'+(m?m[2]:title)+'</span><span class="log-chev">'+ico("chevron")+'</span></summary>'
+      + '<div class="g-body">'+body+'</div></details>';
+  }
   function p(t){ return '<p style="margin:0 0 9px">'+t+'</p>'; }
-  var h='';
+  var h='<button class="mini" id="guideBack" style="margin-bottom:12px">'+ico("back")+'Back</button>';
   h+='<div class="card"><h3 style="margin-bottom:6px">How to use this tracker</h3>'
-    +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere.</div></div>';
+    +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere. Tap a section to open it.</div></div>';
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), any <b>Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>what the week trains</b>, <b>sleep &amp; recovery</b>, your <b>heart rate zones</b>, the <b>estimated 5k</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
@@ -3980,7 +4007,7 @@ function renderHelp(){
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
-     +p('When a coach sends you notes, they show as teal <b>🧠 Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Your coach keeps its own record of everything it has told you before, so each week\'s advice builds on the last rather than starting fresh - but that record is the coach\'s working memory, not something to read on a phone, so it is kept out of the app and off your device entirely. What you see here is the advice that is <b>current</b>. Tap <b>Sync now</b> to pull the latest coaching.')
+     +p('When a coach sends you notes, they show as outlined <b>Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Your coach keeps its own record of everything it has told you before, so each week\'s advice builds on the last rather than starting fresh - but that record is the coach\'s working memory, not something to read on a phone, so it is kept out of the app and off your device entirely. What you see here is the advice that is <b>current</b>. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
      +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')
      +p('<b>&#9889; Next cardio</b> is the one coach card that does more than tell you something: where two sessions still share a day, your coach can <b>assign</b> which one is next and what to do in it, and the app <b>opens that one</b> instead of guessing. It\'s <b>per person</b>. Once you\'ve logged a cardio session the card goes quiet and marks itself <b>done</b>, and the app falls back to opening whichever of them you did <b>least recently</b>. If the session it names gets <b>renamed or removed</b>, the card disappears rather than advertising a session you can no longer open. You can always pick another session from the list; it\'s a default, not a lock.')
@@ -4017,10 +4044,11 @@ function renderHelp(){
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
      +p('&bull; No cloud sync? Export regularly as a backup, and to keep both of you in sync. With sync on, that\'s already handled - every save pushes a full copy off-device.')
-     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>💡 Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.')
-     +p('&bull; Your <b>🧠 coach can suggest app changes too</b>, when it notices something the tracker should do differently. Those arrive in the same <b>💡 Improve the app</b> list marked <b>🧠 Coach</b>, with the reason it thinks so, and they sit there <b>waiting for you</b>: tap <b>✓</b> to approve and send it to the dev chat, or <b>✕</b> to decline. Nothing the coach suggests gets built without you approving it first, and declining one means it won\'t be raised again.'));
+     +p('&bull; Spotted a bug or have an idea? Jot it in the gear menu under <b>Improve the app</b> - it syncs to the dev backlog so it isn\'t forgotten.')
+     +p('&bull; Your <b>🧠 coach can suggest app changes too</b>, when it notices something the tracker should do differently. Those arrive in the same <b>Improve the app</b> list marked <b>🧠 Coach</b>, with the reason it thinks so, and they sit there <b>waiting for you</b>: tap <b>✓</b> to approve and send it to the dev chat, or <b>✕</b> to decline. Nothing the coach suggests gets built without you approving it first, and declining one means it won\'t be raised again.'));
 
   document.getElementById("view").innerHTML=h;
+  document.getElementById("guideBack").onclick=()=>switchTab(guideFrom||"home");
 }
 
 const VOL_REFS=[
@@ -4680,8 +4708,11 @@ function syncTabButtons(){
 // Switch section. Works even for views without a bottom-bar tab (the Guide,
 // reached from Settings). skipCapture is used right after saving, when the
 // draft has just been cleared on purpose.
+// Where the Guide's Back button returns to - the tab it was opened from.
+let guideFrom="home";
 function switchTab(tab, skipCapture){
   if(!skipCapture) captureDraft();
+  if(tab==="help" && activeTab!=="help") guideFrom=activeTab;
   activeTab=tab;
   syncTabButtons();
   renderView();
@@ -4733,8 +4764,7 @@ function updateMeta(){
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme", t);
   updateMeta();
-  const btn=document.getElementById("themeToggleBtn");
-  if(btn){ btn.textContent = t==="dark" ? "☀️ Light mode" : "🌙 Dark mode"; }
+  document.querySelectorAll("#themeSwitch [data-theme-pick]").forEach(b=>b.classList.toggle("active", b.dataset.themePick===t));
 }
 function initTheme(){
   let t=state.theme;
@@ -4743,13 +4773,13 @@ function initTheme(){
   }
   applyTheme(t);
 }
-function toggleTheme(){
+function setTheme(next){
+  if(next===document.documentElement.getAttribute("data-theme")) return;
   if(activeTab==="log") captureDraft(); // preserve unsaved entry across the re-render
-  const next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
   state.theme=next; save(); applyTheme(next);
   renderView(); // re-render so the themed chart + surfaces refresh
 }
-document.getElementById("themeToggleBtn").onclick=toggleTheme;
+document.querySelectorAll("#themeSwitch [data-theme-pick]").forEach(b=>b.onclick=()=>setTheme(b.dataset.themePick));
 
 curSession = sessionForDate(curDate) || curSession;
 // Charts draw on canvas, so they don't inherit the page font from CSS.

@@ -43,16 +43,19 @@
 
 <dialog id="settingsDlg"><div class="dlg-body">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
-    <h3 style="margin:0">Settings <small id="setWho" class="hint" style="font-weight:600"></small></h3>
-    <button class="icon-btn" id="settingsClose" title="Close (saves automatically)" aria-label="Close">&times;</button>
+    <h3 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em">Settings <small id="setWho" class="hint" style="font-weight:600;font-size:15px"></small></h3>
+    <button class="icon-btn round" id="settingsClose" title="Close (saves automatically)" aria-label="Close">&times;</button>
   </div>
   <div class="hint" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
     <span>Version <b id="appVersion">…</b> - tap if the app looks out of date</span>
-    <button class="mini" id="updateNow">&#8635; Update now</button>
+    <button class="mini" id="updateNow">Update now</button>
   </div>
-  <div class="row" style="margin-bottom:14px">
-    <button class="btn btn-ghost grow" id="themeToggleBtn">&#127769; Dark mode</button>
-    <button class="btn btn-ghost grow" id="guideBtn">&#128214; Open Guide</button>
+  <!-- Design v3: theme is a Light / Dark switch, not a toggle button. -->
+  <div class="set-top">
+    <div class="ptoggle pane-toggle" id="themeSwitch" role="group" aria-label="Theme">
+      <button type="button" data-theme-pick="light">Light</button><button type="button" data-theme-pick="dark">Dark</button>
+    </div>
+    <button class="btn btn-ghost" id="guideBtn">Open Guide</button>
   </div>
   <label class="fld" style="margin-bottom:12px">Name<input id="pName" type="text"></label>
   <label class="fld" style="margin-bottom:12px">Colour
@@ -61,18 +64,23 @@
   <label class="fld" style="margin-bottom:12px" id="pWeightLab">Bodyweight (kg)<input id="pWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
   <label class="fld" style="margin-bottom:6px" id="pGoalsLab">Goals<textarea id="pGoals" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:56px"></textarea></label>
   <div class="hint" style="margin-bottom:14px">For the selected person - switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
-  <div class="sec-title" style="margin:4px 0 8px">💡 Improve the app</div>
+  <div class="sec-title" style="margin:4px 0 8px">Improve the app</div>
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
-  <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">➕ Add suggestion</button></div>
+  <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">+ Add suggestion</button></div>
   <div id="sugList" style="margin-bottom:14px"></div>
   <div class="sec-title" style="margin:4px 0 8px">Backup &amp; data</div>
   <div class="row" style="margin-bottom:6px">
-    <button class="btn btn-ghost grow" id="exportBtn">&#11015; Export</button>
-    <button class="btn btn-ghost grow" id="importBtn">&#11014; Import / merge</button>
-    <button class="btn btn-ghost grow" id="coachBriefBtn">&#128203; Coach brief</button>
+    <button class="btn btn-ghost grow" id="exportBtn">Export</button>
+    <button class="btn btn-ghost grow" id="importBtn">Import / merge</button>
+    <button class="btn btn-ghost grow" id="coachBriefBtn">Coach brief</button>
   </div>
   <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
+  <!-- Design v3: status first. The repo / path / token fields fold away once
+       sync is set up (renderSettings opens the fold when it isn't). -->
+  <div class="sync-status"><i class="sync-dot" id="ghDot"></i><span class="hint" id="ghStatus" style="margin:0">Not configured.</span>
+    <button class="btn btn-primary" id="ghSyncBtn">Sync now</button></div>
+  <details class="sync-cfg" id="ghCfg"><summary>Change sync settings</summary>
   <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
   <div class="row" style="margin-bottom:8px">
     <label class="fld grow">File path<input id="ghPath" type="text" placeholder="data.json" autocomplete="off"></label>
@@ -80,9 +88,8 @@
   </div>
   <div class="row" style="margin-bottom:6px">
     <button class="btn btn-ghost grow" id="ghSaveCfg">Save sync settings</button>
-    <button class="btn btn-primary grow" id="ghSyncBtn">&#8635; Sync now</button>
   </div>
-  <div class="hint" id="ghStatus" style="margin-bottom:6px">Not configured.</div>
+  </details>
   <div class="hint" style="margin-bottom:14px">Syncs <b>automatically</b> on open and after each save (the button is just a manual pull). Stored only on this device. Use a <b>fine-grained token</b> limited to one <b>private</b> repo with <b>Contents: read &amp; write</b>.</div>
   <details class="card coach-hist" style="margin:0 0 14px;padding:10px 12px">
     <summary class="sec-title" style="margin:0">What's not set up yet</summary>
