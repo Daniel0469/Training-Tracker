@@ -548,9 +548,16 @@ function renderPeople(){
       toast("Restored "+possessive(state.people[state.activePerson])+" unsaved entry");
   });
   el.querySelectorAll("[data-addperson]").forEach(b=>b.onclick=()=>renderCreateAccount(+b.dataset.addperson));
-  const w=state.weights[state.activePerson];
-  document.getElementById("sub").textContent =
-    w ? state.people[state.activePerson]+" · "+w+" kg" : "Tap the gear to set bodyweight";
+}
+// Header: today's date small above, the screen's name big. Called from renderView.
+const TAB_TITLES={home:"Home", log:"Logging", history:"History", progress:"Progress", edit:"Program", help:"Guide"};
+function setHeader(title){
+  document.getElementById("hdrKicker").textContent =
+    new Date().toLocaleDateString("en-GB",{weekday:"short", day:"numeric", month:"short"});
+  document.getElementById("hdrTitle").textContent = title;
+}
+function updateHeader(){
+  setHeader(TAB_TITLES[activeTab]||"Training Tracker");
 }
 // Full-screen-ish onboarding card: no account exists yet (slotIndex 0), or an
 // existing account is offering to add a second (slotIndex 1, skippable).
@@ -559,6 +566,7 @@ function renderCreateAccount(slotIndex){
   document.getElementById("ptoggle").style.display="none";
   document.getElementById("settingsBtn").style.display="none";
   const isSecond = slotIndex===1 && state.people[0];
+  setHeader(isSecond?"Add account":"Welcome");
   let html='<div class="card">'
     + '<div class="sec-title" style="margin:0 0 4px">'+(isSecond?"Add a second account":"Welcome - create your account")+'</div>'
     + '<div class="hint" style="margin-bottom:16px">'+(isSecond
@@ -3804,7 +3812,7 @@ function renderHelp(){
   h+=card('1 &middot; Pick who you are',
       p('A brand-new install starts blank - no accounts, no program. <b>Create your account</b> with a name and a colour swatch to get going; nothing else is needed. A second person can join the same device later via <b>+ Add</b> next to the name toggle (or skip it and stay solo).')
      +p('Use the <b>name toggle</b> top-right to switch. Each account has its own colour, chosen at creation (or changed later in Settings) - the whole app\'s accent follows whoever\'s selected. The other account\'s colour is greyed out in the picker so you can\'t both end up looking the same. Everything you log and every suggestion belongs to that person. You can switch person <b>mid-entry without losing</b> what you\'ve typed - handy for logging both of you from one phone; a toast confirms when your part is restored.')
-     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The selected person\'s latest weight shows under the title. Renaming an existing account <b>asks first</b>, since it orphans past history under the old name. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
+     +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The header shows today\'s date and the screen you\'re on; the highlighted name beside it is whose sets you\'re entering. Renaming an existing account <b>asks first</b>, since it orphans past history under the old name. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
 
   h+=card('2 &middot; Log a workout',
       p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
@@ -4372,11 +4380,8 @@ function renderHome(){
   // scheduled and curSession is just a fallback.
   const todayKey=sessionForDate(trainingDateStr());
   const isToday=!!todayKey && curSession===todayKey;
-  let niceDate; try{ niceDate=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}); }catch(e){ niceDate=todayStr(); }
-
   let html='<div class="card">'
     + '<div class="sec-title" style="margin:0">👋 '+esc(possessive(p))+' hub</div>'
-    + '<div class="home-greet">'+esc(niceDate)+'</div>'
     + '<div class="flex-between" style="align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">'
     + '<div>'+(isToday?'Today’s session':'Selected session')+': <b>'+esc(sess?sess.name:"-")+'</b>'+(sess?' <span class="hint" style="margin:0">· '+esc(sess.day)+'</span>':"")+'</div>'
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
@@ -4509,6 +4514,7 @@ function renderView(){
   // otherwise tapping Session on a blank install lit Session and showed Program.
   if(!state.program.order.length){ activeTab="edit"; syncTabButtons(); }
   if(!state.program.sessions[curSession]) curSession=state.program.order[0];
+  updateHeader();
   if(activeTab==="home") renderHome();
   else if(activeTab==="log") renderLog();
   else if(activeTab==="history") renderHistory();
@@ -4586,7 +4592,7 @@ function updateMeta(){
   const meta=document.querySelector('meta[name="theme-color"]');
   if(!meta) return;
   const dark=document.documentElement.getAttribute("data-theme")==="dark";
-  meta.setAttribute("content", dark ? "#12151c" : swatchColor(state.colors[state.activePerson],false));
+  meta.setAttribute("content", dark ? "#121417" : swatchColor(state.colors[state.activePerson],false));
 }
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme", t);
@@ -4610,6 +4616,8 @@ function toggleTheme(){
 document.getElementById("themeToggleBtn").onclick=toggleTheme;
 
 curSession = sessionForDate(curDate) || curSession;
+// Charts draw on canvas, so they don't inherit the page font from CSS.
+if(window.Chart) Chart.defaults.font.family = '"Manrope",system-ui,sans-serif';
 initTheme();
 renderPeople();
 renderView();

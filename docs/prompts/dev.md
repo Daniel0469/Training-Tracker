@@ -47,5 +47,10 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 
 - Pushing to `main` **auto-deploys** to <https://daniel0469.github.io/Training-Tracker/> (~1 min).
 - The build order is in `docs/PROJECT-STATUS.md` -> *Build order remaining*.
+- **Design v3 restyle in progress** - spec in `docs/design-v3.md` (dark first, light parked until
+  Daniel asks). Step 1 (fonts, tokens, header + icon tabs, shared shapes) is built; the screens
+  follow one at a time in the doc's order. New UI uses the v3 tokens (`--line-2`, `--ink-2`, `--nav`,
+  `--on-brand`, `--gold`, `--gold-ink`, `--pr-tint`), `var(--mono)` / `.num` for every number, line
+  icons (`svg.ico`) rather than emoji, and `var(--on-brand)` - never `#fff` - for text on a brand fill.
 - The Home Hub is a **separate app in its own repo with its own chat**. Don't build hub features
   here - see [../home-hub-link.md](../home-hub-link.md) for the shared data contract.

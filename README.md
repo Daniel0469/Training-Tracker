@@ -11,6 +11,8 @@ GitHub Pages.
 - `js/app.js` - state, program data, and all app logic (rendering, save/import/export,
   progressive-overload suggestions, PR detection, the muscle-map summary).
 - `manifest.webmanifest`, `icons/`, `sw.js` - PWA installability + offline support.
+- `fonts/` - Manrope (text) and JetBrains Mono (numbers), bundled variable woff2s so the app
+  looks right offline; cached by `sw.js`. OFL licences alongside. See `docs/design-v3.md`.
 - `claude-code-handoff.md` - original brief and backlog this project is being worked from.
 - `docs/running-import.md` - how the built-in TCX/GPX run importer works (Garmin & Strava).
 - `docs/PROJECT-STATUS.md` - **full project status & handoff** (read first in a new chat).

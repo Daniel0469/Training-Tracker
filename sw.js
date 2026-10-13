@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "tt-v137";
+const CACHE_NAME = "tt-v138";
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const APP_SHELL = [
   "./",
@@ -10,7 +10,9 @@ const APP_SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-512-maskable.png",
-  "./icons/apple-touch-icon.png"
+  "./icons/apple-touch-icon.png",
+  "./fonts/manrope-latin-wght.woff2",
+  "./fonts/jetbrains-mono-latin-wght.woff2"
 ];
 
 self.addEventListener("install", event => {
