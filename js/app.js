@@ -235,6 +235,14 @@ function trainingDateStr(now){
   var m=d.getMonth()+1, day=d.getDate();
   return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
 }
+// Today's calendar date in the phone's own time zone, with NO rollover. Weigh-ins use
+// this: a weight belongs to the morning it was taken, not to last night's session, and
+// todayStr() is the UTC date, which in BST dates a 00:30 weigh-in the day before.
+function localDateStr(now){
+  var d = now ? new Date(now) : new Date();
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+}
 // Splits a session's exercises into render blocks: contiguous runs sharing a
 // groupId become {type:"group", groupId, eis:[...]}, everything else is
 // {type:"single", eis:[i]}. Shared by the Program editor and the Log form so
@@ -2596,12 +2604,27 @@ function bwFor(person){
 function latestBw(person){ const a=bwFor(person); return a.length? a[a.length-1] : null; }
 // Add or replace a person's bodyweight for a date; keeps weights[] (the
 // "current" value shown in the header/settings) in sync with the newest entry.
+// Every local add or edit is stamped, so it beats an older copy on the next sync.
 function addBodyweight(person, date, kg){
   if(isNaN(kg)) return;
   const existing=state.bodyweights.find(b=>b.person===person && b.date===date);
-  if(existing) existing.kg=kg; else state.bodyweights.push({person, date, kg});
+  if(existing){ existing.kg=kg; existing.updatedAt=Date.now(); }
+  else state.bodyweights.push({person, date, kg, updatedAt:Date.now()});
+  syncWeightFromBw(person);
+}
+function syncWeightFromBw(person){
   const pi=state.people.indexOf(person);
   if(pi>=0){ const lb=latestBw(person); if(lb) state.weights[pi]=String(lb.kg); }
+}
+// Merge one incoming bodyweight row (sync or file import). Identity is person+date;
+// the conflict rule is the one logs and meals use (mergeRecord): the newer `updatedAt`
+// wins, and unknown fields - the Home Hub's included - are kept rather than dropped.
+// Rows from before stamping carry none and count as 0, so any stamped edit beats them.
+function mergeBodyweight(b){
+  const inc=Object.assign({}, b, {kg:parseFloat(b.kg)});
+  const existing=state.bodyweights.find(x=>x.person===inc.person && x.date===inc.date);
+  if(existing) mergeRecord(existing, inc); else state.bodyweights.push(inc);
+  syncWeightFromBw(inc.person);
 }
 // Tolerant CSV parse: split on comma/semicolon/tab, honouring simple quotes.
 function parseCsv(text){
@@ -2673,7 +2696,7 @@ function renderBody(){
     + '<div class="ex-meta">'+(latest? latest.kg+' kg · '+relTime(latest.date) : 'No entries yet')+'</div></div></div>'
     + '<div class="row" style="align-items:flex-end;gap:8px">'
     + '<label class="fld"><span>Weight (kg)</span><input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76" style="width:120px"></label>'
-    + '<label class="fld"><span>Date</span><input id="bwDate" type="date" value="'+trainingDateStr()+'" style="width:150px"></label>'
+    + '<label class="fld"><span>Date</span><input id="bwDate" type="date" value="'+localDateStr()+'" style="width:150px"></label>'
     + '<button class="btn btn-primary" id="bwAdd">Add</button>'
     + '<button class="mini" id="bwImport" style="margin-left:auto">⬆ Import from scale (CSV)</button>'
     + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
@@ -2691,7 +2714,7 @@ function renderBody(){
 
   document.getElementById("bwAdd").onclick=()=>{
     const kg=parseFloat(document.getElementById("bwKg").value);
-    const date=document.getElementById("bwDate").value||todayStr();
+    const date=document.getElementById("bwDate").value||localDateStr();
     if(isNaN(kg)){ toast("Enter a weight"); return; }
     addBodyweight(p, date, kg); save(); renderPeople(); renderBody(); toast("Saved");
   };
@@ -3261,7 +3284,7 @@ function saveSettingsPerson(){
   // the unchanged weight and the trend chart gained a flat point daily. Weigh-ins should
   // come from a deliberate entry - here, the Body tab, or a scale import.
   const kg=parseFloat(state.weights[i]);
-  if(!isNaN(kg) && state.weights[i]!==prevWeight) addBodyweight(state.people[i], todayStr(), kg);
+  if(!isNaN(kg) && state.weights[i]!==prevWeight) addBodyweight(state.people[i], localDateStr(), kg);
   save(); renderPeople(); renderView();
 }
 setDlg.addEventListener("close", saveSettingsPerson);
@@ -3388,7 +3411,7 @@ function mergeInData(data, adoptConfig, fromSync){
     var byId={}; state.logs.forEach((l,i)=>{ byId[l.id]=i; });
     data.logs.forEach(function(l){ if(!l || isDeletedLog(l.id)) return; if(byId[l.id]!=null){ if(mergeRecord(state.logs[byId[l.id]], l)) updated++; } else { byId[l.id]=state.logs.length; state.logs.push(l); added++; } });
   }
-  if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) addBodyweight(b.person, b.date, parseFloat(b.kg)); });
+  if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) mergeBodyweight(b); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
   // Same per-person overwrite as coaching: Garmin is the source of truth for zones.
@@ -3893,6 +3916,7 @@ function renderHelp(){
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>⚖ Body</b> half of the toggle at the top of that tab (<b>🏋 Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>⬆ Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
+     +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time - there is no 5am rollover like sessions have, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')

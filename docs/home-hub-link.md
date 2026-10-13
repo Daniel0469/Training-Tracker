@@ -113,28 +113,33 @@ The hub captures weigh-ins (see *Division of labour*). It writes into the existi
 `bodyweights` array — there is no separate hub array, because `setLoad`, records,
 Home's tiles and the coach all read this one.
 
-**Row shape** — what this app already writes, plus the hub's stamp:
+**Row shape** — the same as this app writes:
 
     { "person": "Daniel", "date": "2026-10-13", "kg": 82.4, "updatedAt": 1791875529000 }
 
 - `person` — exactly as spelled in `people`.
-- `date` — the training day, using the same ~5am local-time rollover as meals
-  (`trainingDateStr` in `js/app.js`), so a 1 am weigh-in lands on the same day as that
-  night's meals.
+- `date` — the **local calendar date** the weigh-in was taken (YYYY-MM-DD in the device's own
+  time zone). **No 5am rollover** — unlike meals and sessions, a 00:30 weigh-in belongs to
+  the new day (`localDateStr` in `js/app.js`, not `trainingDateStr`). Not the UTC date either.
+- **The date is assigned at entry, explicitly.** The entry's date field defaults to today's
+  local date and can be changed to backdate; whatever it says is written. A writer never
+  infers or re-derives a weigh-in's date later (at sync time, from `updatedAt`, etc.).
 - `kg` — a number, kilograms, one decimal place. No unit field.
 - `updatedAt` — ms epoch, the same form as on meals (`mergeRecord` reads it with `+`, so an
-  ISO string would count as 0). The hub stamps it on every row it writes or rewrites.
-  **This app currently drops it on save, which is harmless:** bodyweight rows don't go
-  through `mergeRecord` — `mergeInData` replays each incoming row through
-  `addBodyweight(person, date, kg)`, which keeps only those three fields on a new row and
-  only overwrites `kg` on an existing one, and the push then writes `state.bodyweights` over
-  the store's array. Nothing here resolves a bodyweight conflict by `updatedAt`; incoming
-  `kg` wins on a phone's pull. Don't rely on any other field on a bodyweight row surviving
-  a phone sync either.
+  ISO string would count as 0). **Required:** every writer stamps it on every row it adds or
+  edits. This app stamps its own (Body tab, Settings weight, scale CSV import) and keeps the
+  field on save. Rows written before 13 Oct 2026 have none and count as 0.
+- Unknown fields on a bodyweight row are preserved, not stripped.
 
 **Identity is `(person, date)`, not an id.** Bodyweight rows have never had an `id`. A
 write for a person and date that already has a row **replaces its `kg`** (and
 `updatedAt`) rather than adding a second row — the same upsert `addBodyweight` does.
+
+**Conflicts: newest edit wins**, the same `mergeRecord` rule as `logs` and `meals` (see the
+`meals` contract). When two writers hold the same `(person, date)`, the higher `updatedAt`
+wins; an unstamped row loses to any stamped edit; two unstamped rows fall back to incoming
+wins. So a hub write beats an older phone copy and vice versa — **an unstamped hub write
+loses silently**.
 
 **`weights[]` stays in step.** When the written row is now that person's newest by
 `date`, the hub also sets `weights[people.indexOf(person)] = String(kg)`, exactly as
