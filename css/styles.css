@@ -423,3 +423,18 @@
   table.sets th.prev{white-space:normal;line-height:1.25}
   #exForm .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
   #exForm .superset-label svg.ico{width:15px;height:15px}
+  /* Session sizing pass (13 Oct, Daniel: timer, RPE, tick and set boxes were too
+     big). Denser than the 44px rule elsewhere - this is the screen you scroll
+     mid-set, and the rows are still comfortably tappable at 36. */
+  .sess-pick{grid-template-columns:minmax(0,1fr) auto}
+  .sess-pick input[type=date]{width:128px;padding:8px 8px}
+  .timer-card{padding:12px 16px}
+  .timer-card .timer{font-size:24px}
+  .timer-card .btn{min-height:36px;padding:6px 14px;font-size:14px;border-radius:12px}
+  .timer-row{margin-bottom:2px}
+  .diff.diff-sm button{height:32px;font-size:12.5px;border-radius:9px}
+  #exForm table.sets input:not([type=checkbox]){min-height:36px;padding:5px 7px;border-radius:9px}
+  td.done-cell,th.done-cell{width:40px}
+  #exForm td.done-cell input[type="checkbox"]{width:34px;min-width:0;height:34px;border-radius:10px}
+  td.done-cell input[type="checkbox"]::after{width:11px;height:6px}
+  .medal{top:-3px}
