@@ -812,12 +812,26 @@ def _num(x):
     except (TypeError, ValueError):
         return None
 
+def _person_bodyweights(data, person):
+    """A person's weigh-ins minus the deleted ones - every bodyweight read goes
+    through here. Same rule as bwIsDeleted in js/app.js: a `deletedBodyweights`
+    tombstone for the row's person+date deletes it when deletedAt >= the row's
+    updatedAt (unstamped = 0), so a stale copy pushed back by an old build stays
+    gone while a weigh-in taken after the delete stands. Unsorted."""
+    dead = {}
+    for t in data.get("deletedBodyweights") or []:
+        if isinstance(t, dict) and t.get("person") == person and t.get("date"):
+            dead[t["date"]] = max(dead.get(t["date"], 0), _num(t.get("deletedAt")) or 0)
+    return [b for b in data.get("bodyweights") or []
+            if isinstance(b, dict) and b.get("person") == person
+            and not (b.get("date") in dead
+                     and (_num(b.get("updatedAt")) or 0) <= dead[b.get("date")])]
+
 # ---------------------------------------------------------------- logic (testable)
 def list_people(data):
     out = []
     for i, name in enumerate(data.get("people", [])):
-        bws = sorted([b for b in data.get("bodyweights", []) if b.get("person") == name],
-                     key=lambda b: b.get("date", ""))
+        bws = sorted(_person_bodyweights(data, name), key=lambda b: b.get("date", ""))
         goals = (data.get("goals") or ["", ""])
         out.append({
             "person": name,
@@ -980,8 +994,7 @@ def _bodyweight_on(data, person, date):
     """Bodyweight as at a session date - the same rule as bodyweightOn in js/app.js:
     the most recent weigh-in on or before that date, else the earliest on record,
     else the figure in Settings."""
-    bws = sorted((b for b in data.get("bodyweights", []) if b.get("person") == person),
-                 key=lambda b: b.get("date") or "")
+    bws = sorted(_person_bodyweights(data, person), key=lambda b: b.get("date") or "")
     best = None
     for b in bws:
         if (b.get("date") or "") <= (date or ""):
@@ -1060,7 +1073,7 @@ def get_prs(data, person):
     return best
 
 def get_bodyweight(data, person):
-    bws = [b for b in data.get("bodyweights", []) if b.get("person") == person]
+    bws = _person_bodyweights(data, person)
     bws.sort(key=lambda b: b.get("date", ""))
     return [{"date": b.get("date"), "kg": b.get("kg")} for b in bws]
 
