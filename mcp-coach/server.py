@@ -169,14 +169,16 @@ def _today():
     return datetime.date.today().isoformat()
 
 def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
-                 next_cardio=None, session_swap=None):
+                 next_cardio=None, session_swap=None, lowest_rung=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> the next step on that exercise (a few
     sentences, not a clipped cue - the card renders it in full); `five_k` is the
     estimated-5k card; `next_cardio` assigns which cardio session comes next and
     what to do in it; `session_swap` puts a different session on one weekday for one
-    week. All are merged into any existing coaching. Shows in the app on
+    week; `lowest_rung` maps skill -> {"test", "why"}, the flexibility test that
+    is currently limiting that skill (a None value clears that skill). All are
+    merged into any existing coaching. Shows in the app on
     Home + the log form after the person syncs."""
     def mutate(data):
         coaching = data.get("coaching") or {}
@@ -195,6 +197,32 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
             sw = dict(session_swap)
             sw["updated"] = _today()
             entry["sessionSwap"] = sw
+        if lowest_rung:
+            # Per skill, merged like by_session, so re-assessing one skill leaves the
+            # other alone. None/empty clears a skill (its rung got fixed and the
+            # next one isn't known until the re-test).
+            merged = dict(entry.get("lowestRung") or {})
+            # The app only tags a row it can find on the ladder, i.e. a cm test this
+            # person has logged under that exact name. Say so rather than letting a
+            # typo (or a training drill like the wedge squat hold) vanish silently.
+            on_ladder = {e.get("name") for l in data.get("logs") or [] if l and l.get("person") == person
+                         for e in l.get("entries") or []
+                         if str((e.get("cols") or [""])[0]).strip().lower() == "cm"}
+            for skill, rung in lowest_rung.items():
+                if rung and (rung.get("test") or "").strip():
+                    r = dict(rung)
+                    r["updated"] = _today()
+                    merged[skill] = r
+                    if r["test"] not in on_ladder:
+                        pending.setdefault("warn", []).append(
+                            f'{skill}: "{r["test"]}" is not a flexibility test {person} has logged, '
+                            f'so no ladder row will be tagged. Use one of: {", ".join(sorted(n for n in on_ladder if n))}')
+                else:
+                    merged.pop(skill, None)
+            if merged:
+                entry["lowestRung"] = merged
+            else:
+                entry.pop("lowestRung", None)
         if by_session:
             merged = dict(entry.get("bySession") or {})
             merged.update(by_session)
@@ -215,6 +243,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         if five_k: rec["fiveK"] = dict(five_k)
         if next_cardio: rec["nextCardio"] = dict(next_cardio)
         if session_swap: rec["sessionSwap"] = dict(session_swap)
+        if lowest_rung: rec["lowestRung"] = dict(lowest_rung)
         if len(rec) > 3:                  # something beyond id/date/person was written
             pending["rec"] = rec
         return True
@@ -222,8 +251,11 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
     _github_update(mutate, f"Coaching update for {person}")
     if pending.get("rec"):
         _log_append(pending["rec"], f"Coaching history: {person}")
-    return {"ok": True, "person": person,
-            "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+    out = {"ok": True, "person": person,
+           "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+    if pending.get("warn"):
+        out["warnings"] = pending["warn"]
+    return out
 
 def get_limiters(data, person=None):
     """What the athletes SAY is holding each session back, in their own words.
@@ -1799,7 +1831,8 @@ def _register(mcp):
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
                        by_session: dict | None = None, five_k: dict | None = None,
                        next_cardio: dict | None = None,
-                       session_swap: dict | None = None) -> str:
+                       session_swap: dict | None = None,
+                       lowest_rung: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
@@ -1840,10 +1873,22 @@ def _register(mcp):
         Per person, so you can re-test one of them without disturbing the other. It is
         SPENT as soon as they log that session, and the weekday goes back to normal on
         its own - so write it the week you want it, not in advance.
+        `lowest_rung` = which flexibility test is the CURRENT lowest rung, per skill, as
+        {"Side split": {"test": "Pancake hip tilt", "why": "one line of reasoning"},
+         "Deep squat": {"test": "Deep squat hold - heels on a wedge", "why": "..."}}.
+        The skill is free text (the skill that person is training toward); `test` must
+        be the EXACT exercise name of a flexibility test they have logged, because the
+        app tags that row of the Progress > Flex ladder with it. This is a judgement,
+        not a number: centimetres on different tests are not comparable, so decide it
+        from the assessment per docs/methods/flexibility-method.md (the test that is the
+        hard stop for the skill, e.g. a wedge that buys squat depth means the ankle is
+        the stop). Merged per skill - pass only the skills you are changing. Pass
+        {"Skill": null} to clear one once that rung is fixed and the re-test has not
+        yet shown the next. Re-write it after every Mobility assessment re-test.
         All merge into existing coaching. They see it after tapping Sync now."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
                                        five_k or None, next_cardio or None,
-                                       session_swap or None), indent=2)
+                                       session_swap or None, lowest_rung or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:

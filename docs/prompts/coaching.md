@@ -5,8 +5,10 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 
 **Before first use:** fully restart Claude Code once so the `training-tracker` MCP server picks up
 the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`, and —
-added 17 Aug 2026 — `session_notes` / `write_session_notes`), then start a new chat and paste
-the prompt below.
+added 17 Aug 2026 — `session_notes` / `write_session_notes`; and `write_coaching`'s `lowest_rung`,
+added 13 Oct 2026), then start a new chat and paste the prompt below. A server started before a
+change still runs the old code, so if `write_coaching` reports success but the Flex tag doesn't
+appear after a sync, restart Claude Code and write it again.
 
 **It also runs on its own, every Friday at 20:30** (the desktop-app scheduled task `weekly-coach`,
 the same slot as the study plan; if the app is closed it runs on next launch). That run follows
@@ -47,7 +49,7 @@ automatically, because it reads this file each time.
 > it tracking toward their stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
-> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio)`. Prefer
+> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio, lowest_rung)`. Prefer
 > **session-specific** and **per-exercise** coaching over a single generic note:
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
 >   you have advice on (e.g. `"Lower A"`, `"Upper B"`). Use the **exact** session names
@@ -87,6 +89,19 @@ automatically, because it reads this file each time.
 >   to alternating (whichever of the two they did least recently) until you write a new one. Write
 >   one for each of them every review, or the app just alternates - which is fine, but it's the
 >   thing you're there to improve on.
+> - `lowest_rung` = **which flexibility test is their current lowest rung, per skill**, as
+>   `{ "Side split": { "test": "Pancake hip tilt", "why": "one line" }, "Deep squat": { "test":
+>   "Knee to wall (ankle)", "why": "one line" } }`. The app tags that row of the **Progress > Flex**
+>   ladder with a gold **LOWEST RUNG** pill naming the skill, and shows each `why` under the table.
+>   The app cannot work this out for itself - centimetres on a pancake and on a knee-to-wall are not
+>   comparable - so it is your call, made from the assessment the way
+>   `docs/methods/flexibility-method.md` describes (the hard stop for that skill, e.g. a wedge that
+>   buys squat depth means the ankle is the stop). Name each person's skills, one entry each; two
+>   skills can name the same test (Daniel's pike and deep squat are both hip-stopped). `test` must be
+>   the **exact** name of a centimetre test they have logged, or no row is tagged - the tool returns
+>   a `warnings` list with the valid names if you miss. Merged per skill, so pass only the skills
+>   you are changing; `{ "Skill": null }` clears one. **Re-write it after every Mobility assessment
+>   re-test**, and set it on your first review if it is missing - the tag is hidden until you do.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **The warm-up ramps are missing across the whole program and need putting back.** No exercise
