@@ -2812,6 +2812,10 @@ let selectedExRefs=new Set();
 // re-renders and a trip elsewhere, and opens on today's session next launch.
 // groupMode is the superset picker: the tick-boxes only appear while it's on.
 let progSel="", groupMode=false;
+// Session notes start closed (design v3, Daniel 13 Oct: with one session on
+// screen an open notes panel pushed the exercises off it). Which one you opened
+// is remembered so a re-render while you type doesn't shut it on you.
+let notesOpenKey="";
 // One exercise in the Program tab (design v3): name, mono target, then up /
 // down / Edit. Remove lives in the Edit dialog; the tick-box only shows in
 // superset-picking mode. A pending coach change is decided in the card at the
@@ -2832,8 +2836,7 @@ function exRowHtml(k, ei, ex){
 // Per-session warm-up/mobility and cool-down notes, edited in the Program tab
 // and read on the Log tab (see renderLog). Free text on purpose - it's "3 min
 // cross-trainer then shoulder mobility", not something to model as exercises.
-// Collapsed unless the session already has one, matching the 🔧 settings rule:
-// what exists is on screen, what doesn't stays out of the way.
+// Always starts collapsed behind the Session notes button (see notesOpenKey).
 // .notes textareas are `overflow:hidden`, so anything past the visible rows was
 // invisible while typing it. Grow to fit instead. No-ops while hidden
 // (scrollHeight is 0) - call it again when the textarea is revealed.
@@ -2846,7 +2849,7 @@ function autoGrow(ta){
 }
 function sessNotesHtml(k, s){
   const wu=s.warmupNote||"", cd=s.cooldownNote||"", rec=s.recordingNote||"", set=s.setupNote||"", gar=s.garminNote||"";
-  const has=!!(wu||cd||rec||set||gar||s.cardio);
+  const has=notesOpenKey===k;
   // The cardio toggle first: it decides whether the Garmin sync applies at all, and
   // it sits on the SESSION because that is what it describes - a lifting day with a
   // ski erg in it is not a cardio session.
@@ -2899,7 +2902,7 @@ function renderEdit(){
             + '<button class="mini" id="groupCancel">Cancel</button><span class="hint" style="margin:0">Tick two or more</span>'
           : '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
             + '<button class="mini" id="groupStart">'+ico("swap")+'Group as superset</button>'
-            + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+((s.warmupNote||s.cooldownNote||s.recordingNote||s.setupNote)?"true":"false")+'">Session notes</button>'
+            + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
             + '<button class="mini" data-shareex="'+k+'">Share</button>')
       + '</div>'
       + sessNotesHtml(k, s);
@@ -2939,6 +2942,7 @@ function renderEdit(){
     const wrap=document.querySelector('[data-sessnotes-wrap="'+b.dataset.sessnotes+'"]');
     if(!wrap) return;
     const opening=wrap.hasAttribute("hidden");
+    notesOpenKey = opening ? b.dataset.sessnotes : "";
     if(opening){
       wrap.removeAttribute("hidden");
       wrap.querySelectorAll("textarea").forEach(autoGrow);
@@ -3968,7 +3972,7 @@ function renderHelp(){
      +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')
-     +p('<b>Flex</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Which rung is lowest is a judgement, not a number - centimetres on one test don't compare with another - so it is <b>your coach's call</b>, made from the assessment: once the coach has set it, that test carries a gold <b>LOWEST RUNG</b> tag naming the skill it is holding back (one per skill, so a split and a squat can each have their own), with the coach's reason under the table. Until then there is no tag. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
+     +p('<b>Flex</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Which rung is lowest is a judgement, not a number - centimetres on one test don\'t compare with another - so it is <b>your coach\'s call</b>, made from the assessment: once the coach has set it, that test carries a gold <b>LOWEST RUNG</b> tag naming the skill it is holding back (one per skill, so a split and a squat can each have their own), with the coach\'s reason under the table. Until then there is no tag. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
      +p('The <b>Mobility assessment</b> session in Program is what fills it. It is a set of measurements rather than a workout - a tape measure, a wall and a flat floor - and each test\'s 🔧 <b>setup</b> line says exactly how to set it up and what it is telling you. Measure <b>cold</b>, before training: stretching buys you a few centimetres that wear off within hours, so warming up first measures the warm-up rather than your flexibility. Same conditions, same landmark, no forcing - a number you had to fight for won\'t repeat next time.'));
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
