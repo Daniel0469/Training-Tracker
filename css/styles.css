@@ -433,10 +433,10 @@
   .timer-card .btn{min-height:36px;padding:6px 14px;font-size:14px;border-radius:12px}
   .timer-row{margin-bottom:2px}
   .diff.diff-sm button{height:32px;font-size:12.5px;border-radius:9px}
-  #exForm table.sets input:not([type=checkbox]){min-height:36px;padding:5px 7px;border-radius:9px}
-  td.done-cell,th.done-cell{width:40px}
-  #exForm td.done-cell input[type="checkbox"]{width:34px;min-width:0;height:34px;border-radius:10px}
-  td.done-cell input[type="checkbox"]::after{width:11px;height:6px}
+  #exForm table.sets input:not([type=checkbox]){min-height:30px;height:30px;padding:3px 7px;border-radius:8px;font-size:14px}
+  td.done-cell,th.done-cell{width:36px}
+  #exForm td.done-cell input[type="checkbox"]{width:28px;min-width:0;height:28px;border-radius:8px}
+  td.done-cell input[type="checkbox"]::after{width:10px;height:5px}
   .medal{top:-3px}
 
   /* ---- Home (design v3) ---- */

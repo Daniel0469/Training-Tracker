@@ -123,7 +123,7 @@ Text unchanged.
 - Program tab keeps the inset brand **border** for a waiting coach proposal (not a dot).
 - Session: Warm-up / Cool-down stay **open cards** (not fold-outs). No e1RM line. A ticked set is a
   brand-filled tick with a faint brand row tint; a PR row is gold with a **PR** badge. Rest bar is in
-  the **person's colour**, not ink. Session is denser than the 44px rule: set boxes and tick 34-36px,
+  the **person's colour**, not ink. Session is denser than the 44px rule: set boxes 30px, tick 28px (two rounds of "too big"),
   RPE buttons 32px, smaller timer (Daniel found the first pass too big). Run tables drop the
   always-empty Last column. Session + Date sit side by side with a narrow date box.
 - The **PR badge replaces the 🥇 medal** on History and Home's Last session too, when those steps land.
