@@ -482,3 +482,40 @@
   #exForm table.sets{border-spacing:0 5px}
   #exForm table.sets td{padding-top:2px;padding-bottom:2px}
   #exForm .medal{top:-4px;right:0}
+
+  /* ---- History (design v3) ---- */
+  .wk-vol{margin:2px 0 12px}
+  .wk-vol b{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .wk-vol span{color:var(--muted);font-size:13px}
+  .wk-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .wk-day{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wk-day i{display:block;width:100%;max-width:34px;aspect-ratio:1;border-radius:9px;background:var(--card-2)}
+  .wk-day.on i{background:var(--brand)}
+  .wk-day.today i{box-shadow:inset 0 0 0 2px var(--brand)}
+  .wk-day span{font-size:11px;font-weight:700;color:var(--muted)}
+  .wk-day.today span{color:var(--brand)}
+  .wk-bars{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end}
+  .wk-bar{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wk-track{width:100%;height:70px;display:flex;align-items:flex-end}
+  .wk-track i{display:block;width:100%;border-radius:6px 6px 3px 3px;background:var(--line-2)}
+  .wk-bar.cur .wk-track i{background:var(--brand)}
+  .wk-bar span{font-size:9.5px;color:var(--muted)}
+  .wk-bar.cur span{color:var(--brand);font-weight:700}
+  #histList .log-item{background:var(--card);border-radius:20px;padding:0;margin-bottom:10px;overflow:hidden}
+  #histList .log-row{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;background:transparent;
+    color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+  .log-date{flex:none;width:42px;text-align:center;line-height:1.05}
+  .log-date b{display:block;font-size:22px;font-weight:700;letter-spacing:-.03em}
+  .log-date span{display:block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--font)}
+  .log-name{display:block;font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin-bottom:2px}
+  .log-meta{display:block;font-size:12px}
+  .log-chev{flex:none;color:var(--muted);display:flex;transition:transform .15s}
+  .log-chev svg.ico{width:18px;height:18px}
+  .log-item.open .log-chev{transform:rotate(90deg)}
+  #histList .log-detail{margin:0;padding:2px 14px 14px;border-top:1px solid var(--line)}
+  #histList .log-detail td{border-bottom-color:var(--line);padding:6px 4px}
+  #histList .log-detail td:last-child{font-family:var(--mono);font-size:12.5px}
+  .log-del{color:var(--bad)}
+  #histList .fb{background:var(--card-2);border:0;color:var(--ink-2);border-radius:12px;padding:8px 11px;margin-top:10px;white-space:pre-wrap}
+  #histList .garminbox{background:var(--card-2);border:0;color:var(--muted);border-radius:12px;padding:8px 11px;margin-top:8px}
+  #histList .garminbox b{color:var(--ink-2)}

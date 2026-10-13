@@ -652,6 +652,12 @@ function weekMonday(dateStr){
   var m=d.getMonth()+1, day=d.getDate();
   return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
 }
+// A "YYYY-MM-DD" moved by whole days, in local time (noon, so DST can't tip it).
+function shiftDate(dateStr, days){
+  var d=new Date(dateStr+"T12:00:00"); d.setDate(d.getDate()+days);
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+}
 function weeklyVolumes(person){
   var map={};
   state.logs.filter(function(l){return l.person===person;}).forEach(function(l){ var wk=weekMonday(l.date); map[wk]=(map[wk]||0)+(l.volume||0); });
@@ -927,7 +933,8 @@ const ICONS={
   moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
   dumbbell:'<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
   trend:'<path d="m4.5 16 5-5 3.5 3.5 6.5-7"/><path d="M15 7.5h4.5V12"/>',
-  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>'
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  chevron:'<path d="m9 6 6 6-6 6"/>'
 };
 // The gold PR badge (design v3), in place of the old medal emoji.
 const PR_BADGE='<span class="pr-badge">PR</span>';
@@ -1561,13 +1568,16 @@ function saveSession(){
   autoSync(); // push this session to the shared store automatically (if sync is set up)
 }
 
+// Whose sessions the History list shows. Kept across re-renders (a person switch,
+// a delete) for the life of the page; starts on Everyone, as the dropdown did.
+let histWho="all";
 function renderHistory(){
   const logs=[...state.logs].sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
-  let html='<div class="card"><div class="flex-between">'
-    + '<div class="sec-title" style="margin:0">History - '+logs.length+' session'+(logs.length===1?"":"s")+'</div>'
-    + '<select id="histFilter"><option value="all">Everyone</option>'
-    + state.people.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("")
-    + '</select></div></div>';
+  if(histWho!=="all" && state.people.indexOf(histWho)<0) histWho="all";
+  const whoBtn=(v,label)=>'<button data-who="'+esc(v)+'" class="'+(histWho===v?'active':'')+'">'+esc(label)+'</button>';
+  let html='<div class="card pane-card"><div class="ptoggle pane-toggle" id="histFilter">'
+    + whoBtn("all","Everyone") + state.people.filter(Boolean).map(p=>whoBtn(p,p)).join("")
+    + '</div></div>';
   if(!logs.length){
     html+='<div class="card empty">No sessions logged yet.<br>Tap <b>Log it</b> on <b>Home</b> to record your first one.</div>';
     document.getElementById("view").innerHTML=html; return;
@@ -1578,44 +1588,35 @@ function renderHistory(){
   const thisWk=weekMonday(trainingDateStr());
   const wkLogs=state.logs.filter(l=>l.person===p && weekMonday(l.date)===thisWk);
   const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
-  html+='<div class="card"><div class="sec-title">📅 This week - '+esc(p)+' <span class="pill" data-sw="'+pc+'">'+wkLogs.length+' session'+(wkLogs.length===1?"":"s")+'</span></div>'
-    + '<div class="row" style="align-items:center;gap:16px">'
-    + '<div><div style="font-size:22px;font-weight:800">'+wkVol.toLocaleString()+' kg</div><div class="hint" style="margin:0">volume this week</div></div>'
-    + '<div id="weekMap" style="flex:1;min-width:180px;max-width:280px"></div>'
-    + '</div>'
-    + '<div class="hint" style="margin:10px 0 4px">Weekly volume</div><div class="chart-box" style="height:150px"><canvas id="weekChart"></canvas></div></div>';
+  // Design v3: seven day squares (filled = something saved that day, outlined =
+  // today) and the last eight weeks' volume as plain bars, this week in the
+  // person's colour. The muscle body-map that lived here went: Home's "What the
+  // week trains" answers the same question per muscle.
+  const today=trainingDateStr();
+  const logged={}; wkLogs.forEach(l=>{ logged[l.date]=1; });
+  const days=[0,1,2,3,4,5,6].map(i=>shiftDate(thisWk,i));
+  const vm={}; weeklyVolumes(p).forEach(w=>{ vm[w.week]=w.volume; });
+  const weeks=[7,6,5,4,3,2,1,0].map(i=>shiftDate(thisWk,-7*i));
+  const vMax=Math.max.apply(null, weeks.map(w=>vm[w]||0).concat([1]));
+  html+='<div class="card"><div class="sec-title">'+ico("calendar")+'This week · '+esc(p)+' <span class="pill" data-sw="'+pc+'">'+wkLogs.length+' session'+(wkLogs.length===1?"":"s")+'</span></div>'
+    + '<div class="wk-vol"><b class="num">'+wkVol.toLocaleString()+'</b> <span>kg volume</span></div>'
+    + '<div class="wk-days">'+days.map((d,i)=>'<div class="wk-day'+(logged[d]?' on':'')+(d===today?' today':'')+'"><i></i><span>'+"MTWTFSS"[i]+'</span></div>').join("")+'</div>'
+    + '<div class="rpe-lbl" style="margin-top:14px">Weekly volume · 8 weeks</div>'
+    + '<div class="wk-bars">'+weeks.map(w=>{
+        const v=vm[w]||0;
+        return '<div class="wk-bar'+(w===thisWk?' cur':'')+'" title="'+esc(w)+' · '+v.toLocaleString()+' kg">'
+          + '<div class="wk-track"><i style="height:'+(v?Math.max(4,Math.round(v/vMax*100)):0)+'%"></i></div>'
+          + '<span class="num">'+(+w.slice(8))+'/'+(+w.slice(5,7))+'</span></div>';
+      }).join("")+'</div></div>';
+  html+='<div class="sec-title" style="margin:6px 4px 10px">'+logs.length+' session'+(logs.length===1?"":"s")+'</div>';
   html+='<div id="histList"></div>';
   document.getElementById("view").innerHTML=html;
-  // Weekly muscle heatmap: clone the (styled) save-dialog map and shade it.
-  const src=document.getElementById("muscleSvg");
-  if(src && wkLogs.length){
-    const clone=src.cloneNode(true); clone.removeAttribute("id"); clone.style.maxWidth="280px";
-    paintMuscleMap(clone, muscleSetsForLogs(wkLogs));
-    document.getElementById("weekMap").appendChild(clone);
-  } else if(document.getElementById("weekMap")){
-    document.getElementById("weekMap").innerHTML='<div class="hint" style="margin:0">No sessions yet this week.</div>';
-  }
-  drawWeekChart(p);
-  const filter=document.getElementById("histFilter");
-  filter.onchange=()=>drawHist(filter.value);
-  drawHist("all");
-}
-let weekChart=null;
-function drawWeekChart(person){
-  const canvas=document.getElementById("weekChart"); if(!canvas) return;
-  const weeks=weeklyVolumes(person).slice(-10);
-  const i=state.people.indexOf(person);
-  const dark=document.documentElement.getAttribute("data-theme")==="dark";
-  const col=swatchColor(state.colors[i],dark);
-  const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
-  if(weekChart) weekChart.destroy();
-  weekChart=new Chart(canvas,{
-    type:"bar",
-    data:{labels:weeks.map(w=>w.week.slice(5)), datasets:[{label:person+" weekly kg", data:weeks.map(w=>w.volume), backgroundColor:col}]},
-    options:{responsive:true, maintainAspectRatio:false,
-      scales:{x:{ticks:{color:tickCol},grid:{color:gridCol}}, y:{beginAtZero:true, ticks:{color:tickCol}, grid:{color:gridCol}}},
-      plugins:{legend:{display:false}}}
+  document.querySelectorAll("#histFilter [data-who]").forEach(b=>b.onclick=()=>{
+    histWho=b.dataset.who;
+    document.querySelectorAll("#histFilter [data-who]").forEach(x=>x.classList.toggle("active", x===b));
+    drawHist(histWho);
   });
+  drawHist(histWho);
 }
 // The extra info Garmin adds to a linked cardio session (see mcp-garmin). Themed box.
 // Every line here is skipped when the field is absent, which is what keeps one box
@@ -1656,9 +1657,9 @@ function garminLine(l){
   const iv=intervalStructureText(l.garmin);
   if(!(bits.length||form.length||said.length||iv)) return "";
   const row=(txt,pre)=>txt?'<div style="margin-top:4px">'+pre+esc(txt)+'</div>':"";
-  return '<div class="garminbox">⌚ Garmin · '+bits.map(esc).join(" · ")
+  return '<div class="garminbox"><b>Garmin</b> · '+bits.map(esc).join(" · ")
     + row(form.join(" · "),"")
-    + row(said.join(" · "),"🗣 ")
+    + row(said.join(" · "),"You said: ")
     + row(iv,"")+'</div>';
 }
 // The reps you actually did, read off the watch rather than typed. Garmin's laps
@@ -1806,7 +1807,7 @@ function entryDetailHtml(e){
     const cols=e.cols||[];
     const di=colIndex(e,/dist/i), ti=colIndex(e,/time/i), pi=colIndex(e,/pace/i), hi=colIndex(e,/hr/i);
     const splitRows=e.rows.filter(r=>isSplitRow(r, di)); // drop 0-distance rest laps
-    if(!splitRows.length) return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b></td></tr>';
+    if(!splitRows.length) return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' '+PR_BADGE:'')+'</b></td></tr>';
     const head='<tr><th class="spl">#</th>'+cols.map(c=>'<th class="spl">'+esc(c)+'</th>').join("")+'</tr>';
     const body=splitRows.map((r,ri)=>'<tr><td class="spl">'+(ri+1)+'</td>'
       + cols.map((c,ci)=>'<td class="spl">'+esc(r[ci]!=null&&String(r[ci]).trim()!==""?String(r[ci]):"-")+'</td>').join("")+'</tr>').join("");
@@ -1823,10 +1824,10 @@ function entryDetailHtml(e){
       return '<td class="spl">'+esc(String(v))+'</td>';
     }).join("");
     const totals=(km>0||sec>0)?'<tr class="tot"><td class="spl">Σ</td>'+tot+'</tr>':"";
-    return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'
+    return '<tr><td colspan="2"><b>'+esc(e.name)+(e.pr?' '+PR_BADGE:'')+'</b>'
       + '<div class="splits-wrap"><table class="splits">'+head+body+totals+'</table></div></td></tr>';
   }
-  return '<tr><td><b>'+esc(e.name)+(e.pr?' 🥇':'')+'</b>'+(e.smith?' <span class="hint" style="margin:0">Smith</span>':'')+(e.rpe!=null?' <span class="hint" style="margin:0">RPE '+esc(e.rpe)+'</span>':'')+'</td><td>'
+  return '<tr><td><b>'+esc(e.name)+(e.pr?' '+PR_BADGE:'')+'</b>'+(e.smith?' <span class="hint" style="margin:0">Smith</span>':'')+(e.rpe!=null?' <span class="hint" style="margin:0">RPE '+esc(e.rpe)+'</span>':'')+'</td><td>'
     + e.rows.map((r,ri)=>{
         let s=fmtRow(e.cols||[], r);
         return (e.warmup&&e.warmup.indexOf(ri)>=0)?'<span class="wu-tag">'+s+' (w)</span>':s;
@@ -1840,11 +1841,11 @@ function entryDetailHtml(e){
 // something to reveal after a note is added to a session that had none.
 function histNoteHtml(l){
   const fb=l.feedback||"";
-  return '<div class="fb" data-fbview="'+l.id+'"'+(fb?"":" hidden")+'>&#128221; '+esc(fb)+'</div>'
+  return '<div class="fb" data-fbview="'+l.id+'"'+(fb?"":" hidden")+'>'+esc(fb)+'</div>'
     + '<div class="notes-wrap" data-fbwrap="'+l.id+'" hidden>'
       + '<textarea class="notes" data-fbta="'+l.id+'" rows="2" placeholder="e.g. Right knee tight on squats. Felt strong today.">'+esc(fb)+'</textarea></div>'
     + '<div class="row" style="justify-content:flex-end;margin-top:7px">'
-      + '<button class="mini" data-fbedit="'+l.id+'">&#128221; '+(fb?"Edit note":"Add a note")+'</button></div>';
+      + '<button class="mini" data-fbedit="'+l.id+'">'+(fb?"Edit note":"Add a note")+'</button></div>';
 }
 function wireHistNotes(){
   const logById=id=>state.logs.filter(l=>String(l.id)===String(id))[0];
@@ -1879,14 +1880,14 @@ function wireHistNotes(){
     if(wrap.hasAttribute("hidden")){
       wrap.removeAttribute("hidden"); view.setAttribute("hidden","");
       autoGrow(ta); ta.focus();
-      b.textContent="✓ Done";
+      b.textContent="Done";
     } else {
       if(commit(ta)) toast("Note saved");
       wrap.setAttribute("hidden","");
       const fb=(logById(id)||{}).feedback||"";
-      view.innerHTML="&#128221; "+esc(fb);
+      view.innerHTML=esc(fb);
       if(fb) view.removeAttribute("hidden"); else view.setAttribute("hidden","");
-      b.innerHTML="&#128221; "+(fb?"Edit note":"Add a note");
+      b.textContent=fb?"Edit note":"Add a note";
     }
   });
 }
@@ -1898,21 +1899,33 @@ function drawHist(who){
     const open = l.id===justSavedId;
     const rows=(l.entries||[]).map(entryDetailHtml).join("");
     const rs=runSummary(l);
-    return '<div class="log-item"><div class="log-row"><div class="row-grow">'
-      + '<h3>'+esc(l.sessionName)+' <span class="pill" data-sw="'+pc(l.person)+'">'+esc(l.person)+'</span></h3>'
-      + '<div class="ex-meta">'+esc(l.date)+(rs?' · '+esc(rs):"")+(l.difficulty?' · difficulty '+l.difficulty+'/10':"")+(l.volume?' · '+l.volume.toLocaleString()+' kg':"")+(l.durationSec?' · ⏱ '+fmtDuration(l.durationSec):"")+garminStatus(l)+'</div></div>'
-      + '<div class="row actions"><button class="mini" data-toggle="'+l.id+'">'+(open?"Hide":"View")+'</button>'
-      + '<button class="mini" data-del="'+l.id+'" style="color:var(--bad)">Delete</button></div></div>'
+    // Design v3 row: the whole row is the button that folds the details open.
+    // Delete lives inside the open details, so a scroll can't land on it.
+    const dt=new Date(l.date+"T12:00:00");
+    const pr=(l.entries||[]).some(e=>e.pr);
+    const meta=[rs, l.difficulty?'difficulty '+l.difficulty+'/10':'', l.volume?l.volume.toLocaleString()+' kg':'',
+      l.durationSec?fmtDuration(l.durationSec):''].filter(Boolean).map(esc).join(' · ')+garminStatus(l);
+    return '<div class="log-item'+(open?' open':'')+'">'
+      + '<button type="button" class="log-row" data-toggle="'+l.id+'" aria-expanded="'+open+'">'
+      + '<span class="log-date num"><b>'+dt.getDate()+'</b><span>'+esc(dt.toLocaleDateString("en-GB",{month:"short"}))+'</span></span>'
+      + '<span class="row-grow"><span class="log-name">'+esc(l.sessionName)+(pr?' '+PR_BADGE:'')
+        + ' <span class="pill" data-sw="'+pc(l.person)+'">'+esc(l.person)+'</span></span>'
+      + '<span class="ex-meta num log-meta">'+(meta||esc(l.date))+'</span></span>'
+      + '<span class="log-chev">'+ico("chevron")+'</span></button>'
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
       + histNoteHtml(l)+garminLine(l)
-      + hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+'</div></div>';
+      + hrZoneBarHtml((l.garmin||{}).hr_zone_secs)
+      + '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="mini log-del" data-del="'+l.id+'">Delete session</button></div>'
+      + '</div></div>';
   }).join("");
   justSavedId=null;
   wireHistNotes();
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
     const d=document.getElementById("d"+b.dataset.toggle);
-    d.classList.toggle("open"); b.textContent=d.classList.contains("open")?"Hide":"View";
+    const open=d.classList.toggle("open");
+    b.closest(".log-item").classList.toggle("open", open);
+    b.setAttribute("aria-expanded", open);
   });
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
     if(confirm("Delete this session?")){
@@ -3882,9 +3895,9 @@ function renderHelp(){
      +p('On an <b>interval</b> session it also works out the <b>reps you actually did</b> - "6 × 1:10 hard, 1:50 easy between", plus how far your heart rate <b>drifted</b> from the first rep to the last and how many beats it <b>recovered</b> between them. Garmin\'s own laps can\'t show this (a treadmill laps every 1 km, so several reps and their recoveries end up inside one lap). It means your coach can see whether the session you were set is the session you did - including when you had to cut one short. The full rep-by-rep breakdown is in <b>Progress ▸ 🏃 Run</b>; the speeds <b>you</b> typed stay the record for speed, and a rep\'s speed on the watch is its average, so it reads a shade under the belt setting.'));
 
   h+=card('5 &middot; History, Progress &amp; Records',
-      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a muscle heatmap of what you\'ve hit, and a weekly-volume bar chart - then lists every saved session (newest first); filter by person, tap <b>View</b> for full detail, or delete. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
-     +p('<b>&#128221; Your own notes can be added or changed after the event.</b> Open a session with <b>View</b> and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
-     +p('<b>Delete</b> removes a session on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
+      p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a square for each day (filled when you saved a session that day, outlined for today) and the last eight weeks\' volume as bars, this week in your colour - then lists every saved session (newest first). Switch between <b>Everyone</b> and each person at the top, and <b>tap a session</b> to fold its full detail open; a gold <b>PR</b> badge marks a session with a best in it, and each exercise that set one. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>⌚ Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
+     +p('<b>Your own notes can be added or changed after the event.</b> Tap a session open and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
+     +p('<b>Delete session</b> sits at the bottom of a session\'s open detail (so it can\'t be hit while scrolling) and removes it on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
      +p('<b>Progress</b> is split at the top. <b>🏋 Lifts</b> shows the selected person\'s <b>current bests</b> (weight, reps and estimated 1RM per exercise), then charts your top set for any exercise over time with both people on one graph. <b>⚖ Body</b> is your goals, bodyweight and its trend - see section 6. <b>⏱ Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>🏃 Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')

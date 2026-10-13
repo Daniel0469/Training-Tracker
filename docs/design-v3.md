@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1, Session and Home built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Step 1, Session, Home and History built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -133,3 +133,8 @@ Text unchanged.
   Last session · Last Zone 2 run · Last intervals · What the week trains · Sleep · HR zones · 5k ·
   Bodyweight · Goals. Week bars are grey planned / brand ticked (no heat colours). Sleep gets the
   stage bar and a three-stat row. Today shows a ticked line for anything else saved today.
+- History: the this-week card is volume + 7 day squares + 8 HTML volume bars (the muscle body-map and
+  the Chart.js weekly chart went). Rows are date block · name · PR badge · person · meta · chevron;
+  tap the row to fold it open, **Delete session** sits inside the open detail. The person filter
+  stays as an Everyone / person switch, starting on Everyone. PR badge on the row and on each PR
+  exercise inside.
