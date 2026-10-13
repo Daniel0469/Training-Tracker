@@ -531,6 +531,10 @@
   table.rec tr.rec-new td{background:var(--pr-tint)}
   table.rec tr.rec-new td:first-child{border-radius:8px 0 0 8px}
   table.rec tr.rec-new td:last-child{border-radius:0 8px 8px 0;color:var(--gold)}
+  /* Flex ladder: the coach-set lowest rung, per skill. */
+  table.rec tr.rung-tag td{border-top:0;padding-top:0;padding-bottom:8px;white-space:normal;line-height:1.5}
+  .rung-tag .pr-badge{white-space:nowrap}
+  .rung-why{margin-top:12px;font-size:13px;line-height:1.45;display:grid;gap:4px;color:var(--ink)}
   table.rec td.num b{font-weight:700}
   .bw-add{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:end}
   .bw-add input{width:100%;min-width:0}
@@ -549,3 +553,35 @@
   /* A run session card in Progress is already raised (card-2), so its Garmin box
      steps back down to card to stay visible. */
   #view .ex .garminbox{background:var(--card)}
+
+  /* ---- Program (design v3) ---- */
+  .chips{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 12px;padding:2px 20px 4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{position:relative;flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 14px;
+    border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+  .chip b{font-size:14px;font-weight:800;white-space:nowrap}
+  .chip span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+  .chip.active span{color:var(--on-brand);opacity:.75}
+  .chip-dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 2px var(--card)}
+  .chip.active .chip-dot{background:var(--on-brand);box-shadow:none}
+  .prog-name{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .prog-actions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 6px;align-items:center}
+  .prog-actions .mini svg.ico{margin-right:0}
+  .prog-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+  .prog-row .ex-name{font-weight:700;font-size:15px}
+  .prog-row .ex-meta .num{color:var(--ink-2)}
+  .prog-sel{width:20px;height:20px;flex:none;accent-color:var(--brand)}
+  .prog-sess .superset{background:transparent;border-radius:0;padding:4px 0 2px 10px;margin:6px 0;border-left:3px solid var(--brand)}
+  .prog-sess .superset .prog-row:first-of-type{border-top:0}
+  .prog-sess .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
+  .prog-sess .superset-label svg.ico{width:15px;height:15px}
+  .prog-sess .superset-label .mini{margin-left:auto}
+  .coach-card .pchange{background:var(--card-2);border:0;border-radius:14px;padding:10px 12px;margin:8px 0 0}
+  .coach-card .pchange-head{display:none}
+  .pc-approve{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+  .pc-approve:hover{color:var(--on-brand);filter:brightness(1.08)}
+  .mini:disabled{opacity:.45;cursor:not-allowed}
+  #view .prog-sess textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
+  #view .prog-sess textarea.notes::placeholder{color:var(--muted)}
+  .prog-sess .sessnotes{margin:6px 0 12px}

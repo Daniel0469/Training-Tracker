@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1, Session, Home, History and Progress built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Step 1, Session, Home, History, Progress and Program built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -141,7 +141,18 @@ Text unchanged.
 - Progress: pane labels are plain words (Lifts · Run · Flex · Time · Body). Lifts follows the doc -
   pickers, big current value with change since first, chart, then Records (Exercise · Best as
   weight × reps · e1RM · compact When), bests from the last 14 days in PR gold. Run is restyled
-  as-is (rep tables still scroll sideways - up to nine columns of watch data). Flex has **no
-  "lowest rung" tag**: the app can't compute it (it is the coach's call per the flexibility
-  method) - parked as a follow-up needing a coach-written field, not dropped. Time keeps its four
+  as-is (rep tables still scroll sideways - up to nine columns of watch data). Flex's **"lowest
+  rung" tag** can't be computed by the app (it is the coach's call per the flexibility method), so
+  it is a coach-written field (13 Oct): `write_coaching(lowest_rung=...)` stores
+  `coaching[person].lowestRung = {skill: {test, why}}`, and the ladder puts a gold `pr-badge`
+  "LOWEST RUNG" pill plus the skill name on its own full-width line under that test's row (inside
+  the Test cell it widened the column and forced a sideways scroll), with each skill's `why` under
+  the table. Hidden while unset. Time keeps its four
   tiles in the Home tile style. Body is goals · chart · add weigh-in · import · list.
+- Program: sessions are a swipeable chip row, one session shown at a time (opens on today's); a dot
+  on a chip marks a coach change waiting. Pending changes for the chosen session sit in one
+  **Coach suggests** card at the top (Approve / Decline, the exercise named), with a "change
+  waiting" tag on the row. Rows are name · mono target · ↑ ↓ Edit; **Remove from program** moved
+  into the Edit dialog; superset tick-boxes only appear after "Group as superset" (Group (n) /
+  Cancel). The intro hint card is gone; "+ Add session" and "Import shared session" are dashed
+  rows at the bottom.
