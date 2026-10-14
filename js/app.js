@@ -4092,7 +4092,7 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), any <b>Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>what the week trains</b>, <b>sleep &amp; recovery</b>, your <b>heart rate zones</b>, the <b>estimated 5k</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
+     +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top) and <b>Program</b>.')
@@ -4233,6 +4233,11 @@ const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",add
 // Counts PLANNED sets rather than logged ones on purpose: it answers "is anything
 // missing from the plan", which is a design question and wants answering before
 // adherence gets a say. Optional sessions don't count - they aren't the week.
+// Mobility drills (logged in "Rounds") and flexibility tests (in cm) aren't
+// training sets, so "What the week trains" leaves them out (Daniel, 14 Oct): they
+// had Daniel on 12 adductor sets to Cerys's 9 purely because his drill list names
+// an adductor exercise and hers doesn't.
+function isMobilityWork(ex){ return isFlexTest(ex) || /^rounds?$/i.test(String((ex.cols||[])[0]||"").trim()); }
 function weeklyCoverage(person){
   const m={}; Object.keys(MUSCLE_LABELS).forEach(k=>m[k]=0);
   orderedKeys().forEach(k=>{
@@ -4240,6 +4245,7 @@ function weeklyCoverage(person){
     if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
     if(!ownsSession(k, person)) return;
     (s.exercises||[]).forEach(ex=>{
+      if(isMobilityWork(ex)) return;
       const w=muscleWeights(ex.name||"", ex.muscles);
       const sets=Math.max(1, ex.sets||1);
       Object.keys(w).forEach(mk=>{ if(mk in m) m[mk]+=sets*w[mk]; });
@@ -4257,7 +4263,7 @@ function weeklyDone(person){
     if(!l || l.person!==person || weekMonday(l.date)!==wk) return;
     (l.entries||[]).forEach(function(en){
       const done=en.done||[], warm=en.warmup||[];
-      if(!done.length) return;
+      if(!done.length || isMobilityWork(en)) return;
       const n=done.filter(function(i){ return warm.indexOf(i)<0; }).length;
       if(!n) return;
       const w=muscleWeights(en.name||"", en.muscles);
