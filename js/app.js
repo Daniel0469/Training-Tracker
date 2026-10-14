@@ -410,10 +410,12 @@ function liveNextCardio(){
   });
   return done ? null : nc;
 }
-function isLifting(ex){ return /kg|assist/i.test(ex.cols[0]) && /rep/i.test(ex.cols[1]); }
+// Every cols reader tolerates an entry without one (hand-edited store, an import,
+// an older client): a throw here inside renderHome blanked the whole Home view.
+function isLifting(ex){ const c=ex.cols||[]; return /kg|assist/i.test(c[0]) && /rep/i.test(c[1]); }
 // A running exercise carries both a distance and a time column (any order),
 // which lets us auto-compute pace. Rows are splits.
-function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(c=>/time/i.test(c)); }
+function isRunning(ex){ const c=ex.cols||[]; return c.some(x=>/dist/i.test(x)) && c.some(x=>/time/i.test(x)); }
 // Does a Garmin activity correspond to this exercise? Every run does, but so does
 // an interval piece whose columns are paces rather than distance+time - those are
 // still recorded on the watch. Kept separate from isRunning() on purpose: that one
@@ -463,7 +465,7 @@ function usesSmith(ex){
   if(/\bdb\b|dumbbell|hack|goblet|leg press|pallof|cable|machine/.test(n)) return false;
   return /bench|shoulder press|overhead press|chest press|\bsquat\b/.test(n);
 }
-function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
+function colIndex(ex, re){ const c=ex.cols||[]; for(var i=0;i<c.length;i++){ if(re.test(c[i])) return i; } return -1; }
 function parseTimeToMin(s){
   s=String(s).trim(); if(!s) return NaN;
   if(s.indexOf(":")>=0){ var p=s.split(":"); return (parseFloat(p[0])||0) + (parseFloat(p[1])||0)/60; }
