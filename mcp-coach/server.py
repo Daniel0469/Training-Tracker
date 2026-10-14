@@ -539,6 +539,13 @@ def _clean_exercise(e, i):
     # improvement render as a loss on the ladder.
     if str(e.get("betterWhen") or "").strip().lower() == "higher":
         out["betterWhen"] = "higher"
+    # Suggested rest in seconds, shown on the exercise and counted against by the
+    # rest bar (14 Oct). Kept when a session is rewritten.
+    try:
+        if int(e.get("restSec") or 0) > 0:
+            out["restSec"] = int(e["restSec"])
+    except (TypeError, ValueError):
+        raise ValueError(f"{where} ({name}) has a non-numeric `restSec`")
     for opt in ("groupId", "load", "bwPct"):
         if e.get(opt):
             out[opt] = e[opt]
@@ -732,7 +739,7 @@ def get_program_changes(data, include_done=False):
 
 def propose_program_change(session, exercise, why, sets=None, target=None,
                            add=None, remove=False, after="", warmup=None, notes=None,
-                           move_after=None):
+                           move_after=None, rest_sec=None):
     """Propose one change to the program. It waits on that exercise in the app's
     Program tab until someone ticks it, and THE APP applies it - see the tool
     docstring for why that matters.
@@ -782,6 +789,8 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
             # drawn, and changing it under a logged history is a different, worse thing.
             if warmup is not None:
                 fields["warmup"] = str(warmup)
+            if rest_sec is not None:
+                fields["restSec"] = int(rest_sec)
             if notes is not None:
                 failed["error"] = ("Machine settings are each person's own and only they "
                                    "write them, in the app (Daniel, 13 Oct). Put cues and "
@@ -789,7 +798,7 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
                 return None
             if not fields:
                 failed["error"] = ("Nothing to change - pass sets, target, warmup, "
-                                   "add or remove.")
+                                   "rest_sec, add or remove.")
                 return None
         if op in ("edit", "remove", "move") and exercise not in names:
             failed["error"] = f"{exercise!r} is not in {session!r}."
@@ -1497,7 +1506,7 @@ def _register(mcp):
                              target: str | None = None, add: dict | None = None,
                              remove: bool = False, after: str = "",
                              warmup: str | None = None,
-                             move_after: str | None = None) -> str:
+                             move_after: str | None = None, rest_sec: int | None = None) -> str:
         """Propose ONE change to the program. It appears on that exercise in their
         Program tab with the reason and a tick, and the APP applies it when they accept
         - you are not waiting on a developer, and neither are they. This is how a set
@@ -1527,7 +1536,7 @@ def _register(mcp):
         something that isn't in that session. One change per call."""
         return json.dumps(propose_program_change(session, exercise, why, sets, target,
                                                  add, remove, after, warmup, None,
-                                                 move_after), indent=2)
+                                                 move_after, rest_sec), indent=2)
 
     @mcp.tool()
     def write_log_entry(session_id: str, exercise: str, rows: list, why: str = "") -> str:
@@ -1734,6 +1743,11 @@ def _register(mcp):
         Upper A, and the same is true of anything behind a session that overruns. Place
         what matters early. A move changes nothing else, so it is safe to raise
         alongside the real content decision rather than instead of it.
+
+        `rest_sec` sets the suggested rest between sets, in seconds (150 = 2:30). The app
+        shows it on the exercise and the rest bar counts against it, changing colour when
+        it is reached; they approve it like any other change (14 Oct). Typical: 150-180 on
+        the main lifts, 60-90 on accessories.
 
         `warmup` can be changed on an EXISTING exercise from 6 Oct - before that `edit`
         carried only `sets` and `target`, which made restoring a ramp impossible rather

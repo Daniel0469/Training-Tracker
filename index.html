@@ -39,7 +39,7 @@
 <div class="toast" id="toast"></div>
 <!-- Rest stopwatch. Lives outside #view so it survives a re-render, and above
      the nav bar so it stays readable wherever the log form is scrolled to. -->
-<div class="rest-bar" id="restBar" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/></svg>Rest <b id="restTime">0:00</b><span>tap to dismiss</span></div>
+<div class="rest-bar" id="restBar" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/></svg>Rest <b id="restTime">0:00</b><i id="restTarget"></i><span>tap to dismiss</span></div>
 
 <dialog id="settingsDlg"><div class="dlg-body">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
@@ -257,10 +257,17 @@
   <datalist id="exNameList"></datalist>
   <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 - or 40%x8, 60%x5"></label>
   <label class="fld" style="margin-bottom:9px" id="exNotesLab">Machine settings (optional)<textarea id="exNotes" placeholder="e.g. Seat height 4, pin 3, back-pad setting 2" style="min-height:48px"></textarea></label>
-  <div class="row" style="margin-bottom:9px">
-    <label class="fld grow">Target<input id="exTarget" type="text" placeholder="4x8-12"></label>
-    <label class="fld" style="width:90px">Set rows<input id="exSets" type="number" min="1" max="12" value="3"></label>
+  <!-- Design v3 / 14 Oct: a lift's target is built from Sets + Reps (two boxes) +
+       an optional extra, so the target and the number of rows can't disagree.
+       Anything that isn't weight + reps keeps a free-text target. -->
+  <div class="ex-grid" style="margin-bottom:9px">
+    <label class="fld">Sets<input id="exSets" type="number" min="1" max="12" value="3" inputmode="numeric"></label>
+    <label class="fld" id="exRepMinLab">Reps<input id="exRepMin" type="number" min="1" max="100" inputmode="numeric" placeholder="8"></label>
+    <label class="fld" id="exRepMaxLab">to<input id="exRepMax" type="number" min="1" max="100" inputmode="numeric" placeholder="12"></label>
+    <label class="fld">Rest<input id="exRest" type="text" inputmode="numeric" placeholder="2:30"></label>
   </div>
+  <label class="fld" id="exExtraLab" style="margin-bottom:9px">Extra (optional)<input id="exTargetExtra" type="text" placeholder="e.g. each leg, light"></label>
+  <label class="fld" id="exTargetLab" style="margin-bottom:9px">Target<input id="exTarget" type="text" placeholder="e.g. 4 rounds x 250 m"></label>
   <div class="row" style="margin-bottom:6px">
     <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
     <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
