@@ -620,3 +620,13 @@
   .ca-card #caName{border:1.5px solid var(--ca)}
   .ca-card #caCreate{background:var(--ca)}
   .ca-card .swatchpick{justify-content:center}
+
+  /* ---- Setup dialog: Sets / Reps / to / Rest on one row (14 Oct) ---- */
+  .ex-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .ex-grid input{width:100%;min-width:0}
+  .ex-grid label[hidden],#exExtraLab[hidden],#exTargetLab[hidden]{display:none}
+  /* Rest bar: the suggested time beside the count, and a colour change once it's
+     reached - it keeps counting (Daniel, 14 Oct). */
+  .rest-bar i{font-style:normal;font-family:var(--mono);font-size:15px;font-weight:600;opacity:.7}
+  .rest-bar{transition:background .3s}
+  .rest-bar.over{background:var(--gold);color:var(--gold-ink)}

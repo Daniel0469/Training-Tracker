@@ -112,6 +112,12 @@ automatically, because it reads this file each time.
 > session.** A ramp belongs on the heavy compound you build up to and is noise on a lateral raise.
 > Carry `warmup` through whenever you rewrite a session, or you will erase it again.
 >
+> **Suggested rest is yours to propose** (14 Oct): `write_program_change(..., rest_sec=150)` puts
+> a rest time on an exercise once they approve it; the app shows it beside the target and the rest
+> bar counts against it, turning gold when it's reached. Main lifts ~150-180 s, accessories 60-90 s.
+> Keep a lift's `target` in the "NxA-B extra" form ("3x8-12 each leg", "2x5 light") - the app's
+> setup reads it back into Sets / Reps / extra boxes. Keep its N the same as `sets`.
+>
 > **Machine settings are not yours to write.** Since 13 Oct each of them keeps their own (seat
 > height, pins, cable height) per exercise, and only they edit them, in the app - `program_session`
 > shows them to you read-only as `machine_settings`. You have no way to set them: `create_session`,

@@ -420,10 +420,12 @@ function liveNextCardio(){
   });
   return done ? null : nc;
 }
-function isLifting(ex){ return /kg|assist/i.test(ex.cols[0]) && /rep/i.test(ex.cols[1]); }
+// Every cols reader tolerates an entry without one (hand-edited store, an import,
+// an older client): a throw here inside renderHome blanked the whole Home view.
+function isLifting(ex){ const c=ex.cols||[]; return /kg|assist/i.test(c[0]) && /rep/i.test(c[1]); }
 // A running exercise carries both a distance and a time column (any order),
 // which lets us auto-compute pace. Rows are splits.
-function isRunning(ex){ return ex.cols.some(c=>/dist/i.test(c)) && ex.cols.some(c=>/time/i.test(c)); }
+function isRunning(ex){ const c=ex.cols||[]; return c.some(x=>/dist/i.test(x)) && c.some(x=>/time/i.test(x)); }
 // Does a Garmin activity correspond to this exercise? Every run does, but so does
 // an interval piece whose columns are paces rather than distance+time - those are
 // still recorded on the watch. Kept separate from isRunning() on purpose: that one
@@ -470,10 +472,12 @@ function ratesRpe(ex){ return !(ex.cols||[]).some(c=>/note/i.test(c)); }
 function usesSmith(ex){
   const n=String(ex.name||"").toLowerCase();
   if(!isLifting(ex)) return false;
-  if(/\bdb\b|dumbbell|hack|goblet|leg press|pallof|cable|machine/.test(n)) return false;
-  return /bench|shoulder press|overhead press|chest press|\bsquat\b/.test(n);
+  if(/\bdb\b|dumbbell|hack|goblet|leg press|pallof|cable|machine|kettlebell|sandbag/.test(n)) return false;
+  // Anything done with a barbell (Daniel, 14 Oct) - RDL first, because it had been
+  // logged both ways and the two setups were trending as one line.
+  return /bench|shoulder press|overhead press|chest press|\bsquat\b|deadlift|\brdl\b|hip thrust|good morning|barbell|bent.?over row|\bclean\b/.test(n);
 }
-function colIndex(ex, re){ for(var i=0;i<ex.cols.length;i++){ if(re.test(ex.cols[i])) return i; } return -1; }
+function colIndex(ex, re){ const c=ex.cols||[]; for(var i=0;i<c.length;i++){ if(re.test(c[i])) return i; } return -1; }
 function parseTimeToMin(s){
   s=String(s).trim(); if(!s) return NaN;
   if(s.indexOf(":")>=0){ var p=s.split(":"); return (parseFloat(p[0])||0) + (parseFloat(p[1])||0)/60; }
@@ -550,9 +554,35 @@ function importRunIntoCard(text, ex, card){
   startTimerIfIdle();
   toast(laps.length+" split"+(laps.length>1?"s":"")+" imported");
 }
+// The rep range in a target. "3x8-12" -> 8-12, and "2x5 light" -> 5-5: a single
+// count used to give nothing, so ticking a blank Back squat (technique) set never
+// filled its reps (Daniel, 6 Oct). Falls back to any bare "8-12".
 function parseRange(target){
-  const m=String(target).match(/(\d+)\s*[-]\s*(\d+)/);
+  const s=String(target||"");
+  let m=s.match(/(\d+)\s*x\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  if(m) return {low:+m[2], high:+(m[3]||m[2])};
+  m=s.match(/(\d+)\s*[-]\s*(\d+)/);
   return m? {low:+m[1],high:+m[2]} : null;
+}
+// A lifting target as its parts, for the setup dialog: "3x8-12 each leg" ->
+// {min:8, max:12, extra:"each leg"}. null when it doesn't read that way.
+function splitTarget(target){
+  const m=String(target||"").match(/^\s*\d+\s*x\s*(\d+)(?:\s*-\s*(\d+))?\s*(.*)$/i);
+  return m ? {min:+m[1], max:+(m[2]||m[1]), extra:m[3].trim()} : null;
+}
+// ...and back. The sets count comes from the Sets box, so target and rows can't
+// disagree any more (Face pull read "2x12-15" over one row on 14 Oct).
+function joinTarget(sets, min, max, extra){
+  if(!min) return extra||"-";
+  return sets+"x"+min+(max && max!==min ? "-"+max : "")+(extra?" "+extra:"");
+}
+// Suggested rest, stored in seconds. Accepts "2:30", "150", "90s" or "2m".
+function parseRest(v){
+  v=String(v||"").trim().toLowerCase(); if(!v) return 0;
+  let m=v.match(/^(\d+):(\d{1,2})$/); if(m) return (+m[1])*60+(+m[2]);
+  m=v.match(/^(\d+)\s*m(in)?$/); if(m) return (+m[1])*60;
+  m=v.match(/^(\d+)\s*s?$/); if(m) return +m[1];
+  return 0;
 }
 
 function renderPeople(){
@@ -588,6 +618,14 @@ function setHeader(title){
 }
 function updateHeader(){
   setHeader(TAB_TITLES[activeTab]||"Training Tracker");
+  // While logging, the small line is the workout time instead of the date, so it
+  // stays on screen however far down the form you are (Daniel, 13 Oct). Per person,
+  // like the timer itself: switching person shows theirs.
+  if(activeTab==="log"){
+    const tm=getTimer(), sec=timerElapsed(tm);
+    if(tm.running || sec>0) document.getElementById("hdrKicker").textContent =
+      "Workout "+fmtDuration(sec)+(tm.running?"":" · paused");
+  }
 }
 // Full-screen-ish onboarding card: no account exists yet (slotIndex 0), or an
 // existing account is offering to add a second (slotIndex 1, skippable).
@@ -909,21 +947,31 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 // hers is untouched while you're on yours, and yours is still right when you
 // come back. Start time is wall-clock, so a rest is correct however long the
 // phone spent showing the other person.
+// Each entry is {t: when the set was ticked, target: that exercise's suggested
+// rest in seconds, or 0}. The bar keeps counting past the target - it changes
+// colour rather than stopping (Daniel, 14 Oct).
 let restStarts = {}, restInterval = null;
-function startRest(){ restStarts[draftKey()] = Date.now(); updateRestUI(); }
+function startRest(targetSec){ restStarts[draftKey()] = {t:Date.now(), target:+targetSec||0, buzzed:false}; updateRestUI(); }
 function stopRest(){ delete restStarts[draftKey()]; updateRestUI(); }
 // Called from renderView, so every tab switch and every person switch lands the
 // bar on the right rest - or hides it - without each caller having to remember.
 function updateRestUI(){
   const bar = document.getElementById("restBar");
   if(!bar) return;
-  const started = activeTab === "log" ? restStarts[draftKey()] : 0;
-  bar.hidden = !started;
-  if(!started){
+  const r = activeTab === "log" ? restStarts[draftKey()] : null;
+  bar.hidden = !r;
+  if(!r){
     if(restInterval){ clearInterval(restInterval); restInterval = null; }
     return;
   }
-  document.getElementById("restTime").textContent = fmtDuration((Date.now() - started) / 1000);
+  const sec = (Date.now() - r.t) / 1000;
+  document.getElementById("restTime").textContent = fmtDuration(sec);
+  document.getElementById("restTarget").textContent = r.target ? " / "+fmtMmSs(r.target) : "";
+  const done = !!r.target && sec >= r.target;
+  bar.classList.toggle("over", done);
+  // One short buzz as the time comes up, where the phone allows it (Android does;
+  // iPhone web apps can't vibrate).
+  if(done && !r.buzzed){ r.buzzed = true; try{ if(navigator.vibrate) navigator.vibrate(180); }catch(e){} }
   if(!restInterval) restInterval = setInterval(updateRestUI, 1000);
 }
 function resetTimer(){ delete sessionTimers[draftKey()]; saveDrafts(); updateTimerUI(); }
@@ -941,6 +989,7 @@ function ensureTimerTick(){
   },1000);
 }
 function updateTimerUI(){
+  if(activeTab==="log") updateHeader();
   const el=document.getElementById("timerDisplay"); if(!el) return;
   const t=getTimer();
   el.textContent=fmtDuration(timerElapsed(t));
@@ -1322,7 +1371,7 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
       + '<button type="button" class="wrench'+(setting?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">'+ico("wrench")+'</button>'
       + (ex.todayOnly?'<span class="pill today-pill">Today only</span>':'')
-      + '</div><div class="ex-meta num">'+esc(ex.target)
+      + '</div><div class="ex-meta num">'+esc(ex.target)+(ex.restSec?' · rest '+fmtMmSs(ex.restSec):'')
       + (ex.todayOnly?' <button type="button" class="mini" data-delextra="'+ei+'" title="Remove from today">&#10005;</button>':'')
       + '</div></div>'
     + warmupHtml
@@ -1413,7 +1462,7 @@ function wireSetRow(tr, ex, best){
       updateSetMedal(tr, ex, best);
       // Any tick restarts it, on any exercise, so it always reads "since the
       // last set you finished" rather than since the first one.
-      startRest();
+      startRest(ex.restSec);
     } else {
       tr.querySelector("[data-medal]").hidden=true; tr.classList.remove("pr");
       stopRest();  // unticking is an undo, so the rest it started goes too
@@ -2075,7 +2124,12 @@ function describeChange(c){
   // setting 4, pad at shoulder height" is unreadable on a card. Name the field and
   // show the NEW value, which is the part being decided.
   const LONG={warmup:"Warm-up sets", notes:"Machine settings"};
+  if(c.fields && c.fields.restSec!=null){
+    const was=ex&&ex.restSec;
+    bits.push("rest: "+(was?fmtMmSs(was):"—")+" → "+fmtMmSs(+c.fields.restSec));
+  }
   Object.keys(c.fields||{}).forEach(f=>{
+    if(f==="restSec") return;
     const was=ex ? ex[f] : undefined;
     if(LONG[f]){ bits.push(LONG[f]+" → "+(String(c.fields[f]||"").trim()||"(cleared)")); return; }
     bits.push(f+": "+(was===undefined||was===""?"—":was)+" → "+c.fields[f]);
@@ -3168,6 +3222,11 @@ function openExDlg(sessionKey,ei,todayOnly){
   document.getElementById("exNotesLab").childNodes[0].nodeValue=possessive(state.people[state.activePerson])+" machine settings (optional)";
   document.getElementById("exTarget").value=ex.target||"";
   document.getElementById("exSets").value=ex.sets||3;
+  const parts=splitTarget(ex.target);
+  document.getElementById("exRepMin").value=parts?parts.min:"";
+  document.getElementById("exRepMax").value=parts?parts.max:"";
+  document.getElementById("exTargetExtra").value=parts?parts.extra:(isLifting(ex)?(ex.target||"").replace(/^-$/,""):"");
+  document.getElementById("exRest").value=ex.restSec?fmtMmSs(ex.restSec):"";
   document.getElementById("exCol0").value=ex.cols[0];
   document.getElementById("exCol1").value=ex.cols[1];
   document.getElementById("exCol2").value=ex.cols[2]||"";
@@ -3175,6 +3234,7 @@ function openExDlg(sessionKey,ei,todayOnly){
   document.getElementById("exLoad").value = ex.load || "";
   document.getElementById("exBwPct").value = ex.bwPct || 100;
   syncLoadFields();
+  syncTargetFields();
   exMusclesTouched = false;
   renderMuscleTags(document.getElementById("exMuscles"),
     (ex.muscles&&ex.muscles.length) ? ex.muscles : classifyMuscles(ex.name));
@@ -3223,12 +3283,21 @@ document.getElementById("exPresetLift").onclick=()=>{
   document.getElementById("exCol0").value="Weight (kg)";
   document.getElementById("exCol1").value="Reps";
   document.getElementById("exCol2").value="";
+  syncTargetFields();
 };
 document.getElementById("exPresetRun").onclick=()=>{
   document.getElementById("exCol0").value="Distance (km)";
   document.getElementById("exCol1").value="Time (mm:ss)";
   document.getElementById("exCol2").value="Pace";
+  syncTargetFields();
 };
+// Reps boxes for a lift (weight + reps columns), a free-text target for anything else.
+function syncTargetFields(){
+  const lift=isLifting({cols:[document.getElementById("exCol0").value, document.getElementById("exCol1").value]});
+  ["exRepMinLab","exRepMaxLab","exExtraLab"].forEach(id=>{ document.getElementById(id).hidden=!lift; });
+  document.getElementById("exTargetLab").hidden=lift;
+}
+["exCol0","exCol1"].forEach(id=>document.getElementById(id).addEventListener("input", syncTargetFields));
 document.getElementById("exSave").onclick=()=>{
   const name=document.getElementById("exName").value.trim();
   if(!name){ toast("Name required"); return; }
@@ -3238,9 +3307,16 @@ document.getElementById("exSave").onclick=()=>{
   if(c2) cols.push(c2);
   const settingsText=document.getElementById("exNotes").value.trim();
   const ex={ name, warmup:document.getElementById("exWarmup").value.trim(),
-    target:document.getElementById("exTarget").value.trim()||"-",
+    target:"-",
     sets:Math.max(1,Math.min(12,+document.getElementById("exSets").value||3)),
     cols, muscles:readMuscleTags(document.getElementById("exMuscles")) };
+  if(isLifting(ex)){
+    let lo=+document.getElementById("exRepMin").value||0, hi=+document.getElementById("exRepMax").value||lo;
+    if(lo && hi<lo){ const x=lo; lo=hi; hi=x; }
+    ex.target=joinTarget(ex.sets, lo, hi, document.getElementById("exTargetExtra").value.trim());
+  } else ex.target=document.getElementById("exTarget").value.trim()||"-";
+  const restSec=parseRest(document.getElementById("exRest").value);
+  if(restSec) ex.restSec=restSec;
   if(document.getElementById("exGarmin").checked) ex.garminRun=true;
   const load=document.getElementById("exLoad").value;
   if(load){
@@ -3268,7 +3344,12 @@ document.getElementById("exSave").onclick=()=>{
     const by=state.machineSettings[pn];
     if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
   });
-  if(settingsText!==msGet(who, name)) msSet(who, name, settingsText);
+  // Write only what was actually edited in the box: compare against what the dialog
+  // opened with (the OLD name's settings on a rename). Comparing against the new
+  // name wrote an untouched empty box over that name's existing settings - renaming
+  // "Seated cable row" to "Seated row" wiped Seated row's "7" (14 Oct).
+  const shown=oldName ? msGet(who, oldName) : (exDlgCtx.ei!=null ? msGet(who, name) : "");
+  if(settingsText!==shown) msSet(who, name, settingsText);
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
@@ -4054,7 +4135,7 @@ function renderHelp(){
 
   h+=card('Home',
       p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), any <b>Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>what the week trains</b>, <b>sleep &amp; recovery</b>, your <b>heart rate zones</b>, the <b>estimated 5k</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
-     +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
+     +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top) and <b>Program</b>.')
@@ -4073,7 +4154,7 @@ function renderHelp(){
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tap a set\'s <b>&#10003;</b> when done: it fills in your colour, fills empty reps to the top of the target range, and turns the row gold with a <b>PR</b> badge right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. They are <b>each person\'s own</b>: tap the <b>wrench</b> next to the name to write or change yours - switch person and you see theirs. You can do it <b>mid-session</b>, they\'re kept for next time under that exercise\'s name (so the same machine in two sessions shares them), and only you can change them - your coach can read them but not write them. Instructions and tips come from your coach in the note under the exercise instead. The wrench stays highlighted when you have settings stored.')
-     +p('<b>On the Smith machine</b> appears as a tick on the big barbell lifts - bench, squat, shoulder press. It is <b>only a label for your coach</b>: the weight counts the same either way, so your trend and your PRs are unaffected and the lift stays one history rather than splitting in two. It shows on the session in <b>History</b> so you can see which ones were Smith.')
+     +p('<b>On the Smith machine</b> appears as a tick on anything done with a barbell - bench, squats, shoulder press, deadlift, RDL, hip thrust. It is <b>only a label for your coach</b>: the weight counts the same either way, so your trend and your PRs are unaffected and the lift stays one history rather than splitting in two. It shows on the session in <b>History</b> so you can see which ones were Smith.')
      +p('<b>Tap a set number</b> to mark that set as a <b>warm-up</b> (it shows <b>W</b>). Warm-up sets are excluded from your volume total, PRs and the muscle map - so they don\'t inflate your numbers.')
      +p('<b>Almost every exercise</b> gets an optional <b>RPE</b> rating (1-10, same scale as the session difficulty rating below), just under the set table - one per exercise, rating how hard it felt overall. Lifts, loaded lunges, treadmill intervals and easy runs all have one, so you can record that a session felt easy even when the pace looked fast; only the free-text warm-up and cool-down rows go without. Blank is fine if you don\'t use it; it shows in History next to the exercise name.')
      +p('Exercises grouped as a <b>superset/circuit</b> (set up in Edit Program) show together in a bordered block - log each one exactly as normal, there\'s no special entry mode, it\'s just a visual grouping so you can see what pairs with what.')
@@ -4081,8 +4162,8 @@ function renderHelp(){
      +p('<b>Your entry is kept safe.</b> What you\'ve typed is stored on the device as you go, so nothing is lost by leaving the app, switching person, a sync landing mid-set, or your phone dropping the page and reloading it - come back and the sets (and the running timer) are still there. It\'s cleared once you save the session, tap <b>Clear</b>, or leave it more than about 12 hours.'));
 
   h+=card('3 &middot; Time it, rate it, save',
-      p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed.')
-     +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts <b>up</b> rather than down to a target, and it is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
+      p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed. While it runs, the small line above <b>Logging</b> shows the workout time, so you can see it however far down you\'ve scrolled.')
+     +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. If the exercise has a suggested rest (shown next to its target, e.g. "rest 2:30"), the bar reads <b>1:12 / 2:30</b> and turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is <b>not saved</b> - it\'s a glance between sets, not a record, so it never reaches your history, the other phone or your coach.')
      +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
 
@@ -4123,7 +4204,7 @@ function renderHelp(){
      +p('If a coach proposes a change to your program - "bench press: 4 sets → 3" - it appears in a <b>Coach suggests</b> card at the top of that session, naming the exercise and giving the reason, and the exercise itself carries a <b>change waiting</b> tag. Nothing happens until you tap <b>Approve</b>. Approving makes the change and syncs it to both phones; <b>Decline</b> turns it down and the coach can see you said no, so it won\'t come back. A proposal to <b>remove</b> an exercise is marked in red - your past logs of it are kept either way, removing it only stops it being prescribed.')
      +p('<b>It also finds you.</b> Open a session that has a change waiting and it asks you there, rather than sitting in this tab unnoticed - decide it on the spot, or tap <b>Later</b> and it stays here. It won\'t ask twice for the same change, and it won\'t ask at all once you\'ve started entering numbers: adding or removing an exercise shuffles the list under a half-filled form, so mid-session it just tells you what\'s waiting and leaves it until you\'ve saved.')
      +p('<b>You don\'t have to go looking.</b> While anything is waiting, the <b>Program</b> tab is outlined, and each session with a change waiting has a <b>dot</b> on its chip.')
-     +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises (<b>Remove from program</b> is at the bottom of an exercise\'s <b>Edit</b>). Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). Set a <b>target</b>, a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
+     +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises (<b>Remove from program</b> is at the bottom of an exercise\'s <b>Edit</b>). Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). For a lift, set the <b>Sets</b>, the <b>Reps</b> range (two boxes - put the same number in both for a fixed count like 5), an optional <b>extra</b> such as "each leg", and a suggested <b>Rest</b> (e.g. 2:30) - the target ("3x8-12 each leg") is built from them, so it always matches the number of rows. Anything that isn\'t weight + reps keeps a free-text target. Then a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>+ Add session</b> (the dashed row at the bottom) creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
      +p('A session can belong to <b>one person</b>, shown here as <i>Daniel only</i> / <i>Cerys only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Set a session\'s day to <b>Optional - any day</b> and it stops being part of the week: the calendar never opens it for you, Home never calls it today\'s session, and it sits at the bottom of the session list waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
@@ -4196,6 +4277,11 @@ const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",add
 // Counts PLANNED sets rather than logged ones on purpose: it answers "is anything
 // missing from the plan", which is a design question and wants answering before
 // adherence gets a say. Optional sessions don't count - they aren't the week.
+// Mobility drills (logged in "Rounds") and flexibility tests (in cm) aren't
+// training sets, so "What the week trains" leaves them out (Daniel, 14 Oct): they
+// had Daniel on 12 adductor sets to Cerys's 9 purely because his drill list names
+// an adductor exercise and hers doesn't.
+function isMobilityWork(ex){ return isFlexTest(ex) || /^rounds?$/i.test(String((ex.cols||[])[0]||"").trim()); }
 function weeklyCoverage(person){
   const m={}; Object.keys(MUSCLE_LABELS).forEach(k=>m[k]=0);
   orderedKeys().forEach(k=>{
@@ -4203,6 +4289,7 @@ function weeklyCoverage(person){
     if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
     if(!ownsSession(k, person)) return;
     (s.exercises||[]).forEach(ex=>{
+      if(isMobilityWork(ex)) return;
       const w=muscleWeights(ex.name||"", ex.muscles);
       const sets=Math.max(1, ex.sets||1);
       Object.keys(w).forEach(mk=>{ if(mk in m) m[mk]+=sets*w[mk]; });
@@ -4220,7 +4307,7 @@ function weeklyDone(person){
     if(!l || l.person!==person || weekMonday(l.date)!==wk) return;
     (l.entries||[]).forEach(function(en){
       const done=en.done||[], warm=en.warmup||[];
-      if(!done.length) return;
+      if(!done.length || isMobilityWork(en)) return;
       const n=done.filter(function(i){ return warm.indexOf(i)<0; }).length;
       if(!n) return;
       const w=muscleWeights(en.name||"", en.muscles);
