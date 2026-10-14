@@ -1122,12 +1122,26 @@ def activity_efficiency(a, typed=None, bodyweight_kg=None):
         out["watts_per_kg"] = round(pwr / bodyweight_kg, 2)
     return out
 
+def _person_bodyweights(data, person):
+    """A person's weigh-ins minus the deleted ones. A copy of the same helper in
+    mcp-coach/server.py - keep the two identical. Same rule as bwIsDeleted in
+    js/app.js: a `deletedBodyweights` tombstone for the row's person+date deletes it
+    when deletedAt >= the row's updatedAt (unstamped = 0), so a stale copy pushed back
+    by an old build stays gone while a weigh-in taken after the delete stands. Unsorted."""
+    dead = {}
+    for t in data.get("deletedBodyweights") or []:
+        if isinstance(t, dict) and t.get("person") == person and t.get("date"):
+            dead[t["date"]] = max(dead.get(t["date"], 0), _num(t.get("deletedAt")) or 0)
+    return [b for b in data.get("bodyweights") or []
+            if isinstance(b, dict) and b.get("person") == person
+            and not (b.get("date") in dead
+                     and (_num(b.get("updatedAt")) or 0) <= dead[b.get("date")])]
+
 def bodyweight_on(data, person, date):
     """The person's bodyweight as at a date - latest entry on or before it, else the
     earliest one after. Mirrors bodyweightOn in js/app.js (and the port in mcp-coach)
-    so every load calculation in the project agrees."""
-    rows = [b for b in (data.get("bodyweights") or [])
-            if b and b.get("person") == person and _num(b.get("kg"))]
+    so every load calculation in the project agrees. Deleted weigh-ins don't count."""
+    rows = [b for b in _person_bodyweights(data, person) if _num(b.get("kg"))]
     if not rows:
         return None
     before = [b for b in rows if str(b.get("date") or "") <= str(date or "")]
