@@ -169,14 +169,16 @@ def _today():
     return datetime.date.today().isoformat()
 
 def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
-                 next_cardio=None, session_swap=None):
+                 next_cardio=None, session_swap=None, lowest_rung=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> the next step on that exercise (a few
     sentences, not a clipped cue - the card renders it in full); `five_k` is the
     estimated-5k card; `next_cardio` assigns which cardio session comes next and
     what to do in it; `session_swap` puts a different session on one weekday for one
-    week. All are merged into any existing coaching. Shows in the app on
+    week; `lowest_rung` maps skill -> {"test", "why"}, the flexibility test that
+    is currently limiting that skill (a None value clears that skill). All are
+    merged into any existing coaching. Shows in the app on
     Home + the log form after the person syncs."""
     def mutate(data):
         coaching = data.get("coaching") or {}
@@ -195,6 +197,32 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
             sw = dict(session_swap)
             sw["updated"] = _today()
             entry["sessionSwap"] = sw
+        if lowest_rung:
+            # Per skill, merged like by_session, so re-assessing one skill leaves the
+            # other alone. None/empty clears a skill (its rung got fixed and the
+            # next one isn't known until the re-test).
+            merged = dict(entry.get("lowestRung") or {})
+            # The app only tags a row it can find on the ladder, i.e. a cm test this
+            # person has logged under that exact name. Say so rather than letting a
+            # typo (or a training drill like the wedge squat hold) vanish silently.
+            on_ladder = {e.get("name") for l in data.get("logs") or [] if l and l.get("person") == person
+                         for e in l.get("entries") or []
+                         if str((e.get("cols") or [""])[0]).strip().lower() == "cm"}
+            for skill, rung in lowest_rung.items():
+                if rung and (rung.get("test") or "").strip():
+                    r = dict(rung)
+                    r["updated"] = _today()
+                    merged[skill] = r
+                    if r["test"] not in on_ladder:
+                        pending.setdefault("warn", []).append(
+                            f'{skill}: "{r["test"]}" is not a flexibility test {person} has logged, '
+                            f'so no ladder row will be tagged. Use one of: {", ".join(sorted(n for n in on_ladder if n))}')
+                else:
+                    merged.pop(skill, None)
+            if merged:
+                entry["lowestRung"] = merged
+            else:
+                entry.pop("lowestRung", None)
         if by_session:
             merged = dict(entry.get("bySession") or {})
             merged.update(by_session)
@@ -215,6 +243,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         if five_k: rec["fiveK"] = dict(five_k)
         if next_cardio: rec["nextCardio"] = dict(next_cardio)
         if session_swap: rec["sessionSwap"] = dict(session_swap)
+        if lowest_rung: rec["lowestRung"] = dict(lowest_rung)
         if len(rec) > 3:                  # something beyond id/date/person was written
             pending["rec"] = rec
         return True
@@ -222,8 +251,11 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
     _github_update(mutate, f"Coaching update for {person}")
     if pending.get("rec"):
         _log_append(pending["rec"], f"Coaching history: {person}")
-    return {"ok": True, "person": person,
-            "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+    out = {"ok": True, "person": person,
+           "message": f"Saved. {person} will see it in the app after tapping Sync now."}
+    if pending.get("warn"):
+        out["warnings"] = pending["warn"]
+    return out
 
 def get_limiters(data, person=None):
     """What the athletes SAY is holding each session back, in their own words.
@@ -494,8 +526,11 @@ def _clean_exercise(e, i):
         raise ValueError(f"{where} ({name}) has a non-numeric `sets`")
     if not 1 <= sets <= 30:
         raise ValueError(f"{where} ({name}) has sets={sets}; it must be 1-30")
+    # No `notes`: machine settings are each person's own since 13 Oct (data
+    # machineSettings[person][exercise name]) and only they write them, in the app.
+    # Anything passed as notes is dropped rather than stored on the program.
     out = {"name": name, "warmup": str(e.get("warmup") or ""),
-           "notes": str(e.get("notes") or ""), "target": str(e.get("target") or "").strip(),
+           "target": str(e.get("target") or "").strip(),
            "sets": sets, "cols": [str(c).strip() for c in cols]}
     if e.get("garminRun"):
         out["garminRun"] = True
@@ -566,7 +601,20 @@ def get_program_session(data, name=""):
             "garminNote": s.get("garminNote", ""), "setupNote": s.get("setupNote", ""),
             "recordingNote": s.get("recordingNote", ""),
             "warmupNote": s.get("warmupNote", ""), "cooldownNote": s.get("cooldownNote", ""),
-            "exercises": s.get("exercises") or []}
+            "exercises": s.get("exercises") or [],
+            # Read-only. Each person's own machine settings, by exercise name - the
+            # coach can see them but has no way to write them (Daniel, 13 Oct).
+            "machine_settings": _settings_for(data, [e.get("name") for e in (s.get("exercises") or [])])}
+
+
+def _settings_for(data, names):
+    ms = data.get("machineSettings") or {}
+    out = {}
+    for person, by in ms.items():
+        got = {n: (by.get(n) or {}).get("text", "") for n in names if (by.get(n) or {}).get("text")}
+        if got:
+            out[person] = got
+    return out
 
 
 def set_run(person, exercises=None, why="", name=None, day=None,
@@ -719,6 +767,7 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
         elif add is not None:
             op, fields = "add", dict(add)
             fields.pop("name", None)
+            fields.pop("notes", None)   # settings are the athlete's, never the coach's
         else:
             op, fields = "edit", {}
             if sets is not None:
@@ -734,9 +783,12 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
             if warmup is not None:
                 fields["warmup"] = str(warmup)
             if notes is not None:
-                fields["notes"] = str(notes)
+                failed["error"] = ("Machine settings are each person's own and only they "
+                                   "write them, in the app (Daniel, 13 Oct). Put cues and "
+                                   "how-to in write_coaching's by_exercise instead.")
+                return None
             if not fields:
-                failed["error"] = ("Nothing to change - pass sets, target, warmup, notes, "
+                failed["error"] = ("Nothing to change - pass sets, target, warmup, "
                                    "add or remove.")
                 return None
         if op in ("edit", "remove", "move") and exercise not in names:
@@ -1457,7 +1509,7 @@ def _register(mcp):
     def write_program_change(session: str, exercise: str, why: str, sets: int | None = None,
                              target: str | None = None, add: dict | None = None,
                              remove: bool = False, after: str = "",
-                             warmup: str | None = None, notes: str | None = None,
+                             warmup: str | None = None,
                              move_after: str | None = None) -> str:
         """Propose ONE change to the program. It appears on that exercise in their
         Program tab with the reason and a tick, and the APP applies it when they accept
@@ -1474,7 +1526,7 @@ def _register(mcp):
           target="3x5-8"). This is the common one.
         * add an exercise - pass `add` as the definition
           {"target": "3x8-10", "sets": 3, "cols": ["Weight (kg)", "Reps"],
-           "notes": "...", "load": "assist"} and optionally `after` to place it after a
+           "load": "assist"} and optionally `after` to place it after a
           named exercise. Place work that matters EARLY: the deadlift sat last in
           Lower 1 and went unlogged for months.
         * remove an exercise - pass remove=True. Their past logs of it are kept; it
@@ -1487,7 +1539,7 @@ def _register(mcp):
         Refuses a duplicate of a change already waiting, and refuses to edit or remove
         something that isn't in that session. One change per call."""
         return json.dumps(propose_program_change(session, exercise, why, sets, target,
-                                                 add, remove, after, warmup, notes,
+                                                 add, remove, after, warmup, None,
                                                  move_after), indent=2)
 
     @mcp.tool()
@@ -1587,8 +1639,8 @@ def _register(mcp):
 
         `exercises` is the list, in order, each
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
-           "notes": MACHINE SETTINGS ONLY - see below,
            "warmup": optional str - the warm-up SETS for this lift}
+        No `notes`: machine settings belong to each person and you cannot write them.
         Columns decide how the app treats it. A Distance + Time pair makes it a run. Two
         free-text columns like ["Min", "Notes"] make it a plain timed block. A first column
         of "cm" makes it a flexibility test: it charts in Progress as a ladder rung and
@@ -1633,7 +1685,8 @@ def _register(mcp):
     @mcp.tool()
     def program_session(name: str = "") -> str:
         """One PROGRAMMED session in full - every exercise in order with its target, sets,
-        columns, machine settings (`notes`), warm-up ramp (`warmup`) and load type, plus the
+        columns, warm-up ramp (`warmup`) and load type, each person's machine settings
+        (`machine_settings`, read-only), plus the
         session's day, who owns it and its four note fields.
 
         **Call this before proposing any program change.** It is what is PRESCRIBED, where
@@ -1678,7 +1731,7 @@ def _register(mcp):
         `exercises` REPLACES the whole list, so pass every exercise you want them to do,
         in order. Each is
           {"name": str, "target": str, "sets": int, "cols": [2 or 3 column names],
-           "notes": MACHINE SETTINGS ONLY - see below, "garminRun": optional bool,
+           "garminRun": optional bool,
            "warmup": optional str - the warm-up SETS for this lift,
            "groupId": optional str to circuit two together}
         Columns decide how the app treats it: a Distance + Time pair (e.g.
@@ -1695,9 +1748,10 @@ def _register(mcp):
         what matters early. A move changes nothing else, so it is safe to raise
         alongside the real content decision rather than instead of it.
 
-        `warmup` and `notes` can be changed on an EXISTING exercise from 6 Oct - before
-        that `edit` carried only `sets` and `target`, which made restoring a ramp or
-        stripping the settings box impossible rather than merely undone. Deliberately not
+        `warmup` can be changed on an EXISTING exercise from 6 Oct - before that `edit`
+        carried only `sets` and `target`, which made restoring a ramp impossible rather
+        than merely undone. Machine settings (`notes`) cannot be changed by you at all:
+        since 13 Oct they are each person's own, edited only by them in the app. Deliberately not
         "any field": `cols` decides how an exercise is scored and drawn, and changing it
         under a logged history is a different and worse thing. Call `program_session` first
         to see what is actually there.
@@ -1720,23 +1774,14 @@ def _register(mcp):
         face pull. The warm-ups are currently MISSING across the whole program; putting
         them back on the first two exercises of each session is outstanding work.
 
-        **`notes` is the settings box, not a place to explain yourself.** Daniel's
-        instruction, 25 Sep: "the exercise setting box should not contain notes - only
-        setting guides e.g setting 6 or shoulder height". It is the line he reads with
-        one hand on the machine, so it holds what he has to DIAL IN and nothing else:
-        "seat 4, back pad 2", "shoulder height", "rear foot on a bench", "feet on the
-        bottom edge of the platform". No rationale, no history, no coaching.
-
-        Reasoning goes in `write_coaching`'s by_exercise cue, which is what the app
-        shows as the teal card under the exercise - that is where "why 3 sets and not
-        4" belongs, and the athlete reads it in the same place either way.
-
-        All 23 lifting notes were prose when this rule was written, so EXPECT to be
-        rewriting rather than writing fresh: when you touch a session, strip its notes
-        back to settings and move anything worth keeping into the coaching cue. The
-        mobility and assessment sessions are the exception and keep their protocols -
-        there the how-to IS the setting, and "measure from the middle fingertip" is
-        what makes the number repeatable.
+        **Machine settings are not yours to write.** Since 13 Oct each person keeps their
+        own (seat height, pins, cable height), by exercise name, and only they edit them in
+        the app - `program_session` shows them read-only as `machine_settings`. Every cue,
+        how-to and reason goes in `write_coaching`'s by_exercise note, which the app shows
+        under the exercise. Some of those notes start with a "How to:" paragraph that was
+        moved there from the old settings box on 13 Oct - the drill instructions and the
+        assessment test protocols. KEEP that paragraph when you rewrite the note; it is the
+        only copy, and the re-test in 6-8 weeks depends on it.
 
         Keep an exercise NAME stable if you want its trend: records, the Last column and the
         progress chart all key on the name, so a rep block called "Run reps" every week
@@ -1812,7 +1857,8 @@ def _register(mcp):
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
                        by_session: dict | None = None, five_k: dict | None = None,
                        next_cardio: dict | None = None,
-                       session_swap: dict | None = None) -> str:
+                       session_swap: dict | None = None,
+                       lowest_rung: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
@@ -1853,10 +1899,22 @@ def _register(mcp):
         Per person, so you can re-test one of them without disturbing the other. It is
         SPENT as soon as they log that session, and the weekday goes back to normal on
         its own - so write it the week you want it, not in advance.
+        `lowest_rung` = which flexibility test is the CURRENT lowest rung, per skill, as
+        {"Side split": {"test": "Pancake hip tilt", "why": "one line of reasoning"},
+         "Deep squat": {"test": "Deep squat hold - heels on a wedge", "why": "..."}}.
+        The skill is free text (the skill that person is training toward); `test` must
+        be the EXACT exercise name of a flexibility test they have logged, because the
+        app tags that row of the Progress > Flex ladder with it. This is a judgement,
+        not a number: centimetres on different tests are not comparable, so decide it
+        from the assessment per docs/methods/flexibility-method.md (the test that is the
+        hard stop for the skill, e.g. a wedge that buys squat depth means the ankle is
+        the stop). Merged per skill - pass only the skills you are changing. Pass
+        {"Skill": null} to clear one once that rung is fixed and the re-test has not
+        yet shown the next. Re-write it after every Mobility assessment re-test.
         All merge into existing coaching. They see it after tapping Sync now."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
                                        five_k or None, next_cardio or None,
-                                       session_swap or None), indent=2)
+                                       session_swap or None, lowest_rung or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:

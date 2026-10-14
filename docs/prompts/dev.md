@@ -47,13 +47,16 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 
 - Pushing to `main` **auto-deploys** to <https://daniel0469.github.io/Training-Tracker/> (~1 min).
 - The build order is in `docs/PROJECT-STATUS.md` -> *Build order remaining*.
-- **Design v3 restyle in progress** - spec in `docs/design-v3.md` (dark first, light parked until
-  Daniel asks). Step 1 (fonts, tokens, header + icon tabs, shared shapes), Session and Home are built,
-  committed locally and NOT pushed - Daniel wants the whole restyle pushed together at the end. The
-  other screens follow one at a time in the doc's order. New UI uses the v3 tokens (`--line-2`,
+- **Design v3 restyle: dark done** - spec in `docs/design-v3.md` (dark first, light parked until
+  Daniel asks). Step 1 (fonts, tokens, header + icon tabs, shared shapes) and every screen are built in dark,
+  pushed on 13 Oct (tt-v151). Light mode is the remaining step, when Daniel asks for it. New UI uses the v3 tokens (`--line-2`,
   `--ink-2`, `--nav`, `--on-brand`, `--gold`, `--gold-ink`, `--pr-tint`), `var(--mono)` / `.num` for
   every number, line icons (`ico()` in `js/app.js`, `svg.ico` in CSS) rather than emoji, and
   `var(--on-brand)` - never `#fff` - for text on a brand fill. Session-only card styles are scoped
   under `#exForm` because `.ex`, `.superset` and `.notes` are shared with Program/Progress/History.
+- **Machine settings are per person** (13 Oct): `state.machineSettings[person][exercise name] =
+  {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
+  exercise has no `notes` any more, and the coach MCP cannot write settings. An install without
+  sync migrates old `notes` on load; synced phones got them from `scratchpad/apply_machine_settings.py`.
 - The Home Hub is a **separate app in its own repo with its own chat**. Don't build hub features
   here - see [../home-hub-link.md](../home-hub-link.md) for the shared data contract.

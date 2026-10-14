@@ -1,6 +1,6 @@
 # Design v3 — Training Tracker restyle (dark first)
 
-Status: **design agreed with Daniel. Step 1, Session and Home built (13 Oct, not yet pushed - Daniel wants the restyle pushed in one go at the end); other screens not yet.** Written 13 Oct 2026 from a design canvas in Claude
+Status: **design agreed with Daniel. Every screen built in dark and pushed (13 Oct, tt-v151); light mode still to do.** Written 13 Oct 2026 from a design canvas in Claude
 (Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
@@ -123,13 +123,50 @@ Text unchanged.
 - Program tab keeps the inset brand **border** for a waiting coach proposal (not a dot).
 - Session: Warm-up / Cool-down stay **open cards** (not fold-outs). No e1RM line. A ticked set is a
   brand-filled tick with a faint brand row tint; a PR row is gold with a **PR** badge. Rest bar is in
-  the **person's colour**, not ink. Session is denser than the 44px rule: set boxes and tick 34-36px,
-  RPE buttons 32px, smaller timer (Daniel found the first pass too big). Run tables drop the
+  the **person's colour**, not ink. Session is denser than the 44px rule: set boxes 26px, tick 24px, 5px gap between set rows (three rounds of "too big"),
+  RPE (and session difficulty) buttons 26px, smaller timer (Daniel found the first pass too big). Run tables drop the
   always-empty Last column. Session + Date sit side by side with a narrow date box.
 - The **PR badge replaces the 🥇 medal** on History and Home's Last session too, when those steps land.
-- The restyle is committed locally step by step and **pushed in one go at the end**.
+- The restyle was committed step by step and pushed in one go on 13 Oct.
 - Home keeps the four cards the mockup left out (Last intervals, Estimated 5k, Bodyweight trend,
   Goals) and follows the doc's order with them added: Today · Next cardio · Swap · Coach · tiles ·
   Last session · Last Zone 2 run · Last intervals · What the week trains · Sleep · HR zones · 5k ·
   Bodyweight · Goals. Week bars are grey planned / brand ticked (no heat colours). Sleep gets the
   stage bar and a three-stat row. Today shows a ticked line for anything else saved today.
+- History: the this-week card is volume + 7 day squares + 8 HTML volume bars (the muscle body-map and
+  the Chart.js weekly chart went). Rows are date block · name · PR badge · person · meta · chevron;
+  tap the row to fold it open, **Delete session** sits inside the open detail. The person filter
+  stays as an Everyone / person switch, starting on Everyone. PR badge on the row and on each PR
+  exercise inside.
+- Progress: pane labels are plain words (Lifts · Run · Flex · Time · Body). Lifts follows the doc -
+  pickers, big current value with change since first, chart, then Records (Exercise · Best as
+  weight × reps · e1RM · compact When), bests from the last 14 days in PR gold. Run is restyled
+  as-is (rep tables still scroll sideways - up to nine columns of watch data). Flex's **"lowest
+  rung" tag** can't be computed by the app (it is the coach's call per the flexibility method), so
+  it is a coach-written field (13 Oct): `write_coaching(lowest_rung=...)` stores
+  `coaching[person].lowestRung = {skill: {test, why}}`, and the ladder puts a gold `pr-badge`
+  "LOWEST RUNG" pill plus the skill name on its own full-width line under that test's row (inside
+  the Test cell it widened the column and forced a sideways scroll), with each skill's `why` under
+  the table. Hidden while unset. Time keeps its four
+  tiles in the Home tile style. Body is goals · chart · add weigh-in · import · list.
+- Program: sessions are a swipeable chip row, one session shown at a time (opens on today's); a dot
+  on a chip marks a coach change waiting. Pending changes for the chosen session sit in one
+  **Coach suggests** card at the top (Approve / Decline, the exercise named), with a "change
+  waiting" tag on the row. Rows are name · mono target · ↑ ↓ Edit; **Remove from program** moved
+  into the Edit dialog; superset tick-boxes only appear after "Group as superset" (Group (n) /
+  Cancel). The intro hint card is gone; "+ Add session" and "Import shared session" are dashed
+  rows at the bottom.
+- Program session notes start **closed** behind the Session notes button (they used to open
+  whenever a session had any), and stay open across re-renders once opened.
+- Settings: theme is a Light / Dark switch; cloud sync shows a status dot (green / red / pulsing /
+  grey) and "Sync now", with repo / path / token folded under "Change sync settings" once set up.
+  The person details and the version line stay where they were (Daniel didn't take those two).
+  Emoji gone from every button. Guide: Back button, intro card, the ten sections as fold-out panels,
+  **all closed**, numbered badges (icons for Home and Quick tips); text unchanged apart from labels
+  that no longer exist. Create account: centred, a dumbbell mark filled with the picked swatch, which
+  also colours the name border and the Create button as you tap swatches.
+- **All screens done and pushed (13 Oct, tt-v151). Light mode is next, when Daniel asks** - and it
+  uses the parked light tokens listed under "Dark tokens" above (Daniel, 13 Oct), no new design pass.
+- **PWA icon (13 Oct):** the dumbbell line mark in the navy swatch (#7D9BF5) on #121417, chosen over a
+  blue tile and a two-colour version; manifest background/theme colour and the initial theme-color
+  meta are #121417. Generated by `scratchpad/make_icons.py`.

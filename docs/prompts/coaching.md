@@ -5,8 +5,10 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 
 **Before first use:** fully restart Claude Code once so the `training-tracker` MCP server picks up
 the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`, and —
-added 17 Aug 2026 — `session_notes` / `write_session_notes`), then start a new chat and paste
-the prompt below.
+added 17 Aug 2026 — `session_notes` / `write_session_notes`; and `write_coaching`'s `lowest_rung`,
+added 13 Oct 2026), then start a new chat and paste the prompt below. A server started before a
+change still runs the old code, so if `write_coaching` reports success but the Flex tag doesn't
+appear after a sync, restart Claude Code and write it again.
 
 **It also runs on its own, every Friday at 20:30** (the desktop-app scheduled task `weekly-coach`,
 the same slot as the study plan; if the app is closed it runs on next launch). That run follows
@@ -47,7 +49,7 @@ automatically, because it reads this file each time.
 > it tracking toward their stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
-> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio)`. Prefer
+> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio, lowest_rung)`. Prefer
 > **session-specific** and **per-exercise** coaching over a single generic note:
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
 >   you have advice on (e.g. `"Lower A"`, `"Upper B"`). Use the **exact** session names
@@ -87,6 +89,19 @@ automatically, because it reads this file each time.
 >   to alternating (whichever of the two they did least recently) until you write a new one. Write
 >   one for each of them every review, or the app just alternates - which is fine, but it's the
 >   thing you're there to improve on.
+> - `lowest_rung` = **which flexibility test is their current lowest rung, per skill**, as
+>   `{ "Side split": { "test": "Pancake hip tilt", "why": "one line" }, "Deep squat": { "test":
+>   "Knee to wall (ankle)", "why": "one line" } }`. The app tags that row of the **Progress > Flex**
+>   ladder with a gold **LOWEST RUNG** pill naming the skill, and shows each `why` under the table.
+>   The app cannot work this out for itself - centimetres on a pancake and on a knee-to-wall are not
+>   comparable - so it is your call, made from the assessment the way
+>   `docs/methods/flexibility-method.md` describes (the hard stop for that skill, e.g. a wedge that
+>   buys squat depth means the ankle is the stop). Name each person's skills, one entry each; two
+>   skills can name the same test (Daniel's pike and deep squat are both hip-stopped). `test` must be
+>   the **exact** name of a centimetre test they have logged, or no row is tagged - the tool returns
+>   a `warnings` list with the valid names if you miss. Merged per skill, so pass only the skills
+>   you are changing; `{ "Skill": null }` clears one. **Re-write it after every Mobility assessment
+>   re-test**, and set it on your first review if it is missing - the tag is hidden until you do.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **The warm-up ramps are missing across the whole program and need putting back.** No exercise
@@ -97,16 +112,14 @@ automatically, because it reads this file each time.
 > session.** A ramp belongs on the heavy compound you build up to and is noise on a lateral raise.
 > Carry `warmup` through whenever you rewrite a session, or you will erase it again.
 >
-> **The 🔧 settings box on an exercise holds machine settings and nothing else.** Daniel's
-> instruction, 25 Sep: *"the exercise setting box should not contain notes — only setting guides
-> e.g setting 6 or shoulder height"*. It is the line read with one hand on the machine — "seat 4,
-> back pad 2", "rear foot on a bench", "feet on the bottom edge of the platform". Reasoning belongs
-> in the `by_exercise` coaching cue, which the app shows as the teal card right under the exercise,
-> so the athlete reads it in the same place either way. **All 23 lifting notes were prose when this
-> was written, so expect to be rewriting**: whenever you touch a session, strip its notes back to
-> settings and move anything worth keeping into the cue. The mobility and assessment sessions keep
-> their protocols — there the how-to *is* the setting, and "measure from the middle fingertip" is
-> what makes the number repeatable.
+> **Machine settings are not yours to write.** Since 13 Oct each of them keeps their own (seat
+> height, pins, cable height) per exercise, and only they edit them, in the app - `program_session`
+> shows them to you read-only as `machine_settings`. You have no way to set them: `create_session`,
+> `write_run` and `write_program_change` all drop or refuse `notes`. Every cue, how-to and reason
+> goes in `write_coaching`'s `by_exercise` note, shown under the exercise. **Some of those notes
+> start with a "How to:" paragraph** - the drill instructions and assessment test protocols, moved
+> there out of the old settings box on 13 Oct. **Keep that paragraph whenever you rewrite the note**:
+> it is the only copy, and the next re-test depends on it.
 >
 > **To change a warm-up or cool-down** — for an injury or a niggle, typically — call
 > `session_notes(session)` to read what's there, then `write_session_notes(session, warmup=…,
@@ -202,12 +215,10 @@ automatically, because it reads this file each time.
   rather than leaving one-liners sitting beside the fuller new ones.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
-- **The per-exercise `notes` field in the program is for machine settings only.** Daniel, 22 Sep
-  2026: *"why is there comments on the setup block - this should only be for machine settings ect"*.
-  The app renders that field as a setup block, so it should hold bar weights, machine starting
-  resistance, seat positions and the treadmill table - not reasoning. All coaching commentary goes
-  in `write_coaching`'s `by_exercise` / `by_session` cards, which is where they read it anyway.
-  Applies to `create_session`, `write_run` and the `add` form of `write_program_change`.
+- **Machine settings belong to Daniel and Cerys, each their own, and you cannot write them**
+  (Daniel, 13 Oct - after the settings box had filled with coaching prose despite the 22 Sep rule).
+  All coaching commentary and how-to goes in `write_coaching`'s `by_exercise` / `by_session` cards.
+  Keep any "How to:" paragraph already in a `by_exercise` note when you rewrite it.
 - **`write_program_change` may be blocked by the sandbox.** On 22 Sep 2026 the auto-mode classifier
   refused it as a shared-resource write. If that happens, don't work around it - finish the rest of
   the review, then tell Daniel exactly which change you wanted to make and why, and let him rerun
