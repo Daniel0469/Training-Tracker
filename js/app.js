@@ -3243,7 +3243,12 @@ document.getElementById("exSave").onclick=()=>{
     const by=state.machineSettings[pn];
     if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
   });
-  if(settingsText!==msGet(who, name)) msSet(who, name, settingsText);
+  // Write only what was actually edited in the box: compare against what the dialog
+  // opened with (the OLD name's settings on a rename). Comparing against the new
+  // name wrote an untouched empty box over that name's existing settings - renaming
+  // "Seated cable row" to "Seated row" wiped Seated row's "7" (14 Oct).
+  const shown=oldName ? msGet(who, oldName) : (exDlgCtx.ei!=null ? msGet(who, name) : "");
+  if(settingsText!==shown) msSet(who, name, settingsText);
   const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
