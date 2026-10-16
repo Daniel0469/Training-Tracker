@@ -16,7 +16,7 @@ except Exception as e:
     print("Couldn't read ../.mcp.json:", e); sys.exit(1)
 
 if "PASTE" in env.get("TT_GITHUB_TOKEN", ""):
-    print("Token not set yet — replace PASTE_YOUR_GITHUB_TOKEN_HERE in .mcp.json first."); sys.exit(1)
+    print("Token not set yet - replace PASTE_YOUR_GITHUB_TOKEN_HERE in .mcp.json first."); sys.exit(1)
 
 for k, v in env.items():
     os.environ[k] = v

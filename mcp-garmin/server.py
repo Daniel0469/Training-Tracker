@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Training Tracker — Garmin MCP server.
+"""Training Tracker - Garmin MCP server.
 
 Lets Claude read Daniel's & Cerys's runs straight from **Garmin Connect** (via the
 unofficial `garminconnect` login) and, optionally, **import a run** into the shared
 Training Tracker data so it shows up in the app's History like any logged session.
 
-Runs on your Claude subscription via MCP — no Anthropic API billing. Garmin has no
+Runs on your Claude subscription via MCP - no Anthropic API billing. Garmin has no
 official personal-data API for this, so we use the community `garminconnect` library
 (same mechanism Garmin's own site uses). Credentials stay on this laptop.
 
 Auth (do the one-time login first, then the server resumes a cached session):
-  * GARMIN_EMAIL / GARMIN_PASSWORD  — your Garmin Connect login
-  * GARMIN_TOKENSTORE               — optional, where the session is cached
+  * GARMIN_EMAIL / GARMIN_PASSWORD  - your Garmin Connect login
+  * GARMIN_TOKENSTORE               - optional, where the session is cached
                                       (default ~/.garminconnect)
   MFA-protected accounts: run `python server.py --login` once, interactively, to
   answer the MFA prompt and write the token cache. After that the MCP server signs
@@ -39,7 +39,7 @@ except Exception:
 
 def _ensure_ca_bundle():
     """The Garmin login (garth) also talks over `curl_cffi` (libcurl) and `requests`,
-    which use their OWN trust stores — not the OS one truststore patches. Behind
+    which use their own trust stores - not the OS one truststore patches. Behind
     antivirus/proxy TLS inspection that yields 'unable to get local issuer certificate'.
     Fix: export the Windows Root+CA stores (incl. the AV/proxy root) to a PEM and point
     the standard CA-bundle env vars at it, so all three HTTP stacks trust it. Windows-only,
@@ -142,7 +142,7 @@ def splits_to_rows(splits):
     for lap in laps:
         km = round((lap.get("distance") or 0) / 1000, 2)
         sec = int(lap.get("duration") or 0)
-        if km <= 0:            # skip 0-distance rest/auto laps — not real splits
+        if km <= 0:            # skip 0-distance rest/auto laps - not real splits
             continue
         rows.append([km, _mmss(sec), _pace(km, sec)])
     return rows
@@ -288,7 +288,7 @@ def splits_to_rows_hr(splits, a=None):
     for lap in laps:
         km = round((lap.get("distance") or 0) / 1000, 2)
         sec = int(lap.get("duration") or 0)
-        if km <= 0:            # skip 0-distance rest/auto laps — not real splits
+        if km <= 0:            # skip 0-distance rest/auto laps - not real splits
             continue
         hr = _num(lap.get("averageHR"))
         if hr is not None:
@@ -643,7 +643,7 @@ def reps_from_typed_splits(typed, a, series=None):
 # and the recording note has been asking him for a lap press per rep to compensate.
 #
 # A correction to the premise this was raised on, worth keeping: the treadmill
-# trace is NOT a clean step function of the programmed speeds. The watch estimates
+# trace is not a clean step function of the programmed speeds. The watch estimates
 # speed from arm swing, it does not read the belt. On Daniel's 29 Jul session the
 # reps he typed as 13.0 read 14.2-15.7 and the walk recoveries wander between 0.1
 # and 5.9. So this segments on RELATIVE level changes with a wide tolerance, and it
@@ -779,10 +779,10 @@ def _prescribed_blocks(log, program):
     """The REP rows of the session's `setupNote` - the treadmill program as numbered
     time + speed blocks - as [{sec, kmh}], or None.
 
-    Used ONLY to rank candidate segmentations that have already passed every test
+    Used only to rank candidate segmentations that have already passed every test
     above, and to annotate the result. It never moves a block boundary and it can
-    never add or remove a rep, because THE SETUP NOTE IS THE CURRENT PRESCRIPTION
-    AND THE LOG MAY NOT BE. The proof is in this very session: `Run: Daniel` today
+    never add or remove a rep, because the setup note is the current prescription
+    and the log may not be. The proof is in this very session: `Run: Daniel` today
     reads 5 x 6:00 (it was re-prescribed on 6 Sep, "same speed as last week, one
     more rep"), while the 26 Aug session it would be read against was 4 x 6:00.
     Letting it pick would therefore hunt for a fifth rep that was never run - the
@@ -813,7 +813,7 @@ def reps_from_speed_trace(series, expected=None, min_rep_sec=20, setup=None):
     reps_from_typed_splits returns so both can feed the same readers.
 
     `expected` is how many reps were prescribed (the run exercise's `sets`). It is
-    ONLY used to annotate a mismatch - it deliberately does not influence which
+    Only used to annotate a mismatch - it deliberately does not influence which
     blocks are chosen. Seeding the detector with the prescription was the original
     idea and it was tried: because the coach re-prescribes these sessions weekly,
     today's `sets` says nothing about a session logged a fortnight ago, and letting
@@ -1186,7 +1186,7 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
         # a field whose fetch happened to fail this time - time-in-zone comes from a
         # separate call that returns None on a run with no HR data.
         log.setdefault("garmin", {}).update(metrics)
-    # Reps are worked out BEFORE the run entry is filled, because they are the
+    # Reps are worked out before the run entry is filled, because they are the
     # better source for its rows - see rows_from_reps.
     series = extras.get("series") or []
     reps = reps_from_typed_splits(extras.get("typed_splits"), a, series)
@@ -1235,7 +1235,7 @@ def enrich_log(log, a, splits, zone_secs=None, program=None, extras=None):
         log.setdefault("garmin", {})["rows_from"] = "reps (replaced lap-derived rows)"
     if not log.get("durationSec"):
         log["durationSec"] = int(_field(a, "duration") or 0)
-    # Per-rep detail, for ANY session Garmin segmented into repeats - not just the
+    # Per-rep detail, for any session Garmin segmented into repeats - not just the
     # ones whose reps are typed as speeds. That used to be the gate (`run_entry is
     # None`), which meant a rep session logged with Distance/Time columns got none:
     # Cerys's 6x1min on 20 Aug, a textbook interval session, produced no per-rep data
@@ -1293,7 +1293,7 @@ def _interval_entry(log, program):
     return next((e for e in (log.get("entries") or []) if e.get("name") in named), None)
 
 def _fill_blank_interval_rows(log, program, reps):
-    """Write the per-rep speeds into the interval entry, but ONLY when it was left
+    """Write the per-rep speeds into the interval entry, but only when it was left
     blank - Daniel's call, matching how the Zone 2 splits already behave: anything
     typed is his data and stays untouched, and an empty entry gets filled rather
     than staying empty.
@@ -1357,13 +1357,13 @@ _client = None
 def _dump_session(g, tokenstore):
     """Persist the signed-in session to the token store. garminconnect exposes the
     underlying garth client as `.garth` in older versions and `.client` in newer
-    ones — save via whichever provides dump(), so this survives library upgrades."""
+    ones - save via whichever provides dump(), so this survives library upgrades."""
     for attr in ("garth", "client"):
         obj = getattr(g, attr, None)
         if obj is not None and hasattr(obj, "dump"):
             obj.dump(tokenstore)
             return
-    raise RuntimeError("Couldn't persist the Garmin session — this garminconnect "
+    raise RuntimeError("Couldn't persist the Garmin session - this garminconnect "
                        "version exposes neither g.garth nor g.client with dump().")
 
 def garmin_client():
@@ -1440,7 +1440,7 @@ def _github_update(mutate, message, attempts=3):
     side's data - but without a retry that just surfaced as an error. `mutate` edits
     the data in place and returns a result; returning None aborts (no write).
     `message` is the commit message, or a callable taking the result. Keep Garmin
-    fetches OUT of `mutate` - it can run more than once."""
+    fetches out of `mutate` - it can run more than once."""
     for attempt in range(attempts):
         data, sha, url, token = _github_read_with_sha()
         result = mutate(data)
@@ -1587,7 +1587,7 @@ def fetch_hr_zones():
 
 def fetch_race_predictions():
     """Garmin's own race-time predictions in seconds, from its VO2max model. Objective
-    input for the coach's 5k estimate - it is NOT displayed raw as fact, because the
+    input for the coach's 5k estimate - it is not displayed raw as fact, because the
     model runs optimistic when there's little hard running to go on."""
     try:
         rp = garmin_client().get_race_predictions() or {}
@@ -2033,13 +2033,13 @@ def _login_interactive():
         print("\nGarmin sign-in failed:", msg)
         if "429" in msg or "rate limit" in msg.lower():
             print("  * Garmin has rate-limited this IP after repeated attempts. WAIT ~1 hour "
-                  "(longer after several tries) before retrying — retrying now only extends the "
+                  "(longer after several tries) before retrying - retrying now only extends the "
                   "block, and the delay can also expire your MFA code mid-login. A different "
                   "network (e.g. a phone hotspot) gives a fresh IP.")
         if "mfa" in msg.lower() or "authentication application" in msg.lower():
             print("  * This account uses app-based 2-step verification. At the 'MFA code' prompt, "
                   "open the Garmin authenticator, type the current 6-digit code and press Enter "
-                  "promptly (codes rotate ~30s) — don't leave it blank. If it keeps failing, "
+                  "promptly (codes rotate ~30s) - don't leave it blank. If it keeps failing, "
                   "switch 2-step verification to email in Garmin account settings, which the "
                   "library handles more reliably.")
         raise SystemExit(1)
@@ -2075,7 +2075,7 @@ def _sync(args):
 def _hrzones(args):
     """`--hrzones [server-name]`: refresh the person's Garmin heart-rate zones (shown on
     Home) and backfill time-in-zone onto any already-linked runs missing it. Deliberately
-    NOT folded into `--sync`: zones barely ever change, and --sync stays cheap by not
+    Not folded into `--sync`: zones barely ever change, and --sync stays cheap by not
     contacting Garmin when nothing's pending. Run it after changing zones on Garmin;
     both halves no-op when there's nothing to do, so re-running is free."""
     if args:
@@ -2137,7 +2137,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "--login":
         # `--login [server-name]`: with a server name, pull that server's creds +
         # tokenstore from .mcp.json (same as --sync) so a second person can sign in
-        # without re-typing their password — only the MFA prompt remains.
+        # without re-typing their password - only the MFA prompt remains.
         if len(sys.argv) >= 3:
             _load_server_env(sys.argv[2])
             _ensure_ca_bundle()           # tokenstore/certs may have just been set

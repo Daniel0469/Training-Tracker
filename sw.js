@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "tt-v157";
+const CACHE_NAME = "tt-v158";
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const APP_SHELL = [
   "./",
@@ -35,7 +35,7 @@ self.addEventListener("activate", event => {
 });
 
 // Cache-first is only safe for the versioned app shell (invalidated by the
-// CACHE_NAME bump). Anything else — future sync/API calls included — goes
+// CACHE_NAME bump). Anything else - future sync/API calls included - goes
 // straight to the network untouched.
 function isShellRequest(request){
   if (request.url === CHART_JS_URL) return true;

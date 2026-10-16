@@ -1,13 +1,13 @@
 # Running import (Garmin / Strava) → Training Tracker
 
 **Status: BUILT (file import).** The log form now imports a run file into a running exercise's
-Distance/Time/Pace fields. This doc records how it works and why file-import — not the
-Garmin/Strava APIs — is the right approach for this app.
+Distance/Time/Pace fields. This doc records how it works and why file-import - not the
+Garmin/Strava APIs - is the right approach for this app.
 
 ## How to use it (on the laptop)
 1. Export the run as a file:
    - **Garmin Connect** (web): open the activity → gear/⋯ menu → *Export to TCX* (or GPX).
-     TCX is preferred — it carries per-lap splits and exact distance/time.
+     TCX is preferred - it carries per-lap splits and exact distance/time.
    - **Strava**: *Export GPX* on an activity, or *Export Original* (the underlying TCX/FIT).
      Strava also has a full account *Bulk Export* that includes every connected device's files.
 2. In the tracker, open **Log**, pick a cardio session with a running exercise
@@ -30,11 +30,11 @@ Garmin/Strava APIs — is the right approach for this app.
   runs through the Strava API would breach its terms. It also now needs a paid subscription, only
   shows a user their own data, and blocks intermediaries.
 - **Garmin's Connect Developer Program is on hold** to new sign-ups, and needs OAuth + a server.
-- **Files you export yourself are your own data** and sidestep both API agreements — and work
+- **Files you export yourself are your own data** and sidestep both API agreements - and work
   offline with no approvals, no backend, no secrets.
 
 ## Possible later enhancements
 - Derive **per-km splits from GPX** (segment trackpoints by distance) so GPX matches TCX's split
   granularity.
 - Pull **heart rate / cadence** columns if present.
-- FIT support (binary; would need a small parser bundled — only if TCX/GPX prove insufficient).
+- FIT support (binary; would need a small parser bundled - only if TCX/GPX prove insufficient).

@@ -1,12 +1,12 @@
 ﻿"use strict";
 const KEY = "flLiveTracker_v1";
 
-// There is deliberately NO default program baked into the app. A fresh install
+// There is deliberately no default program baked into the app. A fresh install
 // starts blank (see load()) and the Program tab is built from scratch or from a
 // shared session; Daniel & Cerys's real plan lives in the synced store, not in
 // here. A hardcoded copy only ever went stale - it drifted months behind the
 // live program, and because saveProgram() stamps a fresh updatedAt and pushes,
-// "reset to default" would have propagated that stale copy to BOTH phones.
+// "reset to default" would have propagated that stale copy to both phones.
 
 const clone = o => JSON.parse(JSON.stringify(o));
 let state = load();
@@ -24,7 +24,7 @@ let formDrafts = {};
 // keeps counting across a reload exactly as it does across a backgrounded app.
 let sessionTimers = {};
 // Exercises added to today's log only (gym busy, something hurts, swapped a
-// movement) - same person+session keying, and deliberately NOT written into
+// movement) - same person+session keying, and deliberately not written into
 // state.program: the program is the plan, this is what actually happened.
 // Cleared when the session is saved; the save summary offers to promote one.
 let formExtras = {};
@@ -40,7 +40,7 @@ function load(){
       // (Daniel navy, Cerys purple) - no visual change from adding this feature.
       if(!Array.isArray(s.colors)) s.colors=["navy","purple"];
       if(!s.coaching || typeof s.coaching!=="object") s.coaching={};
-      // coachingLog deliberately NOT carried any more (14 Sep). It was 60% of the
+      // coachingLog deliberately not carried any more (14 Sep). It was 60% of the
       // synced store and only the coach ever read it; it lives in its own file now.
       // Dropped from any state that still has it, so the next push shrinks the store.
       delete s.coachingLog;
@@ -100,7 +100,7 @@ function load(){
       }
       // Migrate: the default warm-ups were fixed kg, so Daniel and Cerys both saw
       // the same numbers. Percentages resolve against each person's own last top
-      // set, so convert — but only where the text still matches the old default,
+      // set, so convert - but only where the text still matches the old default,
       // leaving anything edited in Edit Program alone.
       if(!s.warmupPct){
         var WU={ "70x10, then 110x5":"50%x10, then 75%x5",
@@ -257,7 +257,7 @@ function trainingDateStr(now){
   var m=d.getMonth()+1, day=d.getDate();
   return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
 }
-// Today's calendar date in the phone's own time zone, with NO rollover. Weigh-ins use
+// Today's calendar date in the phone's own time zone, with no rollover. Weigh-ins use
 // this: a weight belongs to the morning it was taken, not to last night's session, and
 // todayStr() is the UTC date, which in BST dates a 00:30 weigh-in the day before.
 function localDateStr(now){
@@ -300,7 +300,7 @@ function orderedKeys(){
     return da-db;
   });
 }
-// A session can belong to ONE person (`person` on the session). The run sessions
+// A session can belong to one person (`person` on the session). The run sessions
 // are prescribed individually - opposite limiters, different rep counts - so the
 // other person should never be offered one, on the calendar or in the picker.
 // No `person` means it belongs to everybody, which is every session that existed
@@ -325,7 +325,7 @@ function sessionForDate(dstr){
     return String(state.program.sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
   });
   // 0. A one-week swap from the coach, which beats everything below. Checked
-  // BEFORE the single-session shortcut on purpose: the session it names is
+  // Before the single-session shortcut on purpose: the session it names is
   // usually an Optional one, sitting outside the week precisely so it never
   // turns up unasked, so it is not among `keys` and there is nothing to tie-break.
   // This is what lets the Mobility assessment have no day of its own and still be
@@ -339,7 +339,7 @@ function sessionForDate(dstr){
   // More than one session on this weekday - the two cardio sessions share
   // Wednesday. Which one is it today?
   //   1. the coach's assignment, if it's still live (see nextCardioCard)
-  //   2. otherwise alternate: whichever of them you did NOT do last
+  //   2. otherwise alternate: whichever of them you did not do last
   //   3. otherwise program.order decides, as it always did
   var live=liveNextCardio();
   if(live){
@@ -461,7 +461,7 @@ function flexBetterHigher(ex){ return !!ex && ex.betterWhen==="higher"; }
 function ratesRpe(ex){ return !(ex.cols||[]).some(c=>/note/i.test(c)); }
 // Could this lift have been done on a Smith machine? Just a tick, and only so the
 // coach can read it - Daniel's call, 6 Oct: "the weight is the same", so it does
-// NOT split the trend or the PR, the way a renamed exercise would. Bench has been
+// not split the trend or the PR, the way a renamed exercise would. Bench has been
 // on the Smith three times and coaching had to ask him to write it in the Notes
 // column each time.
 //
@@ -774,7 +774,7 @@ function msSet(person, name, text){
 }
 // The exercise list the Log form works from: the session's programmed exercises
 // followed by anything added for today only. Every `data-ei` on the log form
-// indexes into THIS, not state.program - so the extras get set rows, drafts,
+// indexes into this, not state.program - so the extras get set rows, drafts,
 // warm-up flags, RPE and PR medals with no special-casing anywhere else.
 function logExercises(){
   const sess=state.program.sessions[curSession]||{};
@@ -797,14 +797,14 @@ function flushDraftSave(){ clearTimeout(draftSaveTimer); draftSaveTimer=null; ca
 // and pagehide/hidden is the only notice we get before it happens.
 window.addEventListener("pagehide", flushDraftSave);
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushDraftSave(); });
-// The date was worked out ONCE, when the script first ran, and never again. On a
+// The date was worked out once, when the script first ran, and never again. On a
 // phone the app is never actually closed - it is backgrounded - so opening it on
 // Thursday showed Monday's date and Monday's session, which is Daniel's "date
 // autoselect doesnt work anymore" (27 Sep). Catch it up whenever the app comes
 // back into view, and on pageshow, which is what fires when it is restored from
 // the back/forward cache rather than re-rendered.
 //
-// Two things it deliberately will NOT do: move a date that was picked by hand,
+// Two things it deliberately will not do: move a date that was picked by hand,
 // and interrupt a session in progress. autoDate is what the app last chose for
 // itself, so curDate !== autoDate means a person chose it and it is not ours to
 // change; an open draft means someone is mid-workout and a re-render under them
@@ -937,7 +937,7 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 
 // Rest stopwatch: how long since the last set was ticked done. Counts UP - there
 // is no target to count down to, since what you rest is a judgement, not a
-// prescription. Deliberately NOT saved: it isn't a record of anything, it's a
+// prescription. Deliberately not saved: it isn't a record of anything, it's a
 // glance between sets, so it lives in memory only and is gone on a reload. That
 // keeps it out of the drafts, out of the session, and out of sync entirely.
 // Keyed per person+session, exactly as formDrafts / sessionTimers / formExtras
@@ -1174,7 +1174,7 @@ function renderLog(){
       + '<div style="white-space:pre-wrap;margin-top:9px">'+esc(sess.setupNote)+'</div></details>';
   }
 
-  // How to record THIS session on the watch - when to start the activity, where
+  // How to record this session on the watch - when to start the activity, where
   // the laps go, what to report back afterwards. Its own block, above the warm-up
   // and collapsed by default: it used to be the first twenty lines of warmupNote,
   // where it pushed the actual warm-up off a phone screen at the moment you need
@@ -1194,7 +1194,7 @@ function renderLog(){
   exerciseBlocks(exs).forEach(block=>{
     const cardsHtml = block.eis.map(ei=>{
       const ex=exs[ei];
-      // "Last" means the most recent time you did THIS exercise, in ANY session -
+      // "Last" means the most recent time you did this exercise, in any session -
       // not the last time you did this session. On a rotation where a lift shows
       // up on more than one day, the same-session number can be a week old when a
       // three-day-old one exists, and a program rewrite used to empty the column
@@ -1316,7 +1316,7 @@ function setRowHtml(n,ex,prevCell){
     + (isRunning(ex) ? '' : '<td class="prev">'+prevCell+'</td>')
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>PR</span></td></tr>';
 }
-// recentNote() lived here: a "most recent for this movement in ANY session" line
+// recentNote() lived here: a "most recent for this movement in any session" line
 // that only appeared when the Last column was showing something older. The Last
 // column now IS the most recent occurrence anywhere, so the note could never say
 // anything the table above it wasn't already saying. Removed 2026-09-06.
@@ -1435,7 +1435,7 @@ function addSetRow(btn){
 }
 
 // Best saved weight is only recomputed once per card render/added row, not
-// per keystroke — it can't change until the session is saved.
+// per keystroke - it can't change until the session is saved.
 function cardBestWeight(ex){
   return isLifting(ex) ? bestWeightSoFar(state.people[state.activePerson], ex.name) : -Infinity;
 }
@@ -1619,12 +1619,12 @@ function saveSession(){
     // only if the entry (and garminWanted below) actually exists to fill.
     if(rows.length || isRunning(ex)){ const en={name,cols:ex.cols.slice(),rows}; if(warmup.length) en.warmup=warmup;
       // Which sets were ticked. Saved from 6 Oct so the weekly muscle card can
-      // show what has actually been DONE against what was planned (Daniel's
+      // show what has actually been done against what was planned (Daniel's
       // ask, 2 Oct). Before that the tick was discarded at save - 0 of 345
       // entries carry one - so the bar necessarily starts from today.
       if(done.length) en.done=done;
       if(rpeSel) en.rpe=rpeSel.dataset.d;
-      // Just a tick, for the coach to read - it does NOT split the trend or the
+      // Just a tick, for the coach to read - it does not split the trend or the
       // PR, because the load is the same either way (Daniel, 6 Oct).
       const smithEl=card.querySelector('[data-exsmith]');
       if(smithEl && smithEl.checked) en.smith=true;
@@ -1675,7 +1675,7 @@ function saveSession(){
   delete restStarts[draftKey()];   // this person's session is over; the other's isn't
   saveDrafts();
   justSavedId=log.id;
-  switchTab("history", true); // draft just cleared above — don't re-capture it
+  switchTab("history", true); // draft just cleared above - don't re-capture it
   showSaveSummary(volume, prs, entries, promotable, promoteKey);
   autoSync(); // push this session to the shared store automatically (if sync is set up)
 }
@@ -1819,7 +1819,7 @@ function parseClock(s){
 // One-line summary of a session's run for the collapsed History row: total
 // distance, time, average pace, and avg HR from the linked Garmin data.
 // A real running split has distance. Garmin logs rest/auto laps at 0 km, which
-// aren't splits and skew pace/totals — drop those (but keep blank-distance rows
+// aren't splits and skew pace/totals - drop those (but keep blank-distance rows
 // from manual entry). Used by both the collapsed summary and the splits table.
 function isSplitRow(r, di){ const d=parseFloat(r[di]); return isNaN(d) || d>0; }
 // Distance · time · avg pace · ♥ HR for one run entry (0-distance laps skipped).
@@ -2122,17 +2122,17 @@ function describeChange(c){
   // an edit could only carry from 6 Oct - are whole lines of text, and "notes: feet
   // on the bottom edge of the platform, press through the balls of the feet →
   // setting 4, pad at shoulder height" is unreadable on a card. Name the field and
-  // show the NEW value, which is the part being decided.
+  // show the new value, which is the part being decided.
   const LONG={warmup:"Warm-up sets", notes:"Machine settings"};
   if(c.fields && c.fields.restSec!=null){
     const was=ex&&ex.restSec;
-    bits.push("rest: "+(was?fmtMmSs(was):"—")+" → "+fmtMmSs(+c.fields.restSec));
+    bits.push("rest: "+(was?fmtMmSs(was):"-")+" → "+fmtMmSs(+c.fields.restSec));
   }
   Object.keys(c.fields||{}).forEach(f=>{
     if(f==="restSec") return;
     const was=ex ? ex[f] : undefined;
     if(LONG[f]){ bits.push(LONG[f]+" → "+(String(c.fields[f]||"").trim()||"(cleared)")); return; }
-    bits.push(f+": "+(was===undefined||was===""?"—":was)+" → "+c.fields[f]);
+    bits.push(f+": "+(was===undefined||was===""?"-":was)+" → "+c.fields[f]);
   });
   return bits.join(" · ") || "No change";
 }
@@ -2194,7 +2194,7 @@ function applyProgramChange(id){
     if(i<0){ toast("That exercise isn't in the session any more"); setChangeStatus(c,"declined"); save(); renderView(); return; }
     const held=exs.splice(i,1)[0];
     // c.after is "" for "move to the front", and the name to follow otherwise. It is
-    // resolved AFTER the splice, so the index is correct in the shortened list.
+    // resolved after the splice, so the index is correct in the shortened list.
     const afterIdx=c.after ? exs.findIndex(e=>e.name===c.after) : -1;
     const to=c.after ? (afterIdx>=0 ? afterIdx+1 : exs.length) : 0;
     exs.splice(to,0,held);
@@ -2229,7 +2229,7 @@ function declineProgramChange(id){
 }
 // Which changes have already been put in front of someone this app session, so
 // opening the same session twice, or any of the re-renders a sync causes, doesn't
-// keep reopening the dialog. Keyed by change id, so a NEW change still interrupts.
+// keep reopening the dialog. Keyed by change id, so a new change still interrupts.
 const pcSeen=new Set();
 // Coaching changes used to wait quietly in the Program tab and get missed, so a
 // session that has any says so when you open it (Daniel, 6 Oct).
@@ -2816,7 +2816,7 @@ function parseAnyDate(s){
   s=String(s).trim(); if(!s) return null;
   let m=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); // ISO-ish
   if(m) return m[1]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[3]).slice(-2);
-  m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); // D/M/Y or M/D/Y — assume D/M/Y
+  m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); // D/M/Y or M/D/Y - assume D/M/Y
   if(m){ let d=+m[1], mo=+m[2]; if(d>12){/*keep*/} else if(mo>12){ const t=d;d=mo;mo=t; }
     return m[3]+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2); }
   const t=new Date(s); if(!isNaN(t)) return t.toISOString().slice(0,10);
@@ -2831,7 +2831,7 @@ function importBodyweightCsv(text, person){
   let di=header.findIndex(h=>/date|time|day/.test(h));
   let wi=header.findIndex(h=>/weight|mass|\bkg\b|\blb\b|lbs|pounds/.test(h));
   let start=1;
-  if(di<0 || wi<0){ // no recognisable header — assume col0=date, col1=weight, no header
+  if(di<0 || wi<0){ // no recognisable header - assume col0=date, col1=weight, no header
     di=0; wi=1; start=0;
   }
   const isLb=wi>=0 && /lb|pound/.test(header[wi]||"");
@@ -3454,7 +3454,7 @@ function renderSuggestions(){
     : (proposed.length?'':'<div class="hint" style="margin:0">No suggestions yet.</div>');
   list.innerHTML=html;
   // Mark done rather than deleting. A deleted row was resurrected by the very
-  // next sync — mergeInData unions in any remote suggestion missing locally —
+  // next sync - mergeInData unions in any remote suggestion missing locally -
   // so dismissals never stuck. A local "done" is the tombstone: it hides the
   // row, blocks the re-add, and is re-asserted on every push, so it stays
   // cleared even if another device pushed an older "open" copy. "declined"
@@ -3476,7 +3476,7 @@ document.getElementById("sugSend").onclick=()=>{
   save(); document.getElementById("sugText").value=""; renderSuggestions(); autoSync(); toast("Suggestion added");
 };
 // Auto-save the selected person's name / bodyweight / goals whenever the
-// dialog closes (X, Done, Esc or backdrop) — no explicit Save button.
+// dialog closes (X, Done, Esc or backdrop) - no explicit Save button.
 // Set right before a programmatic setDlg.close() that shouldn't trigger the
 // normal auto-save-on-close (e.g. deleteAccount(), which already made its own
 // change and would otherwise have the stale form fields overwrite it).
@@ -3533,15 +3533,15 @@ document.getElementById("ghSyncBtn").onclick=()=>{
 // Clearing the program is the one destructive action that reaches off this
 // device. saveProgram() stamps a fresh updatedAt and pushes immediately, and the
 // other phone's next sync sees the newer stamp and adopts the empty program
-// (see mergeInData) - so one mis-tap here empties BOTH phones, and the store's
+// (see mergeInData) - so one mis-tap here empties both phones, and the store's
 // copy is gone too, leaving nothing to restore from. Hence: a backup file first,
 // and then the word typed out in full.
 document.getElementById("resetProgram").onclick=()=>{
   if(!confirm("Clear the whole program?\n\n"
     + "• Every session and exercise is removed - you start from an empty Program tab.\n"
-    + "• This syncs: it empties the program on BOTH phones, not just this one.\n"
+    + "• This syncs: it empties the program on both phones, not just this one.\n"
     + "• There is no undo.\n"
-    + "• Your logged history, bodyweights and coaching notes are NOT touched.\n\n"
+    + "• Your logged history, bodyweights and coaching notes are not touched.\n\n"
     + "A backup file is downloaded first.")) return;
   if(!exportData()){ toast("Backup failed - program not cleared"); return; }
   if((prompt("Backup saved. To confirm, type RESET below.")||"").trim().toUpperCase()!=="RESET"){
@@ -3607,11 +3607,11 @@ function tombstoneBodyweight(person, date, at){
 // manual file import must not - it has its own "adopt" tick box, and quietly
 // overriding it would replace the program of whoever opened someone else's
 // export just to merge a few sessions in.
-// Merge one shared record (a log, a meal) that BOTH sides may have edited.
+// Merge one shared record (a log, a meal) that both sides may have edited.
 //
 // This used to be `state.logs[i] = incoming` - the store's copy replaced ours
 // outright. That silently destroyed any local edit not yet pushed: add a note to an
-// already-saved session, sync, and the note was gone from the phone AND written back
+// already-saved session, sync, and the note was gone from the phone and written back
 // to the store as empty, because syncNow pulls and merges before it pushes. It cost
 // Daniel a note on 19 Aug 2026 that no commit in the store had ever held.
 //
@@ -3645,7 +3645,7 @@ function mergeRecord(mine, theirs){
 
 function mergeInData(data, adoptConfig, fromSync){
   let added=0, updated=0;
-  // Replay the other device's deletions BEFORE the union below, or a log it deleted
+  // Replay the other device's deletions before the union below, or a log it deleted
   // and we still hold gets treated as ours and pushed straight back.
   if(Array.isArray(data.deletedLogs)) data.deletedLogs.forEach(tombstoneLog);
   if(Array.isArray(data.logs)){
@@ -3674,12 +3674,12 @@ function mergeInData(data, adoptConfig, fromSync){
   }
   // Limiters: authored centrally like coaching, so incoming wins per person.
   if(data.limiters && typeof data.limiters==="object"){ if(!state.limiters) state.limiters={}; Object.keys(data.limiters).forEach(function(p){ state.limiters[p]=data.limiters[p]; }); }
-  // Coaching history is deliberately NOT merged in. An older build still pushing
+  // Coaching history is deliberately not merged in. An older build still pushing
   // its copy must not be able to put 367KB back into this phone and then back into
   // the store on the next push - that is how the deleted-logs bug worked. The
   // coach reads the history from its own file; nothing in the app needs it.
   // Improvement suggestions: union by id, and the further-along status wins from
-  // either side — so resolving one in the coach/dev chat clears it on every device on
+  // either side - so resolving one in the coach/dev chat clears it on every device on
   // the next sync. (A plain union kept the local "open" copy and ignored the
   // incoming "done", so resolved suggestions stayed pending in the app.)
   //
@@ -4111,10 +4111,10 @@ function syncNow(quiet){
   }).catch(function(e){
     const m=String(e.message||e);
     setSyncStatus("Sync failed ("+(m.indexOf("401")>=0||m.indexOf("403")>=0?"check token/repo access":m)+")");
-    if(!quiet) toast("Sync failed"); // stay quiet on auto-sync (e.g. offline) — it retries next time
+    if(!quiet) toast("Sync failed"); // stay quiet on auto-sync (e.g. offline) - it retries next time
   });
 }
-// Best-effort background sync — only if configured. Used after save and on open.
+// Best-effort background sync - only if configured. Used after save and on open.
 function autoSync(){ const c=loadSync(); if(c.repo && c.token) syncNow(true); }
 
 function renderHelp(){
@@ -4359,7 +4359,7 @@ function renderMuscleTags(container, selected){
 function readMuscleTags(container){
   return Array.prototype.slice.call(container.querySelectorAll("button.sel")).map(function(b){ return b.dataset.m; });
 }
-// What an exercise trains, split into the muscles that DO it and the ones that
+// What an exercise trains, split into the muscles that do it and the ones that
 // help. Returns {p:[primary], s:[secondary]}.
 //
 // The split exists because counting every involved muscle equally flatters the
@@ -4534,7 +4534,7 @@ function showSaveSummary(volume, prs, entries, promotable, promoteKey){
 }
 document.getElementById("saveDlgOk").onclick=function(){ document.getElementById("saveDlg").close(); };
 
-// Home dashboard — the hub landing: greeting + today's session, coach card,
+// Home dashboard - the hub landing: greeting + today's session, coach card,
 // this-week stat tiles, last session, last Zone 2 run, last intervals,
 // bodyweight trend, goals.
 // Reuses existing helpers; links out to the detailed tabs.
@@ -4581,7 +4581,7 @@ function recoveryCardHtml(person){
   const stageBar = stTot ? '<div class="stagebar">'+stg.map(x=>'<i class="stg-'+x[0]+'" style="width:'+(x[1]/stTot*100).toFixed(1)+'%"></i>').join("")+'</div>'
     + '<div class="stagekey">'+stg.map(x=>'<span><i class="stg-'+x[0]+'"></i>'+x[2]+' <b class="num">'+fmtHm(x[1])+'</b></span>').join("")+'</div>' : '';
   // Sleep stages as one line rather than a second chart - it's context for the
-  // duration above, not something anyone trends off a phone card. Deliberately NOT
+  // duration above, not something anyone trends off a phone card. Deliberately not
   // fmtDuration: that gives h:mm:ss, so 6 minutes awake printed as "6:00" next to
   // "1:17:00" of deep sleep reads as six hours awake.
   const st=[];
@@ -4988,7 +4988,7 @@ renderView();
 autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
 
 // Ask the browser to protect this site's storage from automatic eviction under
-// storage pressure — relevant for anyone not using cloud sync, since local data
+// storage pressure - relevant for anyone not using cloud sync, since local data
 // is the only copy. Best-effort; no UI, nothing to do if unsupported/denied.
 if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 
@@ -5012,7 +5012,7 @@ if("serviceWorker" in navigator){
   // freshly deployed version activates instead of waiting for every tab to
   // close; controllerchange then reloads the page so the phone actually runs
   // the new code (an installed PWA otherwise keeps stale JS in memory for
-  // ages — which is why fixes seemed not to land). Guarded so the initial
+  // ages - which is why fixes seemed not to land). Guarded so the initial
   // claim on a first visit doesn't trigger a reload loop.
   let hadController = !!navigator.serviceWorker.controller, reloadingForUpdate=false;
   navigator.serviceWorker.addEventListener("controllerchange", ()=>{
@@ -5046,7 +5046,7 @@ function showAppVersion(){
 // newer" looked identical, which is what Daniel reported. The version we were on
 // is stashed before the reload and compared to the one that comes back.
 const UPDATE_FROM_KEY = "flLiveTracker_v1_updfrom";
-// The new shell is cached by the service worker a moment AFTER load, so asking
+// The new shell is cached by the service worker a moment after load, so asking
 // once, immediately, would usually read "" and claim nothing happened. Poll until
 // a version appears, then give up rather than hang.
 function shellVersionWhenReady(tries){
@@ -5094,7 +5094,7 @@ function showUpdateResult(title, body){
 function forceUpdate(){
   const btn=document.getElementById("updateNow"); if(btn){ btn.disabled=true; btn.textContent="Updating…"; }
   const reload=()=>window.location.reload();
-  // Read the version we're on BEFORE anything is deleted - it's read FROM the
+  // Read the version we're on before anything is deleted - it's read from the
   // caches this is about to drop, so the two can't run concurrently. "" is a real
   // answer (nothing cached yet); it's the key's presence, not its value, that
   // tells the reloaded page an update was asked for.

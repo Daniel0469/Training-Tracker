@@ -1,4 +1,4 @@
-# Health & fitness hub + AI coaching — design proposal
+# Health & fitness hub + AI coaching - design proposal
 
 **Status: Phase 1 built.** Per-person **goals**, **GitHub sync** (B1, see
 `docs/github-sync-setup.md`), the **MCP coaching server** (B3, see `mcp-coach/`), and the manual
@@ -29,7 +29,7 @@ see one another's logs automatically we need a shared store. Three free options:
 merge logic, and Daniel already uses GitHub for hosting. The app gets a "Sync" button (and
 optional sync-on-open) that pulls the shared JSON, merges, and pushes. Security: use a
 **fine-grained PAT** limited to the one private repo; treat it like a password (it's a 2-person
-personal app, so a scoped token in the app is an acceptable trade-off — documented, not ideal).
+personal app, so a scoped token in the app is an acceptable trade-off - documented, not ideal).
 
 ---
 
@@ -43,13 +43,13 @@ dataset, two people.
 
 ---
 
-## B3 · AI coaching — Claude as coach
+## B3 · AI coaching - Claude as coach
 
 Goal: Claude reviews each workout and coaches Daniel and Cerys toward their goals, "either linked
 or automatically pulling up the history," with a per-person **goals** setting. Three ways to do
 it, cheapest first:
 
-### 1. MCP server (recommended) — free, automatic history pull
+### 1. MCP server (recommended) - free, automatic history pull
 A small **local MCP server** on the laptop exposes the training data to Claude
 Desktop/Code/claude.ai as tools + resources:
 `list_sessions(person)`, `get_session(id)`, `get_prs(person)`, `get_bodyweight(person)`,
@@ -60,15 +60,15 @@ responds as coach.
 - **Data source:** the server reads the shared dataset from the **B1 GitHub store** (or an
   exported JSON). So B1 and B3 pair up.
 - **Effort:** ~a few hundred lines (Node or Python + Anthropic's MCP SDK); runs via one line in the
-  Claude client config. Works on the laptop, not the iPhone tracker — which matches Daniel's split.
+  Claude client config. Works on the laptop, not the iPhone tracker - which matches Daniel's split.
 
-### 2. Manual "Coach brief" export — zero setup, also the Obsidian artifact
+### 2. Manual "Coach brief" export - zero setup, also the Obsidian artifact
 A button that bundles a person's recent history + PRs + bodyweight + goals into a **ready-to-paste
 Markdown prompt**. Paste into Claude for coaching; drop the same file into an **Obsidian** vault
-(Daniel asked about Obsidian — a phone PWA can't write a vault, but a Markdown export he syncs into
+(Daniel asked about Obsidian - a phone PWA can't write a vault, but a Markdown export he syncs into
 a vault on the laptop works). Free, no server; the fallback if the MCP server isn't running.
 
-### 3. Automatic on-save analysis — **not free**
+### 3. Automatic on-save analysis - **not free**
 Call the Anthropic API from a Cloudflare Worker / GitHub Action (key held as a secret) to write
 feedback on every save. This is the only path that **costs money** (per-analysis API billing), so
 it's documented for completeness but **not recommended** given the "keep it free" constraint.
@@ -90,13 +90,13 @@ importer is the terms-clean path and needs no backend.
 ---
 
 ## Suggested order (each is its own approval)
-1. **Per-person goals** (tiny; unlocks coaching context) — could even land in Batch A if wanted.
+1. **Per-person goals** (tiny; unlocks coaching context) - could even land in Batch A if wanted.
 2. **B1 GitHub sync** (shared dataset; also the safety net against localStorage loss).
 3. **B3 MCP server** reading the B1 store (the actual coaching).
 4. **Coach-brief / Obsidian Markdown export** (nice fallback; low effort).
 
 Automatic backup / data-loss protection is effectively solved by step 2 (the shared store doubles
-as an off-device backup) — worth prioritising since all data is still local today.
+as an off-device backup) - worth prioritising since all data is still local today.
 
 ## Open questions for Daniel
 - OK to store a scoped GitHub token in the app for sync, or prefer a different free store?

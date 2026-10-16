@@ -199,21 +199,21 @@ Script: `scratchpad/apply_cardiospeed.py` (idempotent, writes a `data.json` back
 Scope confirmed with Daniel: **Cardio: Speed + Core only.** Hip CARs, 90/90s and the closing
 breaths line appear in all six sessions; the other five keep their own numbers.
 
-- [x] Add pigeon pose to the warm-up — placed in the **warm-up** as asked. Flagged first that a
+- [x] Add pigeon pose to the warm-up - placed in the **warm-up** as asked. Flagged first that a
       deep static glute stretch before speed work is usually a cool-down item and that the
       cool-down already has Figure-4; Daniel chose the warm-up anyway.
-- [x] Clams → 10 slow reps each side — was in the **cool-down**, not the warm-up
+- [x] Clams → 10 slow reps each side - was in the **cool-down**, not the warm-up
       ("Isometric side-lying clam - 3 x 20s"), so it also stops being an isometric.
-- [x] Hip hikes → 2 sets (down from 3) — also a **cool-down** line.
+- [x] Hip hikes → 2 sets (down from 3) - also a **cool-down** line.
 - [x] Hip CARs → 5 each side
 - [x] 90/90s → 10 each side
-- [x] Remove strides from the warm-up — flagged that strides are what primes the first hard rep,
+- [x] Remove strides from the warm-up - flagged that strides are what primes the first hard rep,
       which pulls against section D; removed as asked.
 - [x] Remove breaths
-- [x] Remove the cardio item from the cooldown — Daniel confirmed he meant the **jog line in the
+- [x] Remove the cardio item from the cooldown - Daniel confirmed he meant the **jog line in the
       note text**, not the `Cooldown` exercise card. Flagged that "do not stop dead after the last
       interval" is the one line with a real job; removed as asked.
-- [x] Make warm-up/cooldown cardio generic — "Easy jog, 5 min" → "Any easy cardio, 5 min".
+- [x] Make warm-up/cooldown cardio generic - "Easy jog, 5 min" → "Any easy cardio, 5 min".
 - [x] *(consequence, not a request)* Cool-down header 10 min → **5 min**, since dropping the
       3 min jog + 2 min walk took half the block out.
 

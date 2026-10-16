@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Training Tracker — MCP coaching server.
+"""Training Tracker - MCP coaching server.
 
 Exposes Daniel & Cerys's training data to Claude (Desktop / Code / claude.ai)
 so it can act as their coach: pull recent workouts, PRs, bodyweight trend, runs
 and goals, and give feedback toward each person's goals.
 
-Runs on your Claude subscription via MCP — no Anthropic API billing.
+Runs on your Claude subscription via MCP - no Anthropic API billing.
 
 Data source (read-only), chosen by environment variables:
-  * GitHub store (recommended — the same private repo the app syncs to):
+  * GitHub store (recommended - the same private repo the app syncs to):
       TT_GITHUB_REPO   e.g. danielmorris/training-data
       TT_GITHUB_TOKEN  a fine-grained token with Contents:read on that repo
       TT_GITHUB_PATH   optional, default data.json
@@ -97,7 +97,7 @@ def _log_read_with_sha():
 def _log_append(rec, message, attempts=3):
     """Append one entry to the history file, retrying on a race like _github_update.
 
-    Deliberately called AFTER the data.json write has succeeded, never inside its
+    Deliberately called after the data.json write has succeeded, never inside its
     `mutate`: that mutate is re-run on a 409, which would append the same entry
     twice. The history is also the less important of the two - if this fails, the
     coaching the athlete reads still landed."""
@@ -264,7 +264,7 @@ def get_limiters(data, person=None):
     and from anything derived from the numbers. A limiter is the thing the coach
     would otherwise have to guess at and would probably guess wrong: "top working
     speed not found yet, building up" is not visible in a HR trace, and neither
-    is "Zone 2 is a walk, not a run". Read these BEFORE interpreting the data -
+    is "Zone 2 is a walk, not a run". Read these before interpreting the data -
     they say which lever is actually available.
 
     Shape: limiters[person][exact session name] = "free text".
@@ -322,7 +322,7 @@ def _find_session(data, session):
 def get_session_notes(data, session=""):
     """The warm-up / cool-down notes on each session of the program, as they stand.
 
-    Read this BEFORE writing one. The notes are long, hand-written and mostly
+    Read this before writing one. The notes are long, hand-written and mostly
     mobility work built up over months; write_session_notes replaces by default,
     so writing blind throws away whatever is already there.
     """
@@ -741,7 +741,7 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
                            add=None, remove=False, after="", warmup=None, notes=None,
                            move_after=None, rest_sec=None):
     """Propose one change to the program. It waits on that exercise in the app's
-    Program tab until someone ticks it, and THE APP applies it - see the tool
+    Program tab until someone ticks it, and the app applies it - see the tool
     docstring for why that matters.
     """
     failed = {}
@@ -784,7 +784,7 @@ def propose_program_change(session, exercise, why, sets=None, target=None,
             # warmup and notes were unreachable on an edit until 6 Oct, which made two
             # jobs already assigned to the coach impossible rather than merely undone:
             # restoring the warm-up ramps (none of the 55 exercises has one) and
-            # stripping the settings box back to machine settings. Deliberately NOT
+            # stripping the settings box back to machine settings. Deliberately not
             # "any field add accepts" - `cols` decides how an exercise is scored and
             # drawn, and changing it under a logged history is a different, worse thing.
             if warmup is not None:
@@ -994,7 +994,7 @@ def get_session(data, session_id):
     return {"error": f"No session with id {session_id}"}
 
 def set_log_entry(session_id, exercise, rows, why=""):
-    """Correct the rows of ONE exercise on ONE already-logged session.
+    """Correct the rows of one exercise on one already-logged session.
 
     The Garmin sync fills a run entry automatically - from the per-rep detail where
     it has it, from the treadmill's laps otherwise - and it gets it wrong when the
@@ -1279,7 +1279,7 @@ def get_running_form(data, person):
 
 # A suggestion's life: "proposed" (the coach raised it, Daniel hasn't looked yet)
 # -> "open" (he approved it, so the dev chat should action it) -> "done". "declined"
-# is the other terminal state, and it is NOT the same as "done": it means he said no,
+# is the other terminal state, and it is not the same as "done": it means he said no,
 # so the coach can see that and not raise it again.
 SUGGESTION_TERMINAL = ("done", "declined")
 
@@ -1387,7 +1387,7 @@ def get_progress(data, person, exercise):
                         pt["rpe"] = float(rpe) if isinstance(rpe, str) else rpe
                     except (TypeError, ValueError):
                         pt["rpe"] = rpe
-                # Done on a Smith machine. Present only when ticked, and it does NOT
+                # Done on a Smith machine. Present only when ticked, and it does not
                 # split the trend: Daniel's call is that the load is the same either
                 # way, so this annotates a point rather than forking the history.
                 # It is here so you stop having to ask him to write it in the Notes.
@@ -1466,7 +1466,7 @@ def _register(mcp):
 
     @mcp.tool()
     def coaching_history(person: str, limit: int = 10) -> str:
-        """Past coaching you've written for a person (newest first) — each entry has a date
+        """Past coaching you've written for a person (newest first) - each entry has a date
         plus the overall / per-session (bySession) / per-exercise (byExercise) notes from that
         write. Read this before coaching to see what you last advised, then judge whether it
         was followed and whether the numbers actually improved since."""

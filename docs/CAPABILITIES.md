@@ -1,9 +1,9 @@
-# Training Tracker — what it can do (and can't)
+# Training Tracker - what it can do (and can't)
 
 A plain-English reference to **everything the app does** and its **known limitations**. If you're
 after conventions or architecture, see `CLAUDE.md` and `docs/PROJECT-STATUS.md`; this file is the
 user-facing "what's possible" list. The in-app **Guide** tab (`renderHelp` in `js/app.js`) is the
-same information framed as a how-to — keep both in step when a feature changes.
+same information framed as a how-to - keep both in step when a feature changes.
 
 ## In a sentence
 A workout + health tracker for up to two people sharing a device (built for Daniel & Cerys; anyone
@@ -53,7 +53,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **Last** column shows what that person did last time (relative time; hover for the date); a
   **🕑 Most recent** chip flags a more-recent instance in another session.
 - Percentage **warm-ups** (e.g. `40%x8`) resolve to actual kg once a working weight is known.
-- **Tap a set number** to mark it a **warm-up** (shows `W`) — excluded from volume, PRs and the
+- **Tap a set number** to mark it a **warm-up** (shows `W`) - excluded from volume, PRs and the
   muscle map so it doesn't inflate numbers.
 - Session **timer** (auto-starts on entry; pause/reset), a **difficulty 1–10**, and free-text notes.
 - **Save** shows total volume with a fun comparison, any PRs, and a **muscle-map heatmap** of what
@@ -65,12 +65,12 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **⬆ Import run (TCX/GPX)** pulls a Garmin/Strava-exported file straight into the splits.
 - **Garmin auto-link (⌚):** saving a cardio session tags it *awaiting run…*; the Garmin sync on the
   laptop later finds that day's run and enriches it with HR, cadence, elevation, calories, moving
-  time, training effect and per-km splits — **never overwriting** what you typed (needs the laptop
+  time, training effect and per-km splits - **never overwriting** what you typed (needs the laptop
   set up; see `mcp-garmin/`).
 
 ### History, Progress & Records
 - **History:** opens with a **This week** summary (total volume, session count, muscle heatmap,
-  weekly-volume bar chart), then every saved session newest-first — filter by person, expand for
+  weekly-volume bar chart), then every saved session newest-first - filter by person, expand for
   detail, delete.
 - **Progress:** current **bests** (weight, reps, estimated 1RM per exercise), then a chart of your
   top set for any exercise over time with both people on one graph and a top-weight vs Est. 1RM toggle.
@@ -79,8 +79,8 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 
 ### Body, goals & bodyweight
 - Bodyweight over time with a trend chart; add by hand or **⬆ Import from scale (CSV)** (e.g.
-  1byone Health — auto-detects the date and weight columns, lb→kg).
-- Per-person **goals** (gear menu) — shown on Body, and travel with the data so a coach can see them.
+  1byone Health - auto-detects the date and weight columns, lb→kg).
+- Per-person **goals** (gear menu) - shown on Body, and travel with the data so a coach can see them.
 - **Coach brief (Markdown)** button bundles goals, PRs, bodyweight and recent sessions to paste into
   Claude / Obsidian.
 
@@ -133,7 +133,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   stored only on the device and **never** included in exports.
 - The app requests **persistent storage** and nudges with a reminder if it's been 30+ days since
   your last export - relevant if you're not using cloud sync, since local data is the only copy.
-- **Installable PWA** — Add to Home Screen and it works **offline**.
+- **Installable PWA** - Add to Home Screen and it works **offline**.
 
 ### Theme
 - Dark / light toggle (persisted, follows the OS default). Every surface is themed for both.
@@ -142,14 +142,14 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 
 ## Limitations & things to know
 
-- **Data is keyed by person NAME.** Renaming a person **orphans** their history — by design.
-- **localStorage only.** Clearing the browser's site data wipes local history — keep cloud sync or
+- **Data is keyed by person NAME.** Renaming a person **orphans** their history - by design.
+- **localStorage only.** Clearing the browser's site data wipes local history - keep cloud sync or
   regular exports as backup. Two devices only stay in step if cloud sync is on (or you import/export).
 - **Up to two accounts per install, not arbitrary.** A fresh install starts blank - anyone creates
   their own account (name + colour) - but one device is capped at two. A third person needs their
   own separate install; this is a deliberate simplicity trade-off, not a technical ceiling.
 - **No Strava/Garmin live API.** Runs come in via **exported files** or the laptop-side Garmin sync
-  — not a direct phone-to-Strava/Garmin API (Strava forbids feeding data to AI; Garmin's dev program
+  - not a direct phone-to-Strava/Garmin API (Strava forbids feeding data to AI; Garmin's dev program
   is on hold). The Garmin auto-link only runs **while the laptop is on**.
 - **Coaching isn't automatic.** It runs when someone opens the coaching chat and prompts Claude (free,
   on the subscription). A fully hands-free weekly version would use the paid API and is deliberately
@@ -160,11 +160,11 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **Muscle map is heuristic.** Muscles are inferred from the exercise **name** (`classifyMuscles`);
   an unusual name may map to the wrong muscle or none.
 - **e1RM is an estimate** (Epley formula), not a measured 1-rep max.
-- **PWA icons are placeholders** — real branding is a TODO.
+- **PWA icons are placeholders** - real branding is a TODO.
 - **No build step, minimal deps.** Vanilla JS + Chart.js (CDN) only. The service worker is
   cache-first, so an installed app keeps old files until `CACHE_NAME` in `sw.js` is bumped on deploy.
 
 ---
 
 *Keep this file honest: when a user-facing feature is added or changed, update this list, the in-app
-**Guide** (`renderHelp`), and — if the file list or deployment changes — `README.md`.*
+**Guide** (`renderHelp`), and - if the file list or deployment changes - `README.md`.*

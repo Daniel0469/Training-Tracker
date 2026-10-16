@@ -1,31 +1,31 @@
-# Design v3 — Training Tracker restyle (dark first)
+# Design v3 - Training Tracker restyle (dark first)
 
 Status: **design agreed with Daniel. Every screen built in dark and pushed (13 Oct, tt-v151); light mode still to do.** Written 13 Oct 2026 from a design canvas in Claude
-(Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 — Daniel can open it;
+(Cowork): https://claude.ai/code/artifact/f972d4f0-eae6-4caa-adbe-06c979b55da6 - Daniel can open it;
 a dev chat probably can't, so this file is meant to be enough on its own.
 
 This is a **restyle**, not new features. Every screen keeps the data, behaviour and rules it has today.
 Where the mockups show numbers or names, they are sample data.
 
-## Ground rules (from CLAUDE.md — still apply)
+## Ground rules (from CLAUDE.md - still apply)
 
 - Agree the plan with Daniel first (AskUserQuestion), prototype against a COPY of the store,
   screenshots of both people before pushing.
-- **Dark mode first.** Light mode is parked until the end — Daniel will ask for it. Keep light
+- **Dark mode first.** Light mode is parked until the end - Daniel will ask for it. Keep light
   working (don't break it), but only design-review dark for now.
 - Bump `CACHE_NAME` in `sw.js` for every shell change. Update the Guide, README and prompts.
 - Two people, one phone: the person toggle must stay reachable while logging.
-- Personal use only — colour-blind safety is not a requirement.
+- Personal use only - colour-blind safety is not a requirement.
 
 ## Look
 
 One shared look with the Home Hub. Chunky rounded cards, heavy headings, monospaced numbers.
 
-### Fonts — new dependency, approved by Daniel
+### Fonts - new dependency, approved by Daniel
 - **Manrope** (400, 500, 600, 700, 800) for all text.
 - **JetBrains Mono** (500, 700) for every number: weights, reps, times, dates, paces, stats.
 - **Bundle them** (woff2 under `fonts/`, `@font-face` in `css/styles.css`) and add them to the
-  service-worker cache. No Google Fonts link — the app must work offline.
+  service-worker cache. No Google Fonts link - the app must work offline.
 
 ### Dark tokens (map onto the existing CSS variables)
 | Variable | Value | Use |
@@ -59,16 +59,16 @@ line-2 `#D5D9D3`, ink `#15181B`, ink-2 `#33393F`, muted `#5E656D`.
 - **Header** (replaces the sticky topbar look): small uppercase line + big title on the left; on the
   right the **person toggle** as a pill (active person filled with `--brand`) and a round 44 px
   **gear** button that opens Settings. Keep it sticky.
-- **Bottom tabs**: Home, Session, History, Progress, Program — icon over 11 px label, active one in
+- **Bottom tabs**: Home, Session, History, Progress, Program - icon over 11 px label, active one in
   `--brand`, bar `--nav`.
 - **Pills/segmented switches** (Progress panes, theme): container `--card`, active segment `--card-2`.
 - **Pickers 1–10** (RPE, difficulty): ten equal buttons, selected one filled `--brand`.
 
 ## Screens
 
-**Create account** — centred: app mark, "Welcome", hint, Name input (brand-coloured border), six
+**Create account** - centred: app mark, "Welcome", hint, Name input (brand-coloured border), six
 colour swatches (taken one greyed out on the second account), Create account; second account adds
-"Skip — just me for now".
+"Skip - just me for now".
 
 **Home** (top to bottom): today's session card (big name, day, "Log it →" brand button, and a ticked
 line if another of today's sessions is already logged) · Next cardio card · session-swap card (both:
@@ -87,13 +87,13 @@ tick and +/− set on one row · supersets: brand bar down the left, "Superset" 
 Clear + Save session · **rest bar**: full-width pill above the tab bar (ink background, mono time,
 "tap to dismiss").
 
-**History**: this-week card (7 day squares — filled = lifted, outlined = today) + 8-week volume bars
+**History**: this-week card (7 day squares - filled = lifted, outlined = today) + 8-week volume bars
 (current week in brand) · session rows: big mono day/month, name, PR medal, mono meta line, chevron.
 
 **Progress**: 5-way switch **Lifts · Run · Flex · Time · Body** (Run/Flex only when they have data,
 as now).
 - Lifts: exercise + metric selects, big current value, line chart, Records table (Exercise, Best,
-  e1RM, When — recent ones in PR gold).
+  e1RM, When - recent ones in PR gold).
 - Run: Estimated 5k card · Trend select + chart for both people (legend) · session cards with stats
   row, zone bar and rep table.
 - Flex: ladder table (Test, Now, Change, Measured), lowest rung tagged; test select + chart.

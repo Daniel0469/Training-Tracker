@@ -1,8 +1,8 @@
-# Home Hub link — tracker-side plan & data contract
+# Home Hub link - tracker-side plan & data contract
 
-**Status: the hub is mostly built and running** (confirmed by Daniel 2026-09-06 — the box is on).
+**Status: the hub is mostly built and running** (confirmed by Daniel 2026-09-06 - the box is on).
 The link to *this* app is still to come. Companion to the Home Hub planning doc (kept outside this
-repo). This file is the **owner of the shared data contract** — the hub reads it, doesn't fork it.
+repo). This file is the **owner of the shared data contract** - the hub reads it, doesn't fork it.
 
 **Claimed by the hub, 2026-09-06:** the hub is getting a **daily tab with a daily todo list**, and
 the **daily yoga tick** lives there rather than in this app. The term routine schedules yoga; the
@@ -19,7 +19,7 @@ overlap this app:
 
 **Decision: two apps, one store.** The hub does *not* absorb this app and this app does *not* call
 the hub. Both read/write the existing `Training-Data/data.json`. If the hub is off, this app is
-unaffected — which matters, because this app is used on two phones away from home while the hub sits
+unaffected - which matters, because this app is used on two phones away from home while the hub sits
 behind a home VPN.
 
 That also means **no new backend is needed for either side**: the GitHub-as-store sync built in
@@ -29,32 +29,32 @@ Phase 1 already is one.
 
 | | Hub | This app |
 |---|---|---|
-| **Meal capture** | ✅ barcode scan, camera, free-text → macro estimate | — |
+| **Meal capture** | ✅ barcode scan, camera, free-text → macro estimate | - |
 | **Meal display** | a simple "logged today" list | ✅ daily totals vs targets, trends, History |
-| **Coaching context** | — | ✅ meals feed the MCP coach alongside training |
+| **Coaching context** | - | ✅ meals feed the MCP coach alongside training |
 | **Bodyweight capture** | ✅ scale-screenshot read (phone camera) | manual entry (as today) |
 | **Body-metrics capture** | ✅ the whole scale readout, not just weight | manual entry |
 | **Bodyweight display** | one tile | ✅ Body pane of Progress, trend chart, goals |
 
 **Re-confirmed 2026-08-11.** Daniel asked for scale-screenshot capture in *this* app, we designed
-it, and he parked it back here — capture stays the hub's job. He also widened it: he wants the
+it, and he parked it back here - capture stays the hub's job. He also widened it: he wants the
 screenshot to yield **the whole readout** (body fat, muscle mass, water, …), not just the weight,
 because that is the point of using the scale's own app.
 
 The design work is done and recorded in `PROJECT-STATUS.md` (→ hub → *Scale input via phone
-screenshot*). Read it before building this — it settles the mechanism, the three costs, the
+screenshot*). Read it before building this - it settles the mechanism, the three costs, the
 open-schema record shape, and a fourth approach (parse OS-OCR text rather than the image) that had
 not been considered. The load-bearing check is already verified: `mcp.server.fastmcp.Image` accepts
 raw bytes, so an MCP tool can hand Claude the screenshot for its vision to read.
 
-**Whatever the hub captures, bodyweight still writes to `state.bodyweights`** in this app's store —
+**Whatever the hub captures, bodyweight still writes to `state.bodyweights`** in this app's store -
 `setLoad`, records, Home's tiles and the coach all depend on it.
 
 Rationale: the hub is doing phone-camera work anyway; this app owns everything that needs training
 context. Nutrition is on this app's roadmap already (`PROJECT-STATUS.md` → hub → nutrition), so
 without this split it gets built twice.
 
-## Data contract — the `meals` array
+## Data contract - the `meals` array
 
 New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coachingLog` / `suggestions`.
 
@@ -78,54 +78,54 @@ New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coaching
 
 Rules, all matching existing conventions:
 
-- **Merge by `id`, upsert** — but *not* a wholesale replace. Since **tt-v107** both `logs` and
+- **Merge by `id`, upsert** - but *not* a wholesale replace. Since **tt-v107** both `logs` and
   `meals` go through `mergeRecord` (`js/app.js`), which merges field by field:
   - **Whichever side has the newer `updatedAt` wins** a genuine conflict.
-  - If the *other* side is newer, it still adopts keys it doesn't hold — so a partial write from
+  - If the *other* side is newer, it still adopts keys it doesn't hold - so a partial write from
     one writer doesn't erase another's fields.
   - **An absent or empty incoming field never erases a value the other side holds.**
   - Two records with *no* stamp on either side fall back to the old "incoming wins".
 
   **The hub MUST stamp `updatedAt` on every meal it writes or rewrites.** An unstamped hub write
   loses to any stamped phone edit of the same meal, and silently. This replaced a wholesale
-  replace that destroyed a locally-edited session note on 19 Aug 2026 — the same defect was
+  replace that destroyed a locally-edited session note on 19 Aug 2026 - the same defect was
   already sitting in the `meals` branch, untriggered only because the hub doesn't exist yet.
 - Re-syncing the same meal must never duplicate it.
-- **`person` is a name**, not an id — this app keys everything by person name. A meal whose person
+- **`person` is a name**, not an id - this app keys everything by person name. A meal whose person
   doesn't match a known person is kept but not displayed (don't drop data).
 - **`date` uses the ~5am training-day rollover**, so a late meal lands on the same training day as
   the session it followed. The hub must replicate this; it's the same rule this app uses to pick
   today's session.
 - **kg / grams / kcal.** No unit field, no lbs.
-- **`estimated: true` should be visible in the UI** — a free-text macro guess is not a barcode
+- **`estimated: true` should be visible in the UI** - a free-text macro guess is not a barcode
   lookup, and the coach shouldn't treat them as equally reliable.
 - Unknown fields on incoming meals are preserved, not stripped (forward compatibility).
 
 ### Reads the hub does
 
-Nothing new needed — it reads `data.json` directly:
+Nothing new needed - it reads `data.json` directly:
 - **Latest bodyweight:** newest `bodyweights` entry for that person (kg).
 - **Today's session:** derived from `program` + weekday + the 5am rollover. Not a stored field.
 
-## Data contract — `bodyweights` (hub writes)
+## Data contract - `bodyweights` (hub writes)
 
 The hub captures weigh-ins (see *Division of labour*). It writes into the existing
-`bodyweights` array — there is no separate hub array, because `setLoad`, records,
+`bodyweights` array - there is no separate hub array, because `setLoad`, records,
 Home's tiles and the coach all read this one.
 
-**Row shape** — the same as this app writes:
+**Row shape** - the same as this app writes:
 
     { "person": "Daniel", "date": "2026-10-13", "kg": 82.4, "updatedAt": 1791875529000 }
 
-- `person` — exactly as spelled in `people`.
-- `date` — the **local calendar date** the weigh-in was taken (YYYY-MM-DD in the device's own
-  time zone). **No 5am rollover** — unlike meals and sessions, a 00:30 weigh-in belongs to
+- `person` - exactly as spelled in `people`.
+- `date` - the **local calendar date** the weigh-in was taken (YYYY-MM-DD in the device's own
+  time zone). **No 5am rollover** - unlike meals and sessions, a 00:30 weigh-in belongs to
   the new day (`localDateStr` in `js/app.js`, not `trainingDateStr`). Not the UTC date either.
 - **The date is assigned at entry, explicitly.** The entry's date field defaults to today's
   local date and can be changed to backdate; whatever it says is written. A writer never
   infers or re-derives a weigh-in's date later (at sync time, from `updatedAt`, etc.).
-- `kg` — a number, kilograms, one decimal place. No unit field.
-- `updatedAt` — ms epoch, the same form as on meals (`mergeRecord` reads it with `+`, so an
+- `kg` - a number, kilograms, one decimal place. No unit field.
+- `updatedAt` - ms epoch, the same form as on meals (`mergeRecord` reads it with `+`, so an
   ISO string would count as 0). **Required:** every writer stamps it on every row it adds or
   edits. This app stamps its own (Body tab, Settings weight, scale CSV import) and keeps the
   field on save. Rows written before 13 Oct 2026 have none and count as 0.
@@ -133,12 +133,12 @@ Home's tiles and the coach all read this one.
 
 **Identity is `(person, date)`, not an id.** Bodyweight rows have never had an `id`. A
 write for a person and date that already has a row **replaces its `kg`** (and
-`updatedAt`) rather than adding a second row — the same upsert `addBodyweight` does.
+`updatedAt`) rather than adding a second row - the same upsert `addBodyweight` does.
 
 **Conflicts: newest edit wins**, the same `mergeRecord` rule as `logs` and `meals` (see the
 `meals` contract). When two writers hold the same `(person, date)`, the higher `updatedAt`
 wins; an unstamped row loses to any stamped edit; two unstamped rows fall back to incoming
-wins. So a hub write beats an older phone copy and vice versa — **an unstamped hub write
+wins. So a hub write beats an older phone copy and vice versa - **an unstamped hub write
 loses silently**.
 
 **Deletions: `deletedBodyweights`.** Top-level array of tombstones,
@@ -172,7 +172,7 @@ Ordered; each is independently useful and stops for review, per the usual conven
 ### 1. Multi-writer retry ✅ DONE
 `data.json` already has 3+ writers: both phones, `mcp-coach`, `mcp-garmin`. The hub makes 4+.
 Every writer sends the file's `sha`, so a concurrent write **409s rather than silently losing data**
-— the safety property is already there. But **nothing retries on 409**, so it just errors
+- the safety property is already there. But **nothing retries on 409**, so it just errors
 (`_github_write`, [mcp-coach/server.py:76](../mcp-coach/server.py#L76)).
 
 `_github_update(mutate, message)` in both servers does `read → mutate → write`, re-reading and
@@ -180,12 +180,12 @@ reapplying on 409/412 (3 attempts, backoff) and then failing with a readable mes
 errors still raise immediately. `fill_pending` keeps its Garmin calls *outside* the retry loop, and
 re-checks on write that an activity wasn't claimed meanwhile, so a race can't link one run twice.
 
-**The store is now safe for a fourth writer — the hub can be pointed at it.**
+**The store is now safe for a fourth writer - the hub can be pointed at it.**
 
 **Amended tt-v107 (19 Aug 2026).** Retry-on-409 stopped concurrent writes *losing the file*, but
 the record merge itself was still a wholesale replace, which lost a *field*: a session note typed
 on a phone was overwritten by the store's older copy and pushed back empty. `mergeRecord` fixes it
-for `logs` and `meals` both — see the conflict rule under the `meals` contract above. **The hub
+for `logs` and `meals` both - see the conflict rule under the `meals` contract above. **The hub
 must stamp `updatedAt`**; that is now a hard requirement of being a writer, not a nicety.
 
 ### 2. `meals` in state + merge ✅ DONE
@@ -194,15 +194,15 @@ plus a `load()` migration for installs saved before the change. Unknown fields o
 preserved, so the hub can add fields without a change here. `CACHE_NAME` → `tt-v42`.
 
 **Hub-written meals now survive sync in both directions, with no UI yet.** Nothing is displayed until
-item 3 — a meal in the store is currently invisible in the app.
+item 3 - a meal in the store is currently invisible in the app.
 
 ### 3. Nutrition UI (the roadmap item, now with a data source)
 - Per-person daily targets (kcal + protein) alongside the existing goals.
-- Today's totals on **Home** as a tile — reuse the `.tile` pattern from `renderHome`.
+- Today's totals on **Home** as a tile - reuse the `.tile` pattern from `renderHome`.
 - A **Nutrition** view or a Body-tab section: day list, per-meal rows, weekly protein trend
   (Chart.js, as the bodyweight trend does).
 - Manual add/edit, so the app is usable with the hub off or not yet built.
-- Light + dark, no console errors, and **update `renderHelp`** — the Guide must reflect it.
+- Light + dark, no console errors, and **update `renderHelp`** - the Guide must reflect it.
 
 ### 4. Coach sees nutrition
 - Add a `nutrition(person, days)` tool to `mcp-coach/server.py` (daily kcal/protein totals, target
@@ -214,7 +214,7 @@ item 3 — a meal in the store is currently invisible in the app.
 The Task Scheduler jobs run on the laptop, with the known caveat *"only runs while the laptop is on."*
 Once the Pi exists for Home Assistant, move both jobs (`--sync training-garmin` and
 `--sync training-garmin-cerys`) onto it as cron entries. Deterministic Python, no laptop-specific
-dependency, no code change — the caveat just disappears. Needs `.mcp.json`-equivalent env on the Pi
+dependency, no code change - the caveat just disappears. Needs `.mcp.json`-equivalent env on the Pi
 and a re-login to cache each Garmin session there.
 
 ### 6. Run the coach itself on the Pi - unattended coaching
@@ -290,15 +290,15 @@ and should probably land first.
 - **Don't call the hub.** No outbound dependency on a home server from a public GitHub Pages app.
 - **Don't move the store.** GitHub-as-store stays; the hub adopts it, not the reverse.
 - **Don't put the hub's GitHub token anywhere client-side.** Hub backend only.
-- **Don't build meal capture here** (barcode/camera) — that's the hub's half of the split.
+- **Don't build meal capture here** (barcode/camera) - that's the hub's half of the split.
 
 ## Sequencing with the hub
 
-Hub phases 1–4 (Home Assistant, plants, climate, chores/bills) touch none of this — they can run to
+Hub phases 1–4 (Home Assistant, plants, climate, chores/bills) touch none of this - they can run to
 completion before anything here starts. Only **hub phase 5** needs this side, and it needs items 1–2
 above to exist first.
 
-Sensible order: ~~item 1 → item 2~~ ✅ **done — the hub is unblocked** → hub builds capture →
+Sensible order: ~~item 1 → item 2~~ ✅ **done - the hub is unblocked** → hub builds capture →
 **items 3–4** land the display and coaching side → **items 5–6** whenever the Pi is up.
 
 Items 5 and 6 share their whole setup - same box, same secrets, same cron file - so they are one

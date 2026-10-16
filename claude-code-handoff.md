@@ -1,21 +1,21 @@
-# Training Tracker — Claude Code Handoff Brief
+# Training Tracker - Claude Code Handoff Brief
 
 ## What this is
 A personal workout tracker web app for **two people (Daniel & Cerys)**. It is a single,
-self-contained `index.html` file — HTML + CSS + vanilla JavaScript, no build step, no
+self-contained `index.html` file - HTML + CSS + vanilla JavaScript, no build step, no
 dependencies except Chart.js loaded from a CDN. All data is stored in the browser's
 `localStorage`. It is currently hosted as a static site on GitHub Pages and added to the
 phone home screen.
 
-**`index.html` is both the app and the spec — read it fully before changing anything.**
+**`index.html` is both the app and the spec - read it fully before changing anything.**
 
 ## Files in this folder
-- `index.html` — the complete app (read this first).
-- `Daniel-import.json` / `Cerys-import.json` — export/import files showing the exact data
+- `index.html` - the complete app (read this first).
+- `Daniel-import.json` / `Cerys-import.json` - export/import files showing the exact data
   format (program + logs); contain each person's imported Hevy history.
-- `sample-daniel.json` / `sample-cerys.json` — **full current exports (2026-07-14)** with real
+- `sample-daniel.json` / `sample-cerys.json` - **full current exports (2026-07-14)** with real
   logged sessions (incl. cardio). Best fixtures to load into the app and test against.
-- `claude-code-handoff.md` — this brief.
+- `claude-code-handoff.md` - this brief.
 
 ## Current features (all working)
 - Two-person toggle (Daniel / Cerys); editable names + bodyweight in a settings dialog.
@@ -52,17 +52,17 @@ phone home screen.
 Import/export files use the same shape wrapped as `{version, exportedAt, people, weights, program, logs}`.
 
 ## Known constraints / context
-- Data is **per-device** — no cross-device sync. Daniel's phone and Cerys's phone keep
+- Data is **per-device** - no cross-device sync. Daniel's phone and Cerys's phone keep
   separate data; syncing is currently manual via Export/Import.
 - Everything is intentionally in one file so far. You may split it into sensible files
-  (e.g. index.html + app.js + styles.css) for maintainability — just keep it deployable as a
+  (e.g. index.html + app.js + styles.css) for maintainability - just keep it deployable as a
   **static site on GitHub Pages** unless we agree otherwise.
 
 ## Backlog (do in this order)
-1. **Make it an installable PWA** — add a web app manifest + service worker so it installs
+1. **Make it an installable PWA** - add a web app manifest + service worker so it installs
    from Safari/Chrome with its own icon, splash screen, standalone display, and **offline**
    support. This is the top priority.
-2. **(Optional) Live sync backend** — add a lightweight backend (e.g. Supabase/Firebase) so
+2. **(Optional) Live sync backend** - add a lightweight backend (e.g. Supabase/Firebase) so
    Daniel and Cerys see each other's logs automatically instead of manual Export/Import.
    Discuss approach before building; keep the front end able to work offline.
 3. **Additional requests from Daniel** (group and tackle in a sensible order):
@@ -90,7 +90,7 @@ Import/export files use the same shape wrapped as `{version, exportedAt, people,
 
    **Two people from one phone**
    - Allow switching to the other person's workout mid-entry **without erasing** already-entered,
-     unsaved data — so if only one phone is present, both people's sets can be entered. Keep a
+     unsaved data - so if only one phone is present, both people's sets can be entered. Keep a
      per-person draft of the in-progress form and restore it on toggle.
 
    **Sessions & timing**
@@ -112,7 +112,7 @@ Import/export files use the same shape wrapped as `{version, exportedAt, people,
    - Change running to track **speed and time** (proper running fields, not weight×reps).
    - Proper running/cardio tracking generally (distance, pace, time, ideally splits).
    - Investigate pulling running data from **Garmin** (Garmin Connect) into the cardio session.
-     Flag feasibility: likely needs Garmin API access/approval or a FIT/GPX import path — research
+     Flag feasibility: likely needs Garmin API access/approval or a FIT/GPX import path - research
      and propose an approach before building.
 
    **Appearance**
@@ -120,28 +120,28 @@ Import/export files use the same shape wrapped as `{version, exportedAt, people,
 
    **Sharing / sync**
    - Be able to share workouts / have logs accessible to both people. Ties into the live-sync
-     backend in item 2 above — the two are the same underlying feature.
+     backend in item 2 above - the two are the same underlying feature.
 
-4. **Extra ideas suggested by Claude (optional — Daniel to prioritise):**
-   - **Rest timer between sets** — auto-start a short countdown when a set is ticked complete;
+4. **Extra ideas suggested by Claude (optional - Daniel to prioritise):**
+   - **Rest timer between sets** - auto-start a short countdown when a set is ticked complete;
      pairs naturally with the completed-set tickbox.
-   - **Warm-up set flag** — let a set be marked as a warm-up so it's **excluded from volume
+   - **Warm-up set flag** - let a set be marked as a warm-up so it's **excluded from volume
      totals and PR detection**. Fixes warm-up sets inflating volume/PRs (a real issue today,
      especially with imported Hevy data).
-   - **In-app Hevy CSV import** — parse a Hevy CSV/TSV directly in the app (map exercise names,
+   - **In-app Hevy CSV import** - parse a Hevy CSV/TSV directly in the app (map exercise names,
      convert units) so future Hevy history imports need no external help.
-   - **Bodyweight history** — log bodyweight over time with a trend chart, rather than storing a
+   - **Bodyweight history** - log bodyweight over time with a trend chart, rather than storing a
      single current value (a bodyweight field already exists).
-   - **Estimated 1RM per lift** — compute e1RM (e.g. Epley) and chart it; a better progress
+   - **Estimated 1RM per lift** - compute e1RM (e.g. Epley) and chart it; a better progress
      signal than top-set weight alone.
-   - **Records / PR page** — a per-person list of current bests per exercise.
-   - **Data-loss protection** — `localStorage` can be wiped by the browser/OS, which would lose
+   - **Records / PR page** - a per-person list of current bests per exercise.
+   - **Data-loss protection** - `localStorage` can be wiped by the browser/OS, which would lose
      all history. Add an automatic periodic export/backup (or rely on the sync backend) so data
      can't silently vanish. Worth prioritising given everything is local today.
    - **kg / lb unit toggle** (per person).
-   - **Weekly view** — accumulated weekly volume and a weekly muscle heatmap (extends the
+   - **Weekly view** - accumulated weekly volume and a weekly muscle heatmap (extends the
      per-session muscle map already in the save popup).
-   - **Plate calculator** — for barbell lifts, show which plates to load for a target weight.
+   - **Plate calculator** - for barbell lifts, show which plates to load for a target weight.
 
 ## Deployment
 Static site. Host on GitHub Pages (serve `index.html` at the repo root). Keep it working as a

@@ -1,4 +1,4 @@
-# Training Tracker — project status & handoff
+# Training Tracker - project status & handoff
 
 **Read this first if you're picking the project up in a new chat.** It captures everything built,
 how it's set up, the decisions behind it, and what's left. Pair with `CLAUDE.md` (conventions) and
@@ -51,12 +51,12 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   per set**, and **superset/circuit grouping** (see the roadmap section for what shipped).
 - `CACHE_NAME` is now `tt-v68`.
 
-**Backlog session (2026-07-28)** — six in-app suggestions cleared, all deployed:
+**Backlog session (2026-07-28)** - six in-app suggestions cleared, all deployed:
 - **Log form no longer loses entries.** A sync landing mid-workout re-rendered the form without
   capturing it (that's the "adding a suggestion resets the workout entries" report), and drafts were
   memory-only so a phone discarding the page reloaded into an empty form (the "cleared randomly"
   one). Drafts + timers now persist (see the file map) and every re-render path captures first.
-- **Number pad on every numeric column** (`colInputMode`), not just lifting ones — lunges'
+- **Number pad on every numeric column** (`colInputMode`), not just lifting ones - lunges'
   *Distance (m)* used to pop the text keyboard. *Time*/*Pace*/*Notes* deliberately still don't.
 - **🔧 machine settings are shown on the exercise** when set, instead of only after tapping.
 - **Per-session 🔥 warm-up / 🧊 cool-down notes** (`session.warmupNote`/`cooldownNote`), written in
@@ -64,7 +64,7 @@ that show in the app. Coaching happens in a **separate Claude Code chat** - see
   session.
 - Then, after Daniel picked between the options: **➕ Add an exercise for today** (Tom's suggestion -
   add rather than swap) and **per-exercise load types** so bodyweight and assisted movements score
-  by what they actually load. Both shipped the same day — see "Build order remaining" items 7 & 8.
+  by what they actually load. Both shipped the same day - see "Build order remaining" items 7 & 8.
   `CACHE_NAME` is now `tt-v82`.
 
 **Warm-up/cool-down rollout + program sync (2026-07-29):**
@@ -464,14 +464,14 @@ stopwatch.** Three suggestions were open; one was discarded, two built.
   numbers, for the record if it comes back: it would have taken Lower 2 from 8 exercises to 6 and
   Lower 1 from 7 to 8, moving the overrun onto Friday rather than removing it.
 
-**2026-08-01 — ⚡ Last intervals reports a pace, not a speed.** The two Home cardio cards sat side by
+**2026-08-01 - ⚡ Last intervals reports a pace, not a speed.** The two Home cardio cards sat side by
 side reporting the same thing in different units (`best 13 km/h` vs `best 5:22/km`), so comparing
 them meant doing 60/x in your head. `bestSpeedFromEntry()` now converts when the column's unit is
 km/h (`Hard speed (km/h)` → `best 4:37/km`); **any other unit still falls back to the raw number**
 (mph, a machine `(level)`, no unit at all) since 60/x is only right for km/h. Daniel picked pace
 alone over showing both. In-app suggestions backlog was empty this session. `CACHE_NAME` → tt-v91.
 
-**2026-08-11 — cardio gets a coach, a stated limiter, and honest interval data.** Backlog: notes
+**2026-08-11 - cardio gets a coach, a stated limiter, and honest interval data.** Backlog: notes
 are now editable after saving (from History), Program-tab buttons are uniform, and the wrap bug
 behind "the buttons still aren't uniform" is fixed - `.row` inherits `flex-wrap:wrap`, so a long
 title stole the buttons' width and pushed Delete under View. The 30-day export nudge is skipped
@@ -557,7 +557,7 @@ when cloud sync is on (sync already backs up off-device); it still fires for loc
   don't coach toward it and don't read a flat scale as a problem. Live focus is
   `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`.
 
-**2026-08-12 — surveyed everything Garmin holds, then extracted the useful half.** Backlog: the
+**2026-08-12 - surveyed everything Garmin holds, then extracted the useful half.** Backlog: the
 session notes box at the bottom of the log form now grows to fit (it was the only textarea without
 `autoGrow`), and **RPE reaches lunges** - the gate was `isLifting || isGarminCardio`, both of which
 need a Reps or a Time column, so `Walking/sandbag lunges` (Weight + Distance) had none. Now
@@ -947,7 +947,7 @@ built. That is the shape suggestion `1786995006416` is asking to formalise.
   the note-sync fix landing from another chat in parallel - **check `sw.js` before assuming the next
   number is free.**
 
-**2026-08-17 — backlog session: two cleared, one dropped, three left for Daniel.** Of six items in
+**2026-08-17 - backlog session: two cleared, one dropped, three left for Daniel.** Of six items in
 the 💡 backlog, **none were safe to auto-apply** - every one had more than one reasonable reading,
 wrote to shared data, or was gated on approval. So they were put to Daniel first, and two built:
 - **Per-exercise coaching notes are now asked to be a note, not a cue** (`1786488544590`). Confirmed
@@ -979,7 +979,7 @@ wrote to shared data, or was gated on approval. So they were put to Daniel first
   export of raw logs, or selective export by person/date range.
 - **Two left needing a decision, both "the coach writes to the program"** - see the section below.
 
-**2026-08-03 — the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
+**2026-08-03 - the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
 app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
 cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
 heaviest session comes off two rest days; Lower 1 (leg press/RDL) took Friday.
@@ -1141,11 +1141,11 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   `docs/prompts/coaching.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
 
 ## File / architecture map
-- `index.html` — markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
+- `index.html` - markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
   weekly heatmap).
-- `css/styles.css` — all styling; theme via CSS vars (`--bg/--card/--card-2/--input-bg/--ink/
+- `css/styles.css` - all styling; theme via CSS vars (`--bg/--card/--card-2/--input-bg/--ink/
   --muted/--line/--brand/--brand-soft/--musc-*`).
-- `js/app.js` — single module. State + migration (`load`/`save`; `state = {people, weights, goals,
+- `js/app.js` - single module. State + migration (`load`/`save`; `state = {people, weights, goals,
   bodyweights, activePerson, program, logs, theme}`). Tabs render into `#view`: `renderLog`,
   `renderHistory`(+week summary), `renderProgress`(+records), `renderRun`, `renderBody`,
   `renderEdit`, `renderHelp` - the last three are the `progressPane` toggle inside Progress
@@ -1157,12 +1157,12 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   `muscleColor`/`paintMuscleMap`, and the Garmin read side (`garminLine`, `intervalStructureText`,
   `repTableHtml`, `RUN_METRICS`/`drawRunChart`, `recoveryCardHtml`, `hrZonesCardHtml`). `formDrafts` + `sessionTimers` (the in-progress log form) persist
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
-  after 12h — deliberately **not** part of the export/sync payload.
-- `sw.js` — service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
+  after 12h - deliberately **not** part of the export/sync payload.
+- `sw.js` - service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
   change to a cached file.** Currently `tt-v117`.
-- `manifest.webmanifest`, `icons/` — PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
-- `mcp-coach/` — Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
-- `mcp-garmin/` — Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
+- `manifest.webmanifest`, `icons/` - PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
+- `mcp-coach/` - Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
+- `mcp-garmin/` - Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
   `sample-activity.json`). Reads runs from Garmin Connect + imports one into the shared store;
   maps a Garmin activity → the app's run-log shape. Same stdlib GitHub read/write as `mcp-coach`;
   `garminconnect` imported lazily so `--selftest` runs without it. Extraction lives in
@@ -1171,17 +1171,17 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   write can retry and must never re-fetch. CLI: `--sync` (hourly, cheap), `--hrzones`, `--refresh`
   (already-linked sessions), `--wellness` (overnight). What each field means is documented in
   `mcp-garmin/README.md` → *What gets attached to a session*.
-- `scratchpad/probe_garmin{,2,3}.py` — read-only surveys of what a Garmin account actually holds.
+- `scratchpad/probe_garmin{,2,3}.py` - read-only surveys of what a Garmin account actually holds.
   Worth keeping: they're how the wear-time and VO₂max dead ends above were established, and re-running
   one is cheaper than re-deriving it. Their output is gitignored (heart rates, profile ids).
-- `docs/` — `github-sync-setup.md`, `running-import.md`, `hub-and-coaching.md`, this file.
-- `sample-daniel.json` / `sample-cerys.json` — **gitignored** real exports, local test fixtures only.
+- `docs/` - `github-sync-setup.md`, `running-import.md`, `hub-and-coaching.md`, this file.
+- `sample-daniel.json` / `sample-cerys.json` - **gitignored** real exports, local test fixtures only.
 
 ## Setup to switch things on (done by Daniel; I don't handle tokens)
-1. **Cloud sync** — gear → Cloud sync (GitHub): repo `Daniel0469/Training-Data`, a fine-grained
+1. **Cloud sync** - gear → Cloud sync (GitHub): repo `Daniel0469/Training-Data`, a fine-grained
    token with Contents: read & write on that repo, then **Sync now**. Repeat on Cerys's phone. See
    `docs/github-sync-setup.md`.
-2. **Claude coaching** — `python -m pip install mcp`, set `TT_GITHUB_REPO=Daniel0469/Training-Data`
+2. **Claude coaching** - `python -m pip install mcp`, set `TT_GITHUB_REPO=Daniel0469/Training-Data`
    + `TT_GITHUB_TOKEN` (read), add the server to Claude Desktop/Code. See `mcp-coach/README.md`.
 
 ## Decisions (so they're not relitigated)
@@ -1204,27 +1204,27 @@ break something.**
   a cardio session flags it (`garminWanted`); a scheduled `python mcp-garmin/server.py --sync
   <server>` on the laptop links that day's run and the app auto-syncs on open. It's deterministic
   Python (garminconnect + GitHub), so it doesn't use Claude and costs nothing. **Only remaining
-  step to make it hands-free: add the Windows Task Scheduler job(s)** — see `mcp-garmin/README.md`.
+  step to make it hands-free: add the Windows Task Scheduler job(s)** - see `mcp-garmin/README.md`.
   Caveat: runs when the laptop is on (the phone can't reach Garmin itself; slight delay also helps,
   since the watch uploads a few min after you finish).
 - **Coaching:** ✅ **scheduled since 24 Sep 2026** - see *Automation to-do* item 2. The coaching
   chat stays for anything beyond notes and suggestions. *(Superseded plan, kept for the record:)*
-  **semi-auto** (open the coaching chat weekly, paste the prompt — free, on the
-  subscription, keeps a human in the loop while calibrating). **Later, optional — fully hands-free
+  **semi-auto** (open the coaching chat weekly, paste the prompt - free, on the
+  subscription, keeps a human in the loop while calibrating). **Later, optional - fully hands-free
   costs money:** a weekly **GitHub Action** calling the Anthropic API (a scheduled job can't use the
   subscription). Est. **pennies/run, well under £1/month**: ~£0.30–0.60/mo on Sonnet 5, ~£0.50–1.00
-  on Opus 4.8, weekly, depending on how much history it reads. Real tradeoff isn't the money — it
+  on Opus 4.8, weekly, depending on how much history it reads. Real tradeoff isn't the money - it
   pushes coaching to the phones **without Daniel reviewing it first** (lower stakes than code; a bad
   cue is ignorable, not app-breaking).
 - **Code fixes / self-improvement:** **semi-auto now** (in-app 💡 suggestions sync to the backlog;
   a dev chat reads them via the `suggestions` MCP tool, auto-applies easy fixes, consults on hard).
-  **Later, optional:** a scheduled agent that opens **pull requests for Daniel to review/merge** —
+  **Later, optional:** a scheduled agent that opens **pull requests for Daniel to review/merge** -
   *not* auto-push to the live app. Deliberately keep a human merge gate (code deploys to both
   phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
 
 ### Automation to-do (on the plan)
 The two "make it hands-free" jobs:
-1. **Garmin auto-schedule (Daniel):** ✅ **DONE — Windows Task Scheduler task "TT Garmin sync
+1. **Garmin auto-schedule (Daniel):** ✅ **DONE - Windows Task Scheduler task "TT Garmin sync
    (Daniel)" is live** (runs `python mcp-garmin/server.py --sync training-garmin`; verified,
    LastResult 0). **Free.** Cadence: **hourly all day Wed + Sat, and hourly 00:00–05:00 Thu + Sun**
    (the 05:00 cutoff matches the app's ~5am training-day rollover, so a cardio session that spills
@@ -1233,13 +1233,13 @@ The two "make it hands-free" jobs:
    or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys: Garmin fully set up DONE**
    (2026-07-19). Session cached at `~/.garminconnect-cerys` via
    `python server.py --login training-garmin-cerys` (verified it read a recent activity), **and the
-   Task Scheduler job "TT Garmin sync (Cerys)" is live** — an exact clone of Daniel's (hourly Wed/Sat
+   Task Scheduler job "TT Garmin sync (Cerys)" is live** - an exact clone of Daniel's (hourly Wed/Sat
    all day + Thu/Sun 00:00–05:00), running `--sync training-garmin-cerys`; verified with a manual run
    (`ok:true`, nothing pending). Remove with `schtasks /Delete /TN "TT Garmin sync (Cerys)" /F`. Both
    people are now on the hands-free Garmin auto-link.
-   NB: signing in took several tries — Garmin **429-rate-limits** repeated `--login` attempts; what
+   NB: signing in took several tries - Garmin **429-rate-limits** repeated `--login` attempts; what
    unblocked it was Cerys logging into connect.garmin.com in a browser on the laptop (cleared a
-   verification challenge) plus fixing a library-API break — see `mcp-garmin/README.md`
+   verification challenge) plus fixing a library-API break - see `mcp-garmin/README.md`
    → *Troubleshooting sign-in*.
 2. **Hands-free coaching:** ✅ **DONE 24 Sep 2026 - free, on the subscription.** The GitHub Action
    plan above is dropped: a Claude desktop-app **scheduled task, `weekly-coach`**, runs **Fridays
@@ -1255,14 +1255,14 @@ The two "make it hands-free" jobs:
    Friday with new sessions.
 
 ## Build order remaining (each stops for review)
-1. **Garmin MCP** — ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
+1. **Garmin MCP** - ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
    (community `garminconnect`) so Claude reads your runs and can **import a run into the app** (it
    lands in History like any session; merges by Garmin activity id, no dupes). Reading needs only a
    Garmin login; importing also needs the `TT_GITHUB_*` store token (Contents: read+write).
    - **Auto-link on cardio days:** saving a cardio/running session tags it `garminWanted` (shown as
      *⌚ awaiting run…*). A scheduled `python server.py --sync <server>` (or the `garmin_fill_pending`
      tool) matches that day's Garmin run by person+date and **enriches the logged session** with HR,
-     cadence, elevation, calories, moving time, training effect, VO₂max + per-km split HR — **never
+     cadence, elevation, calories, moving time, training effect, VO₂max + per-km split HR - **never
      overwriting** entered data. Shows as a **⌚ Garmin** line in History. `--sync <server-name>`
      reads that server's creds from `.mcp.json` (needs `TT_PERSON` in its env); schedule via Windows
      Task Scheduler (it no-ops when nothing's pending, so hourly is cheap). Verified in-browser
@@ -1277,48 +1277,48 @@ The two "make it hands-free" jobs:
      home server) will capture meals by barcode/camera and write them to the shared `data.json`;
      this app displays them and feeds them to the coach. Contract + tracker-side work in
      `docs/home-hub-link.md`. Nothing built yet.
-   - **Home dashboard — ✅ built.** New **Home** tab (`renderHome`), now the app's default landing.
+   - **Home dashboard - ✅ built.** New **Home** tab (`renderHome`), now the app's default landing.
      Per active person: greeting + today's session (with a **Log it** shortcut), 🧠 Coach card,
      stat tiles (sessions + volume this week, latest bodyweight with trend arrow, total sessions),
      last session (with 🥇 + Garmin status), last run (km/time/HR), a bodyweight-trend mini-chart,
      and goals. Reuses existing helpers; arrows jump to History/Body. Verified light+dark, nav works,
      no console errors. `.tile`/`.tiles` CSS themed via vars. `CACHE_NAME` → tt-v31; Guide updated.
-   - **Scale input via phone screenshot — PARKED for the hub (re-confirmed 2026-08-11).** Daniel
+   - **Scale input via phone screenshot - PARKED for the hub (re-confirmed 2026-08-11).** Daniel
      logs bodyweight from a **screenshot of his scale app**, and wants the screenshot to capture
-     **more than bodyweight** (body fat, muscle mass, water, etc. — the whole readout). Designed
+     **more than bodyweight** (body fat, muscle mass, water, etc. - the whole readout). Designed
      this out on 11 Aug and then parked the capture half: it stays the **hub's** job, as
-     `docs/home-hub-link.md` already assigns it. **Don't redesign it from scratch next time** —
+     `docs/home-hub-link.md` already assigns it. **Don't redesign it from scratch next time** -
      the findings below are settled:
      - **Daniel's preferred shape:** upload the screenshot from the phone → Claude reads it on the
        laptop → metrics land in the app. **Verified viable end to end**: `mcp.server.fastmcp.Image`
        takes raw `bytes` + `format`, so an MCP tool can hand Claude the image and its vision reads
        it. Upload rides the existing sync token via the GitHub Contents API.
-     - **Three costs, all real:** (1) it is **not instant** — nothing happens until someone opens a
+     - **Three costs, all real:** (1) it is **not instant** - nothing happens until someone opens a
        Claude chat, so the app needs a *"⏳ waiting to be read"* state mirroring `garminWanted`;
        (2) **git keeps every blob forever**, so the repo only grows (~150KB compressed × 2 people ×
        ~2/week ≈ 30MB/year; sync is unaffected, it fetches only `data.json`); (3) it **needs cloud
        sync configured**, so a local-only install can't use it and still needs typed entry.
-     - **A fourth mechanism nobody had considered, worth revisiting:** don't read the image at all —
+     - **A fourth mechanism nobody had considered, worth revisiting:** don't read the image at all -
        **the phone already has OCR**. iOS Live Text / Android Lens select-and-copy the text out of
        the screenshot; the app then parses *pasted text* with a regex, like `importBodyweightCsv`
        already does for CSV. No dependency, offline, on-phone, and robust to the scale app
        redesigning. Its weakness is that OS-OCR ordering of ~10 labelled values can be messy to
        parse reliably, which is the main argument for Claude's vision instead.
      - **Still standing:** no heavy in-app OCR (Tesseract.js is a 2-15MB wasm dependency against a
-       codebase whose only dependency is Chart.js) — see the scale decision below.
+       codebase whose only dependency is Chart.js) - see the scale decision below.
      - **Routes already ruled out, don't retry them:** 1byone has **no web portal and no public
-       API** (mobile app only), so nobody can log in and read it — not Claude, not a script. The
+       API** (mobile app only), so nobody can log in and read it - not Claude, not a script. The
        app *does* sync to **Apple Health / Google Fit / Fitbit**, and Garmin exposes exactly the
        readout wanted (`get_body_composition` → weight, BMI, body fat, body water, bone mass,
-       muscle mass, physique rating, visceral fat, metabolic age) — but **Garmin will not pull
+       muscle mass, physique rating, visceral fat, metabolic age) - but **Garmin will not pull
        weight from Apple Health** (Daniel confirmed, 2026-08-11), so that chain is dead. Verified
        separately that Daniel's Garmin holds **0 body-composition measurements** for May–Aug 2026.
      - **Cheapest thing to retry first:** the 1byone **CSV export**, which the app documents as
-       including BMI and water weight. It's recorded as "doesn't work", but that's an old note —
+       including BMI and water weight. It's recorded as "doesn't work", but that's an old note -
        and `importBodyweightCsv` already exists, so widening it past date+weight would be small.
      - **Open schema, deliberately:** because Claude reads whatever labels are on the screenshot,
        the record should be `{person, date, metrics:{label:{value,unit}}}` rather than a fixed
-       column list — nobody has to enumerate the scale's readout up front, and it adapts per model.
+       column list - nobody has to enumerate the scale's readout up front, and it adapts per model.
      - **Bodyweight must keep living in `state.bodyweights`** whatever gets built. `setLoad`,
        `personRecords`, Home's tiles and the coach all read it; a new metrics record writes
        *through* to `addBodyweight` rather than forking it.
@@ -1437,10 +1437,10 @@ a small build. Answering the first largely settles the second:
   `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*` -
   most recently `garmin_refresh_metrics` and `garmin_wellness`, added 12 Aug).
 - **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
-  (answers MFA), then register the `training-garmin` server — see `mcp-garmin/README.md`.
-- **Set goals** — **Daniel's are now set** (sub-20 5k, 100kg bench, 200kg squat, 200kg deadlift, as
+  (answers MFA), then register the `training-garmin` server - see `mcp-garmin/README.md`.
+- **Set goals** - **Daniel's are now set** (sub-20 5k, 100kg bench, 200kg squat, 200kg deadlift, as
   of 2026-07-30). **Cerys's are still blank**, which makes her coaching weaker.
-- **Cerys has no bodyweight recorded** (0 weigh-ins, blank in Settings) — needed for her pull-up
+- **Cerys has no bodyweight recorded** (0 weigh-ins, blank in Settings) - needed for her pull-up
   scoring to work at all, and for any future bodyweight/assisted exercise. One entry on the Body
   tab fixes it retrospectively, since bodyweight is looked up per session date.
 - **The two cardio sessions still carry `Warm-up jog` / `Warm-up` / `Cooldown` as logged
