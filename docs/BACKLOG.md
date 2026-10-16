@@ -6,6 +6,28 @@ lands here instead.
 
 ---
 
+## Idea: 16 Oct 2026 - public Play Store edition (CV project, not scheduled)
+
+Raised by a friend; Daniel's reason for wanting it is the CV ("shipped a Play Store app with real
+users"). Parked as an idea, not committed work. Final year comes first.
+
+- [ ] **A separate public edition, built from the same code.** Daniel's and Cerys' version stays
+      exactly as it is. The public one drops what only works for two people:
+      - **Sync:** GitHub-repo-as-database can't be asked of strangers. Replace with Supabase
+        (Postgres + auth + row-level security, plain fetch from vanilla JS, no build step).
+        Free tier is ample but pauses after 7 days idle and has no automatic backups.
+      - **AI coach:** runs on Daniel's laptop and subscription, so it does not ship. The public
+        edition is the logger (PRs, supersets, RPE, run import and analysis) without the coach.
+      - **Garmin:** personal logins only; public users would need Garmin's developer programme.
+        Leave out of v1.
+      - **Store:** wrap the PWA as a Trusted Web Activity (Bubblewrap / PWABuilder). A new
+        personal Play account needs a closed test with 12+ testers opted in for 14 continuous
+        days before production access; recruit more than 12, since dropping below resets the clock.
+      - **Obligations:** strangers' health data makes Daniel the controller under UK GDPR, so a
+        privacy policy, account deletion, and the Play data-safety form are required.
+
+---
+
 ## Batch: 7 Sep 2026 - week 1 review, off the run prescriptions
 
 Raised while Daniel reviewed the first outdoor week in the browser. The four run sessions were
