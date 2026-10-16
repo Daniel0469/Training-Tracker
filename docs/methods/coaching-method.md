@@ -321,6 +321,23 @@ What was removed on 2026-09-02, so you can recognise an accidental restoration:
 - The adductor traffic light (green/amber/red), out of both Lower warm-ups.
 - The leg press, squat and flat press ramps, out of the notes - each is already on its exercise card.
 
+What was removed on 2026-10-16, when Daniel slimmed the notes himself ("this is how it should be")
+and the run and mobility notes were cut to match:
+
+- From the lifting warm-ups: the band-complex explanation (it is just "Band complex - N reps"),
+  every "ramp the first lift" line, the Lower A shoulder block (pull-aparts, rack holds), the
+  Lower B bar-only hinges, and the intro sentence on Upper B.
+- From the lifting cool-downs: "Short on purpose..." and the "5 breaths" line on both Lowers.
+- From the run notes: every dated story ("on 26 August..."), every "NEW, AND IT TAKES FIVE
+  SECONDS" and "WHY THE WARM-UP IS NOT IN THE PROGRAM" paragraph, the lecture-day start-time
+  table (cut to one line) and the space-aligned block tables (now `- ` lines).
+- From the mobility notes: the "WHAT IS DELIBERATELY NOT HERE" paragraphs and every line
+  explaining why a warm-up or cool-down is shaped as it is.
+
+**Shape of every note from now on: instructions only.** What to do, the dose, and a cue where a
+move is easy to get wrong. Reasoning goes in the method files and the coach summary, never in the
+note - it is read between sets.
+
 **Equally, do not overwrite what was moved INTO coaching.** The Cerys cautions on Lower 1, Lower 2,
 Upper 1, Upper 2, Cardio: Endurance + Core and Run: Cerys, and the adductor red flags on both Lower
 sessions for both people, now live in `coaching.bySession` because that is the only place they are

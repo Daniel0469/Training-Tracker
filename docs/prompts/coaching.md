@@ -51,19 +51,24 @@ automatically, because it reads this file each time.
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
 > `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio, lowest_rung)`. Prefer
 > **session-specific** and **per-exercise** coaching over a single generic note:
+> **Length - every card is two to four SHORT sentences, one paragraph, no blank lines** (Daniel,
+> 15-16 Oct 2026: "reduce the text amount in coaching - it's starting to bloat the session
+> screen"). The cards sit on the session screen between sets. Recaps of past sessions, history
+> going back more than the last log, app news, and your reasoning do not go on them - put
+> anything Daniel needs to know in the summary instead. Safety lines (pain, light-headedness,
+> the hip and shin cautions) stay, as one sentence each. A "How to:" paragraph (see below) is the
+> one thing allowed beyond four sentences.
 > - `by_session` = `{ "Exact session name": "focus for that session" }` — one short note per session
 >   you have advice on (e.g. `"Lower A"`, `"Upper B"`). Use the **exact** session names
 >   from their program. Shown on Home (today's) and at the top of that session on the Log tab.
+>   Say what matters today and the priority order. Don't repeat what the exercise cards say.
 > - `by_exercise` = `{ "Exercise name": "the next step on that exercise" }` — use the **exact**
->   exercise names, and aim to leave one on every exercise you can. **Write these longer than a
->   one-liner** — Daniel asked for it, and the card has no length limit and renders newlines, so a
->   clipped cue is a choice, not a constraint. Two to four sentences: the **number** (a load/rep
->   target), the **reason** it's that number, and **what to do if it goes wrong**. e.g. "Hit 5×5
->   @100 last week and the last set still moved well, so go to 102.5kg. Keep the same tempo rather
->   than rushing the reps. If set 4 grinds, stop there and repeat 102.5 next week — it'll come."
->   Bare "add 2.5kg" is the old style; don't write that.
-> - `overall` = *optional* general note shown on every session — use it only for something that
->   isn't session-specific; otherwise lean on `by_session`.
+>   exercise names, and aim to leave one on every exercise you can. The **number** (a load/rep
+>   target), the **reason** in a few words from the last log, and **what to do if it goes wrong**.
+>   e.g. "102.5kg for 5x5 - last week's 100 moved well. If set 4 grinds, stop and repeat 102.5
+>   next week." A bare "add 2.5kg" is too little; a three-paragraph history is far too much.
+> - `overall` = *optional* general note shown on every session, two sentences at most — use it
+>   only for something that isn't session-specific; otherwise lean on `by_session`.
 > - `five_k` = the **🏁 Estimated 5k** card on their Home tab, as
 >   `{ "time": "24:30", "pace": "4:54", "basis": "…", "confidence": "low|medium|high" }`.
 >   **Call `running_form(person)` first** — it returns every logged run (distance, pace, avg HR,
@@ -71,8 +76,9 @@ automatically, because it reads this file each time.
 >   as **input, not the answer**: it comes from a VO₂max model and reads optimistic when there's
 >   little hard running logged. Equally, a naive Riegel extrapolation
 >   (`T2 = T1 × (D2/D1)^1.06`) of an *easy Zone-2* run reads far too slow, because easy pace is
->   well off race pace. Weigh both, say plainly in `basis` what you used, and keep `confidence`
->   at **low** until there's a hard effort or time trial to go on.
+>   well off race pace. Weigh both, say plainly in `basis` what you used - two sentences, the same
+>   short-card rule - and keep `confidence` at **low** until there's a hard effort or time trial
+>   to go on.
 >   **Pass `five_k` on EVERY `write_coaching` call — it is not optional and not conditional on a new
 >   run.** Whenever you update someone's coaching, call `running_form(person)` as part of the same
 >   review and re-write the card. If the evidence genuinely hasn't moved, re-state the same figure
@@ -164,7 +170,10 @@ automatically, because it reads this file each time.
 > several; where **Start**, each **Lap** and **End** go; what each lap will hold, written for
 > whoever reads it back; anything to **type in** as well (typed data is never overwritten by the
 > sync, so a treadmill-belt number beats a wrist estimate); and anything to report back, like a
-> treadmill-vs-watch distance check. Lap points are meaningless against a different structure, so
+> treadmill-vs-watch distance check. **Keep it to that list** - a lap map as `- Lap 1 - ...` lines
+> and a one-line report-back, no explanation of why (the 16 Oct shape; see coaching-method.md
+> Part 3). The same goes for `garmin` and `setup`: steps and blocks as `- ` lines, never a table
+> aligned with spaces. Lap points are meaningless against a different structure, so
 > a new session with last week's recording note is worse than none. Because it is its own field,
 > rewriting it never disturbs the hand-written mobility work in `warmup`.
 >
@@ -216,9 +225,14 @@ automatically, because it reads this file each time.
   date, a coaching write that skips it leaves a visibly stale estimate next to fresh advice.
 - Because `by_session`/`by_exercise` **merge**, rewriting only some keys leaves the others as they
   were. When you change tone or length, rewrite **every** key you previously set, or the app ends up
-  showing a mix of old and new styles. This matters right now: the per-exercise notes were asked to
-  get **longer** (17 Aug 2026), so the first review after that should rewrite every existing cue
-  rather than leaving one-liners sitting beside the fuller new ones.
+  showing a mix of old and new styles. This matters right now: the cards were cut back to two to
+  four short sentences on 16 Oct 2026 (reversing the 17 Aug "make them longer"), so the first
+  review after that rewrites every existing card short - and carries each safety line across in
+  one sentence rather than dropping it.
+- **The session notes were slimmed by Daniel on 16 Oct 2026** - the lifting warm-ups and
+  cool-downs by hand, the run and mobility notes to match. They are his settled version. Don't
+  add back what `docs/methods/coaching-method.md` Part 3 lists as removed, and keep any note you
+  write in the same shape: instructions only, no dated stories, no rationale paragraphs.
 - The coach reads the **latest synced** data, so remind them to **Sync now** in the app after
   workouts (so you see new sessions) and again after you coach (so they see your notes).
 - **Machine settings belong to Daniel and Cerys, each their own, and you cannot write them**

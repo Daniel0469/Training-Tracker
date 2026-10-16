@@ -1844,7 +1844,13 @@ def _register(mcp):
         treadmill-vs-watch distance check. Because it is separate, rewriting it never
         touches the hand-written mobility work in `warmup`, and vice versa.
 
-        `why` is the reason, in a few sentences, and you should always pass it: it becomes
+        KEEP ALL FIVE SHORT - the 16 Oct shape (Daniel slimmed the notes and the run notes
+        were cut to match). Instructions only: steps and belt blocks as "- " lines, never a
+        table aligned with spaces; a lap map as "- Lap 1 - ..." lines; one report-back line.
+        No dated stories ("on 26 August..."), no "why" paragraphs - that reasoning goes in
+        `why` or the summary. docs/methods/coaching-method.md Part 3 lists what was cut.
+
+        `why` is the reason, in two to four short sentences, and you should always pass it: it becomes
         the coach note on that session, so they read it while they train, and it lands in
         the coaching history so the two of you can see whether the call worked.
 
@@ -1878,14 +1884,13 @@ def _register(mcp):
         today's; Log shows the open session's). Prefer this for session-level guidance.
         `by_exercise` = {exact exercise name: the next step on that exercise} shown on that
         exercise while they train. Give one per exercise you have advice on.
-        **Write a proper note, not a clipped cue.** Daniel asked for these to be longer: the
-        card has no length limit and renders newlines, so aim for two to four sentences and
-        use them to say the number, the reason, and what to do if it goes wrong - e.g.
-        "Hit 5x5 @100 last week and the last set still moved well, so go to 102.5kg. Keep
-        the same tempo rather than rushing to make the reps. If set 4 grinds, stop there and
-        repeat 102.5 next week - it'll come." A bare "add 2.5kg" is the old, too-terse style.
-        Multi-line is fine: use a newline between the target and a form cue if it reads better.
-        `overall` = an optional general note shown on every session.
+        **Keep every card to two to four SHORT sentences, one paragraph** (Daniel, 16 Oct:
+        the cards were bloating the session screen). The number, the reason from the last
+        log, and what to do if it goes wrong - e.g. "102.5kg for 5x5 - last week's 100 moved
+        well. If set 4 grinds, stop and repeat 102.5 next week." No recaps of older sessions,
+        no app news, no reasoning essays; safety lines stay, one sentence each. A "How to:"
+        paragraph is the only thing allowed beyond that.
+        `overall` = an optional general note shown on every session, two sentences at most.
         `five_k` = the estimated-5k card on Home, as
         {"time": "24:30", "pace": "4:54", "basis": "one line on what it's from",
          "confidence": "low" | "medium" | "high"}. Read running_form(person) first - it
