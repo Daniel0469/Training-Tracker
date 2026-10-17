@@ -38,11 +38,11 @@ treadmill on 14 September, so the table says belt, not pavement.
 
 | Day | Morning | Evening | Uni |
 |---|---|---|---|
-| **Mon** | yoga + **quality run**, belt | **Upper A** - bench led, farmers carry | - |
-| **Tue** | yoga | **Lower A** - hack squat led, sled push+pull | - |
+| **Mon** | yoga + **quality run**, belt | **Upper A** - bench led, up to ~95 min | - |
+| **Tue** | yoga | **Lower A** - hack squat led, sled push+pull, up to ~95 min | - |
 | **Wed** | yoga | **Mobility** - assessment wk 1, training after | 09:00-11:00 |
-| **Thu** | yoga + **Zone 2 run**, belt | **Upper B** - shoulder press led, ski/row | 14:00-16:00 |
-| **Fri** | yoga | **Lower B** - deadlift led, sandbag lunges | 14:00-16:00 |
+| **Thu** | yoga + **Zone 2 run**, belt | **Upper B** - shoulder press led, ski/row, 75 min cap | 14:00-16:00 |
+| **Fri** | yoga | **Lower B** - deadlift led, sandbag lunges, 75 min cap | 14:00-16:00 |
 | **Sat/Sun** | yoga | Shifts. Optional third easy run. | - |
 
 **Six sessions on four days**, plus Wednesday's mobility slot. Two days carry a morning run and an
@@ -97,17 +97,20 @@ still points at the right place.
 | Weekend run (optional) | **Optional easy run** | Any |
 | Mobility assessment | unchanged, re-dayed | Wed, week 1 |
 
-**Lower A** back squat (technique, 2x5 light) · hack squat · Romanian deadlift · sled push+pull ·
-single-leg seated leg curl · leg press calf raise · hip abduction (light) · back extension
+As of the **17 October trim** (see "The trim, 17 October" below; sets in brackets):
 
-**Upper A** bench press · pull-ups · incline DB press · seated cable row · farmers carry · face pull
-· triceps pushdown · Pallof press
+**Upper A** (Mon) bench press 3 · pull-ups 3 · incline DB press 3 · seated row 3 · face pull 2 ·
+triceps pushdown 2 · hammer curl 2 · Pallof press 2 · Russian twists 2
 
-**Upper B** shoulder press · pull-ups · ski erg / row · seated cable row · lateral raise · triceps
-pushdown · hammer curl · Russian twists
+**Lower A** (Tue) back squat (technique) 2 · hack squat 3 · Romanian deadlift 3 · sled push+pull 2 ·
+single-leg seated leg curl 2 each leg · leg press calf raise 2 · hip abduction 2 · back extension 2 ·
+dead bug 2
 
-**Lower B** deadlift · Bulgarian split squat · sandbag lunges · hip adduction (light) · standing calf
-raise · dead bug
+**Upper B** (Thu) shoulder press 3 · pull-ups 3 · cable crossover 2 · ski erg / row 4 · seated row 3 ·
+lateral raise 2 · triceps pushdown 2
+
+**Lower B** (Fri) deadlift 3 · walking/sandbag lunges 3 · hip thrust 3 · hip adduction 2 · Bulgarian
+split squat 2 each leg
 
 ### Decisions inside the sessions
 
@@ -125,8 +128,44 @@ raise · dead bug
 - **Pallof press** replaces the plank pull-through, which Daniel asked to switch on 26 August.
 - **Triceps pushdown left as-is** despite the 21 August left-elbow flag. Daniel's call; if it
   recurs it goes in a session note and gets swapped.
-- **No supersets yet.** They need the gym layout, which is not known. The plan is to add them after
-  the trial fortnight, when the real overruns are visible.
+- ~~**No supersets yet.**~~ **Ruled out 17 October:** they alternate sets on one station, so the
+  partner's set is the rest. A superset on top of that just doubles each person's wait.
+
+## The trim, 17 October
+
+**Why.** From 21 September to 15 October not one lifting session was finished; the tail was cut
+every time. That silently dropped the wrong things: farmers carry, ski/row, calf raises and cable
+crossover were never done once. Fitted across the 18 term-week logs, a session costs about
+**31 min fixed plus 3.2 min per working set** (two people alternating on one station, set-ups and
+re-plating included; an each-leg exercise counts double). So a 75 min session is about 14 sets and
+95 min about 20. As written, the sessions came out at 97 / 110 / 101 / 85 min (Upper A / Upper B /
+Lower A / Lower B).
+
+**The rule Daniel set.** The **B days carry the train** (Thu and Fri lectures, a commute either side)
+and get the hard cap, **75 min**. The **A days have no travel** (Mon and Tue, no uni) and can run to
+**~95 min**. So work moves from B to A rather than being deleted.
+
+**What changed** - Daniel's own edits, then the moves:
+
+- Upper A: farmers carry removed (Daniel's edit). Hammer curl and Russian twists moved in from Upper B.
+- Upper B: cable crossover 3 -> 2 sets, lateral raise 3 -> 2 (Daniel's edits). Hammer curl and
+  Russian twists moved out to Upper A.
+- Lower A: sled push+pull 4 -> 2 sets, each set being repeated out-and-back rounds (Daniel's edit).
+  Dead bug moved in from Lower B.
+- Lower B: dead bug moved out to Lower A.
+- Lower A and B warm-ups: glute bridge and adductor isometric removed (Daniel's edit). The minute
+  counts in their headers were not changed and now read about 3 min long.
+
+**Estimated now:** Upper A ~100 · Lower A ~100 · Upper B ~91 · Lower B ~78 min. **Moving alone does not
+reach the caps**, and Daniel knows it: his call was *"see how these go first, and if there is time to
+spare we can start adding things back in."* So the next decision is made on the timer, not on paper.
+
+**Costs, stated so a future chat does not rediscover them.** Losing farmers carry takes most of the
+week's grip and all its direct trap work, and one of the Hyrox stations out of the lifting. Cerys
+logged on 15 October that grip was what failed on her pull-ups. Glutes remain the most-trained muscle
+of the week and calves and side delts the least. Under consideration but **not done** (Daniel said
+moves only): the Upper B seated row and pushdown both duplicate Upper A, and the split squat stacks
+more glute work on the glute-heaviest day; those are the cheapest cuts if a B day is still over.
 
 ### Stations, and the honest limit
 
@@ -292,5 +331,7 @@ you finished, and whether you made the train. The open questions the fortnight e
   Zone 2 rather than Upper B while Monday opens Upper A - the assignment outranks the
   least-recently-done alternation. The next coaching write clears it.
 - **Weekend shift times**, which decide whether the optional third run has a home.
-- **Gym layout**, which blocks supersets.
+- ~~**Gym layout**, which blocks supersets.~~ Supersets ruled out 17 October - see "The trim".
+- **Whether the 17 October trim fits the clock.** Read the timer on the next two weeks of each
+  session against 75 min (B days) and ~95 min (A days) before adding or cutting anything.
 - **Wednesday's training content**, which waits on the assessment numbers.

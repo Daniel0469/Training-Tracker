@@ -261,4 +261,14 @@ automatically, because it reads this file each time.
   progressing (70kg 3x8 RPE 7, PR) so this is a per-person coaching call, NOT a program change -
   removing it from the shared Lower A would cost him his best lift. Ask each review whether the
   hips have been looked at.
+- **Session length is capped by day, since the 17 Oct trim** (`docs/term-routine.md`, "The trim,
+  17 October"). Thursday and Friday (Upper B, Lower B) are lecture days with a train: **75 min**.
+  Monday and Tuesday (Upper A, Lower A) have no travel: **~95 min**. Budget about 31 min fixed plus
+  3.2 min per working set (each-leg exercises count double). Estimates right after the trim:
+  Upper A ~100, Lower A ~100, Upper B ~91, Lower B ~78, so every session still runs over.
+  Daniel's plan is to **read the session timer for two weeks before adding or cutting anything**.
+  Don't propose additions to a B day. If a B day still overruns, the agreed next step is moving more
+  work to its A day, and Daniel asked for moves, not removals. Farmers carry was removed by Daniel's
+  own edit. Grip was what failed on Cerys's pull-ups on 15 Oct, so raise it once the timing is known.
+  Don't quietly re-add it.
 - Free: runs on the Claude subscription via MCP, no API billing.
