@@ -110,7 +110,7 @@ dead bug 2
 lateral raise 2 · triceps pushdown 2
 
 **Lower B** (Fri) deadlift 3 · walking/sandbag lunges 3 · hip thrust 3 · hip adduction 2 · Bulgarian
-split squat 2 each leg
+split squat 2 each leg · back extension 2
 
 ### Decisions inside the sessions
 
@@ -152,11 +152,12 @@ and get the hard cap, **75 min**. The **A days have no travel** (Mon and Tue, no
   Russian twists moved out to Upper A.
 - Lower A: sled push+pull 4 -> 2 sets, each set being repeated out-and-back rounds (Daniel's edit).
   Dead bug moved in from Lower B.
-- Lower B: dead bug moved out to Lower A.
+- Lower B: dead bug moved out to Lower A. **Back extension 2 added** (Daniel, same day), so it is
+  now in both lower sessions. With the deadlift that is a heavy lower-back day.
 - Lower A and B warm-ups: glute bridge and adductor isometric removed (Daniel's edit). The minute
   counts in their headers were not changed and now read about 3 min long.
 
-**Estimated now:** Upper A ~100 · Lower A ~100 · Upper B ~91 · Lower B ~78 min. **Moving alone does not
+**Estimated now:** Upper A ~100 · Lower A ~100 · Upper B ~91 · Lower B ~85 min. **Moving alone does not
 reach the caps**, and Daniel knows it: his call was *"see how these go first, and if there is time to
 spare we can start adding things back in."* So the next decision is made on the timer, not on paper.
 

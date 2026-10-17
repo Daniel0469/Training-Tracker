@@ -265,7 +265,8 @@ automatically, because it reads this file each time.
   17 October"). Thursday and Friday (Upper B, Lower B) are lecture days with a train: **75 min**.
   Monday and Tuesday (Upper A, Lower A) have no travel: **~95 min**. Budget about 31 min fixed plus
   3.2 min per working set (each-leg exercises count double). Estimates right after the trim:
-  Upper A ~100, Lower A ~100, Upper B ~91, Lower B ~78, so every session still runs over.
+  Upper A ~100, Lower A ~100, Upper B ~91, Lower B ~85 (back extension added there too on
+  17 Oct), so every session still runs over.
   Daniel's plan is to **read the session timer for two weeks before adding or cutting anything**.
   Don't propose additions to a B day. If a B day still overruns, the agreed next step is moving more
   work to its A day, and Daniel asked for moves, not removals. Farmers carry was removed by Daniel's
