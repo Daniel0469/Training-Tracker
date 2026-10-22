@@ -36,6 +36,20 @@ fine-grained token on that repo, or you share one - your call).
 - The **token is stored only on that device** and is **never** included in Export files.
 - It's still offline-first: sync is manual (tap **Sync now**); if offline it just retries next time.
 
+## Reinstalling the app, or a new phone
+
+Deleting the home-screen app wipes its local data (it happened on 13 Oct 2026), so **Sync now before
+removing it**. To get everything back:
+1. Open the site and **Add to Home Screen**. Do every step below **from that new icon**: on iPhone
+   the home-screen app and the browser tab keep separate storage.
+2. Create **both** accounts with the exact same names (`Daniel`, `Cerys`). History is matched by
+   name, and sync uploads the name list, so skipping one would drop it from the shared store.
+3. If the token went with the app, make a new fine-grained token as in step 2 above.
+4. Gear → Cloud sync: same repo, `data.json`, the token. **Save**, then **Sync now**. Sessions,
+   program, bodyweights and coaching come back. Check each person's bodyweight setting.
+5. No sync? Export from the other phone and Import / merge here with **"Also replace program &
+   names"** ticked.
+
 ## Notes / safety
 - A scoped fine-grained token limited to one private repo is the safe choice - if it ever leaks,
   it can only touch that one repo's contents.

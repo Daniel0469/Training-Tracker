@@ -1056,20 +1056,26 @@ function colLabel(c){
   return String(c).replace(/\s*\(mm:ss\)$/i,"");
 }
 
-function renderLog(){
+// Swapping person can leave you pointed at the other one's run session. Move to
+// the COUNTERPART - what this person does in that same slot - rather than to
+// whatever today's session is. They train together and swap names constantly, so
+// standing at the treadmill on Run: Daniel and tapping Cerys used to land on
+// Tuesday's Upper 1: a different workout entirely, which is what she reported.
+// Same day, preferring a session that's hers, then any she can log that day.
+// Called from renderView, so Home's Selected session card follows the active
+// person too - it used to show "Mobility: Cerys" on Daniel's Home (22 Oct).
+function followActivePerson(){
   const p = state.people[state.activePerson];
-  // Swapping person can leave you pointed at the other one's run session. Move to
-  // the COUNTERPART - what this person does in that same slot - rather than to
-  // whatever today's session is. They train together and swap names constantly, so
-  // standing at the treadmill on Run: Daniel and tapping Cerys used to land on
-  // Tuesday's Upper 1: a different workout entirely, which is what she reported.
-  // Same day, preferring a session that's hers, then any she can log that day.
   if(!ownsSession(curSession, p)){
     const day=(state.program.sessions[curSession]||{}).day;
     const sameDay=myKeys().filter(k=>(state.program.sessions[k]||{}).day===day);
     curSession = sameDay.find(k=>(state.program.sessions[k]||{}).person)
       || sameDay[0] || sessionForDate(curDate) || myKeys()[0] || curSession;
   }
+}
+function renderLog(){
+  const p = state.people[state.activePerson];
+  followActivePerson();
   const opts = myKeys().map(k=>{
     const s=state.program.sessions[k];
     return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(s.day)+'</option>';
@@ -2227,10 +2233,11 @@ function declineProgramChange(id){
   save(); autoSync(); renderView();
   toast("Declined - the coach can see that, and won't re-raise it");
 }
-// Which changes have already been put in front of someone this app session, so
-// opening the same session twice, or any of the re-renders a sync causes, doesn't
-// keep reopening the dialog. Keyed by change id, so a new change still interrupts.
-const pcSeen=new Set();
+// The session the dialog was last considered for, so the re-renders a sync or a
+// person switch causes don't keep reopening it. Cleared when you leave the Session
+// tab, and a different session is a new visit, so "Later" means "ask me again
+// next time I open this session" (Daniel, 22 Oct), not "never this app session".
+let pcVisit=null;
 // Coaching changes used to wait quietly in the Program tab and get missed, so a
 // session that has any says so when you open it (Daniel, 6 Oct).
 //
@@ -2243,9 +2250,10 @@ function maybeShowChangeDialog(sess){
   const dlg=document.getElementById("pcDlg");
   if(!dlg || dlg.open) return;
   if(formDrafts[draftKey()]) return;
-  const fresh=changesForSession(sess.name).filter(c=>!pcSeen.has(String(c.id)));
+  if(pcVisit===curSession) return;
+  pcVisit=curSession;
+  const fresh=changesForSession(sess.name);
   if(!fresh.length) return;
-  fresh.forEach(c=>pcSeen.add(String(c.id)));
   document.getElementById("pcDlgTitle").textContent =
     fresh.length>1 ? "Your coach has "+fresh.length+" changes" : "Your coach has a change";
   document.getElementById("pcDlgSub").textContent =
@@ -4035,7 +4043,7 @@ document.getElementById("importSessionConfirm").onclick=()=>{
 };
 const sessionDlg=document.getElementById("sessionDlg");
 // "Later" just closes it - the change stays pending in the Program tab, and
-// pcSeen stops it reopening every time the form re-renders.
+// pcVisit stops it reopening until the session is opened again.
 document.getElementById("pcDlgLater").onclick=()=>document.getElementById("pcDlg").close();
 document.getElementById("sessCancel").onclick=()=>sessionDlg.close();
 document.getElementById("sessSave").onclick=()=>{
@@ -4202,7 +4210,7 @@ function renderHelp(){
   h+=card('7 &middot; Edit the program',
       p('The week runs across the top as a row of <b>session chips</b> - name and day - that you can swipe sideways. <b>Tap a chip</b> to show that session underneath: its exercises with their targets, and the session actions (<b>+ Exercise</b>, <b>Group as superset</b>, <b>Session notes</b>, <b>Share</b>). It opens on today\'s session.')
      +p('If a coach proposes a change to your program - "bench press: 4 sets → 3" - it appears in a <b>Coach suggests</b> card at the top of that session, naming the exercise and giving the reason, and the exercise itself carries a <b>change waiting</b> tag. Nothing happens until you tap <b>Approve</b>. Approving makes the change and syncs it to both phones; <b>Decline</b> turns it down and the coach can see you said no, so it won\'t come back. A proposal to <b>remove</b> an exercise is marked in red - your past logs of it are kept either way, removing it only stops it being prescribed.')
-     +p('<b>It also finds you.</b> Open a session that has a change waiting and it asks you there, rather than sitting in this tab unnoticed - decide it on the spot, or tap <b>Later</b> and it stays here. It won\'t ask twice for the same change, and it won\'t ask at all once you\'ve started entering numbers: adding or removing an exercise shuffles the list under a half-filled form, so mid-session it just tells you what\'s waiting and leaves it until you\'ve saved.')
+     +p('<b>It also finds you.</b> Open a session that has a change waiting and it asks you there, rather than sitting in this tab unnoticed - decide it on the spot, or tap <b>Later</b> and it stays here, and asks again the next time you open that session. It won\'t ask at all once you\'ve started entering numbers: adding or removing an exercise shuffles the list under a half-filled form, so mid-session it just tells you what\'s waiting and leaves it until you\'ve saved.')
      +p('<b>You don\'t have to go looking.</b> While anything is waiting, the <b>Program</b> tab is outlined, and each session with a change waiting has a <b>dot</b> on its chip.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises (<b>Remove from program</b> is at the bottom of an exercise\'s <b>Edit</b>). Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). For a lift, set the <b>Sets</b>, the <b>Reps</b> range (two boxes - put the same number in both for a fixed count like 5), an optional <b>extra</b> such as "each leg", and a suggested <b>Rest</b> (e.g. 2:30) - the target ("3x8-12 each leg") is built from them, so it always matches the number of rows. Anything that isn\'t weight + reps keeps a free-text target. Then a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> presets for the column labels, or add a 3rd column.')
      +p('<b>+ Add session</b> (the dashed row at the bottom) creates a brand-new workout day (name + weekday) - a blank account starts with no sessions at all, so this is the first thing to do there.')
@@ -4223,6 +4231,7 @@ function renderHelp(){
      +p('<b>Cloud sync (GitHub)</b> is optional and free: set a private repo + access token in the gear menu once. After that it syncs <b>automatically</b> - when you open the app and after every save - so both of you stay up to date and your coach sees new sessions without you doing anything. (<b>Sync now</b> is still there for a manual pull.) It doubles as an off-device <b>backup</b>; the token is stored only on this device and never included in exports.')
      +p('<b>The program syncs too.</b> Everyone sharing a store trains the same plan, so an edit in <b>Program</b> - a new exercise, a warm-up note, a reorder - goes up straight away and lands on the other phone next time it syncs. The most recent edit wins, so nothing you change gets replaced by an older copy, and it never swaps the plan over <b>mid-workout</b>: if you\'ve got sets typed in, it waits until you\'ve saved. Devices without cloud sync set up keep their own program entirely.')
      +p('It\'s an installable app: open in your phone browser and <b>Add to Home Screen</b>, then always open it from that icon. It works <b>offline</b>.')
+     +p('<b>Reinstalling or a new phone.</b> Removing the home-screen app wipes its data on the phone, so tap <b>Sync now</b> first. Then open the site, <b>Add to Home Screen</b>, and do every step from that new icon (on iPhone it keeps separate storage from the browser tab). Create <b>both</b> accounts with exactly the same names, since history is matched by name. In the gear menu set up <b>Cloud sync</b> with the same repo and file path and a token (a new one for the data repo, Contents read and write, if the old one went with the app), then <b>Sync now</b>: sessions, program and coaching come back. No sync? Export from the other phone and <b>Import / merge</b> it here with <b>Also replace program &amp; names</b> ticked.')
      +p('Gear menu &rarr; <b>What\'s not set up yet</b> lists anything that needs laptop-side setup (cloud sync, Garmin auto-import, AI coaching) and what it takes - none of it is tied to a particular account, so any account can get the same thing the same way.'));
 
   h+=card('Quick tips',
@@ -4869,6 +4878,10 @@ function renderView(){
   // otherwise tapping Session on a blank install lit Session and showed Program.
   if(!state.program.order.length){ activeTab="edit"; syncTabButtons(); }
   if(!state.program.sessions[curSession]) curSession=state.program.order[0];
+  if(state.program.order.length) followActivePerson();
+  // Leaving the Session tab ends the visit, so coming back asks again about any
+  // change still waiting (see maybeShowChangeDialog).
+  if(activeTab!=="log") pcVisit=null;
   updateHeader();
   if(activeTab==="home") renderHome();
   else if(activeTab==="log") renderLog();
