@@ -250,6 +250,20 @@ automatically, because it reads this file each time.
   covers three of the four missed runs and where the advice was explicitly not to run. So the slot
   has still never had a clean test. **Re-ask only if a fully well week produces no run**; do not
   propose moving a run's day before that.
+  **Settled 22 Oct 2026 (Daniel): runs are the lowest priority for now.** He's getting fully into
+  the routine first, and the mornings themselves are the problem (see the vault note *Getting Up in
+  the Morning*). So the two well weeks of 3-16 Oct with no run are **not** the trigger to re-ask.
+  Don't raise the slot or move a run's day until Daniel brings runs back himself.
+- **Sled progression: add out-and-backs like reps** (Daniel, 22 Oct 2026). Each sled set is
+  repeated out-and-back rounds; progress the number of rounds per set the way you'd add reps to a
+  lift.
+- **Lower B runs about 85 min, over the 75 min cap, since back extension was added (17 Oct).**
+  Daniel, 22 Oct: leave it for a couple of sessions and check the timer before changing it again.
+- **Muscle balance checked 14 Oct 2026: no change** (Daniel's call). Planned sets per week, a
+  helping muscle counting half: upper/lower 84.5/79.5, pull/push 46.5/38, hamstrings/quads
+  16/15.5. **Watch chest (9 sets)** if the 100kg bench becomes a priority, and **calves (5)**,
+  though running and the sled load calves more than the count shows. Judge it on ticked sets
+  after two or three weeks on the new program, not on the plan.
 - **Single-leg seated leg curl: lighter, not swapped.** Both reported it feels wrong (Daniel
   "feels weird" at 25.5kg, stopped after 8, 29 Sep; Cerys "didn't feel right", logged no reps,
   29 Sep). Daniel's call on 6 Oct was *"maybe try stick to a lighter weight and see how it goes"* -

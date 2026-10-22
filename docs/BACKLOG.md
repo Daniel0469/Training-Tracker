@@ -6,6 +6,26 @@ lands here instead.
 
 ---
 
+## Batch: 22 Oct 2026 - Daniel's answers from the session clean-up
+
+Built the same day (`tt-v159`): the two ticked items below, plus the coach-change dialog now asking
+again each time a session is opened after "Later" (it used to ask once per app session). Store, same
+day: Lower A / Lower B warm-up headers set to 15 / 13 min, and coach cards for retired session
+names cleared. The Friday coach task now skips when both people were coached under 2 days ago.
+
+- [x] **The Home "Selected session" card follows the active person.** At the moment it carries
+      over when you switch person (e.g. "Mobility: Cerys" on Daniel's Home, seen 14 Oct while
+      fixing the missing-`cols` crash). Daniel, 22 Oct: it should follow whoever is active.
+- [x] **A "Reinstalling the app" section in the in-app Guide** (and the README). Daniel's phone
+      lost its data on 13 Oct after the app was removed. Cover: Sync now before removing the app,
+      reinstall from the home-screen icon, recreate both accounts with the exact names, a new
+      fine-grained token (Training-Data, Contents read/write), then Sync now. Fallback: export from
+      the other phone and import with "Also replace program & names".
+- [ ] **Light mode stays wanted** (Daniel, 22 Oct), still last in `design-v3.md`'s order. Not
+      scheduled.
+
+---
+
 ## Idea: 16 Oct 2026 - public Play Store edition (CV project, not scheduled)
 
 Raised by a friend; Daniel's reason for wanting it is the CV ("shipped a Play Store app with real

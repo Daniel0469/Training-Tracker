@@ -31,6 +31,10 @@ feature proposals/specs.
 - **Match the surrounding style.** Terse vanilla JS, no dependencies except Chart.js (CDN). Prefer
   reusing existing helpers (`esc`, `isLifting`, `isRunning`, `parseRange`, `bestWeightSoFar`,
   `fmtRow`, `relTime`, `addBodyweight`, `colIndex`, `updatePace`, …) over new abstractions.
+- **Plain punctuation and case** (same rule as the Home Hub, Daniel 22 Oct 2026). No em dashes
+  anywhere - code, comments, UI text, docs or commit messages; use a hyphen, a comma or a new
+  sentence. No all-caps words for emphasis (NOT, BOTH, NEVER) in comments or UI text; say it
+  plainly. Acronyms and labels that are caps by design are fine.
 - **Two people, one phone. Every feature, no exceptions.** Daniel and Cerys train together off one
   handset and swap the person toggle *between sets*, so any per-person state must be **keyed by
   person** (`draftKey()` = person+session, the key `formDrafts` / `sessionTimers` / `formExtras`
