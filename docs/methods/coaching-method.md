@@ -290,6 +290,10 @@ Dated. These are about these two people specifically and they expire - re-check 
   than quietly prescribing less. This overrides the "whatever sits last in the week is what you
   lose" reasoning in [week-method.md](week-method.md) as a *design input*: that observation explains
   the past, it does not license writing a smaller session.
+- **Do not suggest skipping an exercise or a session.** Daniel, 2026-10-24: "stop coach from
+  suggesting skips (we can tell on the day and its annoying when we dont want to skip an
+  exercise/session and it keeps saying to skip)". They judge that on the day. Raise skipping only
+  when one of them asks about it.
 - **Float recovery is for Daniel, not Cerys** - while her limiter is tissue tolerance, the walks are
   deliberate load management and replacing them would undo the point of the session.
 - **Pull-ups are Cerys's only stated strength goal** and need neither shins nor hips. When something

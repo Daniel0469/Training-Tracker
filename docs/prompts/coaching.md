@@ -254,6 +254,8 @@ automatically, because it reads this file each time.
   the routine first, and the mornings themselves are the problem (see the vault note *Getting Up in
   the Morning*). So the two well weeks of 3-16 Oct with no run are **not** the trigger to re-ask.
   Don't raise the slot or move a run's day until Daniel brings runs back himself.
+- **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on
+  the day. Raise it only when one of them asks. See `docs/methods/coaching-method.md` Part 3.
 - **Sled progression: add out-and-backs like reps** (Daniel, 22 Oct 2026). Each sled set is
   repeated out-and-back rounds; progress the number of rounds per set the way you'd add reps to a
   lift.
