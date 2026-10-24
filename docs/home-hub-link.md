@@ -62,7 +62,7 @@ New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coaching
 {
   "id": "meal-1721558400000-a3f",  // unique; hub generates. Merge key.
   "person": "Daniel",              // MUST match a name in `people` exactly (case-sensitive)
-  "date": "2026-07-21",            // training day, 5am rollover (see below)
+  "date": "2026-07-21",            // local calendar day (see below)
   "loggedAt": "2026-07-21T12:40:00.000Z",
   "description": "Chicken breast, rice, broccoli",
   "barcode": "5000159407236",      // optional; present on scanned items
@@ -93,9 +93,9 @@ Rules, all matching existing conventions:
 - Re-syncing the same meal must never duplicate it.
 - **`person` is a name**, not an id - this app keys everything by person name. A meal whose person
   doesn't match a known person is kept but not displayed (don't drop data).
-- **`date` uses the ~5am training-day rollover**, so a late meal lands on the same training day as
-  the session it followed. The hub must replicate this; it's the same rule this app uses to pick
-  today's session.
+- **`date` is the local calendar day**, rolling over at midnight (decided 17 Oct 2026, for meals and
+  sessions alike). The hub must replicate this; it's the same rule this app uses to pick today's
+  session (`localDateStr` in `js/app.js`).
 - **kg / grams / kcal.** No unit field, no lbs.
 - **`estimated: true` should be visible in the UI** - a free-text macro guess is not a barcode
   lookup, and the coach shouldn't treat them as equally reliable.
@@ -105,7 +105,7 @@ Rules, all matching existing conventions:
 
 Nothing new needed - it reads `data.json` directly:
 - **Latest bodyweight:** newest `bodyweights` entry for that person (kg).
-- **Today's session:** derived from `program` + weekday + the 5am rollover. Not a stored field.
+- **Today's session:** derived from `program` + the weekday of the local calendar day. Not a stored field.
 
 ## Data contract - `bodyweights` (hub writes)
 
@@ -119,8 +119,8 @@ Home's tiles and the coach all read this one.
 
 - `person` - exactly as spelled in `people`.
 - `date` - the **local calendar date** the weigh-in was taken (YYYY-MM-DD in the device's own
-  time zone). **No 5am rollover** - unlike meals and sessions, a 00:30 weigh-in belongs to
-  the new day (`localDateStr` in `js/app.js`, not `trainingDateStr`). Not the UTC date either.
+  time zone). A 00:30 weigh-in belongs to the new day, the same
+  midnight rollover as meals and sessions (`localDateStr` in `js/app.js`). Not the UTC date either.
 - **The date is assigned at entry, explicitly.** The entry's date field defaults to today's
   local date and can be changed to backdate; whatever it says is written. A writer never
   infers or re-derives a weigh-in's date later (at sync time, from `updatedAt`, etc.).
@@ -260,7 +260,7 @@ saving a workout"*, shipped), and the note is the single highest-value part of a
 coaching - injuries, form cues and program requests live there and nowhere else. A save-triggered
 review would routinely coach a session whose note does not exist yet, and would never see it.
 
-So: **fixed daily schedule, late** (04:00 suits, and matches the ~5am training-day rollover). Coach
+So: **fixed daily schedule, late** (04:00 suits: the day has ended at midnight). Coach
 everything logged since the newest `coachingLog` entry for that person. Late enough that both the
 notes and the Garmin runs have landed; no-ops cheaply on a rest day.
 

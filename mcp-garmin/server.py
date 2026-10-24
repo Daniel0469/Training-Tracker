@@ -1331,13 +1331,12 @@ def _start_dt(a):
     return None
 
 def match_run(runs, date, used_ids):
-    """Pick the Garmin run for a session logged on `date`. Uses the app's ~5am
-    training-day window (see trainingDateStr in js/app.js: it subtracts 5h before
-    dating a session): a session dated D covers runs that start in [D 05:00, D+1 05:00),
-    so a run started after midnight still links to the prior day's session. Skips runs
-    already linked; if several qualify, picks the longest (the day's main run)."""
+    """Pick the Garmin run for a session logged on `date`. A session dated D covers
+    runs that start on local calendar day D (the app's midnight rollover, localDateStr
+    in js/app.js). Skips runs already linked; if several qualify, picks the longest
+    (the day's main run)."""
     try:
-        lo = datetime.datetime.strptime(date, "%Y-%m-%d") + datetime.timedelta(hours=5)
+        lo = datetime.datetime.strptime(date, "%Y-%m-%d")
     except (ValueError, TypeError):
         return None
     hi = lo + datetime.timedelta(days=1)

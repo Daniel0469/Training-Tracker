@@ -13,7 +13,7 @@ let state = load();
 if(!state.namesSet){ if(state.people[0]==="Me") state.people[0]="Daniel"; if(state.people[1]==="Partner") state.people[1]="Cerys"; state.namesSet=true; try{save();}catch(e){} }
 let activeTab = "home";
 let curSession = state.program.order[0];
-let curDate = trainingDateStr();
+let curDate = localDateStr();
 let justSavedId = null;
 // Per person+session drafts of the in-progress log form, so switching person
 // (or session) mid-entry doesn't wipe unsaved sets. Lets both people log from
@@ -247,19 +247,9 @@ function toast(msg){
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const possessive = n => /s$/i.test(n) ? n+"'" : n+"'s";
 const todayStr = ()=> new Date().toISOString().slice(0,10);
-// The training day rolls over at ~5am, not midnight: a session logged at 1am
-// Friday still belongs to Thursday's workout. Subtract the cutoff (in local
-// time) before reading the date, so the default log date + auto-selected
-// session both land on the right training day. `now` is injectable for tests.
-function trainingDateStr(now){
-  var d = now ? new Date(now) : new Date();
-  d.setHours(d.getHours()-5);
-  var m=d.getMonth()+1, day=d.getDate();
-  return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
-}
-// Today's calendar date in the phone's own time zone, with no rollover. Weigh-ins use
-// this: a weight belongs to the morning it was taken, not to last night's session, and
-// todayStr() is the UTC date, which in BST dates a 00:30 weigh-in the day before.
+// Today's calendar date in the phone's own time zone. Sessions, meals and weigh-ins all
+// roll over at midnight. todayStr() is the UTC date, which in BST dates a 00:30 entry the
+// day before. `now` is injectable for tests.
 function localDateStr(now){
   var d = now ? new Date(now) : new Date();
   var m=d.getMonth()+1, day=d.getDate();
@@ -811,7 +801,7 @@ document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState=
 // would be worse than a stale date.
 let autoDate = curDate;
 function catchUpDate(){
-  const today=trainingDateStr();
+  const today=localDateStr();
   if(today===autoDate) return;
   if(curDate!==autoDate) { autoDate=today; return; }
   if(formDrafts[draftKey()]) return;
@@ -1703,14 +1693,14 @@ function renderHistory(){
   // This-week summary for the active person (volume, sessions, muscle heatmap).
   const p=state.people[state.activePerson];
   const pc = personSwatch(p);
-  const thisWk=weekMonday(trainingDateStr());
+  const thisWk=weekMonday(localDateStr());
   const wkLogs=state.logs.filter(l=>l.person===p && weekMonday(l.date)===thisWk);
   const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
   // Design v3: seven day squares (filled = something saved that day, outlined =
   // today) and the last eight weeks' volume as plain bars, this week in the
   // person's colour. The muscle body-map that lived here went: Home's "What the
   // week trains" answers the same question per muscle.
-  const today=trainingDateStr();
+  const today=localDateStr();
   const logged={}; wkLogs.forEach(l=>{ logged[l.date]=1; });
   const days=[0,1,2,3,4,5,6].map(i=>shiftDate(thisWk,i));
   const vm={}; weeklyVolumes(p).forEach(w=>{ vm[w.week]=w.volume; });
@@ -4158,7 +4148,7 @@ function renderHelp(){
      +p('The <b>⚙️ gear</b> (top-right) opens <b>Settings</b> - switch <b>dark / light</b> theme, open this <b>Guide</b>, change your <b>name, colour</b> and <b>bodyweight</b>, and manage export / import / cloud sync. The header shows today\'s date and the screen you\'re on; the highlighted name beside it is whose sets you\'re entering. Renaming an existing account <b>asks first</b>, since it orphans past history under the old name. <b>Delete this account</b> frees the slot up for someone else - your logged history stays saved under your old name rather than being erased, same as renaming.'));
 
   h+=card('2 &middot; Log a workout',
-      p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday - and a late-night session (before ~5am) counts as the <b>previous</b> training day. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
+      p('Tap the <b>Session</b> tab (or <b>Log it →</b> on Home), then choose the session and date. The date auto-picks the right session for that weekday. Because Session is its own tab, you can nip to History mid-workout to check last week\'s numbers and come straight back - what you\'ve typed is still there.')
      +p('Type <b>weight</b> and <b>reps</b> per set - phones pop a <b>number pad</b> for any column that takes a number, including ones like <i>Distance (m)</i> or <i>Min</i>, while columns that need real typing (a <i>Time</i> or <i>Pace</i> such as 7:20, or <i>Notes</i>) keep the full keyboard. Enter the first set\'s weight and the rest auto-fill to match. Tap a set\'s <b>&#10003;</b> when done: it fills in your colour, fills empty reps to the top of the target range, and turns the row gold with a <b>PR</b> badge right away if that weight beats your best. Use <b>+ set</b> / <b>- set</b> to change set count.')
      +p('The <b>Last</b> column shows <b>the most recent time that person did that exercise, in any session</b> (as "3 days ago" - hover for the date). It follows the <i>movement</i>, not the session, so on a week where a lift appears on more than one day you are always beating your latest number rather than one from a week ago - and it never goes blank just because a session was renamed or rebuilt. When the number came from a different session, a <b>🕑</b> line above the table says which one. An exercise you have never logged shows no date at all. Warm-ups written as a percentage (e.g. "40%x8") show the actual kg for <b>you</b> - worked out from your own last top set for that exercise (and from today\'s weight once you type one), so Daniel and Cerys each get their own warm-up numbers.')
      +p('<b>Machine settings</b> (seat height, pins) are <b>shown on the exercise</b> whenever there are any - no tapping needed when you\'re stood at the machine. They are <b>each person\'s own</b>: tap the <b>wrench</b> next to the name to write or change yours - switch person and you see theirs. You can do it <b>mid-session</b>, they\'re kept for next time under that exercise\'s name (so the same machine in two sessions shares them), and only you can change them - your coach can read them but not write them. Instructions and tips come from your coach in the note under the exercise instead. The wrench stays highlighted when you have settings stored.')
@@ -4196,7 +4186,7 @@ function renderHelp(){
 
   h+=card('6 &middot; Body, goals &amp; bodyweight',
       p('<b>Body lives inside Progress</b>, on the <b>Body</b> half of the toggle at the top of that tab (<b>Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
-     +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time - there is no 5am rollover like sessions have, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>. <b>Delete</b> also carries across: a deleted weigh-in stays deleted on every phone and won\'t be brought back by a sync, but you can still weigh in again for that day afterwards.')
+     +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>. <b>Delete</b> also carries across: a deleted weigh-in stays deleted on every phone and won\'t be brought back by a sync, but you can still weigh in again for that day afterwards.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
@@ -4311,7 +4301,7 @@ function weeklyCoverage(person){
 // planned and a half set done have to mean the same thing or the bar lies.
 // Warm-up sets are excluded here exactly as they are everywhere else.
 function weeklyDone(person){
-  const m={}, wk=weekMonday(trainingDateStr());
+  const m={}, wk=weekMonday(localDateStr());
   state.logs.forEach(function(l){
     if(!l || l.person!==person || weekMonday(l.date)!==wk) return;
     (l.entries||[]).forEach(function(en){
@@ -4717,7 +4707,7 @@ let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
   const pc = personSwatch(p);
-  const thisWk=weekMonday(trainingDateStr());
+  const thisWk=weekMonday(localDateStr());
   const pLogs=[...state.logs].filter(l=>l.person===p).sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   const wkLogs=pLogs.filter(l=>weekMonday(l.date)===thisWk);
   const wkVol=wkLogs.reduce((t,l)=>t+(l.volume||0),0);
@@ -4737,11 +4727,11 @@ function renderHome(){
   // when the calendar agrees. Matters most for an Optional session, which the
   // calendar deliberately never picks, and on Sat/Sun, where nothing is
   // scheduled and curSession is just a fallback.
-  const todayKey=sessionForDate(trainingDateStr());
+  const todayKey=sessionForDate(localDateStr());
   const isToday=!!todayKey && curSession===todayKey;
   // Anything else already saved today (the run on a run + core day): a ticked
   // line, so the card doesn't look like the whole day is still to do.
-  const doneToday=pLogs.filter(l=>l.date===trainingDateStr() && l.sessionKey!==curSession);
+  const doneToday=pLogs.filter(l=>l.date===localDateStr() && l.sessionKey!==curSession);
   let html='<div class="card today-card">'
     + '<div class="sec-title">'+(isToday?'Today’s session':'Selected session')+'</div>'
     + '<div class="today-name">'+esc(sess?sess.name:"-")+'</div>'

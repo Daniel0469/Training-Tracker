@@ -43,8 +43,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - A session can show its own **🔥 warm-up** and **🧊 cool-down** notes above and below the exercises
   (written per session in the Program editor).
 - Saved **🔧 machine settings** are shown on the exercise, not hidden behind the wrench.
-- Date auto-picks the right session for that weekday; a late-night session (before ~5am) counts as
-  the **previous** training day.
+- Date auto-picks the right session for that weekday. The day rolls over at midnight.
 - Per-set **weight + reps**; first set's weight auto-fills the rest. Phones get a **numeric keypad**
   on any column that takes a number (including e.g. *Distance (m)* or *Min*), and the full keyboard
   on ones that need it (*Time*, *Pace*, *Notes*).
