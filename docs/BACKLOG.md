@@ -283,18 +283,12 @@ pull-up `load:"assist"`, the supersets and the muscle tags.
 
 ### D. Proposed - needs Daniel's approval (program structure)
 
-- [ ] **Lengthen the treadmill interval reps.** The target is currently
-      `6x1 min hard / 2 min easy` (`js/app.js:335`). On 29 Jul Daniel ran those reps at 13 km/h
-      (4:37/km) and peaked at **max HR 157** - 79% of a 200 max, against a 173 threshold, with zero
-      seconds above Zone 3 across 18 minutes. One-minute reps are too short for his HR to catch up,
-      which is why a faster-than-race pace session came out easy.
-      Suggested change: `5 x 2-3 min hard / 90 s easy`, and hold the speed at 12 km/h.
-      This is a program-structure change, so it needs a yes before anyone edits it.
-
-      **Status 30 Jul: still awaiting Daniel's approval - deliberately not actioned.** Note that
-      section B removed the strides from this session's warm-up, which pulls the same way (less
-      priming before the first hard rep), and the coaching note already visible on the session says
-      the same thing: drop to 12 km/h, 2-3 minute reps, shorter recoveries, finish in Zone 4.
+- [x] **Lengthen the treadmill interval reps.** Closed 24 Oct 2026 as replaced (Daniel). The
+      `6x1 min hard / 2 min easy` session no longer exists, and Daniel's Monday quality run is
+      already `4 x 4:00 at threshold (HR 165-173), 2:00 easy jog between`. No program change.
+      The reason it was raised: on 29 Jul Daniel ran the 1-minute reps at 13 km/h (4:37/km) and
+      peaked at **max HR 157**, with zero seconds above Zone 3. One-minute reps were too short for
+      his HR to catch up.
 
 ### Parked (raised 30 Jul, not built)
 
