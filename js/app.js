@@ -4230,7 +4230,7 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere. Tap a section to open it.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), any <b>Coach</b> note, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>what the week trains</b>, <b>sleep &amp; recovery</b>, your <b>heart rate zones</b>, the <b>estimated 5k</b>, a <b>bodyweight trend</b> mini-chart, and your <b>goals</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Body</b> etc.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), the <b>Coach</b> note for that session, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>sleep &amp; recovery</b>, the <b>estimated 5k</b>, your <b>heart rate zones</b>, and <b>what the week trains</b> at the bottom. Today\'s food sits under the tiles once you use the Food pane. Your bodyweight trend and goals are in <b>Progress &gt; Body</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Food</b> etc.')
      +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
@@ -4801,7 +4801,6 @@ function sessionSwapCardHtml(person){
              :' · done - '+esc(sw.day)+' is back to its usual session')+'</div>'
     + '</div>';
 }
-let homeChart=null;
 function renderHome(){
   const p=state.people[state.activePerson];
   const pc = personSwatch(p);
@@ -4817,7 +4816,6 @@ function renderHome(){
   let bwDelta="";
   if(bw.length>=2){ const d=Math.round((bw[bw.length-1].kg-bw[bw.length-2].kg)*10)/10; bwDelta = d>0?'▲ '+d:d<0?'▼ '+Math.abs(d):'-'; }
   const coach=(state.coaching&&state.coaching[p])||{};
-  const goal=(state.goals&&state.goals[state.activePerson])||"";
   const sess=state.program.sessions[curSession];
   // This card follows curSession (so Log it → takes you where you were), but it
   // used to call that "today's session" unconditionally - pick anything else on
@@ -4838,17 +4836,14 @@ function renderHome(){
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div>';
 
-  html += nextCardioCardHtml(p);
   html += sessionSwapCardHtml(p);
 
+  // Only the coach's note for the session above (Daniel, 24 Oct). The general
+  // note and the next-cardio card left Home; the Session tab still shows the latter.
   const coachSessNote=(coach.bySession && sess && coach.bySession[sess.name])||"";
   if(coachSessNote){
     html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
-  }
-  if(coach.overall){
-    html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach'+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
-      + '<div style="white-space:pre-wrap">'+esc(coach.overall)+'</div></div>';
   }
 
   html+='<div class="tiles home-tiles">'
@@ -4917,22 +4912,12 @@ function renderHome(){
     html+=cardioCard(lastIntervals, ivEntry, ico("bolt")+'Last intervals', best?'best '+best:'');
   }
 
-  // Design v3 order: the week, then recovery and zones, then the extras.
-  html += coverageCardHtml(p);
+  // Recovery, the 5k estimate, zones, then the week at the bottom (Daniel, 24 Oct).
+  // The bodyweight trend and goals live in Progress > Body.
   html += recoveryCardHtml(p);
-  html += hrZonesCardHtml(p);
   html += fiveKCardHtml(p);
-
-  if(bw.length>=2){
-    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("trend")+'Bodyweight trend</div>'
-      + '<button class="mini" data-home-go="body">Body →</button></div>'
-      + '<div class="chart-box" style="height:150px"><canvas id="homeBwChart"></canvas></div></div>';
-  }
-
-  html+='<div class="card"><div class="sec-title">'+ico("target")+esc(possessive(p))+' goals</div>'
-    + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
-            : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu'+(hasCoaching()?' so coaching can target them':'')+'.</div>')
-    + '</div>';
+  html += hrZonesCardHtml(p);
+  html += coverageCardHtml(p);
 
   // The 🧠 Coaching history card lived here and was removed on 14 Sep (Daniel:
   // "shouldn't be viewable - just for the coach to build on"). It is the coach's
@@ -4947,21 +4932,6 @@ function renderHome(){
   const go=tab=>switchTab(tab);
   const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
   document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
-
-  if(bw.length>=2){
-    const i=state.people.indexOf(p);
-    const dark=document.documentElement.getAttribute("data-theme")==="dark";
-    const col=swatchColor(state.colors[i],dark);
-    const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
-    if(homeChart) homeChart.destroy();
-    homeChart=new Chart(document.getElementById("homeBwChart"),{
-      type:"line",
-      data:{labels:bw.map(b=>b.date), datasets:[{data:bw.map(b=>b.kg), borderColor:col, backgroundColor:col, tension:.25, pointRadius:2, spanGaps:true}]},
-      options:{responsive:true, maintainAspectRatio:false,
-        scales:{x:{ticks:{color:tickCol,maxTicksLimit:6}, grid:{color:gridCol}}, y:{beginAtZero:false, ticks:{color:tickCol}, grid:{color:gridCol}}},
-        plugins:{legend:{display:false}}}
-    });
-  }
 }
 
 function renderView(){

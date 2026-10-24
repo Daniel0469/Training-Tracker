@@ -26,9 +26,11 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 
 ### Home
 - Opens here by default. At-a-glance hub for the selected person: today's session (with a **Log it**
-  shortcut), any **🧠 Coach** note, quick stat tiles (sessions & volume this week, latest bodyweight
-  with trend arrow, total sessions), last session and last run, a bodyweight-trend mini-chart, and
-  goals. Arrows jump to the full History / Body tabs.
+  shortcut), the **🧠 Coach** note for that session only, quick stat tiles (sessions & volume this
+  week, latest bodyweight with trend arrow, total sessions), today's food, last session and last
+  runs, recovery, the 5k estimate, HR zones, and what the week trains at the bottom. The general
+  coach note and the next-cardio card are not on Home (the Session tab shows the latter), and the
+  bodyweight trend and goals are in Progress > Body.
 
 ### Log a workout
 - Pick who you are (name toggle, each account in its own chosen colour); everything logged belongs
