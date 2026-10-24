@@ -71,6 +71,7 @@ function load(){
       if(!Array.isArray(s.meals)) s.meals=[];
       // Daily food targets: person -> {kcal, protein, updatedAt}, set in the gear menu.
       if(!s.nutritionTargets || typeof s.nutritionTargets!=="object") s.nutritionTargets={};
+      if(!Array.isArray(s.measurements)) s.measurements=[];
       // Machine settings (the wrench), each person's own since 13 Oct: person ->
       // exercise NAME -> {text, updatedAt}. By name, so one machine in two sessions
       // is one entry. They used to be one shared `notes` on the program exercise.
@@ -121,7 +122,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -2881,11 +2882,13 @@ function renderBody(){
     + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
     + '<div class="hint" style="margin-top:6px">A CSV exported from your scale app (e.g. 1byone Health). Date + weight columns are detected automatically.</div>'
     + '</div>';
+  html+=measurementsCardHtml(p);
   if(hist.length){
     html+='<div class="card"><div class="sec-title">'+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
   }
   document.getElementById("view").innerHTML=html;
   wirePaneToggle();
+  wireMeasurements(p);
 
   document.getElementById("bwAdd").onclick=()=>{
     const kg=parseFloat(document.getElementById("bwKg").value);
@@ -2926,6 +2929,68 @@ function drawBwChart(person){
       scales:{x:{type:"category", labels:[...new Set(bwFor(person).map(b=>b.date))].sort(), ticks:{color:tickCol}, grid:{color:gridCol}},
         y:{beginAtZero:false, title:{display:true, text:"kg", color:tickCol}, ticks:{color:tickCol}, grid:{color:gridCol}}},
       plugins:{legend:{position:"top", labels:{color:tickCol}}}}
+  });
+}
+
+// ---- Body measurements (tape, cm), in the Body pane ----------------------
+// One row per person+date: {person, date, cm:{waist:82, ...}, updatedAt}. Taken every
+// MEASURE_DAYS, so Home shows a due line once that has passed.
+const MEASURES={neck:"Neck", shoulders:"Shoulders", chest:"Chest", waist:"Waist", hips:"Hips",
+  armL:"Upper arm L", armR:"Upper arm R", forearmL:"Forearm L", forearmR:"Forearm R",
+  thighL:"Thigh L", thighR:"Thigh R", calfL:"Calf L", calfR:"Calf R"};
+const MEASURE_GROUPS=[["Waist",["waist"]],["Chest",["chest"]],["Hips",["hips"]],["Shoulders",["shoulders"]],["Neck",["neck"]],
+  ["Upper arm",["armL","armR"]],["Forearm",["forearmL","forearmR"]],["Thigh",["thighL","thighR"]],["Calf",["calfL","calfR"]]];
+const MEASURE_DAYS=28;
+let measureChart=null, measureGroup=0;
+function measuresFor(person){
+  return (state.measurements||[]).filter(m=>m && m.person===person && m.date)
+    .sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
+}
+function measurementsDue(person){
+  const rows=measuresFor(person);
+  return !rows.length || daysAgo(rows[rows.length-1].date)>=MEASURE_DAYS;
+}
+function measurementsCardHtml(person){
+  const rows=measuresFor(person), last=rows[rows.length-1], prev=(last&&last.cm)||{};
+  const when=last ? 'Last taken '+esc(relTime(last.date))+(measurementsDue(person)?', due again now.':', next due in '+(MEASURE_DAYS-daysAgo(last.date))+' days.') : 'None yet.';
+  return '<div class="card"><div class="sec-title">'+ico("trend")+'Measurements · '+esc(person)+'</div>'
+    + '<div class="hint" style="margin:0 0 10px">'+when+' Every 4 weeks: morning, before food, relaxed, tape level and snug.</div>'
+    + (rows.length ? '<label class="fld">Measurement<select id="msGroup">'
+        + MEASURE_GROUPS.map((g,i)=>'<option value="'+i+'"'+(i===measureGroup?' selected':'')+'>'+g[0]+'</option>').join("")+'</select></label>'
+        + '<div class="chart-box" style="height:200px;margin-top:10px"><canvas id="msChart"></canvas></div>' : '')
+    + '<details class="ms-add"'+(rows.length?'':' open')+'><summary class="mini">Add measurements</summary>'
+    + '<label class="fld" style="margin-top:10px">Date<input id="msDate" type="date" value="'+localDateStr()+'"></label>'
+    + '<div class="ms-grid">'+Object.keys(MEASURES).map(k=>'<label class="fld">'+MEASURES[k]+' (cm)<input data-ms="'+k+'" type="number" inputmode="decimal" step="0.1"'+(prev[k]!=null?' placeholder="'+prev[k]+'"':'')+'></label>').join("")+'</div>'
+    + '<div class="hint" style="margin-top:6px">Leave out any you didn\'t take. Saving the same date again replaces it.</div>'
+    + '<button class="btn btn-primary" id="msSave" style="margin-top:10px">Save</button></details></div>';
+}
+function wireMeasurements(person){
+  const sel=document.getElementById("msGroup");
+  if(sel){ sel.onchange=()=>{ measureGroup=+sel.value; drawMeasureChart(person); }; drawMeasureChart(person); }
+  document.getElementById("msSave").onclick=()=>{
+    const cm={};
+    document.querySelectorAll("[data-ms]").forEach(i=>{ const v=parseFloat(i.value); if(v>0) cm[i.dataset.ms]=Math.round(v*10)/10; });
+    if(!Object.keys(cm).length){ toast("Enter at least one measurement"); return; }
+    const date=document.getElementById("msDate").value||localDateStr();
+    const ex=state.measurements.find(m=>m.person===person && m.date===date);
+    if(ex){ ex.cm=cm; ex.updatedAt=Date.now(); } else state.measurements.push({person, date, cm, updatedAt:Date.now()});
+    save(); renderBody(); toast("Saved");
+  };
+}
+function drawMeasureChart(person){
+  const rows=measuresFor(person), keys=MEASURE_GROUPS[measureGroup][1];
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const col=swatchColor(state.colors[state.people.indexOf(person)],dark);
+  const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  const sets=keys.map((k,j)=>({label:MEASURES[k], data:rows.map(r=>(r.cm&&r.cm[k]!=null)?r.cm[k]:null),
+    borderColor:j?tickCol:col, backgroundColor:j?tickCol:col, borderDash:j?[5,4]:[], tension:.25, spanGaps:true}));
+  if(measureChart) measureChart.destroy();
+  measureChart=new Chart(document.getElementById("msChart"),{
+    type:"line", data:{labels:rows.map(r=>r.date), datasets:sets},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{x:{ticks:{color:tickCol, maxTicksLimit:6}, grid:{color:gridCol}},
+        y:{beginAtZero:false, title:{display:true, text:"cm", color:tickCol}, ticks:{color:tickCol}, grid:{color:gridCol}}},
+      plugins:{legend:{display:keys.length>1, labels:{color:tickCol}}}}
   });
 }
 
@@ -3655,7 +3720,7 @@ function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     suggestions:state.suggestions,
-    programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets,
+    programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, machineSettings:state.machineSettings, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights};
@@ -3758,6 +3823,15 @@ function mergeInData(data, adoptConfig, fromSync){
         var tv=theirs[n], mv=mine[n];
         if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[n]=tv; updated++; }
       });
+    });
+  }
+  // Measurements: one row per person+date, merged like bodyweights (newer updatedAt wins).
+  if(Array.isArray(data.measurements)){
+    if(!Array.isArray(state.measurements)) state.measurements=[];
+    data.measurements.forEach(function(m){
+      if(!m || !m.person || !m.date) return;
+      var ex=state.measurements.find(function(x){ return x.person===m.person && x.date===m.date; });
+      if(ex){ if(mergeRecord(ex, m)) updated++; } else { state.measurements.push(m); added++; }
     });
   }
   // Food targets: set on the phones, so the newer edit per person wins.
@@ -3993,6 +4067,7 @@ function peopleInPayload(d){
   (d.logs||[]).forEach(l=>{ if(l) add(l.person); });
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
+  (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
   ["coaching","limiters","hrZones","racePredictions","machineSettings","nutritionTargets"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
@@ -4010,7 +4085,7 @@ function remapPeople(d, map){
   const out=clone(d);
   const to=n=> (map && map[n]!==undefined) ? map[n] : n;
   const gone=n=> to(n)==="";
-  ["logs","bodyweights","meals","deletedBodyweights"].forEach(k=>{
+  ["logs","bodyweights","meals","measurements","deletedBodyweights"].forEach(k=>{
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
@@ -4286,6 +4361,7 @@ function renderHelp(){
       p('<b>Body lives inside Progress</b>, on the <b>Body</b> half of the toggle at the top of that tab (<b>Lifts</b> is the other). It tracks each person\'s bodyweight over time with a trend chart. Add a weight by hand, or <b>Import from scale (CSV)</b> a file exported from your scale app (e.g. 1byone Health) - it finds the date and weight columns automatically.')
      +p('A weigh-in is dated by the <b>calendar day you took it</b>, in your phone\'s own time, so a weight taken at 00:30 belongs to the new day. The Date box defaults to today; change it to backdate. One entry per person per day: saving again for the same day replaces it. If the same day is changed on two devices (or by the Home Hub) before they sync, the <b>most recent edit wins</b>. <b>Delete</b> also carries across: a deleted weigh-in stays deleted on every phone and won\'t be brought back by a sync, but you can still weigh in again for that day afterwards.')
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
+     +p('<b>Measurements</b> sit under the weigh-in box: take them every 4 weeks, in the morning before food, relaxed, with the tape level and snug. Tap <b>Add measurements</b>, fill in any of neck, shoulders, chest, waist, hips and both sides of the upper arm, forearm, thigh and calf, and save. Last time\'s numbers show faded in each box. The chart shows one site at a time, left and right together. Home shows <b>Measurements due</b> once 4 weeks have passed.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
      +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
      +p('When a coach sends you notes, they show as outlined <b>Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Your coach keeps its own record of everything it has told you before, so each week\'s advice builds on the last rather than starting fresh - but that record is the coach\'s working memory, not something to read on a phone, so it is kept out of the app and off your device entirely. What you see here is the advice that is <b>current</b>. Tap <b>Sync now</b> to pull the latest coaching.')
@@ -4858,6 +4934,10 @@ function renderHome(){
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("target")+'Food today</div>'
       + '<button class="mini" data-home-go="food">Food →</button></div>'
       + '<div style="margin-top:8px">'+foodBarHtml("Calories", fd.kcal, ft.kcal, "")+foodBarHtml("Protein", fd.protein, ft.protein, " g")+'</div></div>';
+  }
+  if(measurementsDue(p)){
+    html+='<div class="card flex-between"><div class="sec-title" style="margin:0">'+ico("trend")+'Measurements due</div>'
+      + '<button class="mini" data-home-go="body">Body →</button></div>';
   }
 
   if(last){

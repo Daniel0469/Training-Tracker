@@ -82,6 +82,10 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - Bodyweight over time with a trend chart; add by hand or **⬆ Import from scale (CSV)** (e.g.
   1byone Health - auto-detects the date and weight columns, lb→kg).
 - Per-person **goals** (gear menu) - shown on Body, and travel with the data so a coach can see them.
+- **Measurements** (tape, cm), every 4 weeks: neck, shoulders, chest, waist, hips, and both sides of
+  upper arm, forearm, thigh and calf, in one form on Body, with a chart per site (left and right
+  together). Home shows "Measurements due" once 28 days have passed. Synced (`measurements`, one row
+  per person and date, the newer edit wins); the coach reads them with the `measurements` tool.
 - **Coach brief (Markdown)** button bundles goals, PRs, bodyweight and recent sessions to paste into
   Claude / Obsidian.
 

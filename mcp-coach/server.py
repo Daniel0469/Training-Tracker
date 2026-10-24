@@ -1138,6 +1138,11 @@ def get_bodyweight(data, person):
     bws.sort(key=lambda b: b.get("date", ""))
     return [{"date": b.get("date"), "kg": b.get("kg")} for b in bws]
 
+def get_measurements(data, person):
+    rows = [m for m in data.get("measurements") or [] if m.get("person") == person and m.get("date")]
+    rows.sort(key=lambda m: m["date"])
+    return [{"date": m["date"], "cm": m.get("cm") or {}} for m in rows]
+
 def _is_run_entry(e):
     """A running entry carries both a distance and a time column (same test as
     isRunning in js/app.js and _is_run_entry in mcp-garmin)."""
@@ -1428,6 +1433,13 @@ def _register(mcp):
     def bodyweight(person: str) -> str:
         """A person's bodyweight history (date, kg)."""
         return json.dumps(get_bodyweight(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def measurements(person: str) -> str:
+        """A person's tape measurements over time (date, cm per site: neck, shoulders, chest,
+        waist, hips, and armL/armR, forearmL/forearmR, thighL/thighR, calfL/calfR). Taken
+        about every 4 weeks; a site left out on a date was not measured."""
+        return json.dumps(get_measurements(load_data(), person), indent=2)
 
     @mcp.tool()
     def progress(person: str, exercise: str) -> str:

@@ -256,6 +256,8 @@ automatically, because it reads this file each time.
   **Runs are back since 24 Oct 2026** (Daniel: "have them both in"): each of them has the Monday
   quality run and a Thursday run. Cerys's Thursday is a 30 min easy run by feel, no HR target, and
   she can stop at 20 min unless she feels good.
+- **Tape measurements every 4 weeks** (from 24 Oct 2026): the `measurements` tool gives each date's
+  cm per site, left and right separately. Judge them against bodyweight and the goals.
 - **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on
   the day. Raise it only when one of them asks. See `docs/methods/coaching-method.md` Part 3.
 - **Sled progression: add out-and-backs like reps** (Daniel, 22 Oct 2026). Each sled set is

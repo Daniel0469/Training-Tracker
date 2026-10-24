@@ -466,6 +466,12 @@
   .meal-row{align-items:baseline;padding:3px 0}
   .meal-row>div{flex:1;min-width:0}
   .meal-row>span{white-space:nowrap}
+  /* Measurements: the entry form folds open under the chart. */
+  .ms-add summary{display:inline-flex;margin-top:12px;list-style:none;cursor:pointer}
+  .ms-add summary::-webkit-details-marker{display:none}
+  .ms-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px;margin-top:8px}
+  .ms-grid .fld{min-width:0}
+  .ms-grid input{width:100%;min-width:0;box-sizing:border-box}
   /* Sleep */
   .sleep-dur{font-size:26px;font-weight:700;letter-spacing:-.02em}
   .stagebar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
