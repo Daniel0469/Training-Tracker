@@ -70,6 +70,8 @@ New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coaching
   "protein": 48,                   // grams
   "carbs": 55,
   "fat": 18,
+  "amount": 330,                   // optional; how much was eaten or drunk
+  "unit": "ml",                    // with amount: "g" for food, "ml" for drinks
   "source": "barcode",             // "barcode" | "text" | "manual"
   "estimated": true,               // true when macros came from an LLM guess, not a database
   "updatedAt": 1787141028912       // ms epoch, REQUIRED - see the conflict rule below
@@ -96,7 +98,9 @@ Rules, all matching existing conventions:
 - **`date` is the local calendar day**, rolling over at midnight (decided 17 Oct 2026, for meals and
   sessions alike). The hub must replicate this; it's the same rule this app uses to pick today's
   session (`localDateStr` in `js/app.js`).
-- **kg / grams / kcal.** No unit field, no lbs.
+- **kg / grams / kcal** for every number except `amount`. No lbs. `amount` is in `unit`: `"g"`, or
+  `"ml"` for drinks (decided 24 Oct 2026, so a drink is logged in real ml, not as grams of liquid).
+  Both are optional and come together. The macros stay kcal and grams either way.
 - **`estimated: true` should be visible in the UI** - a free-text macro guess is not a barcode
   lookup, and the coach shouldn't treat them as equally reliable.
 - Unknown fields on incoming meals are preserved, not stripped (forward compatibility).
