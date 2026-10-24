@@ -4305,7 +4305,7 @@ function renderHelp(){
     +'<div class="hint" style="margin-bottom:0">A training + health log for up to two people sharing a device. Log each workout and it tells you what to aim for next time. Works offline, saves only on this device - nothing sent anywhere. Tap a section to open it.</div></div>';
 
   h+=card('Home',
-      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), the <b>Coach</b> note for that session, quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>sleep &amp; recovery</b>, the <b>estimated 5k</b>, your <b>heart rate zones</b>, and <b>what the week trains</b> at the bottom. Today\'s food sits under the tiles once you use the Food pane. Your bodyweight trend and goals are in <b>Progress &gt; Body</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Food</b> etc.')
+      p('The app opens on <b>Home</b> - your at-a-glance hub for the selected person: <b>today\'s session</b> (with a <b>Log it</b> shortcut, and a ticked line for anything else you\'ve already saved today - the run on a run + core day), the <b>Coach</b> note for that session, from Friday evening to Monday a short <b>Week review</b> (training days done out of planned, the week\'s volume against the week before, PRs, and the coach\'s weekly note in two lines once Friday\'s coaching has run - tap <b>More</b> for the rest), quick tiles (sessions &amp; volume this week, latest bodyweight with its trend, total sessions), your <b>last session</b>, your <b>last Zone 2 run</b> and <b>last intervals</b> (a card each, since one "last run" only ever showed whichever came most recently - each shows its best pace - the intervals card converts your fastest treadmill speed to a pace so the two read the same way - average and max HR, and the time-in-zone bar), <b>sleep &amp; recovery</b>, the <b>estimated 5k</b>, your <b>heart rate zones</b>, and <b>what the week trains</b> at the bottom. Today\'s food sits under the tiles once you use the Food pane, then <b>Measurements due</b> when it\'s been 4 weeks. Your bodyweight trend and goals are in <b>Progress &gt; Body</b>. A card with nothing to show stays hidden. The arrows jump to the full <b>History</b>, <b>Food</b> etc.')
      +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
@@ -4877,6 +4877,31 @@ function sessionSwapCardHtml(person){
              :' · done - '+esc(sw.day)+' is back to its usual session')+'</div>'
     + '</div>';
 }
+// Week review: from the Friday 20:30 coaching run until Monday night, one line of the
+// week's numbers and the coach's weekly note cut to two lines - only when that note was
+// written on or after the week's Friday. On Monday the week is the one just finished.
+// `now` is injectable for tests.
+function weekReviewCardHtml(person, now){
+  const d=now ? new Date(now) : new Date(), dow=d.getDay();
+  if(!(dow===6 || dow===0 || dow===1 || (dow===5 && d.getHours()>=20))) return "";
+  const today=localDateStr(d), wk=weekMonday(dow===1 ? shiftDate(today,-3) : today);
+  const logs=state.logs.filter(l=>l.person===person && weekMonday(l.date)===wk);
+  const planned=new Set(state.program.order.filter(k=>DOW[String(state.program.sessions[k].day||"").toLowerCase()] && ownsSession(k, person))
+    .map(k=>String(state.program.sessions[k].day).toLowerCase())).size;
+  const days=new Set(logs.map(l=>l.date)).size;
+  const vol=logs.reduce((t,l)=>t+(l.volume||0),0);
+  const prevVol=(weeklyVolumes(person).find(w=>w.week===shiftDate(wk,-7))||{}).volume||0;
+  const change=prevVol ? Math.round((vol-prevVol)/prevVol*100) : null;
+  const prs=logs.reduce((t,l)=>t+(l.entries||[]).filter(e=>e.pr).length,0);
+  const coach=(state.coaching&&state.coaching[person])||{};
+  const fresh=coach.overall && coach.updated && localDateStr(new Date(coach.updated))>=shiftDate(wk,4);
+  const bits=[days+' of '+planned+' days', vol.toLocaleString()+' kg'+(change!=null?' ('+(change>0?'+':'')+change+'%)':''), prs+' PR'+(prs===1?'':'s')];
+  return '<div class="card"><div class="sec-title">'+ico("flag")+'Week review</div>'
+    + '<div class="ex-meta num">'+bits.join(' · ')+'</div>'
+    + (fresh ? '<div class="week-note" style="white-space:pre-wrap;margin-top:8px">'+esc(coach.overall)+'</div>'
+        + '<button class="mini" data-week-more style="margin-top:6px">More</button>' : '')
+    + '</div>';
+}
 function renderHome(){
   const p=state.people[state.activePerson];
   const pc = personSwatch(p);
@@ -4921,6 +4946,7 @@ function renderHome(){
     html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):"")+'</div>'
       + '<div style="white-space:pre-wrap">'+esc(coachSessNote)+'</div></div>';
   }
+  html += weekReviewCardHtml(p);
 
   html+='<div class="tiles home-tiles">'
     + '<div class="tile"><div class="big">'+wkLogs.length+'</div><div class="lbl">sessions this week</div></div>'
@@ -5012,6 +5038,12 @@ function renderHome(){
   const go=tab=>switchTab(tab);
   const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
   document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
+  const more=document.querySelector("[data-week-more]");
+  if(more){
+    const note=more.previousElementSibling;
+    if(note.scrollHeight<=note.clientHeight+1) more.remove();
+    else more.onclick=()=>{ const open=note.classList.toggle("open"); more.textContent=open?"Less":"More"; };
+  }
 }
 
 function renderView(){
