@@ -68,8 +68,9 @@ own credentials and token store, so calling the wrong one silently reads the wro
   do not deduce a new one from the numbers and write it in.
 - **Cerys runs in her own currency.** Her shins are the governor and her heart rate runs hot the
   moment she runs - that is not a pacing error to correct, it is her physiology, so control her
-  sessions with the recoveries rather than by asking her to slow down. Incline walking, not running,
-  while the shins are the governor.
+  sessions with the recoveries rather than by asking her to slow down. Her Thursday is a 30 min easy
+  run by feel with no HR target, and she can stop at 20 min unless she feels good (Daniel,
+  24 Oct 2026). Ask which shin, if any, said anything.
 - **Do not make both runs hard.** The commonest error when moving from one run a week to two.
 
 ## Reference

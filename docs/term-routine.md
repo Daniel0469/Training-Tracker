@@ -240,8 +240,9 @@ progression**, which is what the optional third run exists to grow into.
   the weekend and when Sunday finished. The map only needs to be internally consistent, and it will
   be: every one of these sessions sits after two shifts, so it is a map of his Monday threshold,
   which is the only day he runs it.
-- **Thursday, Cerys: no running at all.** Her Zone 2 is a walk, not a run, by her own limiter, so
-  this is a 20-minute incline walk held at **HR 119-138**. ~~It also keeps her off impact twelve hours
+- **Thursday, Cerys: a 30 min easy run by feel** (Daniel, 24 Oct 2026), at a pace she could talk
+  at, with **no HR target**: her heart rate runs hot the moment she runs, by her own limiter. She
+  can stop at 20 min unless she feels good. ~~It also keeps her off impact twelve hours
   after Monday's sled push-pull.~~ **Moved Tue -> Thu on 21 September, and the spacing improved:** the
   sled is now Tuesday evening, so this sits about **44 hours** after it rather than twelve. The walk
   was never really justified by the sled anyway - her limiter is.

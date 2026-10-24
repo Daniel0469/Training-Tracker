@@ -253,7 +253,9 @@ automatically, because it reads this file each time.
   **Settled 22 Oct 2026 (Daniel): runs are the lowest priority for now.** He's getting fully into
   the routine first, and the mornings themselves are the problem (see the vault note *Getting Up in
   the Morning*). So the two well weeks of 3-16 Oct with no run are **not** the trigger to re-ask.
-  Don't raise the slot or move a run's day until Daniel brings runs back himself.
+  **Runs are back since 24 Oct 2026** (Daniel: "have them both in"): each of them has the Monday
+  quality run and a Thursday run. Cerys's Thursday is a 30 min easy run by feel, no HR target, and
+  she can stop at 20 min unless she feels good.
 - **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on
   the day. Raise it only when one of them asks. See `docs/methods/coaching-method.md` Part 3.
 - **Sled progression: add out-and-backs like reps** (Daniel, 22 Oct 2026). Each sled set is
