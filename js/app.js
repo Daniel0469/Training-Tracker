@@ -69,6 +69,8 @@ function load(){
       // of them today and the card that reads it renders nothing until it isn't.
       if(!s.wellness || typeof s.wellness!=="object") s.wellness={};
       if(!Array.isArray(s.meals)) s.meals=[];
+      // Daily food targets: person -> {kcal, protein, updatedAt}, set in the gear menu.
+      if(!s.nutritionTargets || typeof s.nutritionTargets!=="object") s.nutritionTargets={};
       // Machine settings (the wrench), each person's own since 13 Oct: person ->
       // exercise NAME -> {text, updatedAt}. By name, so one machine in two sessions
       // is one entry. They used to be one shared `notes` on the program exercise.
@@ -119,7 +121,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -2069,7 +2071,7 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like the Program tab's chosen session.
 let progressPane="lifts";
-const PANE_LABELS={lifts:"Lifts", run:"Run", flex:"Flex", time:"Time", body:"Body"};
+const PANE_LABELS={lifts:"Lifts", run:"Run", flex:"Flex", time:"Time", body:"Body", food:"Food"};
 // 🏃 Run only joins the toggle once there's running data to put in it, so a
 // lifting-only install sees the same two-way toggle it always did rather than a
 // third tab of empty cards.
@@ -2283,6 +2285,7 @@ function progressPanes(){
   if(hasFlexData()) keys.push("flex");
   if(hasDurationData()) keys.push("time");
   keys.push("body");
+  if(hasFoodData()) keys.push("food");
   return keys;
 }
 // Sessions with a duration, oldest first, for one person - optionally just one
@@ -2515,6 +2518,7 @@ function renderProgress(){
   if(progressPane==="run") return renderRun();
   if(progressPane==="flex") return renderFlex();
   if(progressPane==="time") return renderTime();
+  if(progressPane==="food") return renderFood();
   // Centimetres, not kilograms: these chart in the Flexibility pane instead.
   const allEx=[...new Set(state.logs.flatMap(l=>(l.entries||[]).filter(e=>!isFlexTest(e)).map(e=>e.name)))].sort();
   if(!allEx.length){
@@ -2922,6 +2926,85 @@ function drawBwChart(person){
       scales:{x:{type:"category", labels:[...new Set(bwFor(person).map(b=>b.date))].sort(), ticks:{color:tickCol}, grid:{color:gridCol}},
         y:{beginAtZero:false, title:{display:true, text:"kg", color:tickCol}, ticks:{color:tickCol}, grid:{color:gridCol}}},
       plugins:{legend:{position:"top", labels:{color:tickCol}}}}
+  });
+}
+
+// ---- Food: the Progress pane for meals the Home Hub captures -------------
+// View only. Meals are added and fixed in the hub (docs/home-hub-link.md); this
+// side shows each day against the person's targets.
+let foodChart=null, foodMetric="protein";
+function foodTarget(person){ return (state.nutritionTargets||{})[person]||{}; }
+function hasFoodData(){
+  return (state.meals||[]).some(m=>m && state.people.indexOf(m.person)>=0)
+    || state.people.some(n=>{ const t=foodTarget(n); return t.kcal||t.protein; });
+}
+// One person's meals grouped by date: {date: {kcal, protein, meals}}, meals in time order.
+function foodDays(person){
+  const days={};
+  (state.meals||[]).filter(m=>m && m.person===person && m.date).forEach(m=>{
+    const d=days[m.date]||(days[m.date]={kcal:0, protein:0, meals:[]});
+    d.kcal+=+m.kcal||0; d.protein+=+m.protein||0; d.meals.push(m);
+  });
+  Object.keys(days).forEach(k=>days[k].meals.sort((a,b)=>String(a.loggedAt||"").localeCompare(String(b.loggedAt||""))));
+  return days;
+}
+const dayLabel=d=>new Date(d+"T12:00").toLocaleDateString("en-GB",{weekday:"short", day:"numeric", month:"short"});
+function mealRowsHtml(meals){
+  return meals.map(m=>{
+    const t=new Date(m.loggedAt), hm=isNaN(t)?"":String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");
+    return '<div class="log-row meal-row"><div>'+(hm?'<span class="ex-meta num">'+hm+'</span> ':'')+esc(m.description||"Meal")
+      + (m.estimated?' <span class="pill" title="The macros are an estimate, not a database lookup">est.</span>':'')+'</div>'
+      + '<span class="ex-meta num">'+Math.round(+m.kcal||0)+' kcal · '+Math.round(+m.protein||0)+' g</span></div>';
+  }).join("");
+}
+function foodBarHtml(label, have, target, unit){
+  const pct=target ? Math.min(100, Math.round(have/target*100)) : 0;
+  return '<div class="cov-row"><span class="cov-name">'+label+'</span>'
+    + '<span class="cov-bar v3">'+(target?'<i style="width:100%"></i>':'')+(pct?'<b style="width:'+pct+'%"></b>':'')+'</span>'
+    + '<span class="cov-n" style="flex-basis:104px">'+Math.round(have).toLocaleString()+(target?' / '+target.toLocaleString():'')+unit+'</span></div>';
+}
+const dayTotalsText=d=>Math.round(d.kcal).toLocaleString()+' kcal · '+Math.round(d.protein)+' g';
+function renderFood(){
+  const p=state.people[state.activePerson];
+  const t=foodTarget(p), days=foodDays(p), today=localDateStr();
+  const td=days[today]||{kcal:0, protein:0, meals:[]};
+  let html=progressTabsHtml()
+    + '<div class="card"><div class="sec-title">'+ico("target")+'Today · '+esc(p)+'</div>'
+    + foodBarHtml("Calories", td.kcal, t.kcal, "")
+    + foodBarHtml("Protein", td.protein, t.protein, " g")
+    + (td.meals.length ? '<div style="margin-top:10px">'+mealRowsHtml(td.meals)+'</div>'
+        : '<div class="hint" style="margin:10px 0 0">Nothing logged today. Meals are added in the Home Hub.</div>')
+    + (t.kcal||t.protein ? '' : '<div class="hint" style="margin:6px 0 0">Set daily targets in the gear menu.</div>')
+    + '</div>';
+  html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("trend")+'Last 14 days</div>'
+    + '<div class="ptoggle">'+[["protein","Protein"],["kcal","Calories"]].map(o=>'<button type="button" data-fm="'+o[0]+'"'+(foodMetric===o[0]?' class="active"':'')+'>'+o[1]+'</button>').join("")+'</div></div>'
+    + '<div class="chart-box" style="height:200px;margin-top:10px"><canvas id="foodChart"></canvas></div></div>';
+  const past=[shiftDate(today,-1), shiftDate(today,-2)].filter(d=>days[d]);
+  if(past.length){
+    html+='<div class="card"><div class="sec-title">Last two days</div>'
+      + past.map(d=>'<details class="food-day"><summary class="flex-between"><span>'+esc(dayLabel(d))+'</span><span class="ex-meta num">'+dayTotalsText(days[d])+'</span></summary>'
+          + mealRowsHtml(days[d].meals)+'</details>').join("")
+      + '</div>';
+  }
+  document.getElementById("view").innerHTML=html;
+  wirePaneToggle();
+  document.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{ foodMetric=b.dataset.fm; renderFood(); });
+  drawFoodChart(p, days, today, t);
+}
+function drawFoodChart(person, days, today, target){
+  const dates=[]; for(let i=13;i>=0;i--) dates.push(shiftDate(today,-i));
+  const goal=target[foodMetric];
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  const col=swatchColor(state.colors[state.people.indexOf(person)],dark);
+  const tickCol=dark?"#9aa3b2":"#697086", gridCol=dark?"rgba(255,255,255,.09)":"rgba(20,30,55,.08)";
+  const sets=[{type:"bar", label:foodMetric==="kcal"?"Calories":"Protein (g)", data:dates.map(d=>days[d]?Math.round(days[d][foodMetric]):0), backgroundColor:col, borderRadius:4}];
+  if(goal) sets.push({type:"line", label:"Target", data:dates.map(()=>goal), borderColor:tickCol, borderDash:[5,4], pointRadius:0, borderWidth:1.5});
+  if(foodChart) foodChart.destroy();
+  foodChart=new Chart(document.getElementById("foodChart"),{
+    type:"bar", data:{labels:dates.map(d=>new Date(d+"T12:00").toLocaleDateString("en-GB",{day:"numeric", month:"short"})), datasets:sets},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{x:{ticks:{color:tickCol, maxTicksLimit:7, maxRotation:0}, grid:{display:false}}, y:{beginAtZero:true, ticks:{color:tickCol}, grid:{color:gridCol}}},
+      plugins:{legend:{display:false}}}
   });
 }
 
@@ -3372,6 +3455,9 @@ document.getElementById("settingsBtn").onclick=()=>{
   wireSwatchPicker(document.getElementById("pColor"));
   document.getElementById("pWeight").value=(state.weights&&state.weights[i])||"";
   document.getElementById("pGoals").value=(state.goals&&state.goals[i])||"";
+  const nt=foodTarget(state.people[i]);
+  document.getElementById("pKcal").value=nt.kcal||"";
+  document.getElementById("pProtein").value=nt.protein||"";
   document.getElementById("pWeightLab").childNodes[0].nodeValue=possessive(state.people[i])+" bodyweight (kg)";
   document.getElementById("pGoalsLab").childNodes[0].nodeValue=possessive(state.people[i])+" goals";
   const sc=loadSync();
@@ -3502,6 +3588,10 @@ function saveSettingsPerson(){
   state.colors[i]=readSwatchPicker(document.getElementById("pColor"));
   state.weights[i]=(document.getElementById("pWeight").value||"").trim();
   state.goals[i]=(document.getElementById("pGoals").value||"").trim();
+  const num=id=>{ const v=Math.round(parseFloat(document.getElementById(id).value)); return v>0 ? v : null; };
+  const kcalT=num("pKcal"), proteinT=num("pProtein"), oldT=foodTarget(state.people[i]);
+  if(state.people[i] && (kcalT!==(oldT.kcal||null) || proteinT!==(oldT.protein||null)))
+    state.nutritionTargets[state.people[i]]={kcal:kcalT, protein:proteinT, updatedAt:Date.now()};
   // Only record a bodyweight when the number was actually edited. This used to run on
   // every settings close, so merely opening Settings on a new day stamped that day with
   // the unchanged weight and the trend chart gained a flat point daily. Weigh-ins should
@@ -3565,7 +3655,7 @@ function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     suggestions:state.suggestions,
-    programChanges:state.programChanges, meals:state.meals,
+    programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, machineSettings:state.machineSettings, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights};
@@ -3668,6 +3758,14 @@ function mergeInData(data, adoptConfig, fromSync){
         var tv=theirs[n], mv=mine[n];
         if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[n]=tv; updated++; }
       });
+    });
+  }
+  // Food targets: set on the phones, so the newer edit per person wins.
+  if(data.nutritionTargets && typeof data.nutritionTargets==="object"){
+    if(!state.nutritionTargets) state.nutritionTargets={};
+    Object.keys(data.nutritionTargets).forEach(function(pn){
+      var tv=data.nutritionTargets[pn], mv=state.nutritionTargets[pn];
+      if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ state.nutritionTargets[pn]=tv; updated++; }
     });
   }
   // Limiters: authored centrally like coaching, so incoming wins per person.
@@ -3895,7 +3993,7 @@ function peopleInPayload(d){
   (d.logs||[]).forEach(l=>{ if(l) add(l.person); });
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","nutritionTargets"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -3916,7 +4014,7 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","nutritionTargets"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
@@ -4136,7 +4234,7 @@ function renderHelp(){
      +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
      +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
-     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top) and <b>Program</b>.')
+     +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top, plus <b>Food</b> once a meal or a food target exists) and <b>Program</b>.')
      +p('<b>Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep, its stages as one coloured bar (deep, REM, light, awake), sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
      +p('<b>Estimated 5k</b> is what you\'d likely run a 5k in right now. Your <b>coach</b> works it out from your logged runs, using Garmin\'s own race prediction as one input rather than gospel - that prediction comes from a VO₂max model and reads optimistic when you\'ve only done easy runs. The card says what the estimate is based on and how confident it is; before the coach has looked, it shows Garmin\'s raw number marked <b>unreviewed</b>. Expect <b>low confidence</b> until you do a hard effort or a time trial - that\'s the single best thing to make it accurate.')
@@ -4178,7 +4276,7 @@ function renderHelp(){
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a square for each day (filled when you saved a session that day, outlined for today) and the last eight weeks\' volume as bars, this week in your colour - then lists every saved session (newest first). Switch between <b>Everyone</b> and each person at the top, and <b>tap a session</b> to fold its full detail open; a gold <b>PR</b> badge marks a session with a best in it, and each exercise that set one. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>Your own notes can be added or changed after the event.</b> Tap a session open and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
      +p('<b>Delete session</b> sits at the bottom of a session\'s open detail (so it can\'t be hit while scrolling) and removes it on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
-     +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
+     +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Food</b> shows the meals logged in the Home Hub: today\'s calories and protein against your daily targets with each meal listed (<i>est.</i> marks macros that are an estimate), the last 14 days as a chart, and yesterday and the day before, which you can tap open. Set the targets in the gear menu. Meals are added and fixed in the hub, not here. Home shows today\'s totals too.<b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')
      +p('<b>Flex</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Which rung is lowest is a judgement, not a number - centimetres on one test don\'t compare with another - so it is <b>your coach\'s call</b>, made from the assessment: once the coach has set it, that test carries a gold <b>LOWEST RUNG</b> tag naming the skill it is holding back (one per skill, so a split and a squat can each have their own), with the coach\'s reason under the table. Until then there is no tag. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')
@@ -4760,6 +4858,13 @@ function renderHome(){
     + '<div class="tile"><div class="big">'+pLogs.length+'</div><div class="lbl">sessions logged</div></div>'
     + '</div>';
 
+  if(hasFoodData()){
+    const ft=foodTarget(p), fd=foodDays(p)[localDateStr()]||{kcal:0, protein:0};
+    html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("target")+'Food today</div>'
+      + '<button class="mini" data-home-go="food">Food →</button></div>'
+      + '<div style="margin-top:8px">'+foodBarHtml("Calories", fd.kcal, ft.kcal, "")+foodBarHtml("Protein", fd.protein, ft.protein, " g")+'</div></div>';
+  }
+
   if(last){
     const pr=(last.entries||[]).some(e=>e.pr);
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">Last session</div>'
@@ -4881,6 +4986,7 @@ function renderView(){
   // as a route so an old persisted tab value, or Home's ⚖ arrow, still lands
   // somewhere sensible instead of a blank view.
   else if(activeTab==="body"){ activeTab="progress"; progressPane="body"; renderProgress(); syncTabButtons(); }
+  else if(activeTab==="food"){ activeTab="progress"; progressPane="food"; renderProgress(); syncTabButtons(); }
   else if(activeTab==="edit") renderEdit();
   else if(activeTab==="help") renderHelp();
   // Last, because the person toggle and every tab button come through here: the

@@ -193,16 +193,18 @@ must stamp `updatedAt`**; that is now a hard requirement of being a writer, not 
 plus a `load()` migration for installs saved before the change. Unknown fields on incoming meals are
 preserved, so the hub can add fields without a change here. `CACHE_NAME` → `tt-v42`.
 
-**Hub-written meals now survive sync in both directions, with no UI yet.** Nothing is displayed until
-item 3 - a meal in the store is currently invisible in the app.
+**Hub-written meals survive sync in both directions.** Item 3 displays them.
 
-### 3. Nutrition UI (the roadmap item, now with a data source)
-- Per-person daily targets (kcal + protein) alongside the existing goals.
-- Today's totals on **Home** as a tile - reuse the `.tile` pattern from `renderHome`.
-- A **Nutrition** view or a Body-tab section: day list, per-meal rows, weekly protein trend
-  (Chart.js, as the bodyweight trend does).
-- Manual add/edit, so the app is usable with the hub off or not yet built.
-- Light + dark, no console errors, and **update `renderHelp`** - the Guide must reflect it.
+### 3. Nutrition UI ✅ DONE (24 Oct 2026)
+- A **Food** pane in Progress (`renderFood`): today against the targets with each meal, a 14-day
+  protein or calories chart with the target line, and the last two days, which fold open
+  (Daniel, 24 Oct: the chart is what matters, older days stay in the store only). A **Food today**
+  card on Home links to it.
+- Per-person daily targets in the gear menu, stored as `nutritionTargets`:
+  `{ "<person name>": { "kcal": 2600, "protein": 160, "updatedAt": <ms> } }`. The newer
+  `updatedAt` wins per person on merge.
+- **View only** (Daniel, 24 Oct): meals are added and fixed in the hub. Manual add and edit here is a
+  later job, and a delete would need a tombstone, as weigh-ins have.
 
 ### 4. Coach sees nutrition
 - Add a `nutrition(person, days)` tool to `mcp-coach/server.py` (daily kcal/protein totals, target

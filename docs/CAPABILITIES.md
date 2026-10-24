@@ -83,6 +83,14 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **Coach brief (Markdown)** button bundles goals, PRs, bodyweight and recent sessions to paste into
   Claude / Obsidian.
 
+### Food
+- A **Food** pane in Progress for the meals the Home Hub captures (view only - meals are added and
+  fixed in the hub). Today's calories and protein against each person's daily targets, each meal
+  listed (**est.** marks estimated macros), a 14-day protein or calories chart with the target line,
+  and the last two days, which fold open to their meals. Older meals stay in the store, not on screen.
+- Per-person **calorie and protein targets** in the gear menu (`nutritionTargets`, synced; the newer
+  edit wins). Home shows today's totals with a link to the pane.
+
 ### Coaching (two-way, via Claude)
 - A local **MCP server** (`mcp-coach/`) exposes the shared data to Claude on your existing
   subscription (no API cost). Claude can **write coaching back** into the app:

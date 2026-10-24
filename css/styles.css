@@ -459,6 +459,13 @@
   .cov-bar.v3 b{position:absolute;left:0;top:0;height:100%;border-radius:5px;background:var(--brand)}
   .cov-row{margin:5px 0}
   .cov-n{font-size:12px;color:var(--ink-2)}
+  /* Food pane: past days fold open to their meals. */
+  .food-day{border-top:1px solid var(--line)}
+  .food-day summary{cursor:pointer;padding:9px 0;list-style:none}
+  .food-day summary::-webkit-details-marker{display:none}
+  .meal-row{align-items:baseline;padding:3px 0}
+  .meal-row>div{flex:1;min-width:0}
+  .meal-row>span{white-space:nowrap}
   /* Sleep */
   .sleep-dur{font-size:26px;font-weight:700;letter-spacing:-.02em}
   .stagebar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
