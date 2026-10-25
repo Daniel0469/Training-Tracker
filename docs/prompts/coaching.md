@@ -256,6 +256,11 @@ automatically, because it reads this file each time.
   **Runs are back since 24 Oct 2026** (Daniel: "have them both in"): each of them has the Monday
   quality run and a Thursday run. Cerys's Thursday is a 30 min easy run by feel, no HR target, and
   she can stop at 20 min unless she feels good.
+- **Cerys runs at about 160 steps a minute** (25 Oct 2026, up from ~145, for her shins). Both her
+  treadmill programs say so. Keep it in any run you write for her, and read her cadence from the
+  watch data each review.
+- **Pull-ups end with 3 slow negatives, about 5 s down, no assist, for both** (25 Oct 2026). It is in
+  the shared target. Keep it when you write either person's pull-up note.
 - **Tape measurements every 4 weeks** (from 24 Oct 2026): the `measurements` tool gives each date's
   cm per site, left and right separately. Judge them against bodyweight and the goals.
 - **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on

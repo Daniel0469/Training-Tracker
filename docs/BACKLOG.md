@@ -159,7 +159,9 @@ Produced `methods/strength-method.md`, `methods/week-method.md`, `methods/testin
       (sub-20, Hyrox's 8 km) is blocked on this. The hard part is that the reasons they run once a
       week are real - Cerys's shins, a full five-day week, and Daniel's fatigue notes - so this is a
       conversation before it is a change.
-- [ ] **Cadence work for Cerys.** Her per-rep running cadence is **140-151 spm**, which is low, and
+- [x] **Cadence work for Cerys.** DONE 2026-10-25 (Daniel, with Cerys: "yes"). Both her treadmill
+      programs now say "QUICK, LIGHT STEPS: about 160 a minute, up from your usual ~145", with a
+      metronome app at 160 for the first runs. Her per-rep running cadence is **140-151 spm**, which is low, and
       she is the one with shin splints. A 10% increase cuts peak tibial acceleration ~11.5% and
       loading rate ~15.6%; each extra step per minute is associated with ~5% lower bone stress injury
       risk. On a fixed treadmill speed it is mechanically trivial to implement and to measure. Best
@@ -168,7 +170,9 @@ Produced `methods/strength-method.md`, `methods/week-method.md`, `methods/testin
       it and a **modified Thomas test** was raised as a pending program change, placed after Tailor's
       pose, two rows (left leg, right leg), lower is better. Run on re-test days only.
       `methods/flexibility-method.md` section 11.
-- [ ] **Add eccentrics to Cerys's pull-up work.** Her strongest trend (47.8 kg effective, rising),
+- [x] **Add eccentrics to Cerys's pull-up work.** DONE 2026-10-25, for both of them (Daniel): the
+      shared pull-up target is now `3x4-10, then 3 slow negatives (about 5 s down), no assist`.
+      Her strongest trend (47.8 kg effective, rising),
       her only stated strength goal, needs neither shins nor hips, and transfers to the Hyrox sled
       pull. `methods/female-athlete-method.md` Part 4.
 - [x] **Where the flexibility session goes.** SETTLED 2026-09-07: **Wednesday**, for both of them.
