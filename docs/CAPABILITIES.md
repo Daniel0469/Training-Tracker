@@ -28,7 +28,8 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - Opens here by default. At-a-glance hub for the selected person: today's session (with a **Log it**
   shortcut), the **🧠 Coach** note for that session only, a **Week review** from Friday 20:00 to
   Monday night (training days done of planned, volume against the week before, PRs, and the coach's
-  weekly note cut to two lines once that Friday's run has written it), quick stat tiles (sessions &
+  weekly note in whole sentences up to about 220 characters, once that Friday's run has written it),
+  quick stat tiles (sessions &
   volume this week, latest bodyweight with trend arrow, total sessions), today's food, "Measurements
   due" every 4 weeks, last session and last runs, recovery, the 5k estimate, HR zones, and what the
   week trains at the bottom. The general coach note shows only in the Week review. The next-cardio

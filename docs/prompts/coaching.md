@@ -68,7 +68,9 @@ automatically, because it reads this file each time.
 >   e.g. "102.5kg for 5x5 - last week's 100 moved well. If set 4 grinds, stop and repeat 102.5
 >   next week." A bare "add 2.5kg" is too little; a three-paragraph history is far too much.
 > - `overall` = *optional* general note shown on every session, two sentences at most - use it
->   only for something that isn't session-specific; otherwise lean on `by_session`.
+>   only for something that isn't session-specific; otherwise lean on `by_session`. It is also the
+>   weekly note on Home's **Week review**, which shows whole sentences up to about 220 characters,
+>   so keep the two sentences short and put the point first.
 > - `five_k` = the **🏁 Estimated 5k** card on their Home tab, as
 >   `{ "time": "24:30", "pace": "4:54", "basis": "…", "confidence": "low|medium|high" }`.
 >   **Call `running_form(person)` first** - it returns every logged run (distance, pace, avg HR,
