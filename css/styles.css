@@ -553,8 +553,12 @@
   .rung-why{margin-top:12px;font-size:13px;line-height:1.45;display:grid;gap:4px;color:var(--ink)}
   table.rec td.num b{font-weight:700}
   .bw-add{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:end}
-  .bw-add input{width:100%;min-width:0}
+  .bw-add .fld{min-width:0}
+  .bw-add input{width:100%;min-width:0;box-sizing:border-box}
+  /* iPhone Safari gives a date box a fixed width of its own unless its native look is off. */
+  .bw-add input[type=date], #msDate{-webkit-appearance:none;appearance:none;display:block;min-height:44px}
   .bw-add .btn{min-height:44px}
+  @media(max-width:520px){ .bw-add{grid-template-columns:minmax(0,1fr) auto} .bw-add .fld:first-child{grid-column:1/-1} }
   .bw-row{padding:7px 0;border-bottom:1px solid var(--line)}
   .bw-row:last-child{border-bottom:0}
   /* Records fit a phone: names and the bodyweight breakdown wrap instead of
