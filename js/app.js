@@ -3995,6 +3995,15 @@ function coachBrief(person){
   md+="## Goals\n"+(goal||"_none set_")+"\n\n";
   md+="## Bodyweight\n"+(latest?("Latest **"+latest.kg+" kg** ("+relTime(latest.date)+")"
     + (bw.length>1?"; "+bw.length+" entries logged":"")):"_none logged_")+"\n\n";
+  const fdays=foodDays(person), ft=foodTarget(person), today=localDateStr();
+  const week=[0,1,2,3,4,5,6].map(n=>fdays[shiftDate(today,-n)]).filter(Boolean);
+  const favg=k=>Math.round(week.reduce((t,d)=>t+d[k],0)/week.length);
+  const fest=week.reduce((t,d)=>t+d.meals.filter(m=>m.estimated).length,0);
+  md+="## Nutrition (last 7 days)\n"+(week.length
+    ? "Logged "+week.length+" of 7 days · average **"+favg("kcal").toLocaleString()+" kcal**"+(ft.kcal?" (target "+ft.kcal.toLocaleString()+")":"")
+      + " · **"+favg("protein")+" g protein**"+(ft.protein?" (target "+ft.protein+")":"")
+      + (fest?" · "+fest+" estimated meal"+(fest===1?"":"s"):"")
+    : "_none logged_")+"\n\n";
   const prNames=Object.keys(prs).sort();
   md+="## Current bests\n"+(prNames.length? prNames.map(n=>"- **"+n+"** - "+prs[n].kg+" kg ("+relTime(prs[n].date)+")").join("\n") : "_none yet_")+"\n\n";
   md+="## Recent sessions (latest "+Math.min(8,logs.length)+")\n";
@@ -4364,7 +4373,7 @@ function renderHelp(){
      +p('Set your <b>goals</b> in the gear menu; they show at the top of the Body pane and travel with your data, so a coach (or Claude) can see what you\'re working toward.')
      +p('<b>Measurements</b> sit under the weigh-in box: take them every 4 weeks, in the morning before food, relaxed, with the tape level and snug. Tap <b>Add measurements</b>, fill in any of neck, shoulders, chest, waist, hips and both sides of the upper arm, forearm, thigh and calf, and save. Last time\'s numbers show faded in each box. The chart shows one site at a time, left and right together. Home shows <b>Measurements due</b> once 4 weeks have passed.')
      +p('<b>Importing onto a different name:</b> when you pick a file, the Import box lists everyone in it and lets you send each one to whichever account you like - or leave them out. Because everything is stored against a person\'s <b>name</b>, this is how you rescue history after a rename or move an old account\'s sessions onto a new one; the names do not have to match.')
-     +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
+     +p('For AI coaching, the gear menu\'s <b>Coach brief (Markdown)</b> button bundles the selected person\'s goals, PRs, bodyweight, the last 7 days of food and recent sessions into a summary you can paste into Claude (or drop into Obsidian).')
      +p('When a coach sends you notes, they show as outlined <b>Coach</b> cards on <b>Home</b> and at the top of the <b>Log</b> tab: a note for <b>today’s session</b>, an optional <b>general</b> note, and a <b>🧠 Coach</b> cue with a next step on each exercise. Your coach keeps its own record of everything it has told you before, so each week\'s advice builds on the last rather than starting fresh - but that record is the coach\'s working memory, not something to read on a phone, so it is kept out of the app and off your device entirely. What you see here is the advice that is <b>current</b>. Tap <b>Sync now</b> to pull the latest coaching.')
      +p('A coach can also <b>rewrite a session\'s 🔥 warm-up / 🧊 cool-down notes</b> - to work around an injury or a niggle, say. Unlike the coach cards above, those notes belong to the <b>session</b> rather than to you, so a change lands for <b>both</b> of you and should name whoever it\'s meant for. It arrives on your next <b>Sync now</b>, and never mid-workout: a sync while you have a session part-typed leaves the program alone until you\'ve saved. You can always edit the notes back yourself on the <b>Program</b> tab.')
      +p('<b>Your run session is your coach\'s to write.</b> You each have <b>your own</b> - <b>Run: Daniel</b> and <b>Run: Cerys</b> - and you only ever see yours, on the calendar and in the session picker, so there is nothing to choose between on a Wednesday. Your coach re-prescribes it from your data each week and is <b>not tied to one format</b>: reps, tempo, hills, a straight easy run, run-walk, whatever the last few runs say you need. The reason for this week\'s version shows as the &#129504; Coach note on the session. <b>Cardio: Endurance + Core</b> is kept as a <b>backup</b> you can pick any day you want a plain easy run.')

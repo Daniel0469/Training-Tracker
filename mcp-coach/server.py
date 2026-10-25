@@ -1143,6 +1143,32 @@ def get_measurements(data, person):
     rows.sort(key=lambda m: m["date"])
     return [{"date": m["date"], "cm": m.get("cm") or {}} for m in rows]
 
+def get_nutrition(data, person, days=14, today=None):
+    """Daily food totals for the last `days` local days, ending today, against the
+    person's targets. A day with no meals is not logged rather than a zero day: the
+    hub only knows what was scanned or typed. `estimated` counts free-text guesses."""
+    today = today or datetime.date.today()
+    target = (data.get("nutritionTargets") or {}).get(person) or {}
+    meals = [m for m in data.get("meals") or [] if m.get("person") == person and m.get("date")]
+    out = []
+    for i in range(days - 1, -1, -1):
+        d = (today - datetime.timedelta(days=i)).isoformat()
+        day = [m for m in meals if m["date"] == d]
+        if not day:
+            out.append({"date": d, "logged": False})
+            continue
+        tot = {k: round(sum(float(m.get(k) or 0) for m in day), 1) for k in ("kcal", "protein", "carbs", "fat")}
+        out.append(dict(tot, date=d, logged=True, meals=len(day),
+                        estimated=sum(1 for m in day if m.get("estimated"))))
+    logged = [d for d in out if d["logged"]]
+    avg = lambda k: round(sum(d[k] for d in logged) / len(logged)) if logged else None
+    summary = {"days": days, "days_logged": len(logged), "avg_kcal": avg("kcal"),
+               "avg_protein": avg("protein"),
+               "target_kcal": target.get("kcal"), "target_protein": target.get("protein")}
+    if target.get("protein") and logged:
+        summary["days_protein_met"] = sum(1 for d in logged if d["protein"] >= target["protein"])
+    return {"person": person, "summary": summary, "days": out}
+
 def _is_run_entry(e):
     """A running entry carries both a distance and a time column (same test as
     isRunning in js/app.js and _is_run_entry in mcp-garmin)."""
@@ -1440,6 +1466,15 @@ def _register(mcp):
         waist, hips, and armL/armR, forearmL/forearmR, thighL/thighR, calfL/calfR). Taken
         about every 4 weeks; a site left out on a date was not measured."""
         return json.dumps(get_measurements(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def nutrition(person: str, days: int = 14) -> str:
+        """A person's food for the last `days` days (default 14), from the meals the Home Hub
+        captures: per day kcal, protein, carbs, fat (grams), meal count and how many were
+        `estimated` (a free-text guess, less reliable than a barcode). A day with
+        `logged: false` had nothing captured, which is not the same as eating nothing. The
+        summary gives averages over logged days against the person's kcal and protein targets."""
+        return json.dumps(get_nutrition(load_data(), person, days), indent=2)
 
     @mcp.tool()
     def progress(person: str, exercise: str) -> str:

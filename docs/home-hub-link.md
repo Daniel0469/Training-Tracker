@@ -210,7 +210,10 @@ preserved, so the hub can add fields without a change here. `CACHE_NAME` → `tt
 - **View only** (Daniel, 24 Oct): meals are added and fixed in the hub. Manual add and edit here is a
   later job, and a delete would need a tombstone, as weigh-ins have.
 
-### 4. Coach sees nutrition
+### 4. Coach sees nutrition ✅ DONE (25 Oct 2026)
+`nutrition(person, days=14)` in `mcp-coach/server.py`, a 7-day food line in `coachBrief`, and a
+rule in `docs/prompts/coaching.md`. A day with no meals is reported as not logged, not as zero.
+The original plan:
 - Add a `nutrition(person, days)` tool to `mcp-coach/server.py` (daily kcal/protein totals, target
   adherence, `estimated` flagged).
 - Include a nutrition line in `coachBrief`.

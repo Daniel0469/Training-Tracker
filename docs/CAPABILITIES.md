@@ -89,7 +89,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   upper arm, forearm, thigh and calf, in one form on Body, with a chart per site (left and right
   together). Home shows "Measurements due" once 28 days have passed. Synced (`measurements`, one row
   per person and date, the newer edit wins); the coach reads them with the `measurements` tool.
-- **Coach brief (Markdown)** button bundles goals, PRs, bodyweight and recent sessions to paste into
+- **Coach brief (Markdown)** button bundles goals, PRs, bodyweight, the last 7 days of food and recent sessions to paste into
   Claude / Obsidian.
 
 ### Food

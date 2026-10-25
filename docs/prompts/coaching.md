@@ -263,6 +263,11 @@ automatically, because it reads this file each time.
   watch data each review.
 - **Pull-ups end with 3 slow negatives, about 5 s down, no assist, for both** (25 Oct 2026). It is in
   the shared target. Keep it when you write either person's pull-up note.
+- **Food: the `nutrition` tool** (25 Oct 2026) gives each day's kcal, protein, carbs and fat from
+  the meals the hub captures, against their targets. A day marked `logged: false` had nothing
+  captured, so don't read it as not eating. Treat estimated meals as rough. Judge protein against
+  the lifting and the bodyweight trend, and say so in the review when protein is under target on
+  most logged days.
 - **Tape measurements every 4 weeks** (from 24 Oct 2026): the `measurements` tool gives each date's
   cm per site, left and right separately. Judge them against bodyweight and the goals.
 - **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on
