@@ -59,6 +59,7 @@ function load(){
       if(!Array.isArray(s.deletedLogs)) s.deletedLogs=[];
       // Same for weigh-ins, keyed person+date. See tombstoneBodyweight.
       if(!Array.isArray(s.deletedBodyweights)) s.deletedBodyweights=[];
+      if(!Array.isArray(s.deletedMeals)) s.deletedMeals=[];
       // What each person says is holding a session back, keyed person -> session
       // name. Written by the coach when they tell it (mcp-coach write_limiter),
       // read-only in the app.
@@ -122,7 +123,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function save(){ progExIndex=null; localStorage.setItem(KEY, JSON.stringify(state)); }
 // Both people train the same plan, so the program is shared - but a plain sync
@@ -3003,12 +3004,14 @@ function hasFoodData(){
   return (state.meals||[]).some(m=>m && state.people.indexOf(m.person)>=0)
     || state.people.some(n=>{ const t=foodTarget(n); return t.kcal||t.protein; });
 }
-// One person's meals grouped by date: {date: {kcal, protein, meals}}, meals in time order.
+// One person's meals grouped by date: {date: {kcal, protein, fibre, meals}}, meals in time
+// order. Fibre stays null for a day with no fibre recorded: unknown, not 0 (since 26 Oct).
 function foodDays(person){
   const days={};
   (state.meals||[]).filter(m=>m && m.person===person && m.date).forEach(m=>{
-    const d=days[m.date]||(days[m.date]={kcal:0, protein:0, meals:[]});
+    const d=days[m.date]||(days[m.date]={kcal:0, protein:0, fibre:null, meals:[]});
     d.kcal+=+m.kcal||0; d.protein+=+m.protein||0; d.meals.push(m);
+    if(m.fibre!=null) d.fibre=(d.fibre||0)+(+m.fibre||0);
   });
   Object.keys(days).forEach(k=>days[k].meals.sort((a,b)=>String(a.loggedAt||"").localeCompare(String(b.loggedAt||""))));
   return days;
@@ -3029,15 +3032,17 @@ function foodBarHtml(label, have, target, unit){
     + '<span class="cov-bar v3">'+(target?'<i style="width:100%"></i>':'')+(pct?'<b style="width:'+pct+'%"></b>':'')+'</span>'
     + '<span class="cov-n" style="flex-basis:104px">'+Math.round(have).toLocaleString()+(target?' / '+target.toLocaleString():'')+unit+'</span></div>';
 }
-const dayTotalsText=d=>Math.round(d.kcal).toLocaleString()+' kcal · '+Math.round(d.protein)+' g';
+const fibreText=d=>d.fibre==null?'–':Math.round(d.fibre)+' g';
+const dayTotalsText=d=>Math.round(d.kcal).toLocaleString()+' kcal · '+Math.round(d.protein)+' g · fibre '+fibreText(d);
 function renderFood(){
   const p=state.people[state.activePerson];
   const t=foodTarget(p), days=foodDays(p), today=localDateStr();
-  const td=days[today]||{kcal:0, protein:0, meals:[]};
+  const td=days[today]||{kcal:0, protein:0, fibre:null, meals:[]};
   let html=progressTabsHtml()
     + '<div class="card"><div class="sec-title">'+ico("target")+'Today · '+esc(p)+'</div>'
     + foodBarHtml("Calories", td.kcal, t.kcal, "")
     + foodBarHtml("Protein", td.protein, t.protein, " g")
+    + '<div class="cov-row"><span class="cov-name">Fibre</span><span class="cov-bar v3"></span><span class="cov-n" style="flex-basis:104px">'+fibreText(td)+'</span></div>'
     + (td.meals.length ? '<div style="margin-top:10px">'+mealRowsHtml(td.meals)+'</div>'
         : '<div class="hint" style="margin:10px 0 0">Nothing logged today. Meals are added in the Home Hub.</div>')
     + (t.kcal||t.protein ? '' : '<div class="hint" style="margin:6px 0 0">Set daily targets in the gear menu.</div>')
@@ -3724,7 +3729,7 @@ function exportPayload(){
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, machineSettings:state.machineSettings, program:state.program, logs:state.logs,
-    deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights};
+    deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
 // phone pushes its copy back - Cerys's three 1 Aug cardio saves were merged and
@@ -3744,6 +3749,16 @@ function tombstoneLog(id){
 // Unstamped rows count as 0, so they always lose to a tombstone.
 function bwTombstone(person, date){ return (state.deletedBodyweights||[]).find(function(t){ return t && t.person===person && t.date===date; }); }
 function bwIsDeleted(b){ var t=bwTombstone(b.person, b.date); return !!t && !((+b.updatedAt||0) > (+t.deletedAt||0)); }
+// Meals deleted in the Home Hub (docs/home-hub-link.md, deletedMeals): a meal is gone
+// when its tombstone is at least as new as its updatedAt. Only the hub deletes meals.
+function mealTombstone(id){ return (state.deletedMeals||[]).find(function(t){ return t && t.id===id; }); }
+function mealIsDeleted(m){ var t=mealTombstone(m.id); return !!t && !((+m.updatedAt||0) > (+t.deletedAt||0)); }
+function tombstoneMeal(id, at){
+  if(!Array.isArray(state.deletedMeals)) state.deletedMeals=[];
+  var t=mealTombstone(id);
+  if(t){ if(at>(+t.deletedAt||0)) t.deletedAt=at; } else state.deletedMeals.push({id:id, deletedAt:at});
+  state.meals=(state.meals||[]).filter(function(m){ return !(m && m.id===id && mealIsDeleted(m)); });
+}
 function tombstoneBodyweight(person, date, at){
   if(!Array.isArray(state.deletedBodyweights)) state.deletedBodyweights=[];
   if(at==null) at=Date.now();
@@ -3808,6 +3823,8 @@ function mergeInData(data, adoptConfig, fromSync){
   }
   // Weigh-in deletions replay first for the same reason as deletedLogs above.
   if(Array.isArray(data.deletedBodyweights)) data.deletedBodyweights.forEach(function(t){ if(t&&t.person&&t.date) tombstoneBodyweight(t.person, t.date, +t.deletedAt||0); });
+  // Meals deleted in the Home Hub, likewise before the meals themselves.
+  if(Array.isArray(data.deletedMeals)) data.deletedMeals.forEach(function(t){ if(t&&t.id!=null) tombstoneMeal(t.id, +t.deletedAt||0); });
   if(Array.isArray(data.bodyweights)) data.bodyweights.forEach(function(b){ if(b&&b.person&&b.date&&!isNaN(parseFloat(b.kg))) mergeBodyweight(b); });
   // Coaching is authored centrally (by the MCP coach), so incoming notes win per person.
   if(data.coaching && typeof data.coaching==="object"){ if(!state.coaching) state.coaching={}; Object.keys(data.coaching).forEach(function(p){ state.coaching[p]=data.coaching[p]; }); }
@@ -3901,7 +3918,7 @@ function mergeInData(data, adoptConfig, fromSync){
     if(!Array.isArray(state.meals)) state.meals=[];
     var byM={}; state.meals.forEach(function(m,i){ if(m&&m.id!=null) byM[m.id]=i; });
     data.meals.forEach(function(m){
-      if(!m||m.id==null) return;
+      if(!m||m.id==null||mealIsDeleted(m)) return;
       // Same conflict rule as logs - the hub is a second writer, so a wholesale
       // replace here would lose a locally edited meal exactly as it lost a note.
       if(byM[m.id]!=null){ if(mergeRecord(state.meals[byM[m.id]], m)) updated++; }
@@ -3999,9 +4016,11 @@ function coachBrief(person){
   const week=[0,1,2,3,4,5,6].map(n=>fdays[shiftDate(today,-n)]).filter(Boolean);
   const favg=k=>Math.round(week.reduce((t,d)=>t+d[k],0)/week.length);
   const fest=week.reduce((t,d)=>t+d.meals.filter(m=>m.estimated).length,0);
+  const fibreDays=week.filter(d=>d.fibre!=null);
   md+="## Nutrition (last 7 days)\n"+(week.length
     ? "Logged "+week.length+" of 7 days · average **"+favg("kcal").toLocaleString()+" kcal**"+(ft.kcal?" (target "+ft.kcal.toLocaleString()+")":"")
       + " · **"+favg("protein")+" g protein**"+(ft.protein?" (target "+ft.protein+")":"")
+      + (fibreDays.length?" · "+Math.round(fibreDays.reduce((t,d)=>t+d.fibre,0)/fibreDays.length)+" g fibre":"")
       + (fest?" · "+fest+" estimated meal"+(fest===1?"":"s"):"")
     : "_none logged_")+"\n\n";
   const prNames=Object.keys(prs).sort();
@@ -4361,7 +4380,7 @@ function renderHelp(){
       p('<b>History</b> opens with a <b>This week</b> summary for the selected person - total volume, session count, a square for each day (filled when you saved a session that day, outlined for today) and the last eight weeks\' volume as bars, this week in your colour - then lists every saved session (newest first). Switch between <b>Everyone</b> and each person at the top, and <b>tap a session</b> to fold its full detail open; a gold <b>PR</b> badge marks a session with a best in it, and each exercise that set one. <b>Runs</b> show their <b>distance, time, pace and ♥ heart rate</b> right on the row, and open to a <b>splits table</b> (each lap\'s pace and HR, with a totals line) plus the <b>Garmin</b> extras (cadence, elevation, calories, training effect, VO₂).')
      +p('<b>Your own notes can be added or changed after the event.</b> Tap a session open and tap <b>Add a note</b> (or <b>Edit note</b> if there\'s one already) - so remembering something on the drive home, or the day after, isn\'t too late. It saves as soon as you tap away and syncs straight away with it, so the note reaches the other phone and your coach without waiting for anything else to trigger a sync - it\'s the same note the coach reads.')
      +p('<b>Delete session</b> sits at the bottom of a session\'s open detail (so it can\'t be hit while scrolling) and removes it on both phones. It syncs the deletion rather than just hiding the session here, so the other phone can\'t bring it back the next time it syncs - handy if the same session got saved twice. Both phones need to be on this version or later for it to stick.')
-     +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Food</b> shows the meals logged in the Home Hub: today\'s calories and protein against your daily targets with each meal listed with how much you had, in grams or ml for a drink (<i>est.</i> marks macros that are an estimate), the last 14 days as a chart, and yesterday and the day before, which you can tap open. Set the targets in the gear menu. Meals are added and fixed in the hub, not here. Home shows today\'s totals too. <b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
+     +p('<b>Progress</b> is split at the top. <b>Lifts</b> charts your top set (or estimated 1RM) for any exercise over time with both people on one graph, with the selected person\'s latest number and how far it has moved since their first big above it; underneath, the selected person\'s <b>Records</b> - best weight × reps, estimated 1RM and how long ago, with bests from the last two weeks picked out in gold. <b>Body</b> is your goals, bodyweight and its trend - see section 6. <b>Food</b> shows the meals logged in the Home Hub: today\'s calories and protein against your daily targets, and fibre (a dash until a meal has it), with each meal listed with how much you had, in grams or ml for a drink (<i>est.</i> marks macros that are an estimate), the last 14 days as a chart, and yesterday and the day before, which you can tap open. Set the targets in the gear menu. Meals are added, fixed and deleted in the hub, not here. Home shows today\'s totals too. <b>Time</b> charts how long your sessions actually take, both of you on one graph; pick a single session to see just that one, with its average, your last one measured against that average, and your longest. It only appears once something has been timed, and only timed sessions are plotted - leaving the timer off just leaves a gap.')
      +p('<b>Run</b> appears once you\'ve logged any running. It has your <b>estimated 5k</b>, a <b>trend chart</b> and every running session in a list. The trend picker starts on <b>best pace</b> and adds a metric for each thing your watch records - average HR, <b>efficiency</b> (how much pace each heartbeat buys), <b>cardiac drift</b> (how far your HR climbed from the first rep to the last at the same speed), <b>drift across one effort</b> (the same thing measured inside a single sustained run like a time trial, first half against second, which is the only way a run with no reps can show it), <b>HR recovery</b> (how many beats it drops between reps), <b>rep consistency</b>, cadence, stride length, ground contact, power, training load, and the <b>effort you told the watch</b> afterwards. Anything your watch doesn\'t measure simply isn\'t offered, and pace works even if you type your runs in by hand.')
      +p('Each session in that list expands to the <b>reps as you actually ran them</b> - every rep\'s distance, time, pace, average and max heart rate, and the recovery that followed it, including how far your heart rate fell. That comes from the watch\'s own run/walk detection, which sees individual reps that per-kilometre splits can\'t (a treadmill logs a lap every km, so several reps land inside one). Each rep\'s <b>speed is its average</b>, so it reads a little under the belt setting - what you typed stays the record.')
      +p('<b>Flex</b> appears once you\'ve logged a mobility test, and reads as a <b>ladder</b>: every test you\'ve measured, where it is now, and how far it has moved since the first time you measured it. The idea is that one thing is <b>limiting</b> a position - an ankle, a hamstring, the ability to tilt your pelvis - and that the limiting one is the only thing worth training. So the table is there to make your <b>lowest rung</b> findable, not to admire the high ones. Which rung is lowest is a judgement, not a number - centimetres on one test don\'t compare with another - so it is <b>your coach\'s call</b>, made from the assessment: once the coach has set it, that test carries a gold <b>LOWEST RUNG</b> tag naming the skill it is holding back (one per skill, so a split and a squat can each have their own), with the coach\'s reason under the table. Until then there is no tag. Tests are measured in <b>centimetres</b>, so they stay out of Lifts, out of your records and out of session volume. Most are a gap you want to <b>close</b>; the ones marked <b>higher is better</b> (ankle range, active leg raise) improve by growing. A test you do on both sides reports the <b>worse side</b>, since that is the one holding the movement back. Pick any test underneath to chart it for both of you over time.')

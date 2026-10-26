@@ -1146,10 +1146,14 @@ def get_measurements(data, person):
 def get_nutrition(data, person, days=14, today=None):
     """Daily food totals for the last `days` local days, ending today, against the
     person's targets. A day with no meals is not logged rather than a zero day: the
-    hub only knows what was scanned or typed. `estimated` counts free-text guesses."""
+    hub only knows what was scanned or typed. `estimated` counts free-text guesses.
+    Meals the hub deleted (`deletedMeals`) are left out. Fibre is None on a day with
+    none recorded, since meals from before 26 Oct 2026 carry none."""
     today = today or datetime.date.today()
     target = (data.get("nutritionTargets") or {}).get(person) or {}
-    meals = [m for m in data.get("meals") or [] if m.get("person") == person and m.get("date")]
+    gone = {t.get("id"): t.get("deletedAt") or 0 for t in data.get("deletedMeals") or []}
+    meals = [m for m in data.get("meals") or [] if m.get("person") == person and m.get("date")
+             and not (m.get("id") in gone and (m.get("updatedAt") or 0) <= gone[m.get("id")])]
     out = []
     for i in range(days - 1, -1, -1):
         d = (today - datetime.timedelta(days=i)).isoformat()
@@ -1158,12 +1162,15 @@ def get_nutrition(data, person, days=14, today=None):
             out.append({"date": d, "logged": False})
             continue
         tot = {k: round(sum(float(m.get(k) or 0) for m in day), 1) for k in ("kcal", "protein", "carbs", "fat")}
-        out.append(dict(tot, date=d, logged=True, meals=len(day),
+        fibre = [float(m["fibre"]) for m in day if m.get("fibre") is not None]
+        out.append(dict(tot, date=d, logged=True, meals=len(day), fibre=round(sum(fibre), 1) if fibre else None,
                         estimated=sum(1 for m in day if m.get("estimated"))))
     logged = [d for d in out if d["logged"]]
     avg = lambda k: round(sum(d[k] for d in logged) / len(logged)) if logged else None
+    with_fibre = [d["fibre"] for d in logged if d["fibre"] is not None]
     summary = {"days": days, "days_logged": len(logged), "avg_kcal": avg("kcal"),
                "avg_protein": avg("protein"),
+               "avg_fibre": round(sum(with_fibre) / len(with_fibre)) if with_fibre else None,
                "target_kcal": target.get("kcal"), "target_protein": target.get("protein")}
     if target.get("protein") and logged:
         summary["days_protein_met"] = sum(1 for d in logged if d["protein"] >= target["protein"])
@@ -1470,10 +1477,12 @@ def _register(mcp):
     @mcp.tool()
     def nutrition(person: str, days: int = 14) -> str:
         """A person's food for the last `days` days (default 14), from the meals the Home Hub
-        captures: per day kcal, protein, carbs, fat (grams), meal count and how many were
-        `estimated` (a free-text guess, less reliable than a barcode). A day with
-        `logged: false` had nothing captured, which is not the same as eating nothing. The
-        summary gives averages over logged days against the person's kcal and protein targets."""
+        captures: per day kcal, protein, carbs, fat and fibre (grams), meal count and how many
+        were `estimated` (a free-text guess, less reliable than a barcode). A day with
+        `logged: false` had nothing captured, which is not the same as eating nothing. Fibre
+        is null on a day with none recorded (meals before 26 Oct 2026 have none), and meals
+        deleted in the hub are left out. The summary gives averages over logged days against
+        the person's kcal and protein targets."""
         return json.dumps(get_nutrition(load_data(), person, days), indent=2)
 
     @mcp.tool()

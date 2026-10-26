@@ -94,7 +94,8 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 
 ### Food
 - A **Food** pane in Progress for the meals the Home Hub captures (view only - meals are added and
-  fixed in the hub). Today's calories and protein against each person's daily targets, each meal
+  fixed in the hub; a meal deleted there leaves here too, through `deletedMeals`). Today's calories
+  and protein against each person's daily targets, fibre (shown "–" until a meal has it), each meal
   listed with its amount when the hub sent one (grams, or ml for a drink) and **est.** marking
   estimated macros, a 14-day protein or calories chart with the target line,
   and the last two days, which fold open to their meals. Older meals stay in the store, not on screen.
