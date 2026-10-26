@@ -70,6 +70,7 @@ New top-level array in `data.json`, alongside `logs` / `bodyweights` / `coaching
   "protein": 48,                   // grams
   "carbs": 55,
   "fat": 18,
+  "fibre": 6,                      // optional, grams; absent on older meals (shown as "-", not 0)
   "amount": 330,                   // optional; how much was eaten or drunk
   "unit": "ml",                    // with amount: "g" for food, "ml" for drinks
   "source": "barcode",             // "barcode" | "text" | "manual"
@@ -93,6 +94,12 @@ Rules, all matching existing conventions:
   replace that destroyed a locally-edited session note on 19 Aug 2026 - the same defect was
   already sitting in the `meals` branch, untriggered only because the hub doesn't exist yet.
 - Re-syncing the same meal must never duplicate it.
+- **Deletions: `deletedMeals`** (decided 26 Oct 2026). Top-level array of tombstones,
+  `{ "id": "meal-...", "deletedAt": 1792900000000 }` (ms epoch), the meal equivalent of
+  `deletedBodyweights`. A meal is deleted when a tombstone for its `id` has
+  `deletedAt >= meal.updatedAt`. Every reader (this app's merge and Food pane, the coach's
+  `nutrition` tool) treats it as absent. Every writer preserves the array, and the hub deletes by
+  adding the tombstone and removing the row. Tombstones are kept for ever.
 - **`person` is a name**, not an id - this app keys everything by person name. A meal whose person
   doesn't match a known person is kept but not displayed (don't drop data).
 - **`date` is the local calendar day**, rolling over at midnight (decided 17 Oct 2026, for meals and
