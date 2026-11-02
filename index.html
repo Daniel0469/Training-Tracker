@@ -69,6 +69,10 @@
     <label class="fld">Protein a day (g)<input id="pProtein" type="number" inputmode="numeric" step="5" placeholder="e.g. 160"></label>
   </div>
   <div class="hint" style="margin-bottom:14px">For the selected person - switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
+  <label class="row" style="margin-bottom:14px;gap:8px;flex-wrap:nowrap;align-items:flex-start">
+    <input type="checkbox" id="pProg">
+    <span class="hint" style="margin:0"><b>Progression targets</b> - show the weight and reps to aim for in the set boxes, worked out from the last sessions. Each exercise has its own switch under the wrench.</span>
+  </label>
   <div class="sec-title" style="margin:4px 0 8px">Improve the app</div>
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">+ Add suggestion</button></div>

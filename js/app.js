@@ -43,7 +43,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -89,6 +89,9 @@ function fillStateDefaults(s){
   // exercise NAME -> {text, updatedAt}. By name, so one machine in two sessions
   // is one entry. They used to be one shared `notes` on the program exercise.
   if(!s.machineSettings || typeof s.machineSettings!=="object") s.machineSettings={};
+  // Progression switches, each person's own: person -> {on:{value, updatedAt},
+  // ex:{exercise NAME:{off, updatedAt}}}. Absent means on.
+  if(!s.progression || typeof s.progression!=="object") s.progression={};
 }
 function migrateMachineNotes(s){
   // Migrate the old shared notes - but only on an install WITHOUT cloud sync. A
@@ -948,10 +951,24 @@ function coachTargetFor(person, name){
   const logged=progEntries(person).get(name), latest=logged ? logged[logged.length-1].log.id : null;
   return (t.asOfLog==null ? null : t.asOfLog)===latest ? t : null;
 }
-// Switched off for this person altogether, or for this one exercise.
-function progOn(person, name){
-  const p=(state.progression||{})[person]||{};
-  return !(p.on && p.on.value===false) && !(p.ex && p.ex[name] && p.ex[name].off);
+// The switches: one per person, and one per exercise per person. Absent means on.
+function progPersonOn(person){
+  const on=((state.progression||{})[person]||{}).on;
+  return !(on && on.value===false);
+}
+function progExOn(person, name){
+  const e=(((state.progression||{})[person]||{}).ex||{})[name];
+  return !(e && e.off);
+}
+function progOn(person, name){ return progPersonOn(person) && progExOn(person, name); }
+// Flip a switch (name null for the person's own) and sync it, newest edit wins.
+function progSet(person, name, value){
+  if(!person) return;
+  if(!state.progression) state.progression={};
+  const p=state.progression[person]||(state.progression[person]={});
+  if(name===null) p.on={value:value, updatedAt:Date.now()};
+  else (p.ex||(p.ex={}))[name]={off:!value, updatedAt:Date.now()};
+  save(); autoSync();
 }
 // What the Log form shows for one exercise: the weight and reps to aim for (the coach's when one
 // still applies, else the rule's), the line for a coach target, and a flag. null shows nothing.
@@ -1730,6 +1747,8 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
     + '<div class="notes" data-exnotes-view'+(setting?'':' hidden')+'>'+ico("wrench")+'<span>'+esc(setting)+'</span></div>'
     + '<div class="notes-wrap" data-notes-wrap hidden>'
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Your seat height, pins, machine settings…">'+esc(setting)+'</textarea>'
+      + (isLifting(ex) && !isTimed(ex) ? '<label class="prog-use"><input type="checkbox" data-exprog'+(progExOn(person, ex.name)?' checked':'')+'>'
+          + '<span>Use the progression rule here</span></label>' : '')
       + '</div>'
     + (coach || (prog && prog.coachLine) ? '<div class="coach">'+ico("chat")+'<div>'
         + esc((prog ? prog.coachLine : "")+(prog && prog.coachLine && coach ? "\n" : "")+coach)+'</div></div>' : "")
@@ -1875,6 +1894,12 @@ function wireMachineSettings(card, ex){
       }, showView);
     };
   }
+  const progBox=card.querySelector("[data-exprog]");
+  if(progBox) progBox.addEventListener("change", ()=>{
+    progSet(who, ex.name, progBox.checked);
+    captureDraft(); renderView();
+    toast("Progression rule "+(progBox.checked?"on":"off")+" for "+ex.name);
+  });
   if(notesEl){
     notesEl.addEventListener("input", ()=>autoGrow(notesEl));
     notesEl.addEventListener("change", ()=>{
@@ -3899,6 +3924,10 @@ document.getElementById("exSave").onclick=()=>{
     const by=state.machineSettings[pn];
     if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
   });
+  if(oldName && oldName!==name) Object.keys(state.progression||{}).forEach(pn=>{
+    const by=state.progression[pn].ex;
+    if(by && by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
+  });
   // Write only what was actually edited in the box: compare against what the dialog
   // opened with (the OLD name's settings on a rename). Comparing against the new
   // name wrote an untouched empty box over that name's existing settings - renaming
@@ -3932,6 +3961,7 @@ document.getElementById("settingsBtn").onclick=()=>{
   const nt=foodTarget(state.people[i]);
   document.getElementById("pKcal").value=nt.kcal||"";
   document.getElementById("pProtein").value=nt.protein||"";
+  document.getElementById("pProg").checked=progPersonOn(state.people[i]);
   document.getElementById("pWeightLab").childNodes[0].nodeValue=possessive(state.people[i])+" bodyweight (kg)";
   document.getElementById("pGoalsLab").childNodes[0].nodeValue=possessive(state.people[i])+" goals";
   const sc=loadSync();
@@ -4066,6 +4096,8 @@ function saveSettingsPerson(){
   const kcalT=num("pKcal"), proteinT=num("pProtein"), oldT=foodTarget(state.people[i]);
   if(state.people[i] && (kcalT!==(oldT.kcal||null) || proteinT!==(oldT.protein||null)))
     state.nutritionTargets[state.people[i]]={kcal:kcalT, protein:proteinT, updatedAt:Date.now()};
+  const progChecked=document.getElementById("pProg").checked;
+  if(state.people[i] && progChecked!==progPersonOn(state.people[i])) progSet(state.people[i], null, progChecked);
   // Only record a bodyweight when the number was actually edited. This used to run on
   // every settings close, so merely opening Settings on a new day stamped that day with
   // the unchanged weight and the trend chart gained a flat point daily. Weigh-ins should
@@ -4131,7 +4163,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, machineSettings:state.machineSettings, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -4251,6 +4283,20 @@ function mergeMachineSettings(data, tally){
       Object.keys(theirs).forEach(function(n){
         var tv=theirs[n], mv=mine[n];
         if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[n]=tv; tally.updated++; }
+      });
+    });
+  }
+}
+function mergeProgression(data, tally){
+  // Progression switches: set on the phones, per person, so the newer edit of each switch wins.
+  if(data.progression && typeof data.progression==="object"){
+    if(!state.progression) state.progression={};
+    Object.keys(data.progression).forEach(function(pn){
+      var theirs=data.progression[pn]||{}, mine=state.progression[pn]||(state.progression[pn]={});
+      if(theirs.on && typeof theirs.on==="object" && (!mine.on || (+theirs.on.updatedAt||0)>(+mine.on.updatedAt||0))){ mine.on=theirs.on; tally.updated++; }
+      Object.keys(theirs.ex||{}).forEach(function(n){
+        var tv=theirs.ex[n], mv=(mine.ex||{})[n];
+        if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ (mine.ex||(mine.ex={}))[n]=tv; tally.updated++; }
       });
     });
   }
@@ -4384,6 +4430,7 @@ function mergeInData(data, adoptConfig, fromSync){
   overwritePerPerson("hrZones", data.hrZones);
   overwritePerPerson("racePredictions", data.racePredictions);
   mergeMachineSettings(data, tally);
+  mergeProgression(data, tally);
   mergeMeasurements(data, tally);
   mergeNutritionTargets(data, tally);
   // Limiters: authored centrally like coaching, so incoming wins per person.
@@ -4525,7 +4572,7 @@ function peopleInPayload(d){
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
   (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","nutritionTargets"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -4546,7 +4593,7 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","nutritionTargets"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
