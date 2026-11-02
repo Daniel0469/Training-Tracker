@@ -173,8 +173,8 @@ function saveProgram(){
 // unaffected - they carry their own load type.
 let progExIndex=null;
 // Derived data, built on first use and dropped whenever the state it reads changes.
-let bwIndex={}, personIndex={};
-function clearCaches(){ progExIndex=null; bwIndex={}; personIndex={}; }
+let bwIndex={}, personIndex={}, progIndex={};
+function clearCaches(){ progExIndex=null; bwIndex={}; personIndex={}; progIndex={}; }
 function programExerciseByName(name){
   if(!progExIndex){
     progExIndex={};
@@ -893,6 +893,83 @@ function bestWeightSoFar(person, exerciseName){
   return best===undefined ? -Infinity : best;
 }
 function latestEntryAnywhere(person, exName){ return logIndex(person).latest.get(exName)||null; }
+// ---- Progression in the app: the rule above, read from the logs on this install ----
+// Per person, cleared in clearCaches: their entries by exercise name (oldest first) and the
+// rule's answer for each exercise.
+function progEntries(person){
+  const idx=progIndex[person]||(progIndex[person]={entries:null, results:new Map()});
+  if(idx.entries) return idx.entries;
+  const byName=new Map();
+  state.logs.filter(l=>l.person===person)
+    .sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : (a.id<b.id?-1:1))
+    .forEach(function(l){
+      const seen=new Set();
+      (l.entries||[]).forEach(function(e){
+        if(!e.rows || seen.has(e.name)) return;
+        seen.add(e.name);
+        if(!byName.has(e.name)) byName.set(e.name,[]);
+        byName.get(e.name).push({log:l, entry:e});
+      });
+    });
+  return idx.entries=byName;
+}
+// The step from a "Step: name = kg" line in a session's setup note; the open session's line wins.
+function stepFor(name){
+  const sessions=state.program.sessions;
+  const keys=Object.keys(sessions).sort((a,b)=>(a===curSession?0:1)-(b===curSession?0:1));
+  for(let i=0;i<keys.length;i++){
+    const step=parseStepLines(sessions[keys[i]].setupNote)[name];
+    if(step) return step;
+  }
+  return null;
+}
+// Every working weight either person has logged on this exercise name.
+function progPool(name){
+  const out=[];
+  state.people.filter(Boolean).forEach(function(p){
+    (progEntries(p).get(name)||[]).forEach(function(x){
+      const warm=x.entry.warmup||[];
+      (x.entry.rows||[]).forEach(function(r,i){ const w=progNum(r&&r[0]); if(w!==null && warm.indexOf(i)<0) out.push(w); });
+    });
+  });
+  return out;
+}
+function progressionFor(person, ex){
+  const entries=progEntries(person).get(ex.name)||[], results=progIndex[person].results, override=stepFor(ex.name);
+  const key=[ex.name, ex.target, ex.sets, ex.load||"", (ex.muscles||[]).join(","), override].join("|");
+  if(!results.has(key)) results.set(key, progCore(entries.map(x=>x.entry), ex, {override:override, pool:progPool(ex.name)}));
+  return results.get(key);
+}
+// The coach's target for this exercise while it still applies: the person's latest log of it
+// is the one it was written against.
+function coachTargetFor(person, name){
+  const t=(((state.coaching||{})[person]||{}).targets||{})[name];
+  if(!t || typeof t!=="object") return null;
+  const logged=progEntries(person).get(name), latest=logged ? logged[logged.length-1].log.id : null;
+  return (t.asOfLog==null ? null : t.asOfLog)===latest ? t : null;
+}
+// Switched off for this person altogether, or for this one exercise.
+function progOn(person, name){
+  const p=(state.progression||{})[person]||{};
+  return !(p.on && p.on.value===false) && !(p.ex && p.ex[name] && p.ex[name].off);
+}
+// What the Log form shows for one exercise: the weight and reps to aim for (the coach's when one
+// still applies, else the rule's), the line for a coach target, and a flag. null shows nothing.
+function progTarget(person, ex){
+  if(!person || !isLifting(ex) || isTimed(ex) || !progOn(person, ex.name)) return null;
+  const rule=progressionFor(person, ex), coach=coachTargetFor(person, ex.name), rng=parseRange(ex.target);
+  const kg=coach ? progNum(coach.kg) : rule.target;
+  if(kg===null || kg===undefined) return null;
+  const coachReps=coach && coach.reps!=null && String(coach.reps).trim()!=="" ? String(coach.reps) : "";
+  const ruleKg=rule.target!==null ? rule.target : coach && coach.rule;
+  return {
+    kg:String(kg),
+    repsPh:coachReps || (rng && rng.low<rng.high ? rng.low+"-"+rng.high : ""),
+    top:coachReps ? (coachReps.match(/\d+/g)||[]).pop()||"" : rng ? String(rng.high) : "",
+    flag:rule.flag==="Stalled" || rule.flag==="Up one step" ? rule.flag : null,
+    coachLine:coach ? 'Coach target '+kg+' kg'+(ruleKg!=null && ruleKg!==kg ? ' (rule '+ruleKg+')' : '')+(coach.why ? ': '+coach.why : '') : ""
+  };
+}
 // Escaped display of one logged row across its columns. Lifting reads
 // "weight x reps"; anything else (cardio/running) joins its filled cells.
 function fmtRow(cols, r){ return esc(rowPlain(cols, r)); }
@@ -1069,6 +1146,7 @@ function restoreDraft(){
       if(d.warm && d.warm[i]){
         tr.classList.add("wset");
         const sn=tr.querySelector("[data-setno]"); if(sn) sn.textContent="W";
+        paintTargetPh(tr);
       }
       if(d.done[i]){
         const cb=tr.querySelector('[data-done]');
@@ -1562,19 +1640,27 @@ function colInputMode(col){
 }
 function setRowHtml(n,ex,prevCell){
   const paceIdx = isRunning(ex) ? colIndex(ex,/pace/i) : -1;
+  const pt = progTarget(state.people[state.activePerson], ex);
   let cells="";
   ex.cols.forEach((c,ci)=>{
     const im=colInputMode(c);
     let attr = im ? ' inputmode="'+im+'"' : "";
     if(ci===paceIdx) attr += ' readonly';
     const sw = isTimed(ex) && ci===1 ? '<button type="button" class="mini sw" data-sw title="Stopwatch">'+ico("timer")+'</button>' : '';
-    cells += '<td'+(sw?' class="hold-cell"':'')+'><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(colLabel(c))+'">'+sw+'</td>';
+    const target = pt ? (ci===0 ? pt.kg : ci===1 ? pt.repsPh : "") : "";
+    if(target) attr += ' data-tph="'+esc(target)+'" data-lbl="'+esc(colLabel(c))+'"';
+    cells += '<td'+(sw?' class="hold-cell"':'')+'><input data-c="'+ci+'"'+attr+' value="" placeholder="'+esc(target||colLabel(c))+'">'+sw+'</td>';
   });
   // A run has no per-row Last (its splits don't line up week to week - see
   // renderExForm), so it drops the column and its three inputs get the width.
   return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells
     + (isRunning(ex) ? '' : '<td class="prev">'+prevCell+'</td>')
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>PR</span></td></tr>';
+}
+// A target placeholder reads as the plain column label on a warm-up row.
+function paintTargetPh(tr){
+  const warm=tr.classList.contains("wset");
+  tr.querySelectorAll("[data-tph]").forEach(inp=>{ inp.placeholder = warm ? inp.dataset.lbl : inp.dataset.tph; });
 }
 // recentNote() lived here: a "most recent for this movement in any session" line
 // that only appeared when the Last column was showing something older. The Last
@@ -1626,12 +1712,14 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
   const warmupHtml = ex.warmup
     ? '<div class="warmup">Warm-up: <span data-warmup>'+esc(computeWarmupText(ex.warmup, lastTop>-Infinity?lastTop:null))+'</span></div>'
     : "";
-  const setting=msGet(state.people[state.activePerson], ex.name);
+  const person=state.people[state.activePerson];
+  const setting=msGet(person, ex.name), prog=progTarget(person, ex);
   return '<div class="card ex'+(ex.todayOnly?" ex-today":"")+'" data-ei="'+ei+'" data-name="'+esc(ex.name)+'"'+lastTopAttr+'>'
     + '<div class="ex-head"><div class="ex-name">'+esc(ex.name)
       + '<button type="button" class="wrench'+(setting?' has':'')+'" data-exnotes-toggle aria-expanded="false" title="Machine settings">'+ico("wrench")+'</button>'
       + (ex.todayOnly?'<span class="pill today-pill">Today only</span>':'')
       + '</div><div class="ex-meta num">'+esc(ex.target)+(ex.restSec?' · rest '+fmtMmSs(ex.restSec):'')
+      + (prog && prog.flag ? ' <span class="prog-flag" data-f="'+(prog.flag==="Stalled"?"stalled":"step")+'">'+esc(prog.flag)+'</span>' : '')
       + (ex.todayOnly?' <button type="button" class="mini" data-delextra="'+ei+'" title="Remove from today">&#10005;</button>':'')
       + '</div></div>'
     + warmupHtml
@@ -1643,7 +1731,8 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
     + '<div class="notes-wrap" data-notes-wrap hidden>'
       + '<textarea class="notes" data-exnotes rows="2" placeholder="Your seat height, pins, machine settings…">'+esc(setting)+'</textarea>'
       + '</div>'
-    + (coach?'<div class="coach">'+ico("chat")+'<div>'+esc(coach)+'</div></div>':"")
+    + (coach || (prog && prog.coachLine) ? '<div class="coach">'+ico("chat")+'<div>'
+        + esc((prog ? prog.coachLine : "")+(prog && prog.coachLine && coach ? "\n" : "")+coach)+'</div></div>' : "")
     + (lastFrom?'<div class="recent">'+ico("clock")+'<b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th class="setno-h">Set</th>'+ex.cols.map(c=>'<th>'+esc(colLabel(c))+'</th>').join("")
     + (running ? '' : '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th>')
@@ -1721,6 +1810,16 @@ function wireSetRow(tr, ex, best){
   cb.addEventListener("change", ()=>{
     tr.classList.toggle("done", cb.checked);
     if(cb.checked){
+      // A set ticked with no reps takes the target's top rep, and its weight too when that is blank
+      // as well. A weight already at the target (typed, or mirrored from the set above) is kept.
+      const pt = weightInput && repsInput && !tr.classList.contains("wset") && !repsInput.value.trim()
+        ? progTarget(state.people[state.activePerson], ex) : null;
+      if(pt && pt.top && (!weightInput.value.trim() || parseFloat(weightInput.value)===+pt.kg)){
+        const blankKg=!weightInput.value.trim();
+        if(blankKg) weightInput.value=pt.kg;
+        repsInput.value=pt.top;
+        if(blankKg) weightInput.dispatchEvent(new Event("input", {bubbles:true}));
+      }
       if(isLifting(ex) && repsInput && !repsInput.value.trim()){
         const range=parseRange(ex.target);
         if(range) repsInput.value=range.high;
@@ -1746,6 +1845,7 @@ function wireSetRow(tr, ex, best){
   if(setno) setno.addEventListener("click", ()=>{
     const wu=tr.classList.toggle("wset");
     setno.textContent = wu ? "W" : setno.dataset.n;
+    paintTargetPh(tr);
     updateSetMedal(tr, ex, best); // warm-up rows show no medal
   });
 }
