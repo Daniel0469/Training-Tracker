@@ -1,0 +1,188 @@
+# Training Tracker - what it can do (and can't)
+
+A plain-English reference to **everything the app does** and its **known limitations**. If you're
+after conventions or architecture, see `CLAUDE.md` and `docs/PROJECT-STATUS.md`; this file is the
+user-facing "what's possible" list. The in-app **Guide** tab (`renderHelp` in `js/app.js`) is the
+same information framed as a how-to - keep both in step when a feature changes.
+
+## In a sentence
+A workout + health tracker for up to two people sharing a device (built for Daniel & Cerys; anyone
+else creates their own local account, no login or backend involved). A static site - works
+offline, installable to your phone's home screen. All data lives on the device (`localStorage`),
+with optional free cloud sync so both phones and a Claude coach stay in step.
+
+---
+
+## What it can do
+
+### Accounts
+- A fresh install has **no accounts and no program** - a Create account screen (name + colour
+  swatch, picked from 6 presets) gates the app until at least one exists. A second account is
+  optional and skippable.
+- Colours are greyed out in the picker once the other account has them, so two accounts on one
+  device can't end up visually identical. Change your colour anytime in Settings.
+- **Delete this account** (Settings) frees the slot for someone else; your logged history stays
+  saved under your old name rather than being erased, same as renaming.
+
+### Home
+- Opens here by default. At-a-glance hub for the selected person: today's session (with a **Log it**
+  shortcut), the **🧠 Coach** note for that session only, a **Week review** from Friday 20:00 to
+  Monday night (training days done of planned, volume against the week before, PRs, and the coach's
+  weekly note in whole sentences up to about 220 characters, once that Friday's run has written it),
+  quick stat tiles (sessions &
+  volume this week, latest bodyweight with trend arrow, total sessions), today's food, "Measurements
+  due" every 4 weeks, last session and last runs, recovery, the 5k estimate, HR zones, and what the
+  week trains at the bottom. The general coach note shows only in the Week review. The next-cardio
+  card is on the Session tab, and the bodyweight trend and goals are in Progress > Body.
+
+### Log a workout
+- Pick who you are (name toggle, each account in its own chosen colour); everything logged belongs
+  to the selected person.
+- **Switch person mid-entry without losing typed data** - handy for logging both people from one phone.
+- **An unsaved entry survives anything short of saving it:** it's kept on the device as you type, so
+  leaving the app, a background sync landing, or the phone reloading the page mid-workout doesn't
+  clear the form (the running timer comes back too). Dropped after ~12 hours.
+- **➕ Add an exercise for today** - swap in a movement for this session only (busy gym, a niggle)
+  without editing the program. It logs like any other exercise, shows as a dashed *Today only* card,
+  and the save popup offers to add it to the program if it turns out to be a keeper.
+- A session can show its own **🔥 warm-up** and **🧊 cool-down** notes above and below the exercises
+  (written per session in the Program editor).
+- Saved **🔧 machine settings** are shown on the exercise, not hidden behind the wrench.
+- Date auto-picks the right session for that weekday. The day rolls over at midnight.
+- Per-set **weight + reps**; first set's weight auto-fills the rest. Phones get a **numeric keypad**
+  on any column that takes a number (including e.g. *Distance (m)* or *Min*), and the full keyboard
+  on ones that need it (*Time*, *Pace*, *Notes*).
+- **Done checkbox** per set: fills empty reps to the top of the target range and shows a gold
+  **🥇 PR medal** live if the weight beats your best.
+- **Last** column shows what that person did last time (relative time; hover for the date); a
+  **🕑 Most recent** chip flags a more-recent instance in another session.
+- Percentage **warm-ups** (e.g. `40%x8`) resolve to actual kg once a working weight is known.
+- **Tap a set number** to mark it a **warm-up** (shows `W`) - excluded from volume, PRs and the
+  muscle map so it doesn't inflate numbers.
+- Session **timer** (auto-starts on entry; pause/reset), a **difficulty 1–10**, and free-text notes.
+- **Save** shows total volume with a fun comparison, any PRs, and a **muscle-map heatmap** of what
+  you worked.
+
+### Cardio & running
+- N-column exercises; a **running** exercise uses Distance / Time / Pace, auto-computes **pace**, and
+  treats each row as a **split**.
+- **⬆ Import run (TCX/GPX)** pulls a Garmin/Strava-exported file straight into the splits.
+- **Garmin auto-link (⌚):** saving a cardio session tags it *awaiting run…*; the Garmin sync on the
+  laptop later finds that day's run and enriches it with HR, cadence, elevation, calories, moving
+  time, training effect and per-km splits - **never overwriting** what you typed (needs the laptop
+  set up; see `mcp-garmin/`).
+
+### History, Progress & Records
+- **History:** opens with a **This week** summary (total volume, session count, muscle heatmap,
+  weekly-volume bar chart), then every saved session newest-first - filter by person, expand for
+  detail, delete.
+- **Progress:** current **bests** (weight, reps, estimated 1RM per exercise), then a chart of your
+  top set for any exercise over time with both people on one graph and a top-weight vs Est. 1RM toggle.
+- Bodyweight and assisted movements are scored as what they actually load: bests show the real
+  figure with a "your bodyweight + 10 added" / "82 − 30 assist" breakdown underneath.
+
+### Body, goals & bodyweight
+- Bodyweight over time with a trend chart; add by hand or **⬆ Import from scale (CSV)** (e.g.
+  1byone Health - auto-detects the date and weight columns, lb→kg).
+- Per-person **goals** (gear menu) - shown on Body, and travel with the data so a coach can see them.
+- **Measurements** (tape, cm), every 4 weeks: neck, shoulders, chest, waist, hips, and both sides of
+  upper arm, forearm, thigh and calf, in one form on Body, with a chart per site (left and right
+  together). Home shows "Measurements due" once 28 days have passed. Synced (`measurements`, one row
+  per person and date, the newer edit wins); the coach reads them with the `measurements` tool.
+- **Coach brief (Markdown)** button bundles goals, PRs, bodyweight, the last 7 days of food and recent sessions to paste into
+  Claude / Obsidian.
+
+### Food
+- A **Food** pane in Progress for the meals the Home Hub captures (view only - meals are added and
+  fixed in the hub; a meal deleted there leaves here too, through `deletedMeals`). Today's calories
+  and protein against each person's daily targets, fibre (shown "–" until a meal has it), each meal
+  listed with its amount when the hub sent one (grams, or ml for a drink) and **est.** marking
+  estimated macros, a 14-day protein or calories chart with the target line,
+  and the last two days, which fold open to their meals. Older meals stay in the store, not on screen.
+- Per-person **calorie and protein targets** in the gear menu (`nutritionTargets`, synced; the newer
+  edit wins). Home shows today's totals with a link to the pane.
+
+### Coaching (two-way, via Claude)
+- A local **MCP server** (`mcp-coach/`) exposes the shared data to Claude on your existing
+  subscription (no API cost). Claude can **write coaching back** into the app:
+  - a **per-session** focus note (keyed by session name),
+  - an optional **overall/general** note,
+  - a **per-exercise next-step** cue on each exercise.
+- Notes show as purple **🧠 Coach** cards on Home and the Log tab. What you see is the advice that is
+  **current**. Every write is also recorded in a coaching history the **coach** reads back, so each
+  week's advice builds on the last - but that history is the coach's working memory and is
+  deliberately **not shown in the app and not stored on the phones** (removed 14 Sep; it was 60% of
+  everything both phones synced). It lives in its own file in the sync repo.
+
+### Program editor
+- Sessions are **collapsed by default** - one line each (name, day, exercise count) so the week fits
+  on a screen. Tap to open, as many at once as you like; they stay open while the app is running and
+  reset to closed on reload.
+- Add / edit / reorder / remove exercises; **name-suggestion library** avoids duplicate spellings.
+- Per exercise: target, warm-up (fixed or %), setup notes, Lifting/Running column presets, optional
+  3rd column, and a **Works** muscle tag picker (auto-guessed from the name, editable) so an
+  unusual exercise name still shows correctly on the muscle heatmap.
+- **+ Add session** creates a brand-new workout day (name + weekday) - needed since a fresh account
+  starts with no sessions at all.
+- Per exercise, **what the first column means**: a normal weight, **your bodyweight + added**
+  (pull-up, dip, press-up - with a *% of bodyweight* for movements that only lift part of you), or
+  **bodyweight − the machine's assistance**, where *less* help scores as the better set. Volume, PRs,
+  e1RM and 🥇 medals all use the real load, worked out from your bodyweight **as at that session's
+  date**. Turning it on re-scores records live; volume already saved on past sessions is left alone.
+- Per session: free-text **🔥 warm-up / mobility** and **🧊 cool-down** notes, shown as cards either
+  side of the exercises on the Log tab and included when the session is shared.
+- **Share** a session's exercise list (no personal numbers) via the phone's share sheet as a
+  paste-able code; **Import shared session** on another install adds it to that person's program.
+- Program edits only affect **future** logging; past history is untouched. **Clear program** (gear)
+  empties the Program tab to start again - there is no built-in default plan. It downloads a backup
+  first and asks you to type RESET, since it can't be undone and, with sync on, it empties the
+  program on **both phones**. Logs, bodyweights and coaching notes are untouched.
+
+### Data, backup & sync
+- Everything saves **on this device**. **Export** writes a full file; **Import / merge** on another
+  device merges by unique id (logs) and person+date (bodyweights) - no duplicates.
+- **The program syncs as well as the data.** Everyone on the same store shares one plan: a program
+  edit is pushed immediately and adopted by the other phone when it's newer than that phone's own
+  copy, so nothing is replaced by an older version. It won't swap the plan over mid-workout - a
+  session with sets already typed keeps its exercise list until it's saved. A device with no cloud
+  sync configured keeps its own program and is unaffected.
+- **Cloud sync (GitHub)** is optional and free: set a private repo + fine-grained token once, then it
+  syncs **automatically** on open and after each save. Doubles as off-device backup; the token is
+  stored only on the device and **never** included in exports.
+- The app requests **persistent storage** and nudges with a reminder if it's been 30+ days since
+  your last export - relevant if you're not using cloud sync, since local data is the only copy.
+- **Installable PWA** - Add to Home Screen and it works **offline**.
+
+### Theme
+- Dark / light toggle (persisted, follows the OS default). Every surface is themed for both.
+
+---
+
+## Limitations & things to know
+
+- **Data is keyed by person NAME.** Renaming a person **orphans** their history - by design.
+- **localStorage only.** Clearing the browser's site data wipes local history - keep cloud sync or
+  regular exports as backup. Two devices only stay in step if cloud sync is on (or you import/export).
+- **Up to two accounts per install, not arbitrary.** A fresh install starts blank - anyone creates
+  their own account (name + colour) - but one device is capped at two. A third person needs their
+  own separate install; this is a deliberate simplicity trade-off, not a technical ceiling.
+- **No Strava/Garmin live API.** Runs come in via **exported files** or the laptop-side Garmin sync
+  - not a direct phone-to-Strava/Garmin API (Strava forbids feeding data to AI; Garmin's dev program
+  is on hold). The Garmin auto-link only runs **while the laptop is on**.
+- **Coaching isn't automatic.** It runs when someone opens the coaching chat and prompts Claude (free,
+  on the subscription). A fully hands-free weekly version would use the paid API and is deliberately
+  **not** switched on.
+- **Scale import is CSV/manual.** No Bluetooth/API to the scale (iOS blocks web Bluetooth); the
+  1byone CSV export is flaky, so manual entry or pasting a scale screenshot into Claude's vision is
+  the practical path. Ambiguous slash dates default to **D/M/Y**.
+- **Muscle map is heuristic.** Muscles are inferred from the exercise **name** (`classifyMuscles`);
+  an unusual name may map to the wrong muscle or none.
+- **e1RM is an estimate** (Epley formula), not a measured 1-rep max.
+- **PWA icons are placeholders** - real branding is a TODO.
+- **No build step, minimal deps.** Vanilla JS + Chart.js (CDN) only. The service worker is
+  cache-first, so an installed app keeps old files until `CACHE_NAME` in `sw.js` is bumped on deploy.
+
+---
+
+*Keep this file honest: when a user-facing feature is added or changed, update this list, the in-app
+**Guide** (`renderHelp`), and - if the file list or deployment changes - `README.md`.*

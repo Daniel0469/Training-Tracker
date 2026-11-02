@@ -1,0 +1,24 @@
+sample-daniel.json
+sample-cerys.json
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
+__pycache__/
+*.pyc
+.mcp.json
+# The one-off data scripts in scratchpad/ back data.json up next to themselves.
+# Those backups are both people's full training data and this repo is public.
+scratchpad/data-backup-*.json
+# Same reason: a pulled copy of the store, and the raw output of the Garmin
+# probe scripts (heart rates, profile ids, activity detail). The scripts stay
+# in the repo; what they print does not.
+scratchpad/store.json
+# The prototype states the proto_*.py scripts write are whole copies of the
+# store - both people's training data - and this repo is public.
+scratchpad/proto-*.json
+scratchpad/probe*.txt
+_devfixture.json
+# The prototype state the browser loads: same thing again, a full copy of the store.
+# Extension-agnostic on purpose - a .js shim wrapping the same JSON slipped past the
+# .json rule once. The scripts are proto_*.py (underscore) and stay tracked.
+scratchpad/proto-*

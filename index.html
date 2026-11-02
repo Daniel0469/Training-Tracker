@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Training Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#121417">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Training Tracker">
+<link rel="preload" href="fonts/manrope-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/jetbrains-mono-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="title"><small id="hdrKicker"></small><h1 id="hdrTitle">Training Tracker</h1></div>
+    <div class="people">
+      <div class="ptoggle" id="ptoggle"></div>
+      <button class="icon-btn round" id="settingsBtn" title="Settings, theme &amp; guide" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+  </div>
+  <div id="view"></div>
+  <!-- Icon over label. The icons are inline line drawings (stroke only, 2px),
+       coloured by currentColor so the active tab's --brand reaches them. -->
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button data-tab="home" class="active"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg>Home</button>
+    <button data-tab="log"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>Session</button>
+    <button data-tab="history"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>History</button>
+    <button data-tab="progress"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5h17"/><path d="m4.5 16 5-5 3.5 3.5 6.5-7"/><path d="M15 7.5h4.5V12"/></svg>Progress</button>
+    <button data-tab="edit"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>Program</button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+<!-- Rest stopwatch. Lives outside #view so it survives a re-render, and above
+     the nav bar so it stays readable wherever the log form is scrolled to. -->
+<div class="sets-bar" id="setsBar" hidden><span class="track"><i id="setsFill"></i></span><span id="setsText"></span></div>
+<div class="rest-bar" id="restBar" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/></svg>Rest <b id="restTime">0:00</b><i id="restTarget"></i><span>tap to dismiss</span></div>
+
+<dialog id="settingsDlg"><div class="dlg-body">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+    <h3 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em">Settings <small id="setWho" class="hint" style="font-weight:600;font-size:15px"></small></h3>
+    <button class="icon-btn round" id="settingsClose" title="Close (saves automatically)" aria-label="Close">&times;</button>
+  </div>
+  <div class="hint" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+    <span>Version <b id="appVersion">…</b> - tap if the app looks out of date</span>
+    <button class="mini" id="updateNow">Update now</button>
+  </div>
+  <!-- Design v3: theme is a Light / Dark switch, not a toggle button. -->
+  <div class="set-top">
+    <div class="ptoggle pane-toggle" id="themeSwitch" role="group" aria-label="Theme">
+      <button type="button" data-theme-pick="light">Light</button><button type="button" data-theme-pick="dark">Dark</button>
+    </div>
+    <button class="btn btn-ghost" id="guideBtn">Open Guide</button>
+  </div>
+  <label class="fld" style="margin-bottom:12px">Name<input id="pName" type="text"></label>
+  <label class="fld" style="margin-bottom:12px">Colour
+    <div class="swatchpick" id="pColor"></div>
+  </label>
+  <label class="fld" style="margin-bottom:12px" id="pWeightLab">Bodyweight (kg)<input id="pWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
+  <label class="fld" style="margin-bottom:6px" id="pGoalsLab">Goals<textarea id="pGoals" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:56px"></textarea></label>
+  <div class="sess-pick" style="margin-bottom:6px">
+    <label class="fld">Calories a day<input id="pKcal" type="number" inputmode="numeric" step="10" placeholder="e.g. 2600"></label>
+    <label class="fld">Protein a day (g)<input id="pProtein" type="number" inputmode="numeric" step="5" placeholder="e.g. 160"></label>
+  </div>
+  <div class="hint" style="margin-bottom:14px">For the selected person - switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Improve the app</div>
+  <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
+  <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">+ Add suggestion</button></div>
+  <div id="sugList" style="margin-bottom:14px"></div>
+  <div class="sec-title" style="margin:4px 0 8px">Backup &amp; data</div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="exportBtn">Export</button>
+    <button class="btn btn-ghost grow" id="importBtn">Import / merge</button>
+    <button class="btn btn-ghost grow" id="coachBriefBtn">Coach brief</button>
+  </div>
+  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
+  <!-- Design v3: status first. The repo / path / token fields fold away once
+       sync is set up (renderSettings opens the fold when it isn't). -->
+  <div class="sync-status"><i class="sync-dot" id="ghDot"></i><span class="hint" id="ghStatus" style="margin:0">Not configured.</span>
+    <button class="btn btn-primary" id="ghSyncBtn">Sync now</button></div>
+  <details class="sync-cfg" id="ghCfg"><summary>Change sync settings</summary>
+  <label class="fld" style="margin-bottom:8px">Repo (owner/name)<input id="ghRepo" type="text" placeholder="danielmorris/training-data" autocomplete="off"></label>
+  <div class="row" style="margin-bottom:8px">
+    <label class="fld grow">File path<input id="ghPath" type="text" placeholder="data.json" autocomplete="off"></label>
+    <label class="fld grow">Access token<input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+  </div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="ghSaveCfg">Save sync settings</button>
+  </div>
+  </details>
+  <div class="hint" style="margin-bottom:14px">Syncs <b>automatically</b> on open and after each save (the button is just a manual pull). Stored only on this device. Use a <b>fine-grained token</b> limited to one <b>private</b> repo with <b>Contents: read &amp; write</b>.</div>
+  <details class="card coach-hist" style="margin:0 0 14px;padding:10px 12px">
+    <summary class="sec-title" style="margin:0">What's not set up yet</summary>
+    <div id="notSetupList"></div>
+  </details>
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div class="row" style="gap:6px">
+      <button class="btn-danger mini" id="resetProgram">Clear program</button>
+      <button class="btn-danger mini" id="deleteAccount">Delete this account</button>
+    </div>
+    <button class="btn btn-primary" id="settingsClose2">Done</button>
+  </div>
+  <div class="hint" style="margin-top:10px">Changes save automatically when you close. Clearing the program empties it on every synced device and can't be undone, so it takes a backup first; your logged history is never deleted.</div>
+</div></dialog>
+
+<!-- Result of gear → Update now. A dialog rather than a toast: updating reloads
+     the page, so the answer arrives amid everything else that fires on load -
+     the 30-day export nudge overwrote it in testing - and the whole point is
+     that you can currently not tell whether anything happened. -->
+<dialog id="updDlg"><div class="dlg-body">
+  <h3 id="updTitle">Up to date</h3>
+  <div class="hint" id="updBody" style="margin:8px 0 14px"></div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-primary" id="updClose">OK</button>
+  </div>
+</div></dialog>
+
+<dialog id="importDlg"><div class="dlg-body">
+  <h3>Import / merge data</h3>
+  <div class="hint" style="margin-bottom:10px">Pick an exported file, or paste its contents below. New sessions are added to this device - nothing already here is lost.</div>
+  <input id="importFile" type="file" accept="application/json,.json" style="margin-bottom:10px;width:100%">
+  <textarea id="importText" placeholder="&hellip;or paste exported data here" style="min-height:120px"></textarea>
+  <div id="importMap"></div>
+  <label class="row" style="gap:7px;margin:10px 0;font-size:13px;color:var(--ink);font-weight:600">
+    <input id="importAdopt" type="checkbox" style="width:auto"> Also replace program &amp; names with the imported version
+  </label>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="importCancel">Cancel</button>
+    <button class="btn btn-primary" id="importConfirm">Merge in</button>
+  </div>
+</div></dialog>
+
+<dialog id="importSessionDlg"><div class="dlg-body">
+  <h3>Import shared session</h3>
+  <div class="hint" style="margin-bottom:10px">Paste a workout someone shared with you (the code from their &#128279; Share button on a session in Program) - it's added as a new session here, no personal numbers included.</div>
+  <textarea id="importSessionText" placeholder="Paste the shared code here" style="min-height:110px"></textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:10px">
+    <button class="btn btn-ghost" id="importSessionCancel">Cancel</button>
+    <button class="btn btn-primary" id="importSessionConfirm">Add to my program</button>
+  </div>
+</div></dialog>
+
+<dialog id="saveDlg"><div class="dlg-body" style="text-align:center;max-height:88vh;overflow:auto">
+  <div id="saveEmoji" style="font-size:42px;line-height:1">🏆</div>
+  <h3 id="saveVol" style="margin:8px 0 2px">-</h3>
+  <div id="saveCompare" class="hint" style="font-size:14px;margin:0 0 6px">-</div>
+  <div id="muscleWrap" style="margin:8px 0 2px">
+    <div class="hint" style="margin:0 0 2px">Muscles worked this session</div>
+    <svg id="muscleSvg" viewBox="0 0 250 188" style="width:100%;max-width:300px;height:auto" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      svg .musc{fill:var(--musc-base,#e6ebf1);stroke:var(--musc-stroke,#c2cad6);stroke-width:.7}
+      svg .sil{fill:var(--musc-sil,#cdd5df)}
+      svg .lbl{fill:var(--muted,#8a93a3);font:600 9px sans-serif;text-anchor:middle}
+    </style>
+    <!-- FRONT (centre x=62) -->
+    <g stroke-linejoin="round">
+      <circle class="sil" cx="62" cy="11" r="8"/>
+      <path class="sil" d="M57,17 Q62,20 67,17 L67,22 Q62,25 57,22 Z"/>
+      <path class="sil" d="M46,29 C44,30 43,33 43,37 C43,46 46,56 49,65 C50,71 51,77 53,82 C55,86 57,88 62,88 C67,88 69,86 71,82 C73,77 74,71 75,65 C78,56 81,46 81,37 C81,33 80,30 78,29 C70,26 54,26 46,29 Z"/>
+      <path class="sil" d="M44,32 C38,33 35,39 34,46 C33,54 32,63 32,71 C32,77 33,83 35,86 C37,87 40,86 41,84 C42,77 43,68 44,60 C45,50 47,40 47,33 C46,32 45,32 44,32 Z"/>
+      <path class="sil" d="M80,32 C86,33 89,39 90,46 C91,54 92,63 92,71 C92,77 91,83 89,86 C87,87 84,86 83,84 C82,77 81,68 80,60 C79,50 77,40 77,33 C78,32 79,32 80,32 Z"/>
+      <path class="sil" d="M51,87 C49,95 49,105 50,115 C50,125 52,139 54,153 C54,157 56,159 58,158 C60,157 60,155 60,151 C61,137 61,123 61,113 C62,103 62,94 61,88 Z"/>
+      <path class="sil" d="M73,87 C75,95 75,105 74,115 C74,125 72,139 70,153 C70,157 68,159 66,158 C64,157 64,155 64,151 C63,137 63,123 63,113 C62,103 62,94 63,88 Z"/>
+      <ellipse class="sil" cx="56" cy="159" rx="5" ry="3"/><ellipse class="sil" cx="68" cy="159" rx="5" ry="3"/>
+      <path class="musc" data-muscle="delts" d="M45,30 C40,30 37,34 37,40 C41,41 46,40 49,36 C49,32 47,30 45,30 Z"><title>Shoulders</title></path>
+      <path class="musc" data-muscle="delts" d="M79,30 C84,30 87,34 87,40 C83,41 78,40 75,36 C75,32 77,30 79,30 Z"><title>Shoulders</title></path>
+      <path class="musc" data-muscle="chest" d="M50,33 C54,32 59,33 61,35 C61,40 60,44 57,46 C53,47 51,46 50,44 C49,40 49,36 50,33 Z"><title>Chest</title></path>
+      <path class="musc" data-muscle="chest" d="M74,33 C70,32 65,33 63,35 C63,40 64,44 67,46 C71,47 73,46 74,44 C75,40 75,36 74,33 Z"><title>Chest</title></path>
+      <path class="musc" data-muscle="abs" d="M55,47 C56,46 68,46 69,47 C70,53 69,61 66,67 C64,70 63,71 62,71 C61,71 60,70 58,67 C55,61 54,53 55,47 Z"><title>Abs</title></path>
+      <path class="musc" data-muscle="biceps" d="M40,36 C37,37 36,42 36,48 C36,52 38,55 40,56 C42,55 43,51 43,46 C44,41 43,37 41,36 Z"><title>Biceps</title></path>
+      <path class="musc" data-muscle="biceps" d="M84,36 C87,37 88,42 88,48 C88,52 86,55 84,56 C82,55 81,51 81,46 C80,41 81,37 83,36 Z"><title>Biceps</title></path>
+      <path class="musc" data-muscle="forearms" d="M36,59 C34,60 33,65 33,71 C33,77 35,82 37,84 C39,83 39,77 39,71 C39,66 38,61 37,59 Z"><title>Forearms</title></path>
+      <path class="musc" data-muscle="forearms" d="M88,59 C90,60 91,65 91,71 C91,77 89,82 87,84 C85,83 85,77 85,71 C85,66 86,61 87,59 Z"><title>Forearms</title></path>
+      <path class="musc" data-muscle="quads" d="M51,89 C49,96 49,104 50,112 C50,118 52,121 55,121 C57,121 58,117 58,111 C59,103 58,95 57,90 C55,89 53,89 51,89 Z"><title>Quads</title></path>
+      <path class="musc" data-muscle="quads" d="M73,89 C75,96 75,104 74,112 C74,118 72,121 69,121 C67,121 66,117 66,111 C65,103 66,95 67,90 C69,89 71,89 73,89 Z"><title>Quads</title></path>
+      <path class="musc" data-muscle="adductors" d="M60,90 C59,98 59,105 60,112 C61,113 63,113 64,112 C65,105 65,98 64,90 C63,89 61,89 60,90 Z"><title>Adductors</title></path>
+      <path class="musc" data-muscle="calves" d="M52,123 C50,129 50,137 51,145 C51,151 53,154 55,154 C57,154 58,150 58,144 C59,136 58,128 57,124 C55,123 53,123 52,123 Z"><title>Calves</title></path>
+      <path class="musc" data-muscle="calves" d="M72,123 C74,129 74,137 73,145 C73,151 71,154 69,154 C67,154 66,150 66,144 C65,136 66,128 67,124 C69,123 71,123 72,123 Z"><title>Calves</title></path>
+      <text class="lbl" x="62" y="182">Front</text>
+    </g>
+    <!-- BACK (centre x=188) -->
+    <g stroke-linejoin="round" transform="translate(126,0)">
+      <circle class="sil" cx="62" cy="11" r="8"/>
+      <path class="sil" d="M57,17 Q62,20 67,17 L67,22 Q62,25 57,22 Z"/>
+      <path class="sil" d="M46,29 C44,30 43,33 43,37 C43,46 46,56 49,65 C50,71 51,77 53,82 C55,86 57,88 62,88 C67,88 69,86 71,82 C73,77 74,71 75,65 C78,56 81,46 81,37 C81,33 80,30 78,29 C70,26 54,26 46,29 Z"/>
+      <path class="sil" d="M44,32 C38,33 35,39 34,46 C33,54 32,63 32,71 C32,77 33,83 35,86 C37,87 40,86 41,84 C42,77 43,68 44,60 C45,50 47,40 47,33 C46,32 45,32 44,32 Z"/>
+      <path class="sil" d="M80,32 C86,33 89,39 90,46 C91,54 92,63 92,71 C92,77 91,83 89,86 C87,87 84,86 83,84 C82,77 81,68 80,60 C79,50 77,40 77,33 C78,32 79,32 80,32 Z"/>
+      <path class="sil" d="M51,87 C49,95 49,105 50,115 C50,125 52,139 54,153 C54,157 56,159 58,158 C60,157 60,155 60,151 C61,137 61,123 61,113 C62,103 62,94 61,88 Z"/>
+      <path class="sil" d="M73,87 C75,95 75,105 74,115 C74,125 72,139 70,153 C70,157 68,159 66,158 C64,157 64,155 64,151 C63,137 63,123 63,113 C62,103 62,94 63,88 Z"/>
+      <ellipse class="sil" cx="56" cy="159" rx="5" ry="3"/><ellipse class="sil" cx="68" cy="159" rx="5" ry="3"/>
+      <path class="musc" data-muscle="delts" d="M45,30 C40,30 37,34 37,40 C41,41 46,40 49,36 C49,32 47,30 45,30 Z"><title>Rear delts</title></path>
+      <path class="musc" data-muscle="delts" d="M79,30 C84,30 87,34 87,40 C83,41 78,40 75,36 C75,32 77,30 79,30 Z"><title>Rear delts</title></path>
+      <path class="musc" data-muscle="traps" d="M52,29 C57,28 67,28 72,29 C71,35 67,39 62,41 C57,39 53,35 52,29 Z"><title>Upper back / traps</title></path>
+      <path class="musc" data-muscle="lats" d="M50,42 C48,48 48,55 50,61 C52,65 56,66 59,64 C59,57 58,49 57,43 C55,42 52,42 50,42 Z"><title>Lats</title></path>
+      <path class="musc" data-muscle="lats" d="M74,42 C76,48 76,55 74,61 C72,65 68,66 65,64 C65,57 66,49 67,43 C69,42 72,42 74,42 Z"><title>Lats</title></path>
+      <path class="musc" data-muscle="lowerback" d="M58,62 C57,66 57,70 59,73 C60,74 64,74 65,73 C67,70 67,66 66,62 C64,61 60,61 58,62 Z"><title>Lower back</title></path>
+      <path class="musc" data-muscle="triceps" d="M40,36 C37,37 36,42 36,48 C36,52 38,55 40,56 C42,55 43,51 43,46 C44,41 43,37 41,36 Z"><title>Triceps</title></path>
+      <path class="musc" data-muscle="triceps" d="M84,36 C87,37 88,42 88,48 C88,52 86,55 84,56 C82,55 81,51 81,46 C80,41 81,37 83,36 Z"><title>Triceps</title></path>
+      <path class="musc" data-muscle="forearms" d="M36,59 C34,60 33,65 33,71 C33,77 35,82 37,84 C39,83 39,77 39,71 C39,66 38,61 37,59 Z"><title>Forearms</title></path>
+      <path class="musc" data-muscle="forearms" d="M88,59 C90,60 91,65 91,71 C91,77 89,82 87,84 C85,83 85,77 85,71 C85,66 86,61 87,59 Z"><title>Forearms</title></path>
+      <path class="musc" data-muscle="glutes" d="M51,73 C49,74 48,78 49,83 C50,87 54,88 57,86 C58,82 58,78 57,74 C55,73 52,73 51,73 Z"><title>Glutes</title></path>
+      <path class="musc" data-muscle="glutes" d="M73,73 C75,74 76,78 75,83 C74,87 70,88 67,86 C66,82 66,78 67,74 C69,73 72,73 73,73 Z"><title>Glutes</title></path>
+      <path class="musc" data-muscle="hamstrings" d="M51,90 C49,97 49,105 50,113 C50,119 52,122 55,122 C57,122 58,118 58,112 C59,104 58,96 57,91 C55,90 53,90 51,90 Z"><title>Hamstrings</title></path>
+      <path class="musc" data-muscle="hamstrings" d="M73,90 C75,97 75,105 74,113 C74,119 72,122 69,122 C67,122 66,118 66,112 C65,104 66,96 67,91 C69,90 71,90 73,90 Z"><title>Hamstrings</title></path>
+      <path class="musc" data-muscle="calves" d="M52,123 C50,129 50,137 51,145 C51,151 53,154 55,154 C57,154 58,150 58,144 C59,136 58,128 57,124 C55,123 53,123 52,123 Z"><title>Calves</title></path>
+      <path class="musc" data-muscle="calves" d="M72,123 C74,129 74,137 73,145 C73,151 71,154 69,154 C67,154 66,150 66,144 C65,136 66,128 67,124 C69,123 71,123 72,123 Z"><title>Calves</title></path>
+      <text class="lbl" x="62" y="182">Back</text>
+    </g>
+    </svg>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--muted);margin-top:0">
+      <span>fewer sets</span>
+      <span style="display:inline-block;width:84px;height:9px;border-radius:5px;background:linear-gradient(90deg,rgb(255,206,110),rgb(222,60,45))"></span>
+      <span>more sets</span>
+    </div>
+  </div>
+  <div id="savePRs"></div>
+  <div id="savePromote"></div>
+  <button class="btn btn-primary" id="saveDlgOk" style="margin-top:10px">Nice 💪</button>
+</div></dialog>
+
+<!-- Coaching changes waiting on the session you just opened. A dialog rather than a
+     card on Daniel's call (6 Oct) - in the Program tab they went unnoticed. -->
+<dialog id="pcDlg"><div class="dlg-body">
+  <h3 id="pcDlgTitle">Your coach has a change</h3>
+  <div class="hint" style="margin:-4px 0 12px" id="pcDlgSub"></div>
+  <div id="pcDlgList"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:12px">
+    <button class="btn btn-ghost" id="pcDlgLater">Later</button>
+  </div>
+</div></dialog>
+
+<dialog id="sessionDlg"><div class="dlg-body">
+  <h3>Add session</h3>
+  <label class="fld" style="margin-bottom:9px">Name<input id="sessName" type="text" placeholder="e.g. Push day" autocomplete="off"></label>
+  <label class="fld" style="margin-bottom:14px">Day<select id="sessDay">
+    <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
+    <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
+    <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
+    <option value="Sunday">Sunday</option>
+    <option value="Optional">Optional - any day</option>
+  </select></label>
+  <div class="hint" style="margin:-6px 0 14px">An <b>Optional</b> session is never opened for you by
+    the calendar and sits at the bottom of the list - it's there for the days you fancy it, not part
+    of the week.</div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="sessCancel">Cancel</button>
+    <button class="btn btn-primary" id="sessSave">Add session</button>
+  </div>
+</div></dialog>
+
+<dialog id="exDlg"><div class="dlg-body">
+  <h3 id="exDlgTitle">Edit exercise</h3>
+  <div class="hint" id="exTodayHint" hidden style="margin:-6px 0 10px">Goes into <b>today's log only</b> - your program isn't changed. After you save the session you'll be offered the option to keep it.</div>
+  <label class="fld" style="margin-bottom:9px">Exercise name<input id="exName" type="text" list="exNameList" autocomplete="off"></label>
+  <datalist id="exNameList"></datalist>
+  <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 - or 40%x8, 60%x5"></label>
+  <label class="fld" style="margin-bottom:9px" id="exNotesLab">Machine settings (optional)<textarea id="exNotes" placeholder="e.g. Seat height 4, pin 3, back-pad setting 2" style="min-height:48px"></textarea></label>
+  <!-- Design v3 / 14 Oct: a lift's target is built from Sets + Reps (two boxes) +
+       an optional extra, so the target and the number of rows can't disagree.
+       Anything that isn't weight + reps keeps a free-text target. -->
+  <div class="ex-grid" style="margin-bottom:9px">
+    <label class="fld">Sets<input id="exSets" type="number" min="1" max="12" value="3" inputmode="numeric"></label>
+    <label class="fld" id="exRepMinLab">Reps<input id="exRepMin" type="number" min="1" max="100" inputmode="numeric" placeholder="8"></label>
+    <label class="fld" id="exRepMaxLab">to<input id="exRepMax" type="number" min="1" max="100" inputmode="numeric" placeholder="12"></label>
+    <label class="fld">Rest<input id="exRest" type="text" inputmode="numeric" placeholder="2:30"></label>
+  </div>
+  <label class="fld" id="exExtraLab" style="margin-bottom:9px">Extra (optional)<input id="exTargetExtra" type="text" placeholder="e.g. each leg, light"></label>
+  <label class="fld" id="exTargetLab" style="margin-bottom:9px">Target<input id="exTarget" type="text" placeholder="e.g. 4 rounds x 250 m"></label>
+  <div class="row" style="margin-bottom:6px">
+    <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
+    <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
+    <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="-"></label>
+  </div>
+  <div class="row" style="margin-bottom:12px;gap:6px">
+    <span class="hint" style="margin:0">Presets:</span>
+    <button type="button" class="mini" id="exPresetLift">Lifting</button>
+    <button type="button" class="mini" id="exPresetRun">Running</button>
+    <button type="button" class="mini" id="exPresetTimed">Timed</button>
+  </div>
+  <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
+    <input id="exTimed" type="checkbox" style="width:auto"> Recorded by time
+  </label>
+  <div id="exTimedBox" hidden style="margin-bottom:12px">
+    <div class="ex-grid" style="margin-bottom:8px">
+      <label class="fld">Hold target<input id="exHold" type="text" inputmode="numeric" placeholder="0:45"></label>
+      <label class="fld">Grace<input id="exGrace" type="text" inputmode="numeric" placeholder="0"></label>
+    </div>
+    <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exCountDown" type="checkbox" style="width:auto"> Count down from the hold target</label>
+    <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exAutoFill" type="checkbox" style="width:auto"> Stopping fills in the time and ticks the set</label>
+    <div class="hint" style="margin:0">The grace is a lead-in before the hold starts. It shows as a negative count and isn't part of the time. Timed holds add nothing to volume. A PR is the longest hold at the same weight (no weight counts as 0).</div>
+  </div>
+  <label class="fld" style="margin-bottom:7px">What are you lifting?<select id="exLoad">
+    <option value="">The weight you type (normal)</option>
+    <option value="bw">Your bodyweight, plus any added weight</option>
+    <option value="assist">Your bodyweight, minus the machine's help</option>
+  </select></label>
+  <div class="row" id="exBwPctRow" hidden style="margin-bottom:6px;align-items:center;gap:9px">
+    <label class="fld" style="width:112px">% of bodyweight<input id="exBwPct" type="number" min="1" max="100" step="1" value="100"></label>
+    <span class="hint" style="margin:0;flex:1">How much of you the movement actually lifts - pull-up or dip 100, press-up about 65.</span>
+  </div>
+  <div class="hint" id="exLoadHint" style="margin:0 0 14px">Only affects the maths - your volume, PRs, estimated 1RM and PR badges. You still type the same number as always.</div>
+  <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
+    <input id="exGarmin" type="checkbox" style="width:auto"> Garmin records this
+  </label>
+  <div class="hint" style="margin:0 0 14px">For cardio your watch tracks that isn't a plain distance+time run (e.g. intervals logged as paces). The session then picks up HR, zones and calories from Garmin, without overwriting anything you typed. Real runs are detected automatically.</div>
+  <label class="fld" style="margin-bottom:14px">Works (optional - guessed from the name; tap to override)
+    <div class="tagpick" id="exMuscles"></div>
+  </label>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn btn-ghost" id="exCancel">Cancel</button>
+    <button class="btn btn-primary" id="exSave">Save exercise</button>
+  </div>
+  <div style="text-align:center;margin-top:12px"><button class="mini log-del" id="exRemove" hidden>Remove from program</button></div>
+</div></dialog>
+
+<script src="js/app.js" defer></script>
+</body>
+</html>

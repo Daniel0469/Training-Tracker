@@ -1,0 +1,663 @@
+  /* Design v3 fonts, bundled so the app still looks right offline. Variable
+     files: one each covers every weight used (Manrope 400-800, Mono 500-700). */
+  @font-face{font-family:"Manrope";src:url(../fonts/manrope-latin-wght.woff2) format("woff2-variations"),url(../fonts/manrope-latin-wght.woff2) format("woff2");font-weight:200 800;font-style:normal;font-display:swap}
+  @font-face{font-family:"JetBrains Mono";src:url(../fonts/jetbrains-mono-latin-wght.woff2) format("woff2-variations"),url(../fonts/jetbrains-mono-latin-wght.woff2) format("woff2");font-weight:100 800;font-style:normal;font-display:swap}
+  :root{
+    color-scheme: light;
+    --font:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+    --bg:#f6f7f9; --card:#ffffff; --card-2:#fcfcfe; --input-bg:#ffffff; --ink:#1c2330; --muted:#697086;
+    --line:#e4e7ee; --line-2:#e4e7ee; --ink-2:#1c2330; --nav:#ffffff; --on-brand:#fff;
+    --gold:#b98a00; --gold-ink:#fff; --pr-tint:#fbf3d9;
+    --me:#1e3a8a; --me-soft:#e3e8f7; --partner:#7a1fe0; --partner-soft:#f0e6fd;
+    --sw-teal:#0d7d72; --sw-teal-soft:#dcf3f0; --sw-rose:#be185d; --sw-rose-soft:#fbe0ec;
+    --sw-amber:#a15c00; --sw-amber-soft:#f7e6c8; --sw-green:#15803d; --sw-green-soft:#dcf5e3;
+    --brand:var(--me); --brand-soft:var(--me-soft);
+    --good:#2e9e6b; --warn:#d9a300; --bad:#d9534f;
+    --hrz1:#6b8cbe; --hrz2:#2e9e6b; --hrz3:#c99700; --hrz4:#e07a3f; --hrz5:#d9534f;
+    --toast-bg:#1c2330; --toast-ink:#fff;
+    --shadow:0 1px 3px rgba(20,30,55,.08),0 1px 2px rgba(20,30,55,.06);
+    --musc-base:#e6ebf1; --musc-sil:#cdd5df; --musc-stroke:#c2cad6;
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    /* Design v3 dark palette (docs/design-v3.md). */
+    --bg:#121417; --card:#1B1E22; --card-2:#24282D; --input-bg:#24282D; --ink:#ECEDEE; --muted:#9BA1A8;
+    --line:#2A2E34; --line-2:#2F343A; --ink-2:#C9CDD2; --nav:#16191C; --on-brand:#121417;
+    --gold:#E8C15A; --gold-ink:#2A1F00; --pr-tint:#2A2617;
+    --me:#7d9bf5; --me-soft:#1e2a52; --partner:#b57cff; --partner-soft:#2c1e52;
+    --sw-teal:#4fd8c9; --sw-teal-soft:#123a36; --sw-rose:#f472b6; --sw-rose-soft:#4a1f36;
+    --sw-amber:#f2b84b; --sw-amber-soft:#3a2a12; --sw-green:#5fd88a; --sw-green-soft:#163a26;
+    --brand:var(--me); --brand-soft:var(--me-soft);
+    --good:#3fae7f; --warn:#d9a300; --bad:#FF7A6B;
+    --hrz1:#8fabd8; --hrz2:#4fbe8b; --hrz3:#e0b84b; --hrz4:#f0975f; --hrz5:#e8736e;
+    --shadow:none;
+    --musc-base:#2b3340; --musc-sil:#333c49; --musc-stroke:#3a4452;
+  }
+  /* App accent follows the active account's chosen colour swatch. "navy" (the
+     default) needs no rule - it's already the base --brand above. Placed after
+     the theme blocks so it wins the source-order tiebreak in both themes. */
+  :root[data-color="purple"]{ --brand:var(--partner); --brand-soft:var(--partner-soft); }
+  :root[data-color="teal"]{ --brand:var(--sw-teal); --brand-soft:var(--sw-teal-soft); }
+  :root[data-color="rose"]{ --brand:var(--sw-rose); --brand-soft:var(--sw-rose-soft); }
+  :root[data-color="amber"]{ --brand:var(--sw-amber); --brand-soft:var(--sw-amber-soft); }
+  :root[data-color="green"]{ --brand:var(--sw-green); --brand-soft:var(--sw-green-soft); }
+  :root[data-theme="dark"] .fb,:root[data-theme="dark"] .notes{background:#2a2716;border-color:#4a431f;color:#e8dca0}
+  :root[data-theme="dark"] .garminbox{background:#16202e;border-color:#26364c;color:#acc4e6}
+  :root[data-theme="dark"] .recent{background:var(--card-2);border-color:var(--line);color:var(--muted)}
+  :root[data-theme="dark"] table.sets input[readonly]{background:var(--card-2)}
+  dialog{background:var(--card);color:var(--ink)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:500 15px/1.5 var(--font);padding:20px;-webkit-font-smoothing:antialiased}
+  /* Every number in mono (design v3). Add .num to anything numeric a screen prints. */
+  .num,.timer,.tile .big,.fivek,.cov-n,.hrz-range,td.prev,table.sets input,.rest-bar b,table.splits{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .tile .big .sub,.fivek .sub{font-family:var(--font)}
+  h1,h2,h3{margin:0}
+  .wrap{max-width:780px;margin:0 auto}
+  /* Sticky header. Both of them train in the same session and swap the active
+     person constantly, and the log form is long enough that the toggle spent
+     most of it off-screen - so every swap cost a scroll to the top and back.
+     The negative margins cancel body's padding so the bar spans the full width
+     and content scrolling underneath can't peek out at its edges; that relies
+     on --bg being opaque in both themes, which it is. z-index stays below the
+     bottom tab bar's 30. */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    position:sticky;top:0;z-index:20;background:var(--bg);
+    margin:-20px -20px 14px;padding:16px 20px 12px;flex-wrap:nowrap}
+  /* Small uppercase date over the screen's name. */
+  .title{min-width:0}
+  .title small{display:block;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);line-height:1.3}
+  .title h1{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+  .people{display:flex;gap:8px;align-items:center;flex:none}
+  .ptoggle{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
+  .ptoggle button{border:0;background:transparent;color:var(--muted);font-weight:700;padding:0 14px;min-height:36px;border-radius:999px;cursor:pointer;font-size:14px;font-family:inherit}
+  .ptoggle button.active{background:var(--brand);color:var(--on-brand)}
+  /* Progress tab's Lifts/Body switch. Same control as the person toggle in the
+     header, but it spans the card so it reads as a section switch rather than a
+     stray pair of buttons. */
+  .card.pane-card{padding:8px}
+  /* Segmented switch (design v3): the active segment is raised, not brand-filled -
+     brand stays with the person pill so the two never read as the same control. */
+  .ptoggle.pane-toggle{display:flex;width:100%;box-shadow:none;border:0;background:var(--card);padding:0;border-radius:14px}
+  .ptoggle.pane-toggle button{flex:1;padding:0 10px;min-height:40px;border-radius:11px}
+  .ptoggle.pane-toggle button.active{background:var(--card-2);color:var(--ink)}
+  .icon-btn{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;width:44px;height:44px;cursor:pointer;font-size:18px;box-shadow:var(--shadow)}
+  .icon-btn.round{border-radius:50%}
+  /* Line icons: stroke only, 2px, drawn in whatever colour the text is. */
+  svg.ico{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  /* Bottom navigation bar: fixed to the viewport foot, like the mobile preview. */
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:2px;
+    background:var(--nav);border-top:1px solid var(--line);
+    padding:6px max(8px,env(safe-area-inset-left)) calc(14px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-right));
+    overflow-x:auto}
+  .tabs button{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;color:var(--muted);
+    font-family:inherit;font-weight:700;font-size:11px;letter-spacing:.02em;padding:8px 4px 6px;min-height:52px;border-radius:14px;cursor:pointer;white-space:nowrap}
+  .tabs button.active{color:var(--brand)}
+  /* Border on the Program tab while a proposal is waiting. An inset box-shadow
+     rather than a real border: it follows the 12px radius and takes up no layout
+     space, so the nav bar doesn't shift the moment a proposal arrives. */
+  .tabs button.has-pending{box-shadow:inset 0 0 0 2px var(--brand)}
+  /* Keep page content clear of the fixed bar (taller now, lifted off the
+     screen edge so taps don't collide with the phone's home-swipe gesture). */
+  .wrap{padding-bottom:calc(114px + env(safe-area-inset-bottom))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  /* display:flex above beats the browser's [hidden] rule, so hiding a .row
+     needs saying explicitly (same trap as .notes / .notes-wrap). */
+  .row[hidden]{display:none}
+  label.fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:700}
+  select,input,textarea{font:inherit;color:var(--ink);background:var(--input-bg);border:1px solid var(--line-2);border-radius:11px;padding:8px 11px;outline:none;transition:border-color .15s,box-shadow .15s}
+  select,input:not([type=checkbox]):not([type=radio]):not([type=file]){min-height:44px}
+  select:focus,input:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  select{cursor:pointer}
+  .btn,.mini,.icon-btn,.tabs button,.ptoggle button,.diff button{transition:background .15s,color .15s,border-color .15s,box-shadow .15s}
+  .ex{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:11px;background:var(--card-2)}
+  .ex-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+  .ex-name{font-weight:700}
+  .superset{border-left:3px solid var(--brand);border-radius:14px;padding:10px 10px 0;margin-bottom:13px;background:var(--card-2)}
+  .superset .ex,.superset .card.ex{margin-bottom:10px}
+  .superset-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .ex-meta{font-size:12px;color:var(--muted)}
+  .warmup{font-size:12px;color:var(--brand);background:var(--brand-soft);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
+  /* Cardio-day banner at the top of a run session (auto-fill guidance). */
+  .cardio-note{background:var(--brand-soft);border:1px solid var(--line);color:var(--ink);border-radius:11px;padding:10px 13px;margin-bottom:13px;font-size:13px;line-height:1.45}
+  .recent{font-size:12px;color:var(--muted);background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px}
+  .notes{font-size:12px;color:#6a5b1a;background:#fbf6e3;border:1px solid #efe4b8;border-radius:7px;padding:3px 8px;display:block;margin-bottom:7px;white-space:pre-wrap}
+  /* Machine settings: collapsed behind the 🔧 next to the exercise name. The
+     wrench stays lit when settings are saved, so you can spot them at a glance. */
+  .wrench{border:0;background:transparent;padding:0 0 0 6px;font-size:13px;line-height:1;cursor:pointer;opacity:.4;vertical-align:middle}
+  .wrench:hover,.wrench[aria-expanded="true"],.wrench.has{opacity:1}
+  .notes-wrap{margin-bottom:7px}
+  .notes-wrap[hidden]{display:none}
+  /* .notes sets display:block, which beats the browser's [hidden] rule - both
+     the read-out line and the editor need this to actually disappear. */
+  .notes[hidden]{display:none}
+  /* Per-session warm-up / cool-down notes in the Program editor. */
+  .sessnotes{margin-bottom:11px}
+  /* Program tab: sessions collapse to a one-line index of the week. */
+  .card.sess{padding-top:6px;padding-bottom:6px}
+  .card.sess.open{padding-bottom:12px}
+  .sess-head{display:flex;align-items:center;gap:10px;width:100%;padding:8px 0;background:none;border:0;
+    text-align:left;cursor:pointer;color:var(--ink);font:inherit}
+  .sess-caret{color:var(--muted);font-size:13px;line-height:1;transition:transform .15s;flex:none}
+  .card.sess.open .sess-caret{transform:rotate(90deg)}
+  .sess-title{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .sess-name{font-weight:700;font-size:16px}
+  /* An exercise added to today's log only - dashed edge so it reads as
+     temporary next to the programmed cards. */
+  .ex-today{border-style:dashed}
+  .today-pill{background:var(--brand-soft);color:var(--brand);margin-left:7px;vertical-align:middle}
+  textarea.notes{width:100%;font-family:inherit;line-height:1.35;resize:vertical;min-height:24px;overflow:hidden}
+  textarea.notes::placeholder{color:#a89a60;opacity:1}
+  :root[data-theme="dark"] textarea.notes::placeholder{color:#8a7f4e}
+  .coach{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2);background:transparent;border:1px solid var(--line-2);border-radius:12px;padding:8px 11px;margin-bottom:8px;white-space:pre-wrap}
+  .coach svg.ico{width:16px;height:16px;color:var(--brand);margin-top:2px}
+  /* Coach surfaces (design v3): an outlined card, no fill, chat icon in the
+     person's colour - reads as "from your coach" without a colour of its own. */
+  .coach-card{background:transparent;border:1.5px solid var(--line-2)}
+  .coach-card .sec-title svg.ico{color:var(--brand)}
+  .timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;color:var(--muted);min-width:58px;text-align:center}
+  .timer.running{color:var(--brand)}
+  .sets-wrap{overflow-x:auto}
+  table.sets{width:100%;border-collapse:separate;border-spacing:0}
+  table.sets input[readonly]{background:#eef1f6;color:var(--muted);cursor:default;font-weight:600}
+  table.sets th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;font-weight:700;padding:2px 6px}
+  /* 4px sides, not 6: the 20px page gutter (design v3) took the width back. */
+  table.sets td{padding:3px 4px}
+  table.sets input::placeholder{font-family:var(--font)}
+  /* min-width so a three-column run row (Distance/Time/Pace) can't squeeze a
+     cell until its own value is clipped - "5:27" was rendering as "5:2" on a
+     375px phone. The table scrolls inside .sets-wrap instead. */
+  table.sets input{width:100%;padding:7px 8px;min-width:3.4em;border-radius:10px}
+  .setno{color:var(--muted);font-family:var(--mono);font-weight:700;width:30px;text-align:center;font-size:13px;cursor:pointer;user-select:none}
+  th.setno-h,th.done-cell{text-align:center}
+  .setno[data-setno]:hover{color:var(--brand)}
+  tr.wset td{opacity:.55}
+  tr.wset .setno{opacity:1;color:var(--warn)}
+  .wu-tag{color:var(--muted)}
+  table.rec{width:100%;border-collapse:collapse;font-size:13px}
+  table.rec th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;padding:4px 8px;white-space:nowrap}
+  table.rec td{padding:5px 8px;border-top:1px solid var(--line);white-space:nowrap}
+  table.rec tbody tr:first-child td{border-top:0}
+  td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
+  td.done-cell,th.done-cell{width:48px;text-align:center;white-space:nowrap}
+  /* The tick: a 40px rounded button, filled with the person's colour when done.
+     appearance:none so it can be drawn; the check mark is the ::after. */
+  td.done-cell{position:relative}
+  td.done-cell input[type="checkbox"]{-webkit-appearance:none;appearance:none;width:40px;height:40px;margin:0;display:grid;place-content:center;
+    border:1.5px solid var(--line-2);border-radius:12px;background:var(--input-bg);cursor:pointer;vertical-align:middle}
+  td.done-cell input[type="checkbox"]::after{content:"";width:13px;height:7px;border:solid var(--muted);border-width:0 0 2.5px 2.5px;
+    transform:translate(0,-2px) rotate(-45deg);opacity:.4}
+  td.done-cell input[type="checkbox"]:checked{background:var(--brand);border-color:var(--brand)}
+  td.done-cell input[type="checkbox"]:checked::after{border-color:var(--on-brand);opacity:1}
+  /* Done rows get a faint wash of the person's colour; a PR row's gold wins. */
+  tr.done td{background:color-mix(in srgb,var(--brand) 10%,transparent)}
+  tr.pr td{background:var(--pr-tint)}
+  tr.done td:first-child,tr.pr td:first-child{border-radius:10px 0 0 10px}
+  tr.done td:last-child,tr.pr td:last-child{border-radius:0 10px 10px 0}
+  .medal{position:absolute;top:-1px;right:0;min-width:20px;height:16px;padding:0 4px;border-radius:999px;
+    background:var(--gold);color:var(--gold-ink);font:800 9px/16px var(--font);letter-spacing:.04em;text-align:center;pointer-events:none}
+  .medal[hidden]{display:none}
+  /* One button shape everywhere. inline-flex + min-height so a text button, an
+     emoji one and a bare arrow all come out the same height and line up on a
+     row - they used to differ by a few px depending on their glyph. */
+  .mini{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;
+    border:1px solid var(--line-2);background:var(--input-bg);border-radius:10px;padding:5px 10px;
+    cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .mini:hover{border-color:var(--brand);color:var(--brand)}
+  /* Icon-only buttons (↑ ↓ ×) - square, so the cluster reads as one control
+     rather than three different widths. */
+  .mini.ico{min-width:32px;padding:5px}
+  /* Action rows sit right, against the card edge, on every level of the Program
+     tab and on a History session: the top card, a session's own actions, and
+     each exercise/log row.
+     nowrap + flex:none is the important bit. .row inherits flex-wrap:wrap, so a
+     long exercise or session name that wrapped onto a second line stole the
+     width these buttons needed and one of them dropped underneath the others -
+     Delete under View in History, x under the arrows in Program. The buttons
+     now hold their line and the TEXT beside them is what gives way (see
+     .row-grow below). */
+  .row.actions{justify-content:flex-end;gap:6px;flex-wrap:nowrap;flex:0 0 auto}
+  /* The title/description side of those rows. min-width:0 lets a flex item
+     shrink below its content width, which is what allows the text to wrap
+     instead of shoving the buttons. */
+  .row-grow{flex:1 1 auto;min-width:0}
+  .btn{border:0;border-radius:14px;padding:10px 18px;min-height:44px;font-family:inherit;font-weight:700;cursor:pointer;font-size:15px}
+  .btn-primary{background:var(--brand);color:var(--on-brand);min-height:50px;font-weight:800}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-ghost{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink)}
+  .btn-danger{background:var(--input-bg);border:1px solid var(--line-2);color:var(--bad)}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  .diff{display:flex;gap:5px;flex-wrap:wrap}
+  .diff button{border:1px solid var(--line-2);background:var(--input-bg);border-radius:10px;width:38px;height:40px;cursor:pointer;font-family:var(--mono);font-weight:700;color:var(--muted)}
+  .diff button.sel{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+  /* Per-exercise RPE picker: ten buttons have to fit one line on a phone, so they
+     share the width instead of wrapping like the wider session-difficulty picker. */
+  .diff.diff-sm{flex:1 1 auto;flex-wrap:nowrap;gap:3px;min-width:0}
+  .diff.diff-sm button{width:auto;flex:1 1 0;min-width:0;height:36px;font-size:12.5px;padding:0}
+  .tagpick{display:flex;gap:5px;flex-wrap:wrap}
+  .tagpick button{border:1px solid var(--line-2);background:var(--input-bg);border-radius:999px;padding:6px 12px;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;color:var(--muted)}
+  .tagpick button.sel{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+  .swatchpick{display:flex;gap:10px;flex-wrap:wrap}
+  .swatchpick button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+  .swatchpick button.sel{border-color:var(--ink)}
+  .swatchpick button:disabled{opacity:.3;cursor:not-allowed}
+  .swatchpick button[data-c="navy"]{background:var(--me)}
+  .swatchpick button[data-c="purple"]{background:var(--partner)}
+  .swatchpick button[data-c="teal"]{background:var(--sw-teal)}
+  .swatchpick button[data-c="rose"]{background:var(--sw-rose)}
+  .swatchpick button[data-c="amber"]{background:var(--sw-amber)}
+  .swatchpick button[data-c="green"]{background:var(--sw-green)}
+  .hrz-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-top:1px solid var(--line)}
+  .hrz-row:first-of-type{border-top:0}
+  .hrz-dot{width:10px;height:10px;border-radius:3px;flex:none}
+  .hrz-dot[data-z="1"]{background:var(--hrz1)}
+  .hrz-dot[data-z="2"]{background:var(--hrz2)}
+  .hrz-dot[data-z="3"]{background:var(--hrz3)}
+  .hrz-dot[data-z="4"]{background:var(--hrz4)}
+  .hrz-dot[data-z="5"]{background:var(--hrz5)}
+  .fivek{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
+  .fivek .sub{font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .conf{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--line);color:var(--muted)}
+  .conf[data-c="high"]{background:var(--hrz2);color:#fff}
+  .conf[data-c="medium"]{background:var(--hrz3);color:#fff}
+  .conf[data-c="low"]{background:var(--hrz4);color:#fff}
+  /* Next-cardio assignment: live vs already trained. */
+  .conf[data-c="assigned"]{background:var(--brand);color:var(--on-brand)}
+  /* A spent card is still readable - you can see what was asked for - but it
+     stops competing with live advice, and it is no longer choosing your session. */
+  .coach-card.spent{border-color:var(--line);opacity:.72}
+  .hrzbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--line);margin-top:9px}
+  .hrzbar-seg{display:block;height:100%}
+  .hrzbar-seg[data-z="1"]{background:var(--hrz1)}
+  .hrzbar-seg[data-z="2"]{background:var(--hrz2)}
+  .hrzbar-seg[data-z="3"]{background:var(--hrz3)}
+  .hrzbar-seg[data-z="4"]{background:var(--hrz4)}
+  .hrzbar-seg[data-z="5"]{background:var(--hrz5)}
+  .hrz-name{font-size:13px;font-weight:700}
+  .hrz-sub{font-weight:500;color:var(--muted)}
+  .hrz-range{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+  /* "3 waiting" on a collapsed session row. Brand-soft on brand so it reads in
+     both themes without hardcoding a colour. */
+  .sess-flag{display:inline-block;vertical-align:middle;margin-left:7px;font-size:11px;
+    font-weight:700;padding:2px 8px;border-radius:20px;
+    background:var(--brand-soft);color:var(--brand);white-space:nowrap}
+  .pill[data-sw="navy"]{background:var(--me-soft);color:var(--me)}
+  .pill[data-sw="purple"]{background:var(--partner-soft);color:var(--partner)}
+  .pill[data-sw="teal"]{background:var(--sw-teal-soft);color:var(--sw-teal)}
+  .pill[data-sw="rose"]{background:var(--sw-rose-soft);color:var(--sw-rose)}
+  .pill[data-sw="amber"]{background:var(--sw-amber-soft);color:var(--sw-amber)}
+  .pill[data-sw="green"]{background:var(--sw-green-soft);color:var(--sw-green)}
+  .log-item{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:var(--card-2)}
+  .log-item h3{font-size:15px}
+  .log-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .log-detail{margin-top:9px;font-size:13px;color:var(--ink);display:none}
+  .log-detail.open{display:block}
+  .log-detail table{width:100%;border-collapse:collapse;margin:5px 0}
+  .log-detail td{padding:2px 4px;border-bottom:1px solid var(--line)}
+  /* Run splits table inside a History session (per-lap distance/time/pace/HR). */
+  .splits-wrap{overflow-x:auto;margin:4px 0 2px}
+  table.splits{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.splits th.spl{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;text-align:right;padding:2px 8px;white-space:nowrap}
+  table.splits td.spl{text-align:right;padding:2px 8px;border-top:1px solid var(--line);border-bottom:0;font-size:12.5px;white-space:nowrap}
+  table.splits th.spl:first-child,table.splits td.spl:first-child{text-align:left;color:var(--muted)}
+  table.splits tr.tot td.spl{font-weight:800;border-top:1px solid var(--line);color:var(--ink)}
+  .fb{background:#fff8e6;border:1px solid #f0e2b8;border-radius:8px;padding:7px 10px;margin-top:7px;font-size:13px}
+  .garminbox{background:#eef2f9;border:1px solid #d3ddef;border-radius:8px;padding:7px 10px;margin-top:7px;font-size:12.5px;color:var(--muted)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+  .tile{background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:11px 13px}
+  .tile .big{font-size:23px;font-weight:700;line-height:1.15;letter-spacing:-.02em}
+  .tile .big .sub{font-size:13px;font-weight:600;color:var(--muted)}
+  .tile .lbl{font-size:12px;color:var(--muted);margin-top:3px}
+  /* The Session tab's Garmin recording block. Same collapsed-card pattern as the
+     coaching history: a <details> whose summary is the section heading. */
+  .rec-card summary,.setup-card summary{cursor:pointer}
+  .rec-card[open] summary,.setup-card[open] summary{margin-bottom:2px}
+  /* A coach-proposed program change, waiting on a tick. Teal like the other
+     coach surfaces so it reads as "from your coach", not as an app warning. */
+  .pchange{margin:7px 0 2px;padding:8px 10px;border-radius:8px;font-size:12.5px;
+    background:var(--brand-soft);border:1px solid var(--line)}
+  .pchange-head{font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    font-weight:700;color:var(--muted);margin-bottom:3px}
+  .pchange-what{font-weight:700;color:var(--ink)}
+  .pchange-why{color:var(--muted);margin-top:3px;white-space:pre-wrap}
+  .pchange-danger{border-color:var(--bad)}
+  .pchange-danger .pchange-what{color:var(--bad)}
+  /* .coach-hist outlived the Coaching history card it was named for (removed 14
+     Sep). Settings' "What's not set up yet" panel in index.html borrows the class
+     for its collapsible styling, so these rules are load-bearing - the name is now
+     the only misleading thing about them. .hist-entry below is likewise still used
+     by the History tab's session list. Neither is dead; don't tidy them away. */
+  .coach-hist summary{cursor:pointer}
+  .coach-hist[open] summary{margin-bottom:6px}
+  .hist-entry{font-size:13px;border-top:1px solid var(--line);padding:8px 0}
+  .hist-entry:first-of-type{border-top:0}
+  .hist-entry > div{margin:2px 0}
+  .hist-entry .ex-meta{margin-bottom:3px;font-weight:600}
+  .empty{text-align:center;color:var(--muted);padding:26px 10px}
+  .sec-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800;margin:2px 0 10px}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .chart-box{position:relative;height:300px}
+  dialog{border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 40px rgba(20,30,55,.25);padding:0;max-width:440px;width:92%}
+  dialog::backdrop{background:rgba(20,30,55,.35)}
+  .dlg-body{padding:20px}
+  .dlg-body h3{margin-bottom:12px}
+  .grow{flex:1}
+  /* Rest stopwatch: how long since the last set was ticked done. Fixed above the
+     nav bar rather than placed in the form, because the log form runs to ~3000px
+     on a phone - anything anchored to one spot in the page is off-screen for most
+     of a workout, which is exactly when you want to read it. Sits below the toast
+     (z-index 50) so a save message still wins for its two seconds. */
+  /* Design v3: a full-width pill in the selected person's colour, so whose rest
+     it is reads from across the gym as well as from the header. */
+  .rest-bar{position:fixed;left:16px;right:16px;bottom:calc(104px + env(safe-area-inset-bottom));max-width:748px;margin:0 auto;
+    z-index:40;display:flex;gap:10px;align-items:center;white-space:nowrap;cursor:pointer;
+    background:var(--brand);color:var(--on-brand);min-height:50px;padding:0 20px;border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);font-weight:800}
+  .rest-bar b{font-size:21px;font-weight:700}
+  .rest-bar span{margin-left:auto;opacity:.75;font-weight:600;font-size:12px}
+  /* display:flex above beats the browser's [hidden] rule - same trap as .row. */
+  .rest-bar[hidden]{display:none}
+  .toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:11px 20px;border-radius:30px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  /* Weekly coverage card: planned sets per muscle. The bar track is the same
+     neutral the muscle map uses when a group is unworked, so the two read as
+     one system in both themes; the fill is set inline from muscleColor(). */
+  .cov-row{display:flex;align-items:center;gap:9px;margin:3px 0}
+  .cov-name{flex:0 0 84px;font-size:12.5px;color:var(--muted)}
+  .cov-bar{flex:1;height:9px;border-radius:5px;background:var(--musc-base);overflow:hidden;position:relative}
+  .cov-bar i{display:block;height:100%;border-radius:5px}
+  /* Once anything has been ticked this week the bar reads as two things: the
+     planned sets as a pale track, and what's actually been done solid over it.
+     Siblings rather than nested - opacity on a parent takes its children with
+     it, so a nested "done" segment could never be more solid than its track. */
+  .cov-bar.has-done i{position:absolute;left:0;top:0;opacity:.3}
+  .cov-bar.has-done b{position:absolute;left:0;top:0;height:100%;border-radius:5px}
+  .cov-n{flex:0 0 46px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
+  /* Phone: the big title drops a step beside the person pill. Page padding
+     stays 20px (design v3). */
+  @media(max-width:520px){ td.prev,th.prev{width:74px} .cov-name{flex-basis:72px}
+    .title h1{font-size:24px} .title small{font-size:12px} }
+
+  /* ---- Session (design v3) ---- */
+  .sec-title svg.ico,.recent svg.ico,.warmup svg.ico,.add-row svg.ico,.mini svg.ico{width:15px;height:15px;vertical-align:-3px;margin-right:6px}
+  .mini svg.ico{margin-right:0}
+  .rest-bar svg.ico{width:20px;height:20px}
+  .sess-pick{display:grid;grid-template-columns:minmax(0,1fr) 148px;gap:10px}
+  .sess-pick select,.sess-pick input{width:100%;min-width:0}
+  .timer-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .timer-card .timer{font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink);text-align:left;margin-right:auto;min-width:0}
+  .timer-card .timer.running{color:var(--brand)}
+  .cardio-note{background:var(--card-2);border-color:var(--line);color:var(--ink-2);border-radius:14px}
+  .cardio-note svg.ico{width:16px;height:16px;vertical-align:-3px;margin-right:6px;color:var(--brand)}
+  #exForm .ex{background:var(--card);border-radius:20px;padding:14px;margin-bottom:12px}
+  #exForm .ex-name{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  #exForm .ex-head{flex-wrap:wrap;row-gap:2px}
+  #exForm .ex-meta.num{font-size:12.5px;font-weight:500}
+  #exForm .superset{background:transparent;border-left:3px solid var(--brand);border-radius:0;padding:2px 0 0 10px;margin-bottom:12px}
+  #exForm .warmup{border-radius:10px;padding:6px 10px;font-weight:600;margin-bottom:8px}
+  #exForm .recent{border-radius:10px;padding:6px 10px;margin-bottom:8px}
+  #exForm div.notes{display:flex;gap:8px;align-items:flex-start;background:var(--card-2);border:0;color:var(--ink-2);border-radius:12px;padding:8px 11px;font-size:13px;margin-bottom:8px}
+  #exForm div.notes[hidden]{display:none}
+  #exForm div.notes svg.ico{width:15px;height:15px;color:var(--muted);margin-top:2px}
+  #exForm textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
+  #exForm textarea.notes::placeholder{color:var(--muted)}
+  .wrench{color:var(--muted);padding:0 0 0 7px}
+  .wrench svg.ico{width:16px;height:16px;vertical-align:-2px}
+  .wrench.has{color:var(--brand)}
+  .rpe{margin-top:10px}
+  .rpe-lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .diff.diff-sm{gap:4px}
+  .diff.diff-sm button{height:40px;font-size:13px}
+  .ex-foot{margin-top:10px;flex-wrap:nowrap}
+  .smith-tick{display:flex;align-items:center;gap:7px;min-width:0;cursor:pointer}
+  .smith-tick input{width:20px;height:20px;accent-color:var(--brand);flex:none}
+  .add-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;margin:0 0 12px;padding:13px 16px;
+    border:1.5px dashed var(--line-2);border-radius:20px;background:transparent;color:var(--muted);font:inherit;font-size:14px;text-align:left;cursor:pointer}
+  .add-row b{color:var(--brand);font-weight:800}
+  .save-row{margin-bottom:30px;flex-wrap:nowrap}
+  /* "Last · 1 week ago" wraps under itself rather than holding the column at
+     117px - it was what pushed the set table into a sideways scroll. */
+  table.sets th.prev{white-space:normal;line-height:1.25}
+  #exForm .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
+  #exForm .superset-label svg.ico{width:15px;height:15px}
+  /* Session sizing pass (13 Oct, Daniel: timer, RPE, tick and set boxes were too
+     big). Denser than the 44px rule elsewhere - this is the screen you scroll
+     mid-set, and the rows are still comfortably tappable at 36. */
+  .sess-pick{grid-template-columns:minmax(0,1fr) auto}
+  .sess-pick input[type=date]{width:128px;padding:8px 8px}
+  .timer-card{padding:12px 16px}
+  .timer-card .timer{font-size:24px}
+  .timer-card .btn{min-height:36px;padding:6px 14px;font-size:14px;border-radius:12px}
+  .timer-row{margin-bottom:2px}
+  .diff.diff-sm button{height:26px;font-size:12px;border-radius:7px}
+  #exForm table.sets input:not([type=checkbox]){min-height:26px;height:26px;padding:2px 7px;border-radius:7px;font-size:13.5px}
+  td.done-cell,th.done-cell{width:36px}
+  #exForm td.done-cell input[type="checkbox"]{width:24px;min-width:0;height:24px;border-radius:7px}
+  td.done-cell input[type="checkbox"]::after{width:9px;height:4.5px;border-width:0 0 2px 2px}
+  .medal{top:-3px}
+
+  /* ---- Home (design v3) ---- */
+  .today-card .sec-title{margin-bottom:6px}
+  .today-name{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .today-day{color:var(--muted);font-size:14px;margin-top:2px}
+  .today-done{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+  .today-done svg.ico{width:18px;height:18px;padding:2px;border-radius:6px;background:var(--brand);color:var(--on-brand);stroke-width:3}
+  .today-card #homeLogBtn{width:100%;margin-top:14px}
+  .home-h{font-size:18px;font-weight:800;letter-spacing:-.01em;margin:8px 0 3px}
+  .pr-badge{display:inline-block;vertical-align:middle;padding:1px 7px;border-radius:999px;background:var(--gold);color:var(--gold-ink);
+    font:800 10px/16px var(--font);letter-spacing:.05em}
+  .home-tiles{grid-template-columns:1fr 1fr;gap:12px}
+  .home-tiles .tile{background:var(--card);border-radius:20px;padding:14px 16px}
+  .home-tiles .tile .big{font-size:26px}
+  .home-tiles .tile .lbl{font-size:12.5px}
+  /* Week card: grey planned track, ticked in the person's colour. */
+  .cov-bar.v3{background:transparent}
+  .cov-bar.v3 i{position:absolute;left:0;top:0;height:100%;border-radius:5px;background:var(--line-2);opacity:1}
+  .cov-bar.v3 b{position:absolute;left:0;top:0;height:100%;border-radius:5px;background:var(--brand)}
+  .cov-row{margin:5px 0}
+  .cov-n{font-size:12px;color:var(--ink-2)}
+  /* Food pane: past days fold open to their meals. */
+  .food-day{border-top:1px solid var(--line)}
+  .food-day summary{cursor:pointer;padding:9px 0;list-style:none}
+  .food-day summary::-webkit-details-marker{display:none}
+  .meal-row{align-items:baseline;padding:3px 0}
+  .meal-row>div{flex:1;min-width:0}
+  .meal-row>span{white-space:nowrap}
+  /* Measurements: the entry form folds open under the chart. */
+  .ms-add summary{display:inline-flex;margin-top:12px;list-style:none;cursor:pointer}
+  .ms-add summary::-webkit-details-marker{display:none}
+  .ms-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px;margin-top:8px}
+  .ms-grid .fld{min-width:0}
+  .ms-grid input{width:100%;min-width:0;box-sizing:border-box}
+  /* Sleep */
+  .sleep-dur{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .stagebar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+  .stagebar i{display:block;height:100%}
+  .stg-deep{background:#5B7BE8} .stg-rem{background:#A27CF0} .stg-light{background:#6FC3E8} .stg-awake{background:#E8A25A}
+  .stagekey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:7px;font-size:12px;color:var(--muted)}
+  .stagekey span{display:inline-flex;align-items:center;gap:5px}
+  .stagekey i{width:8px;height:8px;border-radius:2px;display:inline-block}
+  .stagekey b{color:var(--ink-2);font-weight:600}
+  .mstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .mstat{background:var(--card-2);border-radius:14px;padding:9px 11px}
+  .mstat b{display:block;font-size:19px;font-weight:700;letter-spacing:-.02em}
+  .mstat b small{font-size:11px;font-weight:500;color:var(--muted)}
+  .mstat span{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+  /* HR zone rows: chip, name, mono range */
+  .hrz-row{padding:7px 0}
+  .hrz-dot{width:12px;height:12px;border-radius:4px}
+  .pill.num:not([data-sw]){background:var(--card-2);color:var(--ink-2);font-size:12px;padding:3px 10px}
+  /* A gap between set rows (Daniel, 13 Oct). Vertical spacing only, so the row
+     tint still runs edge to edge across a row. */
+  #exForm table.sets{border-spacing:0 5px}
+  #exForm table.sets td{padding-top:2px;padding-bottom:2px}
+  #exForm .medal{top:-4px;right:0}
+
+  /* ---- History (design v3) ---- */
+  .wk-vol{margin:2px 0 12px}
+  .wk-vol b{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .wk-vol span{color:var(--muted);font-size:13px}
+  .wk-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .wk-day{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wk-day i{display:block;width:100%;max-width:34px;aspect-ratio:1;border-radius:9px;background:var(--card-2)}
+  .wk-day.on i{background:var(--brand)}
+  .wk-day.today i{box-shadow:inset 0 0 0 2px var(--brand)}
+  .wk-day span{font-size:11px;font-weight:700;color:var(--muted)}
+  .wk-day.today span{color:var(--brand)}
+  .wk-bars{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end}
+  .wk-bar{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wk-track{width:100%;height:70px;display:flex;align-items:flex-end}
+  .wk-track i{display:block;width:100%;border-radius:6px 6px 3px 3px;background:var(--line-2)}
+  .wk-bar.cur .wk-track i{background:var(--brand)}
+  .wk-bar span{font-size:9.5px;color:var(--muted)}
+  .wk-bar.cur span{color:var(--brand);font-weight:700}
+  #histList .log-item{background:var(--card);border-radius:20px;padding:0;margin-bottom:10px;overflow:hidden}
+  #histList .log-row{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;background:transparent;
+    color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+  .log-date{flex:none;width:42px;text-align:center;line-height:1.05}
+  .log-date b{display:block;font-size:22px;font-weight:700;letter-spacing:-.03em}
+  .log-date span{display:block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--font)}
+  .log-name{display:block;font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin-bottom:2px}
+  .log-meta{display:block;font-size:12px}
+  .log-chev{flex:none;color:var(--muted);display:flex;transition:transform .15s}
+  .log-chev svg.ico{width:18px;height:18px}
+  .log-item.open .log-chev{transform:rotate(90deg)}
+  #histList .log-detail{margin:0;padding:2px 14px 14px;border-top:1px solid var(--line)}
+  #histList .log-detail td{border-bottom-color:var(--line);padding:6px 4px}
+  #histList .log-detail td:last-child{font-family:var(--mono);font-size:12.5px}
+  .log-del{color:var(--bad)}
+  #view .fb{background:var(--card-2);border:0;color:var(--ink-2);border-radius:12px;padding:8px 11px;margin-top:10px;white-space:pre-wrap}
+  #view .garminbox{background:var(--card-2);border:0;color:var(--muted);border-radius:12px;padding:8px 11px;margin-top:8px}
+  #view .garminbox b{color:var(--ink-2)}
+
+  /* ---- Progress (design v3) ---- */
+  .ptoggle.pane-toggle button{padding:0 6px;font-size:13.5px}
+  .big-stat{margin:2px 0 12px}
+  .big-stat b{display:block;font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1.1}
+  .big-stat b small{font-size:14px;font-weight:500;color:var(--muted);font-family:var(--font)}
+  .big-stat span{font-size:12.5px;color:var(--muted)}
+  .big-stat i{font-style:normal;font-weight:700}
+  .big-stat i.up{color:var(--good)} .big-stat i.down{color:var(--bad)}
+  table.rec tr.rec-new td{background:var(--pr-tint)}
+  table.rec tr.rec-new td:first-child{border-radius:8px 0 0 8px}
+  table.rec tr.rec-new td:last-child{border-radius:0 8px 8px 0;color:var(--gold)}
+  /* Flex ladder: the coach-set lowest rung, per skill. */
+  table.rec tr.rung-tag td{border-top:0;padding-top:0;padding-bottom:8px;white-space:normal;line-height:1.5}
+  .rung-tag .pr-badge{white-space:nowrap}
+  .rung-why{margin-top:12px;font-size:13px;line-height:1.45;display:grid;gap:4px;color:var(--ink)}
+  table.rec td.num b{font-weight:700}
+  .bw-add{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:end}
+  .bw-add .fld{min-width:0}
+  .bw-add input{width:100%;min-width:0;box-sizing:border-box}
+  /* iPhone Safari gives a date box a fixed width of its own unless its native look is off. */
+  .bw-add input[type=date], #msDate{-webkit-appearance:none;appearance:none;display:block;min-height:44px}
+  .bw-add .btn{min-height:44px}
+  @media(max-width:520px){ .bw-add{grid-template-columns:minmax(0,1fr) auto} .bw-add .fld:first-child{grid-column:1/-1} }
+  .bw-row{padding:7px 0;border-bottom:1px solid var(--line)}
+  .bw-row:last-child{border-bottom:0}
+  /* Records fit a phone: names and the bodyweight breakdown wrap instead of
+     pushing e1RM and When off the side of the card. */
+  table.rec td:first-child,table.rec td.num{white-space:normal}
+  table.rec td.num .ex-meta{white-space:normal;font-family:var(--font);font-size:11px;line-height:1.3}
+  table.rec td.num{min-width:70px}
+  table.rec th,table.rec td{padding-left:6px;padding-right:6px}
+  table.reps td{font-family:var(--mono);font-size:12.5px;white-space:nowrap;padding:5px 6px}
+  table.reps td b{font-weight:700}
+  table.reps td .ex-meta{font-size:10.5px}
+  /* A run session card in Progress is already raised (card-2), so its Garmin box
+     steps back down to card to stay visible. */
+  #view .ex .garminbox{background:var(--card)}
+
+  /* ---- Program (design v3) ---- */
+  .chips{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 12px;padding:2px 20px 4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{position:relative;flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 14px;
+    border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+  .chip b{font-size:14px;font-weight:800;white-space:nowrap}
+  .chip span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+  .chip.active span{color:var(--on-brand);opacity:.75}
+  .chip-dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 2px var(--card)}
+  .chip.active .chip-dot{background:var(--on-brand);box-shadow:none}
+  .prog-name{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .prog-actions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 6px;align-items:center}
+  .prog-actions .mini svg.ico{margin-right:0}
+  .prog-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+  .prog-row .ex-name{font-weight:700;font-size:15px}
+  .prog-row .ex-meta .num{color:var(--ink-2)}
+  .prog-sel{width:20px;height:20px;flex:none;accent-color:var(--brand)}
+  .prog-sess .superset{background:transparent;border-radius:0;padding:4px 0 2px 10px;margin:6px 0;border-left:3px solid var(--brand)}
+  .prog-sess .superset .prog-row:first-of-type{border-top:0}
+  .prog-sess .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
+  .prog-sess .superset-label svg.ico{width:15px;height:15px}
+  .prog-sess .superset-label .mini{margin-left:auto}
+  .coach-card .pchange{background:var(--card-2);border:0;border-radius:14px;padding:10px 12px;margin:8px 0 0}
+  .coach-card .pchange-head{display:none}
+  .pc-approve{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+  .pc-approve:hover{color:var(--on-brand);filter:brightness(1.08)}
+  .mini:disabled{opacity:.45;cursor:not-allowed}
+  #view .prog-sess textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
+  #view .prog-sess textarea.notes::placeholder{color:var(--muted)}
+  .prog-sess .sessnotes{margin:6px 0 12px}
+
+  /* ---- Settings, Guide, Create account (design v3) ---- */
+  .set-top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:16px}
+  .set-top .pane-toggle{background:var(--bg)}
+  .set-top .pane-toggle button.active{background:var(--card-2);color:var(--ink)}
+  .sync-status{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .sync-status .hint{flex:1;min-width:0}
+  .sync-status .btn{min-height:40px;padding:6px 14px;font-size:14px}
+  .sync-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--muted)}
+  .sync-dot[data-s="ok"]{background:var(--good)}
+  .sync-dot[data-s="bad"]{background:var(--bad)}
+  .sync-dot[data-s="busy"]{background:var(--gold);animation:syncPulse 1s ease-in-out infinite alternate}
+  @keyframes syncPulse{from{opacity:.35}to{opacity:1}}
+  .sync-cfg{margin-bottom:14px}
+  .sync-cfg summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .guide-sec{padding:0}
+  .guide-sec summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+  .guide-sec summary::-webkit-details-marker{display:none}
+  .g-badge{flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-content:center;background:var(--brand-soft);color:var(--brand);
+    font:700 13px var(--mono)}
+  .g-badge svg.ico{width:16px;height:16px}
+  .g-title{flex:1;font-weight:800;font-size:15px}
+  .guide-sec[open] .log-chev{transform:rotate(90deg)}
+  .g-body{padding:0 16px 8px;color:var(--ink-2);font-size:14px}
+  #guideBack svg.ico{width:15px;height:15px}
+  .ca-card{text-align:center;padding:28px 20px 22px;--ca:var(--brand)}
+  .ca-card[data-c="navy"]{--ca:var(--me)} .ca-card[data-c="purple"]{--ca:var(--partner)}
+  .ca-card[data-c="teal"]{--ca:var(--sw-teal)} .ca-card[data-c="rose"]{--ca:var(--sw-rose)}
+  .ca-card[data-c="amber"]{--ca:var(--sw-amber)} .ca-card[data-c="green"]{--ca:var(--sw-green)}
+  .ca-mark{width:64px;height:64px;margin:0 auto 14px;border-radius:20px;display:grid;place-content:center;background:var(--ca);color:var(--on-brand);transition:background .15s}
+  .ca-mark svg.ico{width:34px;height:34px}
+  .ca-title{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+  .ca-card #caName{border:1.5px solid var(--ca)}
+  .ca-card #caCreate{background:var(--ca)}
+  .ca-card .swatchpick{justify-content:center}
+
+  /* ---- Setup dialog: Sets / Reps / to / Rest on one row (14 Oct) ---- */
+  .ex-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .ex-grid input{width:100%;min-width:0}
+  .ex-grid label[hidden],#exExtraLab[hidden],#exTargetLab[hidden]{display:none}
+  /* Rest bar: the suggested time beside the count, and a colour change once it's
+     reached - it keeps counting (Daniel, 14 Oct). */
+  .rest-bar i{font-style:normal;font-family:var(--mono);font-size:15px;font-weight:600;opacity:.7}
+  .rest-bar{transition:background .3s}
+  .rest-bar.over{background:var(--gold);color:var(--gold-ink)}
+  /* Sets done / sets planned: a slim strip sitting on top of the tab bar, Session tab only. */
+  .sets-bar{position:fixed;left:0;right:0;bottom:calc(73px + env(safe-area-inset-bottom));z-index:31;
+    display:flex;align-items:center;gap:10px;padding:5px max(16px,env(safe-area-inset-left)) 5px max(16px,env(safe-area-inset-right));
+    background:var(--nav);border-top:1px solid var(--line);font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .sets-bar[hidden]{display:none}
+  .sets-bar .track{flex:1;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+  .sets-bar .track i{display:block;height:100%;width:0;background:var(--brand);border-radius:3px;transition:width .25s}
+  /* Hold stopwatch, inside the time cell of a timed set. */
+  #exForm td.hold-cell{white-space:nowrap}
+  #exForm td.hold-cell input{width:calc(100% - 50px);min-width:34px}
+  .mini.sw{min-width:44px;padding:0 6px;margin-left:4px;font-family:var(--mono);font-size:12.5px;vertical-align:middle}
+  .mini.sw.running{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+  .mini.sw.grace{background:var(--card-2);color:var(--muted);border-color:var(--line)}
+  .mini.sw.over{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}

@@ -1,0 +1,51 @@
+<!-- Local review harness: loads the prototype state copy into localStorage, opens the app
+     in a frame, then plays one scene. ?scene=hold|cerys|countdown|dialog|summary&theme=light|dark
+     Never touches the shared store. -->
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const scene = q.get("scene") || "hold", theme = q.get("theme") || "light";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const s = await fetch("/scratchpad/proto-timed-state.json", {cache: "no-store"}).then(r => r.json());
+  s.theme = theme;
+  s.activePerson = scene === "cerys" ? 1 : 0;
+  if (scene === "countdown") s.program.sessions.upper1.exercises.slice(-1)[0].timed.countDown = true;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  const f = document.getElementById("f");
+  f.src = "/index.html";
+  await new Promise(r => f.onload = r);
+  await wait(500);
+  const w = f.contentWindow, d = f.contentDocument;
+  const hang = () => d.querySelector('.ex[data-name="Dead hang"]');
+  const show = el => w.scrollTo({top: el.getBoundingClientRect().top + w.scrollY - 250, behavior: "instant"});
+  if (scene === "dialog") {
+    w.switchTab("edit");
+    const ex = w.state.program.sessions.upper1.exercises;
+    w.openExDlg("upper1", ex.length - 1);
+    d.getElementById("exPresetTimed").scrollIntoView({block: "start"});
+    return;
+  }
+  w.eval('curSession="upper1"'); w.switchTab("log");
+  await wait(300);
+  d.querySelectorAll("dialog[open]").forEach(x => x.close());
+  const first = d.querySelector("#exForm .ex tbody");
+  [...first.rows].slice(0, 2).forEach(tr => {
+    tr.querySelector('[data-c="0"]').value = "60"; tr.querySelector('[data-c="1"]').value = "8";
+    tr.querySelector("[data-done]").click();
+  });
+  const rows = hang().querySelectorAll("tbody tr");
+  if (scene === "hold") { rows[0].querySelector("[data-sw]").click(); await wait(9000); }
+  if (scene === "countdown") { rows[0].querySelector("[data-sw]").click(); await wait(53500); }
+  if (scene === "cerys" || scene === "summary") {
+    rows[0].querySelector('[data-c="1"]').value = "35"; rows[0].querySelector("[data-done]").click();
+    rows[1].querySelector('[data-c="0"]').value = "5"; rows[1].querySelector("[data-sw]").click();
+    await wait(9000); rows[1].querySelector("[data-sw]").click();
+  }
+  w.stopRest();
+  if (scene === "summary") { w.saveSession(); return; }
+  show(hang());
+})();
+</script>

@@ -1,0 +1,102 @@
+# Training Tracker
+
+A workout tracker for up to two people sharing a device (built for Daniel & Cerys, but a fresh
+install starts blank - create your own account, no accounts or program pre-loaded). Static site,
+no build step, no backend - all data lives in the browser's `localStorage`. Deployable as-is on
+GitHub Pages.
+
+## Files
+- `index.html` - markup, PWA meta tags, dialogs.
+- `css/styles.css` - all styling.
+- `js/app.js` - state, program data, and all app logic (rendering, save/import/export,
+  progressive-overload suggestions, PR detection, the muscle-map summary).
+- `manifest.webmanifest`, `icons/`, `sw.js` - PWA installability + offline support.
+- `fonts/` - Manrope (text) and JetBrains Mono (numbers), bundled variable woff2s so the app
+  looks right offline; cached by `sw.js`. OFL licences alongside. See `docs/design-v3.md`.
+- `claude-code-handoff.md` - original brief and backlog this project is being worked from.
+- `docs/running-import.md` - how the built-in TCX/GPX run importer works (Garmin & Strava).
+- `docs/PROJECT-STATUS.md` - **full project status & handoff** (read first in a new chat).
+- `docs/CAPABILITIES.md` - **plain-English list of everything the app can do, and its limitations.**
+- `docs/CHATS.md` - **how to start a new chat**, and which of the three starter prompts to use.
+- `docs/github-sync-setup.md` - one-time setup for the free GitHub cloud sync / backup.
+- `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
+- `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
+- `mcp-garmin/` - a local MCP server that reads your runs from Garmin Connect and attaches what the
+  watch recorded to the session you logged: heart rate and zones, **per-rep interval detail**,
+  running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
+  field, and which two are permanently blank on a treadmill (VO₂max, training status) and why.
+- `docs/prompts/` - the three chat starter prompts, one per kind of chat:
+  - `docs/prompts/dev.md` - building the app and actioning the backlog (Home-Hub `training` issues).
+  - `docs/prompts/coaching.md` - coaching Daniel & Cerys from their live data.
+  - `docs/prompts/running.md` - pulling runs off the Garmin watches, enriching the logged
+    sessions, and writing the next run prescription.
+- **Method files** - the evidence base behind the coaching, one topic each. `docs/methods/coaching-method.md`
+  is the operational one and indexes the rest:
+  - `docs/methods/hyrox-method.md` - the event, the mixed-doubles format and loads, all eight stations, and
+    a phase model for a build with no race date yet.
+  - `docs/methods/running-method.md` - weekly structure and volume, intensity distribution, running economy
+    and the concurrent-training question, cadence, and progression rules.
+  - `docs/methods/strength-method.md` - progression models by training age, volume and frequency,
+    autoregulation, what the 100/200/200 goals actually cost, and how much strength Hyrox needs.
+  - `docs/methods/week-method.md` - the week as designed against the week as executed, session length as
+    the real constraint, and where a second run and a flexibility session could go.
+  - `docs/methods/testing-method.md` - heart-rate zones and where theirs come from, the 30-minute threshold
+    field test, and which tests are actually worth a session.
+  - `docs/methods/fuelling-method.md` - energy availability, protein, carbohydrate, supplements that have
+    evidence behind them, and race-day fuelling.
+  - `docs/methods/recovery-method.md` - sleep, tissue tolerance and load management, and what the Garmin
+    wellness metrics are and are not worth.
+  - `docs/methods/female-athlete-method.md` - menstrual cycle evidence (weaker than advertised), iron and
+    ferritin, bone stress, and the first pull-up.
+  - `docs/methods/flexibility-method.md` - the flexibility-ladder method behind the Mobility assessment
+    session, the Flexibility pane and the warm-up / cool-down rules.
+  - `docs/methods/exercise-notes.md` - what Daniel and Cerys have each said about individual exercises, in
+    their own words and keyed by exercise so repeats show up, plus a bench of candidate swaps.
+  - `docs/methods/exercise-selection-method.md` - which exercises earn a slot in the rebuilt routine, the
+    volume and pairing evidence behind shortening the sessions, and what to cut first.
+  - `docs/methods/split-method.md` - which training split to run once the new timetable lands: the volume
+    and frequency dose-response, every candidate split judged, the 05:00-start and two-a-day
+    evidence, and a scenario matrix keyed on how many days are honestly available.
+- `docs/term-routine.md` - the current training week and why each session sits where it does.
+- `docs/uni-timetable.md` - the semester 1 timetable, decoded to real dates, and what it frees up
+  in the training week.
+- `docs/hub-and-coaching.md` - proposal for the shared hub, free sync, and AI coaching (partly built).
+- `sample-daniel.json` / `sample-cerys.json` - real exported data, used as local test fixtures
+  only (see "Notes & decisions" below - not committed to git).
+
+## Running locally
+No build step. Serve the folder with any static file server, e.g.:
+```
+python -m http.server 8080
+```
+then open `http://localhost:8080`. (Opening `index.html` directly via `file://` mostly works,
+but the service worker won't register outside an http(s)/localhost context.)
+
+For development, prefer `python scratchpad/devserver.py 8081`: it sends `Cache-Control: no-store`
+(so edits aren't masked by the HTTP cache) and gzips text. The gzip is not just a nicety - `js/app.js`
+is ~210KB and was arriving **truncated** every few loads, which looks like the app being broken
+rather than a failed download, because a truncated script parses to nothing and every global in it
+silently disappears. If that ever happens, note that the service worker is cache-first and will keep
+serving the broken copy at an identical byte count: clear its caches before debugging anything else.
+
+## Deploying
+Push to GitHub and enable Pages on the repo (serve from the root of the default branch, or
+`/docs` if you prefer - no build step either way).
+
+## Notes & decisions
+- **Sample data is gitignored.** `sample-daniel.json` / `sample-cerys.json` contain real logged
+  workout sessions. Since this repo will likely end up on public GitHub Pages, they're kept out
+  of version control and used only as local fixtures for testing. If you want them tracked as
+  fixtures later, remove the two lines from `.gitignore`.
+- **PWA icons are the design v3 mark** (13 Oct): the Session tab's dumbbell line icon in the
+  navy swatch on the dark page colour, generated by `scratchpad/make_icons.py` (Pillow). To change
+  them, edit that script and run `python scratchpad/make_icons.py A` - same filenames and sizes
+  (192, 512, 512 maskable, 180 apple-touch-icon). The manifest's launch colours are dark to match.
+- **Single `js/app.js`, not further split.** The app logic is one cohesive module (state,
+  rendering, save/import/export all interact tightly); splitting further didn't seem to earn
+  its keep yet. Worth revisiting if the file grows a lot more.
+- **Bump `CACHE_NAME` in `sw.js` on every deploy that touches `index.html`, `css/styles.css`,
+  or `js/app.js`.** The service worker is cache-first, so without a version bump, installed
+  users keep getting the old cached files indefinitely - the old cache only gets purged when a
+  new cache name shows up in `install`/`activate`. (Hit this myself while testing: edited
+  `app.js`, reloaded, and kept seeing the old behavior until I bumped the version.)

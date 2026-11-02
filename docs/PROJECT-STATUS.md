@@ -1,0 +1,1470 @@
+# Training Tracker - project status & handoff
+
+**Read this first if you're picking the project up in a new chat.** It captures everything built,
+how it's set up, the decisions behind it, and what's left. Pair with `CLAUDE.md` (conventions) and
+the other `docs/`.
+
+## What it is
+A workout + health tracker for up to two people sharing a device (built for Daniel & Cerys; a
+fresh install starts blank and anyone can create their own account). Plain static site - HTML/CSS/
+vanilla JS, data in `localStorage` (key `flLiveTracker_v1`), Chart.js from CDN, no build step.
+Installable PWA, works offline. Growing into a shared health/fitness hub with Claude as coach.
+
+## Repos
+- **App:** https://github.com/Daniel0469/Training-Tracker  (this repo; deploy on GitHub Pages)
+- **Sync data (private):** https://github.com/Daniel0469/Training-Data  (holds `data.json` for cloud sync)
+
+## Status: where we are (2026-07-23)
+**Live & set up:** app deployed on GitHub Pages → **https://daniel0469.github.io/Training-Tracker/**.
+Cloud **sync is working** (both Daniel + Cerys → `Training-Data/data.json`). The **MCP coach is
+connected** in Claude Code and is **two-way** - it reads the data and can `write_coaching` notes
+that show in the app. Coaching happens in a **separate Claude Code chat** - see
+`docs/prompts/coaching.md`. App development continues in the main chat.
+
+**This session (2026-07-23):** made the app usable by someone other than Daniel/Cerys.
+- **Blank-slate onboarding:** a genuinely fresh install has no accounts and no program - a
+  **Create account** screen (name + colour swatch) gates the app until at least one exists; a
+  second account is optional and skippable ("just me for now"). Capped at 2 accounts per device
+  (not forced to 2) - a third person needs their own separate install, by design.
+- **Per-account colour**, replacing the old hardcoded Daniel-navy/Cerys-purple binary: 6 preset
+  swatches, applied app-wide (buttons, pills, focus rings) via a `data-color` attribute. The
+  picker disables/greys out whichever colour the other account already has, so two accounts can't
+  end up visually identical.
+- **Delete this account** (Settings) frees a slot; logged history stays under the old name rather
+  than being erased (same philosophy as renaming).
+- **Session sharing:** a Share button sends a session's exercise list (no personal numbers) via
+  the phone's native share sheet as a paste-able code; Import shared session adds it to another
+  install's program. Closed a related gap: Program previously had no way to create a brand-new
+  session at all, only edit existing ones (**+ Add session** now exists).
+- **Manual muscle tagging** on exercises (a "Works" picker), for names the auto-guess misses.
+- **Fixed a pre-existing bug:** Export/Import/Coach-brief were fully implemented in JS but had no
+  buttons anywhere in the UI - unreachable until this session.
+- **Fixed a dark-mode contrast bug:** the toast notification was white text on a near-white
+  background in dark mode (used `--ink`, which flips between themes, as a background).
+- **Settings** gained a **"What's not set up yet"** panel (cloud sync live-checked, Garmin
+  auto-import, AI coaching - none of it is code-gated per account, all laptop-side setup) and a
+  30-day stale-export reminder + `navigator.storage.persist()` request for local-only users.
+- **Fixed the exercise-name dropdown being empty for any account with no history yet** - it only
+  ever sourced suggestions from the current program + logged history, so a brand-new blank account
+  had nothing to pick from. Seeded with a `COMMON_EXERCISES` list (48 common lifts/movements).
+- Planned and delivered three items from the "Next up" roadmap below: **rename-warning**, **RPE
+  per set**, and **superset/circuit grouping** (see the roadmap section for what shipped).
+- `CACHE_NAME` is now `tt-v68`.
+
+**Backlog session (2026-07-28)** - six in-app suggestions cleared, all deployed:
+- **Log form no longer loses entries.** A sync landing mid-workout re-rendered the form without
+  capturing it (that's the "adding a suggestion resets the workout entries" report), and drafts were
+  memory-only so a phone discarding the page reloaded into an empty form (the "cleared randomly"
+  one). Drafts + timers now persist (see the file map) and every re-render path captures first.
+- **Number pad on every numeric column** (`colInputMode`), not just lifting ones - lunges'
+  *Distance (m)* used to pop the text keyboard. *Time*/*Pace*/*Notes* deliberately still don't.
+- **🔧 machine settings are shown on the exercise** when set, instead of only after tapping.
+- **Per-session 🔥 warm-up / 🧊 cool-down notes** (`session.warmupNote`/`cooldownNote`), written in
+  the Program editor, shown as cards either side of the exercises on Log, included in a shared
+  session.
+- Then, after Daniel picked between the options: **➕ Add an exercise for today** (Tom's suggestion -
+  add rather than swap) and **per-exercise load types** so bodyweight and assisted movements score
+  by what they actually load. Both shipped the same day - see "Build order remaining" items 7 & 8.
+  `CACHE_NAME` is now `tt-v82`.
+
+**Warm-up/cool-down rollout + program sync (2026-07-29):**
+- **The program now syncs** (`saveProgram()` stamps `program.updatedAt` and pushes immediately;
+  `mergeInData` adopts the store's copy only when it's newer, and never mid-workout while a draft
+  is open). Before this a sync only ever *pushed* the program, so each phone kept a drifting copy
+  and the store held whichever synced last. Devices with no sync configured are unaffected, so
+  separate installs (Tom's, with his own program) cannot be reached by it. `CACHE_NAME` → tt-v83.
+- **Daniel & Cerys's real program updated in the store** from the warm-up/cool-down document:
+  `warmupNote`/`cooldownNote` on all six sessions (Tuesday's rest/mobility day deliberately left
+  out of the app), the document's ramp sets on Leg press / Squat / Bench press, and the adductor
+  traffic-light + red-flag block on both lower days. Cerys's PAILs/RAILs and hip-flexor-stretch
+  exclusions are written inline in the shared notes (notes are per session, not per person).
+- **Exercise names tidied, in the program and in past logs** (agreed pair by pair with Daniel):
+  Calf raise → Standing calf raise, Seated row → Seated cable row, triceps ext → Triceps pushdown,
+  Russian Twists → Russian twists (+ its `Kg`/`reps` columns), Incline bench → Incline bench press
+  (kept separate from Incline DB press). **Flat press (DB) deliberately NOT merged into Bench
+  press** - it's a genuine dumbbell→barbell switch, so merging would put dumbbell loads under a
+  barbell PR. Treadmill intervals columns settled on `Hard/Easy speed (km/h)`, and Cerys's 01/07
+  row (entered the columns the wrong way round) corrected to 10/6 on Daniel's instruction.
+- The one-off script is `scratchpad/apply_program.py` (idempotent, writes a data.json backup first).
+- **`Pull-ups (assisted to weighted)` is now `load:"assist"`** with columns `Assist (kg)` / `Reps` -
+  0 typed means that person's full bodyweight, anything typed is help coming off. Matches every set
+  already logged (Daniel 4.5 → 0, Cerys 36 → 32, both progressing downward), and the entries are
+  stamped so they keep scoring that way. Daniel's best correctly flipped to **78.4 kg unassisted**
+  (2026-07-13) instead of the 4.5 kg-assisted set. **Cerys's does not score yet - she has no
+  bodyweight on record at all** (no weigh-ins, blank in Settings), so `setLoad` falls back to the
+  typed number and her best still reads 36 kg. Verified it self-corrects the moment she records
+  one. Script: `scratchpad/apply_pullups.py`.
+- **Program tab sessions collapse** (one row each: name, day, exercise count; `openSessions` in
+  memory, all closed on reload). `CACHE_NAME` → tt-v84.
+
+**Backlog batch 29 Jul, cleared 2026-07-30** (`docs/BACKLOG.md` sections A, B, C - **D still open**):
+- **RPE now covers running**, not just lifting: the gate widened to
+  `isLifting(ex) || isGarminCardio(ex)`, which picks up Treadmill intervals and Easy run (Zone 2)
+  and skips the `Min`/`Notes` warm-up and cool-down rows. All the RPE plumbing was already
+  type-agnostic. `tt-v86`.
+- **The goals box grows to fit** (in-app suggestion `1785353252857`). It was the `#pGoals` textarea
+  in the gear menu, not the display - reuses the existing `autoGrow()` helper. `tt-v87`.
+- **`DEFAULT_PROGRAM` deleted (429 lines) and "Reset program to default" became "Clear program".**
+  The hardcoded default had drifted months behind the real program and, since it was only reachable
+  from Reset, its only remaining effect would have been destructive: `saveProgram()` stamps a fresh
+  `updatedAt` and pushes, so `mergeInData` on the other phone would have adopted the stale copy.
+  There is now **no default program at all** - a fresh install starts blank (as it already did) and
+  Clear program empties it, after downloading a backup and asking for `RESET` to be typed.
+  `exportData()` returns success/failure so a blocked download aborts the clear. `tt-v88`.
+- **Home's "last run" card split into 🏃 last Zone 2 run + ⚡ last intervals.** The combined card
+  keyed on `isRunning()` (distance + time columns), so the treadmill interval sessions - logged as
+  speeds - **could never appear on Home at all**, Garmin HR and all. Classified by exercise shape,
+  not session name: `isIntervalEntry()` resolves a logged entry back to its program definition by
+  name to read `garminRun` (logged entries don't carry that flag), the same fallback `loadTypeOf()`
+  uses. Both cards show best pace, avg **and max** HR (❤ red for the average, 🧡 orange
+  for the peak, following the zone palette), and the zone bar. Duration now
+  prefers Garmin's `moving_time` over the session timer - the timer covers the whole gym session, so
+  a cardio+core day read 1:12:33 beside an 18:31 zone bar. That also makes Cerys's 26 Jul card show
+  Garmin's 4:26 rather than the stored 48s (see the duration item in `docs/BACKLOG.md`). `tt-v90`.
+- **Cardio: Speed + Core warm-up/cool-down edits** from the 29 Jul session feedback, applied to the
+  live store (`scratchpad/apply_cardiospeed.py`, idempotent, backs up `data.json` first). Worth
+  knowing for next time: **the mobility work is `warmupNote`/`cooldownNote` free text, not
+  exercises**, so all nine were text edits to two blocks. Scoped to that one session on Daniel's
+  instruction - hip CARs, 90/90s and the closing breaths line appear in all six warm-ups/cool-downs
+  and the other five were left alone.
+
+**2026-10-06 (later still) - the coach tooling brief, worked through.** The coaching chat wrote
+`docs/coach-tooling-brief.md` listing what it is blocked on. **Every code claim in it was checked
+against the source before building; all held.** `tt-v135` -> `tt-v136`.
+
+- **`program_session(name)`** - there was no read path for a lifting session at all. `run_session`
+  covers runs, `session_notes` returns the notes, `session()` is a LOGGED session. The only way to
+  see an exercise list was a deliberately-failing write, read out of the error. It answered a real
+  blocked question on the first call: **both `Seated row` and `Seated cable row` were in Upper A**,
+  which is why the coach could not safely retire either on 28 Sep.
+- **`warmup` and `notes` on an `edit`.** The edit branch built its payload from `sets` and `target`
+  only, so restoring a ramp and stripping the settings box - two jobs already assigned to the coach -
+  were impossible rather than undone. Deliberately NOT "any field `add` accepts": `cols` decides how
+  an exercise is scored and drawn. Verified end to end - the ramp applies and the form resolves it to
+  `bar x8, 30kgx5, 45kgx3` off his last 60kg bench, which is the 28 Sep complaint working again.
+- **`move_after` reorders**, naming the exercise to follow or `""` for the front. The app applies it
+  with the **draft following the exercise**, not spliced past it - sets typed against a lift belong to
+  it wherever it lands. Verified: Farmers carry fifth to second takes its numbers, everything else
+  holds its own.
+- **`withdraw_program_change`** - a pending proposal could not be taken back or even replaced, since a
+  duplicate on (session, exercise, op) is refused while one is pending. Only `pending` is withdrawable.
+- **`recent_sessions` carries `sets_logged` / `sets_planned` / `sets_ticked`.** Adherence cost one
+  `session()` call each to judge. It reads immediately: **16 of 24 planned on 6 Oct, 15 of 27, 6 of
+  15** - the overrun story, now measurable. `sets_ticked` is **absent rather than zero** before 6 Oct.
+- **A bug of mine, caught here:** `write_program_change`'s wrapper passed `warmup` and `notes` to the
+  proposer while its own signature never declared them - an earlier edit wrote the call and died
+  before the signature. Every call would have raised `NameError`. Found by checking the signature
+  against the call, not by reading the diff.
+- **Upper A's row slot settled** (`scratchpad/apply_rowslot.py`): `Seated cable row` retired and
+  `Seated row` promoted from **position 8 - last** - into its slot at 3. Removing the cable row alone
+  would have left the real row where work goes to die. **The 15 cable-row logs keep their own name**
+  on Daniel's call: a cable stack and a plate-loaded row are not the same load, and merging would
+  splice two lifts into one PR - the reasoning that keeps `Flat press (DB)` out of `Bench press`.
+- **A weight with no reps no longer saves as a set.** The mirroring fills the rows below the one
+  being typed, so stopping at one set left "60kg and no reps" rows behind - saved, because they held
+  data, and counted by the weekly muscle card. Volume and PRs were always safe (both need reps); the
+  set COUNT was not, which is what the new done-against-planned bar reads. The rule fires only when
+  the first column is a **load** - 23 exercises in, 20 out, and the out list is every run, flexibility
+  test and mobility movement - and only looks at the second column, so a **reps-with-no-weight set
+  still saves**, which is how Cerys logs the hack squat. The blank run row Garmin fills is untouched;
+  verified, along with tick and warm-up indices staying aligned across a dropped middle row. `tt-v137`.
+- **Declined by Daniel, 6 Oct:** per-person program state ("neither for now"), real PWA icons ("skip
+  it"), and **`baseWeight` - "dont build"**. The machine offsets (hack squat 47.6kg, Smith RDL 20kg,
+  Smith bench 10kg) stay uncounted, so those lifts' volume and PRs understate what was moved and
+  Cerys's hack squat is logged with a blank weight. Don't re-raise it as a bug; it is a decision.
+- **The warm-up ramps and the settings-box cleanup are unblocked and Daniel is doing them in a
+  coaching chat**, not here.
+- **The permission rule is in `CHATS.md`**: auto mode refuses `write_program_change` intermittently and
+  it looks like a broken tool rather than a blocked one.
+- **Needs a Claude Code restart** before the coaching chat sees `program_session`,
+  `withdraw_program_change`, `move_after`, `warmup`/`notes` on edit, or the adherence fields.
+
+**2026-10-06 (later) - coaching changes come to you, and a silent draft bug went with them.**
+Daniel: *"if a program session has a coaching change it should say when you open the session - instead
+of it going unoticed in the program tab."* `tt-v134`.
+
+- **A dialog, on his call**, not a card. Opening a session with a pending change asks about it there,
+  with the same Apply / No cards the Program tab uses and a **Later** that leaves it pending. Seen
+  changes are remembered **by id** (`pcSeen`), so the re-renders a sync causes don't reopen it while a
+  genuinely new change still gets through.
+- **It will not interrupt a session under way.** With a draft open the dialog is suppressed and the
+  form carries a quiet card instead, saying what is waiting and that it is left until the session is
+  saved. Daniel picked "act only before you start"; a modal over half-typed numbers is the wrong
+  moment to ask.
+- **The bug this would have made easy to hit, now fixed.** A draft's entries are indexed by POSITION
+  in the session, so applying a removal slid every later exercise up one while the draft stayed put -
+  **every set typed after the removed exercise came back against the wrong movement**, silently,
+  because the numbers still looked plausible. It was already reachable from the Program tab
+  mid-workout. `shiftDraftsForSession` now splices both people's drafts in step with the list, the
+  same move `removeTodayExercise` already made. Verified: removing Face pull (15) leaves Triceps 16,
+  Pallof 17 and Seated row 18 holding their own numbers.
+- **`applyProgramChange` / `declineProgramChange` now call `renderView`, not `renderEdit`** - from the
+  Session tab that would have painted the Program tab into the view while the tab bar still said
+  Session. Both surfaces share one wiring path (`wireChangeButtons`).
+
+**2026-10-06 - the set tick becomes data, and three bugs that were not what they looked like.**
+Five open suggestions cleared, two coach proposals approved and one of them diagnosed. `tt-v132`.
+
+- **The tick was never saved.** `captureDraft` carried it, so a restored draft put the boxes back,
+  but `saveSession` rebuilt its entries from the inputs and dropped it - **0 of 345 logged entries
+  carry one**, against 977 rows that all have data. That answered the 29 Sep question ("does the
+  weekly muscle map track completed sets or just the program") flatly: just the program, and nothing
+  in the store could have said otherwise. Entries now carry `done` as indices into the **saved** rows
+  (not the drawn ones - an empty row is dropped at save and the lists drift apart otherwise).
+- **The muscle card now draws done against planned**: pale track for the plan, solid fill for what has
+  been ticked, count reading done/planned, resetting each Monday. **Weighted identically on both
+  sides** - a half set planned and a half set done have to mean the same thing or the bar lies.
+  Siblings rather than nested, because opacity on a parent drags its children with it. Daniel chose
+  "start saving the tick, then count ticks" knowing the done side therefore **starts from 6 Oct**; the
+  Guide and the cardio hint say so, and both have stopped claiming the tick is discarded.
+- **"Date autoselect doesnt work anymore"** was real and simple: `trainingDateStr()` ran **once**, at
+  module load. A phone never closes the app, it backgrounds it, so opening it on Thursday still showed
+  Monday's date and Monday's session. It now catches up on `visibilitychange` and `pageshow`, and
+  deliberately **will not** move a hand-picked date or re-render under an open draft. Verified all
+  four cases.
+- **The warm-up percentages were not broken - the data was gone.** Not one of 55 exercises has a
+  `warmup` field, though Lower A's squat visibly had "bar x8, 50kgx5, 75kgx3" in September.
+  `_exercise_in` accepts the field, but **the write schema never documented it**, so every coach
+  rebuild wrote an empty one and the feature had nothing to resolve. Documented on both write paths
+  with the percentage syntax and a warning that omitting it erases it. **The warm-ups themselves are
+  still missing and the coach has to put them back** - that is the remaining half of this one.
+- **The autofill re-raise was already fixed.** The coach asked for autofill "from the last time that
+  person logged it, the same way the lifts already do" - but no exercise prefills from last session,
+  every input starts blank by design. What Daniel actually hit was the row mirroring, fixed 25 Sep in
+  `tt-v129`. Confirmed with him before closing rather than building a second thing.
+- **Still open, deliberately:** "muscles look unbalanced - does this need adjusting?" The measurement
+  is fixed; the programming judgement is the coach's. Worth knowing going in: **chest is the lowest
+  at 6 sets**, two exercises of three.
+- **Smith tick built** (`1791023024311`, `tt-v133`). Daniel's design call: *"just a tick - for coach
+  to read - the weight is the same"*, so it **does not split the trend or the PR**. Bench stays one
+  history with the Smith sessions marked, rather than forking into two half-empty lines - the same
+  argument that keeps `Flat press (DB)` out of `Bench press`, running the other way. Name-matched
+  rather than configured (a tick on every lifting exercise is clutter, a setup step for one flag is
+  worse): it shows on bench, squat, shoulder press and the Bulgarian split squat, and stays off the
+  dumbbell press, the hack squat, the cables and the deadlift. Rides the draft, shows in History,
+  reaches the coach on each `get_progress` point.
+- **Warm-up scope, from Daniel 6 Oct: the main lifts, normally the first two exercises of a session.**
+  A ramp earns its place on the compound you build up to and is noise on a lateral raise. Written into
+  the tool docstring and `prompts/coaching.md`. **The ramps are still missing program-wide** and are
+  the coach's to put back.
+- **Worth a look, not acted on:** the weight mirroring fills rows below the one being typed, and a row
+  holding a weight with no reps is still SAVED as a set - it has data in it, so `saveSession` keeps it.
+  Volume and PRs are unaffected (both need reps), but it inflates `rows.length`, which is what the
+  History week heatmap counts. Pre-existing, and only bites when a set is left part-filled.
+- **Needs a Claude Code restart** before the coaching chat sees the `warmup` schema change.
+
+**2026-09-25 - backlog batch: Garmin sync, the muscle map, and a one-week session swap.**
+Five in-app suggestions, four cleared, plus Daniel's own question about Upper B which turned out to
+be the most valuable thing in the batch. `tt-v129` -> `tt-v131`.
+
+- **Upper B was tagged for Garmin and could never clear.** Daniel asked why a lifting day had Garmin
+  sync; the tag was inferred from any exercise carrying `garminRun`, and Upper B holds a ski erg.
+  `is_run()` is literally `"run" in activity_type()` and `fill_pending` only considers runs, so an
+  indoor row can never match - **both 24 Sep Upper B sessions were stuck "awaiting run" permanently**.
+  Daniel's refinement was the better rule: *"garmin sync should be for cardio sessions"*. It is now an
+  explicit `session.cardio` flag with a checkbox in the Program tab, **deliberately not derived** -
+  "contains a cardio exercise" is what broke, and "leads with one" would break the first time a
+  session is reordered, which is on the backlog. Cerys's Zone 2 keeps syncing: it is an incline walk
+  rather than a run, but it is her cardio session, which is what the rule is about.
+- **Weight autofill was gated on `isLifting()`**, which demands a Reps column - so Farmers carry
+  (Weight/Distance), Sled push + pull (Weight/Rounds) **and Walking/sandbag lunges** never autofilled.
+  Daniel reported two; the lunges nobody had noticed. Now gated on the first column being a load.
+- **The muscle map was wrong two ways** (`1790206098299`, left open - the programming question is the
+  coach's, not the app's). `Incline walk` matched the `/incline/` in the bench rule, so Cerys's Zone 2
+  counted as **chest**; `Leg press calf raise` matched `/leg press/` and added 3-4 phantom quad sets a
+  week. And every compound listed its prime mover only, so triceps and biceps got credit for their
+  isolation sets alone. `classifyMuscles` is now `muscleRoles`, primary 1.0 / secondary 0.5.
+  **The 0.5 is the usual fractional-set-counting convention, not a measured constant** - the card says
+  so. Counting helpers in full was tried and is worse: adductors 24, every chest day a triceps day.
+  **The trap worth remembering:** nearly every exercise already carries a `Works` tag from when the
+  session was built, and letting a tag win meant the new weighting **never ran on a single real
+  exercise** - triceps still read 6. Rules decide weighting; tags only add what the rules miss. Caught
+  by checking against a hand calculation, not by seeing the card change. Daniel's week now reads
+  glutes 32.5 ... **chest 6, the lowest** - a real observation for the coaching chat.
+- **A one-week session swap** (`1790205859371`). The Mobility assessment sat on Wednesday beside each
+  person's own mobility session, so alternation kept bringing a *re-test* round weekly. It is now
+  **Optional - no day at all** - and `write_coaching(session_swap={session, day, why})` puts it on a
+  Wednesday when a re-test is due. **The swap is checked before `sessionForDate`'s single-session
+  shortcut, which is the whole trick:** an Optional session is never among the candidates for a
+  weekday, so a tie-break could never reach it; it resolves by name instead. Per person, spent the
+  moment that session is logged, and it carries the rename guard that cost two stale cards in the
+  term reset.
+- **Cable external rotation** (`1790206006697`) - it was in **two** warm-ups, Upper A and Upper B.
+  The first search missed it because matches were capped at 200 characters, which discards any hit
+  inside a long warm-up note.
+- **The settings box rule went to the coach, not a migration** (`1790206060047`). All 23 lifting notes
+  are prose in the one field read with a hand on the machine. Daniel's call was to have the coach fix
+  them as it touches each session - it wrote them and knows which sentence was the setting. The rule
+  is in the `create_session` / `write_run` docstrings and `prompts/coaching.md`. **Mobility and the
+  assessment keep their protocols**: there the how-to *is* the setting, and stripping "measure from
+  the middle fingertip" would ruin the only measurements meant to be compared over months.
+- **Needs a Claude Code restart** before the coaching chat sees `session_swap` and the new docstrings.
+
+**2026-09-14 (later) - the coaching history left the store, and took 60% of it with it.** In-app
+suggestion `1788980056477` (Daniel, 9 Sep): *"coaching history shouldnt be viewable - just for the
+coach to build on - shouldnt take up space and storage/clutter."* All three complaints were right,
+and the measurement is the reason this was worth doing properly rather than just hiding a card:
+
+| | |
+|---|---|
+| `data.json` | **620 KB** |
+| `coachingLog` inside it | **370 KB - 60%** |
+| Everything else (logs, program, current notes, suggestions) | 250 KB |
+| Growth | ~24 entries/month |
+
+- **It is the coach's working memory, not a thing to read on a phone.** 214 distinct notes, only 12%
+  literal repeats - so the history is genuinely valuable, it was just in the wrong place, being
+  pushed and pulled by both phones on every sync for one collapsed card on Home.
+- **Now in its own `coaching-log.json`** in the sync repo (`TT_GITHUB_LOG_PATH`, defaults to a
+  sibling of `data.json`). New `_log_read_with_sha` / `_log_append` in `mcp-coach`, with the same
+  retry-on-409 as `_github_update`. **The append happens AFTER the `data.json` write, never inside
+  its `mutate`** - that mutate is re-run on a conflict, which would have appended twice; `_log_append`
+  also skips an id it already holds, so a retry can't duplicate either.
+- **`get_coaching_history` unions the file with `data.json`.** The fallback is not belt-and-braces:
+  a phone older than tt-v128 still carries `coachingLog` and pushes it back on its next sync, so
+  without the union those writes would go missing from the coach's view.
+- **App side, `tt-v128`:** card gone from Home, `coachingLog` deleted from state on load, dropped
+  from `exportPayload()` and **not merged back in** - an older build pushing its copy must not be
+  able to put 370 KB back on this phone and then back into the store, which is exactly how the
+  deleted-logs bug worked. Guide and `CAPABILITIES.md` rewritten to say the history exists, is the
+  coach's, and is deliberately not on the phone. Measured in the browser against a copy of the
+  store: local state **545.8 KB → 203.2 KB**, push payload the same.
+- **The verification earned itself.** `.coach-hist` looked dead once the card went, and removing its
+  two CSS rules broke Settings' *"What's not set up yet"* panel, which **borrows the class** for its
+  collapsible styling - `cursor` went from `pointer` to `auto`. Caught by checking the computed
+  style in the browser, not by reading the diff. The rules are back with a comment saying who
+  actually uses them. (`.hist-entry` is likewise still used by History - neither is dead code.)
+- **Migration: `scratchpad/apply_coachinglog_move.py`**, idempotent, dry-run by default. Backs
+  `data.json` up, writes the history file, **verifies every entry arrived by id**, and only then
+  removes the key. Re-runnable, which matters because an old phone will push some back.
+- **Closed a standing backlog item with a finding, not a fix:** *"bodyweight entries look
+  carried-forward"*. They are not - `addBodyweight` writes exactly what it is given and the CSV
+  import has no fill logic, so the eleven identical 77.2 kg readings came from the scale export
+  itself. The real issue is different and worth more: **no weigh-in since 12 August**, and Cerys
+  still has exactly one reading ever, which is what stops her pull-up scoring.
+
+**2026-09-14 - the rest stopwatch is per person, and that became a stated standard.** Daniel: *"should
+be individual, usable when switching people - should be a standard that any feature can be used even
+when tracking two people on one phone."*
+- **The bug:** the stopwatch shipped on 7 Sep as a single module-level global (`restStart`). The
+  person toggle re-renders without touching it, so handing Cerys the phone mid-set showed her
+  **Daniel's rest, still counting**, and her first tick overwrote his. Now keyed by `draftKey()`
+  (person+session), the same key `formDrafts` / `sessionTimers` / `formExtras` already use. **Both
+  rests run at once** and the bar shows whoever is selected; start time is wall-clock, so a rest
+  stays correct however long the phone spent on the other person. Daniel chose **active person only,
+  no name** over labelling or showing both.
+- **`updateRestUI()` is called from `renderView()`**, which is what every tab button and the person
+  toggle go through - so the bar lands on the right rest without each caller remembering to ask.
+- **One behaviour change worth knowing:** leaving the Session tab used to *delete* the rest. It now
+  **hides it and keeps counting**, so checking History mid-rest and coming back no longer loses it.
+  It is still cleared by tapping it, unticking the set, and saving - and saving clears **only that
+  person's**, verified with both mid-rest.
+- **Verified the way it breaks**, not just that it renders: Daniel rests 0:03 → switch to Cerys (bar
+  hidden, she has none) → Cerys ticks, 0:01 → back to Daniel, **0:04**, his having counted right
+  through. Then tab away and back (0:17, kept), Daniel dismisses (his only), Cerys's survives at
+  0:14, her untick clears hers, and her save leaves his running. `tt-v127`.
+- **The audit that came with it:** every other module-level global was checked. `formDrafts`,
+  `sessionTimers` and `formExtras` are keyed per person; the session timer re-arms its tick per
+  person on every render (`renderLog`, `if(getTimer().running) ensureTimerTick()`); the rest are
+  view state that is *meant* to be shared (`activeTab`, `curSession`, `progressPane`, `timeSession`,
+  `flexTest`, `runMetric`) or Program-tab state, and the program is shared. **The stopwatch was the
+  only live violation.**
+- **Written into `CLAUDE.md` as a convention**, per Daniel's instruction that this is a standard and
+  not a one-off fix - including how to verify it (start as one person, switch, act as the other,
+  switch back, check the first is untouched).
+
+**2026-09-07 - backlog session: the run segmentation fixed against the real trace, and a rest
+stopwatch.** Three suggestions were open; one was discarded, two built.
+- **The speed-trace rep segmentation inverted a jog-recovery session** (`1787791173601`, coach-raised)
+  and it was worse than the report said. Daniel's 26 Aug threshold run - 4 x 6:00 @ 11.0 with 1:30
+  floats at 7.5, run exactly as prescribed - came back as 3 reps of 178s/96s/122s with 8-10 minute
+  "recoveries" at 10.8-11.1 km/h, and stated in the stored text that the session had fallen apart.
+  **Two faults stacked.** `_levels_from_trace` compared each sample against a **running mean** of the
+  block so far with an 18% tolerance, so one noisy sample mid-rep started a new block and a
+  six-minute rep came back as 208s + 178s. Fragments sit on the noisy peaks, so the *fastest
+  qualifying set wins* rule then preferred them to the real reps and the rest of the rep material
+  became the recovery. So a contrast guard alone would not have fixed it - **the blocks it would
+  judge were already wrong.**
+  - Levels are now **clustered over the whole trace first** (`_speed_levels`, 1-D k-means, finest
+    split whose levels are genuinely apart), with the separation **scaled to the speed**. A flat
+    1.5 km/h threshold was tried first and split one belt speed into an "11.0" and a "12.9" level,
+    halving two of the four reps: the watch estimates from arm swing, so an 11.0 belt reads 11.0-13.4,
+    and on 29 Jul one belt speed came off the wrist as 10.8/11.1/11.4/11.8/14.2/14.8 across six reps.
+  - Blocks are grouped by **their own clustered level**, not by re-measuring how close two block
+    averages happen to be - that 37% within-session spread beat any proximity threshold narrow
+    enough to mean anything, and cost two of the 29 Jul reps to the minimum-share test.
+  - The pick is scored on **work-against-recovery contrast**: whatever sits between the chosen blocks
+    must be meaningfully slower than the blocks. That single test replaces *fastest wins* and catches
+    both failures it stood in for - picking the walk recoveries as the reps (29 Jul, "7 reps at 5.0"
+    for a session run at 13), and picking peaks out of the middle of one long rep (26 Aug).
+  - **`setupNote` matching was Daniel's call, against my recommendation, and is deliberately weak.**
+    The prescribed block list is parsed, compared, reported (`reps.setup_match`) and used to break a
+    tie between candidates the trace already supports. It cannot move a boundary or add a rep. **26
+    Aug proves the hazard in its own output:** the note now reads 5 x 6:00 (re-prescribed 6 Sep, "one
+    more rep") against a session that was 4 x 6:00, so anything stronger would hunt a fifth rep that
+    was never run - the third time this idea has had to be held back to annotation.
+  - **Verified against the real traces**, not synthetically: 26 Aug now **4 reps of 310/366/354/348s**
+    with 68/86/102s floats at 8.4/5.7/4.8, consistency 4.8%, fade 0%, drift +8 bpm. 29 Jul still **6**
+    with HR recovery 36. The 20 Aug time trial and the Zone 2 runs still correctly return nothing.
+    Cerys's still under-count (4 against 6) on her sparser ~7s sampling, unchanged - and hers never
+    reach this path, because Garmin's own method works when the recovery is a walk. Scripts:
+    `scratchpad/probe_trace26.py` (dumps a trace and what the segmenter makes of it) and
+    `scratchpad/test_refresh26.py` (whole enrich path against a **copy** of the store).
+  - **Machine-written run rows are now stamped `garmin.rows_from`**, so a later `--refresh` can
+    correct them. Without the stamp a bad segmentation was permanent: the "safe to replace" test only
+    recognised **lap**-derived rows. **Still open:** Daniel's 26 Aug log predates the stamp, so it
+    **still holds the three fictional rows** (0.63/2:58, 0.32/1:36, 0.45/2:02 against four ~1.2 km
+    reps). Correcting it is a `write_log_entry` one-off and needs his say-so - it writes real history.
+  - **The 26 Aug rows were corrected** (`write_log_entry`, Daniel's instruction): the three fictional
+    rows are gone and the log now carries the four real reps - 1.09/5:10, 1.26/6:06, 1.20/5:54,
+    1.23/5:48 - with the reason and the previous rows kept for an undo.
+  - **The manual lap presses stay, with a written exit condition** (Daniel's call: keep them, but
+    record what would retire them). One verified session is not confirmation - it is the session the
+    fix was built against. **Retire the lap-press instruction from the four run sessions'
+    `recordingNote` once three further float-recovery sessions have been segmented correctly against
+    the laps pressed on them.** Same wording in `methods/coaching-method.md`. It is a program-data
+    change, so it needs Daniel when the time comes.
+- **⏱ Rest stopwatch** (`1788720193350`). Ticking a set's **done** box shows a sticky pill above the
+  nav bar counting how long you've been resting; any tick restarts it, so it reads *since the last set
+  you finished*; unticking or tapping it dismisses it; leaving the Session tab or saving stops it.
+  **Counts up, not down** - there is no target, what you rest is a judgement. **Not saved anywhere**,
+  on Daniel's instruction: memory only, so it never reaches the drafts, the session, the other phone
+  or the coach, and a reload starts it from nothing. Sticky rather than in the form because the log
+  form runs to ~6,100px on a 375px phone - verified still on screen at 2,200px down. `tt-v126`.
+  **Note this reverses two earlier decisions** recorded in this file - the exercise timer dropped on
+  17 Aug and "Phase 3 rest timer NOT wanted" - superseded by Daniel's own 6 Sep suggestion.
+- **Refresh run for both, and it needed one more guard.** Re-running `garmin_refresh_metrics` with
+  the fix put 26 Aug right (4 reps, consistency 4.8%, fade 0%, drift +8, HR recovery 25) and left the
+  corrected rows alone - but it also flipped Daniel's **4 Jul Zone 2 from "not a rep set" to 3 reps at
+  23.8% consistency**. The clustering merges fragments, so blocks that used to look uneven
+  ([124, 152, 198, 290]) came out even ([338, 358, 300]) and passed the existing test. That is the
+  question that had been open since 21 Aug, and Daniel's call was to **refuse rep metrics on Zone 2**.
+  - **What it keys on, and why not the obvious things.** HR does not separate them: Daniel's genuine
+    29 Jul intervals ran at **130-140 bpm**, squarely Zone 2, because 1 min on / 2 min off never gets
+    him near threshold. Consistency does not either: those same real intervals spread **32.4%**, wider
+    than the Zone 2 session's 23.8%. Absolute speed would need a made-up km/h constant. **The one
+    signal that separates all eleven rep sessions in the store is what happens BETWEEN the blocks** -
+    a recovery is something you do, not something you stop for. Every genuine rep set recovers at
+    **3.3-6.3 km/h**; Daniel's 4 Jul "recoveries" average **0.8** and Cerys's 4 Jul **1.1**, which is a
+    stopped belt. Blocks separated by a standstill are one interrupted effort, so `rep_derived` now
+    refuses fade/consistency/drift and says which reason applied. Per-block detail is kept either way.
+  - **Verified across every rep session in the store:** all Zone 2 / easy sessions refuse (on
+    unevenness or standstill), and all four genuine rep sets keep their numbers - Daniel 29 Jul
+    14.7%/-5.9, Cerys 29 Jul 30.8%/-27.7, Cerys 20 Aug 11.6%/-11.1, Daniel 26 Aug 4.8%/0.0.
+  - **Cerys's 29 Jul run rows were replaced** by the refresh - the pre-existing "rows exactly match
+    the lap output, so a sync wrote them" branch, firing for the first time on that log. Two lap lumps
+    reporting **8:50/km** became her **five actual reps at 4:12-5:45/km**; the laps had swallowed her
+    walk recoveries. **Her typed `11.0 / 6` intervals row is untouched**, as is every other typed row.
+  - **The running MCP server was still on the old code after the restart**, so the tool call refreshed
+    nothing. `scratchpad/run_refresh.py` runs the same `refresh_metrics` from a fresh process, backs
+    the store up first and prints a before/after diff of everything it changed - keep it, and prefer
+    it whenever a fix to this server has to reach already-linked sessions.
+- **Discarded: "get rid of leg press, switch abduction and adduction to friday"** (`1788016673293`).
+  Daniel's answer: *"discard this - program has been rewritten"*. Resolved without building. The
+  numbers, for the record if it comes back: it would have taken Lower 2 from 8 exercises to 6 and
+  Lower 1 from 7 to 8, moving the overrun onto Friday rather than removing it.
+
+**2026-08-01 - ⚡ Last intervals reports a pace, not a speed.** The two Home cardio cards sat side by
+side reporting the same thing in different units (`best 13 km/h` vs `best 5:22/km`), so comparing
+them meant doing 60/x in your head. `bestSpeedFromEntry()` now converts when the column's unit is
+km/h (`Hard speed (km/h)` → `best 4:37/km`); **any other unit still falls back to the raw number**
+(mph, a machine `(level)`, no unit at all) since 60/x is only right for km/h. Daniel picked pace
+alone over showing both. In-app suggestions backlog was empty this session. `CACHE_NAME` → tt-v91.
+
+**2026-08-11 - cardio gets a coach, a stated limiter, and honest interval data.** Backlog: notes
+are now editable after saving (from History), Program-tab buttons are uniform, and the wrap bug
+behind "the buttons still aren't uniform" is fixed - `.row` inherits `flex-wrap:wrap`, so a long
+title stole the buttons' width and pushed Delete under View. The 30-day export nudge is skipped
+when cloud sync is on (sync already backs up off-device); it still fires for local-only installs.
+- **`day: "Optional"` sessions** sit outside the week: never auto-opened, never "today's session",
+  sorted last, picked by hand. Used for the new **Weekend run (optional)** - Garmin-tracked, no
+  target, no progression, deliberately skippable (`scratchpad/apply_weekendrun.py`). Optional
+  sessions open with a **📅 Last time** card, since they can be weeks apart. Also fixed: Home
+  called *any* selected session "Today's session".
+- **The coach assigns the next cardio session.** `write_coaching(next_cardio={session,focus,why})`,
+  per person, shows as **⚡ Next cardio** on Home + that session's log. While live it *decides*
+  which session `sessionForDate()` opens on Wednesday; it's spent as soon as any cardio is logged,
+  then greys to "done". With no live card the app now **genuinely alternates** (the one you did
+  least recently) instead of always taking `program.order[0]`.
+- **`limiters[person][session]`** - what Daniel & Cerys *say* is holding a session back, in their
+  words, kept apart from the coach's read of the numbers. New `limiters()` / `write_limiter()` MCP
+  tools; the coach reads them first. Recorded 11 Aug (`scratchpad/apply_limiters.py`): Daniel
+  hasn't found his top working speed (building up, not overshooting) and is limited by run
+  length/time; Cerys has found her top speed, and **Zone 2 is a walk for her, not a run**.
+- **Interval structure is read off the Garmin trace** (`detect_intervals` in `mcp-garmin`). Laps
+  can't do it (a treadmill auto-laps every 1 km, swallowing whole reps), but the per-second speed
+  trace can. Verified: Daniel 29 Jul → 6 × ~58s / ~122s recovery, exactly what he typed; Cerys →
+  5, her last 47s, which is right (hers was cut short) and was recorded nowhere else. Zone 2 and
+  run/walk sessions correctly return `None`. **Structure only** - treadmill speed is
+  wrist-estimated and read 10-15% high, so typed speeds stay the record. Exposed to the coach as
+  `actual_structure`. `CACHE_NAME` → tt-v98. **Needs a Claude Code restart** for the new MCP tools.
+- **The Endurance target stays `5 km`.** "Adjusted program to allow longer run" meant the **Mon-Fri
+  5-day week** itself - the restructure leaves more energy for a longer cardio run. It was not a
+  request to change the target, and it wasn't changed. Don't reopen this.
+- **Both cardio warm-up notes rewritten** (`scratchpad/apply_cardionotes.py`): the old first line
+  told you to track the alternation yourself off Home's ⚡/🏃 cards, which the app now does, and
+  claimed "this is the speed week" - never true of a *session*, only of a given Wednesday, so
+  whichever one you opened insisted it was the right one. Only the first paragraph changed; the
+  mobility work below it is untouched (verified by diff).
+- **Session is a tab again; Body moved into Progress** (behind a 🏋 Lifts / ⚖ Body toggle). The log
+  form had no bottom-bar slot and was only reachable via Home's "Log it", so checking History
+  mid-workout cost three taps to get back. Internal tab key stays `"log"` (four draft-capture
+  gates depend on it); `"body"` survives as a route so Home's arrow and old persisted state still
+  resolve. No data-model change. `docs/session-tab-and-body-merge.md` was the plan.
+- **Coach now scores bodyweight/assisted lifts like the app does.** `get_prs`/`get_progress` read
+  the raw first column, so Cerys's pull-up showed the coach **36 kg and falling** (her assist
+  dropping 36→32) when it is **47.8 kg and rising** - and "unassisted pull up" is one of her two
+  goals. Daniel's read 4.5 instead of 78.4. `bodyweightOn`/`loadTypeOf`/`setLoad` ported to Python.
+- **Cerys's 1 Aug was three logs**, saved in one go with the pieces apart: Garmin link + splits on
+  one, difficulty + her shin note on another, one empty. The two unlinked ones could never clear
+  (the matcher won't reuse an activity id), so they sat "awaiting run" forever. Merged onto the
+  linked log (`scratchpad/apply_mergedupes.py`, swept the whole store - this was the only case).
+  Root cause is that cardio sessions are deliberately saveable while empty; Daniel chose **no**
+  duplicate-save guard for now.
+  **This did not hold - see the tombstone entry below.** The merge pushed fine (the keeper still
+  carries the note and difficulty it took from a sibling) but the two dropped logs were back in the
+  store by 12 Aug: a phone that still had them re-added them on its next sync.
+- **Deleting a session sticks now (`deletedLogs` tombstones).** `mergeInData` unions logs by id and
+  `syncNow` pushes merged local state over the remote, so nothing could express "this is gone on
+  purpose" - a deleted log came back from whichever device still held it. That also meant
+  **History's Delete button had never worked across devices** and didn't survive the next sync even
+  locally. `state.deletedLogs` holds the ids: skipped on the way in, replayed from an incoming
+  payload, re-asserted on every push. Exactly the trick `suggestions` already used with `status:
+  "done"`. Delete now calls `tombstoneLog()` + `autoSync()`. Verified both directions through the
+  import path against a reproduced three-log store. `CACHE_NAME` → tt-v101. **Both phones need
+  tt-v101 before a delete sticks on the other one** - an older build will keep re-adding its copy.
+  Same latent bug still exists for **bodyweights** (merged by person+date, deleted with a plain
+  filter at `renderBody`); not fixed, nobody has hit it.
+- **Interval structure backfilled** onto both 29 Jul sessions (`scratchpad/apply_intervalbackfill.py`)
+  - neither the sync nor `garmin_enrich_session` can reach an already-linked session.
+- **Audited the app for an install with no Garmin, no coach and no cloud sync.** Nothing was
+  broken; three bits of copy promised features that user will never have (the log form's coaching
+  hint, Home's goals hint, and the cardio banner leading with "if you wear your Garmin"). All now
+  gated on new `hasCoaching()` / `hasGarmin()` read-only helpers. `CACHE_NAME` → tt-v100.
+- **Cerys's goals and bodyweight ARE set** (`unassisted pull up`, `hyrox`; 79.8 kg on 2026-08-01) -
+  earlier notes in this file saying otherwise were stale.
+- **The Garmin Sat/Sun Task Scheduler windows stay** - Daniel's call: they now cover the optional
+  weekend session. Not dead weight.
+- **Still open:** the two 1 Aug duplicate rows are still in the store - Daniel deletes them in the
+  app once both phones are on tt-v101.
+- **Both Lower sessions overrun.** 11 Aug: Daniel and Cerys each took 89 min on Lower 2, both wrote
+  "taking too long", and both left the **third set blank on the same three exercises** (leg curl,
+  hip abduction, hip adduction). Coached fix is order, not content: 3 working squat sets, then
+  abduction/adduction supersetted. The same thing is why **Daniel's deadlift has never been logged**
+  - it IS in Lower 1 (an earlier note here wrongly said it was missing from the program), it's just
+  always last, and 20 Jul was already 6 exercises / 75 min / difficulty 9. Told to move it first.
+- **Goal priority, from Daniel 12 Aug:** the **85kg bodyweight target is background, not a focus** -
+  don't coach toward it and don't read a flat scale as a problem. Live focus is
+  `sub 20 5k / 100kg bench / 200kg squat / 200kg deadlift / hyrox`.
+
+**2026-08-12 - surveyed everything Garmin holds, then extracted the useful half.** Backlog: the
+session notes box at the bottom of the log form now grows to fit (it was the only textarea without
+`autoGrow`), and **RPE reaches lunges** - the gate was `isLifting || isGarminCardio`, both of which
+need a Reps or a Time column, so `Walking/sandbag lunges` (Weight + Distance) had none. Now
+`ratesRpe()`, a blocklist: everything except the free-text `Min`/`Notes` warm-up and cool-down rows,
+which was already the old gate's stated intent. `tt-v102`.
+
+- **What Garmin actually has, for both of them** (`scratchpad/probe_garmin*.py`, read-only, keep
+  them - they save re-deriving this). Daniel: Forerunner 255 Music. Cerys: Vívoactive 5.
+- **The whole wellness half is empty because neither of them wears the watch except to train.**
+  Daniel logs 64-218 steps/day and has sleep for **one night in fourteen** (30 Jul); no HRV, no
+  Body Battery, no training readiness. **Don't go looking again** - it's a wear-time fact, not a
+  missing feature. Daniel says he'll start wearing it overnight, so the plumbing is built (below).
+- **VO₂max has never had a value for either of them, and won't on a treadmill** - Garmin only
+  estimates it from outdoor GPS runs. Checked back 400 days. The `vo2max` key costs nothing and
+  starts working the day someone runs outside. Same root cause as Garmin's **training status saying
+  "DETRAINING" with ACWR 0.0**: five gym sessions a week never reach the watch, so its load metrics
+  are misleading rather than merely thin. **Deliberately not extracted.**
+- **Body composition / weigh-ins: still zero.** Confirms the parked scale work; nothing changed.
+- **The find: Garmin's own run/walk split detection gives per-rep data.** `get_activity_typed_splits`
+  returns RWD_RUN / RWD_WALK / RWD_STAND blocks, and the RUN blocks *are* the reps - something laps
+  can't do (a treadmill auto-laps every 1 km, swallowing several reps). Each rep now carries
+  distance, duration, average speed, pace, avg + max HR, cadence and power, plus the recovery after
+  it: duration, average speed, and the **lowest** HR reached (from the per-second trace - the walk
+  splits only hold an average, which is useless when the block starts at 155 bpm). Verified: 6 reps
+  for Daniel, 5 for Cerys on 29 Jul, matching both the typed rows and the old heuristic.
+- **Corrects a standing claim in this file:** "treadmill speed reads 10-15% high, structure only"
+  was measuring the trace's **peak**. The rep **average** is 13.1 km/h against Daniel's typed 13.
+  Per-rep speed is therefore stored and shown. The typed value is still the record, and per Daniel's
+  call Garmin **fills the interval entry only when it was left blank** (guarded on the column really
+  being km/h). Cerys's 29 Jul is the case that makes keeping both worthwhile: she typed a flat
+  **11 km/h** and actually ran **13.5 / 12.5 / 14.1 / 13.1 / 10.2** - a 28% fade at 175-180 bpm
+  against a 192 max, recorded nowhere else.
+- **Derived, and trended in the app:** cardiac **drift** (Daniel 29 Jul: 130 → 139 bpm across reps
+  at the same speed), **HR recovery** between reps (avg 35 bpm, best 44), **consistency** (spread of
+  rep speeds) and **fade** (last rep vs best). Drift is only computed when the first and last rep
+  were within 10% on speed; otherwise `drift_skipped` says why, because subtracting HRs across two
+  different speeds measures someone slowing down. **Efficiency factor** is taken over the *running
+  blocks only* - a whole-activity average moves when someone walks more - and already shows a real
+  trend: Daniel's Zone 2 EF went **0.90 (4 Jul) → 1.10 (25 Jul) → 1.21 (1 Aug)**.
+- **Also now extracted** (all from responses already fetched, so no extra Garmin calls): min HR,
+  running dynamics (ground contact, vertical oscillation and ratio, stride length, steps), running
+  power (avg/max/normalised + power zones, Daniel only - the Vívoactive records none), training
+  load, anaerobic effect and effect label, intensity minutes, sweat loss, and **the RPE and Feel
+  they gave the watch** (Daniel rated 29 Jul 8/10 and 1 Aug 3/10 - the app never knew).
+- **`garmin_refresh_metrics(person)` / `--refresh`** reaches **already-linked** sessions, which
+  neither `--sync` nor `garmin_enrich_session` can (both skip anything with a `garminActivityId` -
+  right for linking, wrong for adding fields to old links). Ran it: all 8 linked sessions enriched,
+  typed rows untouched. Metrics **merge** rather than replace, so a failed sub-fetch can't drop a
+  stored field.
+- **New Progress ▸ 🏃 Run pane** (third toggle): 5k estimate, a trend chart whose metric list
+  **builds itself from the data** (a metric nobody has a value for isn't offered, so it can't lead
+  to an empty chart; pace is always offered since a hand-typed run has it), and every running
+  session expanding to the per-rep table. Axes reverse where lower is better. Gated on running data
+  existing, **not** on Garmin: a lifting-only install keeps the old two-way toggle. `tt-v103`.
+- **💤 Sleep & recovery card + `--wellness` / `garmin_wellness`**, per Daniel's instruction to build
+  it but show **nothing** with zero data - "important, and should be taken into consideration on how
+  the app looks for everyone with every feature". No empty card, no "not set up" copy.
+  **A guard worth keeping:** a night with no sleep is dropped even when Garmin offers other numbers,
+  because its "resting" HR is the lowest it saw all day - the first run stored three rows whose only
+  field was a resting HR of **70, 80 and 91**, which are warm-up minimums, against the **52**
+  measured on the one real night. `scratchpad/apply_dropbogusrhr.py` cleared them. `tt-v104`.
+- **The coach's note was telling it to discard rep speed** - rewritten, with both 29 Jul sessions
+  worked through, plus `actual_reps`, efficiency, form/power and watch RPE now passed through.
+- **Dev server was corrupting verification:** `js/app.js` (~210KB) arrived truncated every few loads
+  over HTTP/1.0, and the cache-first service worker then served the broken copy at an identical byte
+  count on every reload. Now HTTP/1.1 + gzip (~72KB). **The identical size on repeat loads is the
+  tell** - clear the SW caches first, as `CLAUDE.md` says.
+- **Coaching written from the dev chat** (restart done, new fields confirmed reaching the tools).
+  Cardio only - the lifting notes weren't reviewed. **The find that changed the advice: Cerys never
+  actually recovers between reps.** Her HR drops 33 bpm on average, which looks healthy until you see
+  what it drops *to* - 151/153/154/155, when her Z4 floor is 159 and Z3 runs 139-158. She peaks at
+  192 and restarts each rep in the top of Zone 3, so rep 1 averaged 152 bpm and rep 2 averaged **175
+  for slower running**. That explains the 28% fade far better than "went too hard", and it answers
+  her stated limiter ("top speed already found, progress has to come from something else") with an
+  actual answer: recovery length, not belt speed. Prescribed 4 reps with 3 min recovery *when she's
+  back* - her shins stopped her on 1 Aug and her own call was one cardio session a week, which the
+  data gives no reason to argue with. Daniel's equivalents are healthy (drops to 110-121, back into
+  Z2, holds 13 km/h to the last rep), so his notes carry the efficiency trend and the rep-4 wobble
+  instead. **Deliberately left alone:** Daniel's `next_cardio` (live, unspent and still right) and
+  Cerys's `five_k` (already written today and already citing the 29 Jul intervals).
+- **Also worth a look, not acted on:** Cerys typed **11 km/h** for her 29 Jul reps and the watch read
+  them at **12.5-14.1**. Since the same method matched Daniel's typed 13 almost exactly, she is more
+  likely running faster than her row says than the watch being wrong - so her "top speed already
+  found" limiter may be understated. Asked her to check the belt display next time rather than
+  asserting it.
+- **Still open, for Daniel:** two in-app suggestions (exercise timer, longer per-exercise coaching
+  notes) - see the section at the bottom of this file. And **another Claude Code restart** for
+  `propose_suggestion_tool`.
+
+**2026-08-20 - a run session each, and the coach now owns them.** Daniel asked for a designed run
+per person instead of the app picking between Speed and Endurance, and for the coach to
+re-prescribe it weekly. Built from the run history, not a template:
+- **Daniel: `4 x 800m @ 11.0 km/h, 90s walk`**, then 10 min easy jog. The 29 Jul intervals peaked
+  at **157 bpm against a 200 max and a 173 threshold** and he finished them faster than he started
+  - 1 min on / 2 min off never gets him near threshold. 11.0 km/h is his current estimated 5k pace,
+  so this is also the first evidence that could move the 5k off medium confidence.
+- **Cerys: `6 x 400m @ 11.0 km/h, 90s walk`**, then a 10 min incline walk. Her 29 Jul reps went
+  13.5 / 12.5 / 14.1 / 13.1 / **10.2** km/h - a 28% fade, ten minutes above Zone 4. Speed is
+  **fixed at her own stated 11.0** (her limiter says speed isn't the lever, and the limiter wins);
+  the progression is reps, then recovery. Walk recoveries also keep continuous impact off the shins.
+- **hyrox is the main goal for both** (Daniel's answer: sub-25 5k is aspirational alongside it), so
+  the unit is a repeat and the ladder heads for 8x1km.
+- **Sessions can now belong to one person** (`person` on the session). An owned session is hidden
+  from the other's Session picker and calendar; the Program tab still shows both, tagged
+  *Daniel only* / *Cerys only*, and unowned sessions behave exactly as before. That, not the coach
+  card, is what removes the pick-between-two problem.
+- **`Cardio: Speed + Core` retired** (its logs keep the name); **`Cardio: Endurance + Core` moved to
+  Optional** and kept as the backup easy run - never repurpose it, Daniel asked for it as the
+  fallback. Its Zone 2 run now draws **a row per km**.
+- **Runs draw a row per rep when prescribed as reps.** `renderExForm` used to hard-code runs to one
+  row; now `sets` means the same thing everywhere. Blank rows are dropped on save, so the
+  wear-the-watch-and-leave-it-empty path is untouched - the rows are for running without the watch,
+  and for seeing a fade rep by rep while you're on the treadmill.
+- **`write_run` / `run_session`** (mcp-coach): the coach re-prescribes one person's run outright -
+  any format, explicitly **not** restricted to the two used so far, on Daniel's instruction. It
+  validates every exercise, refuses a rename that collides with another session, returns the whole
+  previous session for a revert, and writes `why` as the session's coach note. Offline test:
+  `scratchpad/test_write_run.py`. This is the ONE carve-out from "program structure is not yours
+  to change" - `write_session_notes` and `prompts/coaching.md` now say so.
+- Prototyped in the browser before any of it was pushed (`scratchpad/proto_run.py` +
+  `run_sessions.py`, which the apply script shares so what shipped is what was reviewed). The
+  prototype found two things a diff never would: runs drawing one row for a six-rep prescription,
+  and the **Pace column clipping its own value** at 375px ("5:27" as "5:2") - hence the
+  `table.sets input` min-width. `CACHE_NAME` -> **tt-v109**.
+- Still open: `Cardio: Endurance + Core` keeps its `Warm-up` / `Cooldown` logged rows, which
+  duplicate the note cards. The new run sessions don't have them (Daniel's call).
+
+**2026-08-20 - all 14 warm-up / cool-down notes rewritten for reading at the gym.** Daniel's
+complaint: they are what he reads between sets and they had grown wordy for no reason - detailed is
+fine, convoluted is not. Agreed shape, then applied as program data (no app code, so no
+`CACHE_NAME` bump):
+- **One line per move** - name, dose, then a cue only where the move is easy to get wrong (heel
+  leading on the abduction, elbows down on the rack holds). Paragraphs of prose technique are gone;
+  every dose, time and percentage survives.
+- **The coaching asides and the safety text stay**, compressed to an indented line under the move
+  they belong to - Cerys's hip click, the PAILs/RAILs hold-off, the shin/calf note, the adductor
+  traffic light and the red flags. Daniel was offered moving them out of the note entirely and
+  turned it down: the traffic light has to be in front of you at the moment you judge the hip.
+- **Two housekeeping blocks removed.** The paragraph on both Wednesday sessions explaining how the
+  app picks your cardio - `renderHelp` already says it (the ⚡ Next cardio paragraph, "a default,
+  not a lock"), so it was duplication in the one place you least want to read it. And "Calf raise is
+  out of this warm-up, as you asked", an acknowledgement of a change already made on 19 Aug.
+- The only other losses are two bits of rationale for the coach's own past edits - why PAILs/RAILs
+  stayed on the list, and the fuller account of what moved out of the Wednesday endurance cool-down.
+  Both explained a decision rather than telling you how to train.
+- 11,240 -> 8,930 chars overall (-21%). The lopsided part is the point: Lower 2's warm-up went
+  2,303 -> 1,600 and the two Wednesday warm-ups more than halved, while the Upper notes barely moved
+  because they were already one line per move. **The remaining bulk in the Lower notes is the safety
+  text Daniel chose to keep** - don't re-trim it thinking it was missed.
+- Scripts: `scratchpad/apply_note_trim.py` (idempotent, backs up `data.json`, and **refuses to run
+  if any note no longer hashes to the text it was written against** - so an edit made on a phone in
+  the meantime stops it rather than being silently overwritten). `scratchpad/probe_notes.py` dumps
+  the notes read-only.
+
+**2026-08-26 - the backlog is empty. The two long-parked items shipped, plus a coach change.**
+- **Pull-ups added to Upper 1** (coach-raised, approved same day), so the movement is trained twice a
+  week. Daniel's own numbers are the argument: on 21 Aug he did one set of 5 unassisted then needed
+  4.5kg for three, which is the threshold where **frequency** converts one unassisted set into four.
+  Cerys went **39 days** (13 Jul - 21 Aug) without training her only written-down strength goal purely
+  because the session didn't come round. **Same exact NAME as Upper 2's** so it is one trend, not two
+  half-histories, and `load:"assist"` copied from it so both slots score identically. **Second in the
+  session**, not last - the deadlift is the standing lesson. **3 sets not 4**, because Upper 1 already
+  runs 66-79 min. Cerys's shoulder handled with a note rather than by leaving the exercise out.
+  Script: `scratchpad/apply_pullups_upper1.py`.
+- **The coach can propose a program change and a tick applies it** (`1786995006416`). **Daniel
+  corrected the design**: the old shape was coach proposes → he approves → *Claude writes the code* →
+  done, which left a set count wrong for days. Now the app applies it itself. `write_program_change`
+  lands it on that exercise in the Program tab with the reason and Apply / No; applying calls
+  `saveProgram()` so it stamps `updatedAt` and reaches the other phone. **Scope is edit, add AND
+  remove** on his call; a removal card is red and says past logs are kept. Stale changes (exercise or
+  session since gone) decline themselves rather than throwing. `programChanges` sync by id with a
+  decision beating an older `pending`, same ranking as suggestions.
+- **Import can put history onto a differently-named account** (`1786567246193` - the "ask specifics"
+  one; his answer was *"merge old data into new account, even with different name"*). Everything is
+  keyed by person NAME, so a rename strands it all - this is the way out. Picking a file lists
+  everyone in it; each can keep their name, merge into either local account, or be left out. Per-person
+  config travels by **slot**, so goals/bodyweight follow to the right account. Verified by renaming a
+  copy of the real store to Dan/C and importing onto Daniel/Cerys: all 47 sessions landed correctly,
+  every keyed structure re-keyed, and skipping one person imports only the other.
+- **`pace_per_km` removed from `get_running_form`** (coach-raised, approved). It divided the WHOLE
+  session's duration by the running distance: Cerys's 20 Aug read **56:13/km**. `efficiency.run_pace`
+  is measured over running blocks only and is correct - one right pace beats two that disagree.
+- `CACHE_NAME` → **tt-v117**. **Needs a Claude Code restart** for `write_program_change`,
+  `program_changes` and `write_log_entry`.
+- **Backlog is now empty** - nothing open, nothing proposed.
+
+**2026-08-25 (audit) - "are the past runs stored well enough to infer from?"** Audited every one
+(`scratchpad/audit_runs.py`, read-only, keep it). **Daniel's were sound. Cerys's had three problems,
+all now fixed** - and one had been "fixed" before without holding.
+- **Cerys's 1 Aug was three logs for one session** - the real linked run plus two empty ones stuck
+  *awaiting run* forever (the matcher won't reuse an activity id). Her week read as **5 sessions
+  instead of 3**, which argues against her own "one cardio session a week" call.
+  **Why the 11 Aug merge didn't hold, and the lesson:** it removed the logs but never **tombstoned**
+  them, so the phone that still had them pushed them back on its next sync. Removing a log says
+  nothing - `deletedLogs` is what says "gone on purpose" and is re-asserted on every push.
+  `apply_mergedupes.py` now writes tombstones; **any future script that drops a log must too.**
+- **Cerys's 20 Aug run entry held Garmin's three LAPS, not her six reps**, and the third lap was her
+  **incline walk** - so the app reported a **15:02/km running pace** and used it for her best pace
+  and Last column. Run entries are now filled from **per-rep detail** where it exists, laps only
+  otherwise. Existing rows are replaced **only when they exactly match the lap output**, which proves
+  a sync wrote them; anything typed differs and is left alone.
+- **Daniel's 13 Aug Zone 2 was stored as "4 reps", fade 0%, consistency 5.6%** - on the same trends
+  as his interval sessions, and two of those "reps" were one block split a second apart. Blocks under
+  20s apart now merge, and **fade/consistency are only computed for blocks of roughly equal length**.
+  Uneven ones keep their per-block detail (that's how you see the walk breaks, and how you see Cerys's
+  Zone 2 is a walk) and carry `rep_set:false` with the reason. **This settles the Zone 2 question**
+  that had been open since 21 Aug: reps stay, rep-set metrics don't.
+- **`write_log_entry`** (Daniel's ask): the coach can CORRECT a logged entry when the automatic fill
+  still gets it wrong - the activity held something other than the session it matched. Refuses an
+  unknown session or exercise, returns the previous rows for an undo, keeps them on the log with the
+  reason, and a corrected entry is never silently overwritten by a later sync.
+- **Still true and worth re-reading before coaching Cerys:** her 29 Jul entry types **11.0 km/h** for
+  five reps the watch measured at **13.5 / 12.5 / 14.1 / 13.1 / 10.2**. Typed stays the record by
+  design, but her "top speed already found" limiter rests on that number.
+- No app code, so no `CACHE_NAME` bump. **Needs a Claude Code restart** for `write_log_entry`.
+
+**2026-08-25 (later) - the update result is a dialog, and reps can be read off the speed trace.**
+- **Update popup** (Daniel): a toast was the wrong container - the message lands right after a
+  reload amid everything else that fires on load, and the **30-day export nudge overwrote it during
+  testing**. Now a dialog that waits to be dismissed: "Updated - you were on tt-v99, you're now on
+  tt-v115" or "Already up to date". `CACHE_NAME` → **tt-v115**.
+- **`reps_from_speed_trace`** (coach-raised, approved same day). Garmin's run/walk detection can only
+  separate reps when **the recovery is a walk**; Daniel's threshold session now recovers with a
+  7.5 km/h **jog float**, so there is no boundary for it to find and his recording note has been
+  asking for a lap press per rep. This segments on speed-level changes instead and returns the full
+  per-rep payload (duration, speed, distance, avg/max HR, cadence, and the recovery after each).
+  The detail series now carries **cadence**, so every unpack site widened from 3 to 4.
+- **Three findings that changed the design, all worth keeping:**
+  1. **A treadmill trace is NOT a clean step function of the programmed speeds** - the premise the
+     suggestion was raised on. The watch estimates speed from **arm swing**, not the belt: Daniel's
+     29 Jul reps typed as 13.0 read **14.2-15.7**, and his walk recoveries wander **0.1 to 5.9**.
+     Segmentation is therefore on *relative* level changes with a wide tolerance.
+  2. **Seeding with the prescription is harmful and was dropped.** The coach re-prescribes weekly, so
+     today's `sets` says nothing about an older session - letting it pick turned the 20 Aug **time
+     trial into "4 reps" that never happened**. `expected` now only annotates a mismatch. This is the
+     second time the "read the current program to interpret an old log" idea has had to be rejected.
+  3. **It is a FALLBACK, never a replacement.** On **Cerys's** sessions the trace under-counts -
+     **4 against the correct 6** (20 Aug) and **4 against 5** (29 Jul) - because her watch samples
+     about every **7 seconds** and her reps are a minute long. On Daniel's denser trace the two agree
+     exactly (6 reps, HR recovery 36 vs 35). So it runs **only when Garmin's method came back empty**.
+- **Two guards earned from real false positives:** the *fastest* qualifying set wins, not the longest
+  (scoring on duration picked the **walk recoveries** - "7 reps at 5.0 km/h" for a session run at 13);
+  and blocks less than 20s apart are merged (the 2km trial dipped mid-way and came back as two reps
+  one second apart).
+- **The float case is proved only synthetically** - that session hasn't been run. **The lap presses
+  stay in the recording notes** until Daniel's next run gives a real trace to check against; that is
+  the ground truth this needs before anyone removes them.
+- Side effect, same open question as before: the fallback now gives **Cerys's 13 Aug Zone 2** 3 reps
+  where it had none. Still undecided whether Zone 2 run/walks belong on the rep trends.
+
+**2026-08-25 - the treadmill program gets its own block, plus three fixes.**
+- **`setupNote`** (coach-raised, approved same day): the session as numbered time + speed blocks to
+  key into the belt before starting. Its own collapsed block, **first of the three** - program the
+  belt, start the watch, warm up - with a `setup` parameter on `write_run` / `write_session_notes`.
+  Same argument as `recordingNote` five days earlier, so `apply_setup_split.py` reuses that script's
+  `split_note`.
+- **That reuse immediately earned itself.** The dry run showed Daniel's note splitting **three lines
+  early, mid-sentence**, truncating his 13-block table: his program wraps onto a line reading
+  *"warm-up program, then 6-13 as the main one."* and the marker matched case-insensitively. The
+  marker is now **uppercase-only and refuses on more than one match**. The headings in these notes
+  are in capitals and the prose is not - that distinction is load-bearing, don't loosen it.
+- **"update boxes on program - overflowing" was my regression.** The session-notes button label grew
+  to *"Warm-up / cool-down / recording"* when the recording block landed on 20 Aug - the day before
+  Daniel reported it - rendering **372px wide in a 375px viewport, off-screen at left:-207 on every
+  session row**. Now just **"📝 Session notes"**; the icons live on the fields inside. 8 overflowing
+  elements before, 0 after. **Lesson: that button row has ~130px to play with, so don't put a new
+  field's name in the label.**
+- **The update button now says whether it updated.** It drops the caches and reloads, so "nothing to
+  update" and "three versions newer" looked identical. The version is stashed **before** the caches
+  go (sequenced, not concurrent - it is read *from* the caches being dropped) and reported back as
+  "Updated: tt-v99 → tt-v113" / "Already up to date (tt-v113)", silent on a normal load. It **polls**
+  for the version, because the new shell is cached a moment *after* load.
+- **Switching names no longer changes the workout** (Cerys). Reproduced: on `Run: Daniel`, tapping
+  Cerys landed on **Upper 1** - Tuesday's lifting session - because the ownership guard fell back to
+  `sessionForDate`. It now moves to the **counterpart**: same day, preferring one that is hers.
+  Round-trips. Shared sessions were never affected.
+- `CACHE_NAME` -> **tt-v113**. **Needs a Claude Code restart** for `setup` on the coach's tools.
+- **⏱ Time pane added** (`1787304170398`, Daniel picked the trend chart over a summary table).
+  Progress gains a fourth pane: both people on one graph, a picker for a single session, and tiles
+  for average / last-against-average / longest / how many were timed. Sessions are compared against
+  **themselves** - a short cardio day and a long Lower 2 are different questions and pooling them
+  answers neither - so the picker only offers sessions that person has timed. Gated like 🏃 Run:
+  it only appears once something has been timed. **What it says straight away:** Lower 2 has gone
+  **49 → 88 → 92 min** for Daniel (45 → 89 → 92 for Cerys), so the session they both flagged as
+  overrunning is getting *longer* - and that's before the goblet squat added on 19 Aug has been
+  logged. Upper 1 went **73 → 66** for Daniel after bench dropped to 3 sets. `CACHE_NAME` → tt-v114.
+- **Still open:** the two long-standing ones only - export/import (parked by Daniel, "leave for now
+  but keep") and the coach proposing program adjustments (`1786995006416`, needs a design round).
+
+**2026-08-21 - heart rate reaches the run blocks.** Coach-raised, approved the same day. Daniel had
+asked whether HR could be read against the runs themselves; it couldn't. His 20 Aug 2km trial
+reported **avg HR 134 for the whole activity** - a figure that includes a ten-minute walk and
+describes nothing that happened.
+- **Per-lap HR in `garmin_activity`** via a new `splits_detail()`. Kept separate from
+  `splits_to_rows/_hr` on purpose: those build the positional rows that get **stored** on a log
+  entry and drawn by the app, so widening them would change stored data. Daniel's trial laps read
+  **149 and 171** against the activity's 134.
+- **Per-rep analysis is no longer gated on the column shape.** It fired only when a session had no
+  distance/time entry (reps typed as speeds), so **Cerys's 6x1min on 20 Aug produced no per-rep data
+  at all** while her 29 Jul speed-typed session produced the full breakdown - and both run sessions
+  are built with distance/time columns now. It now yields her 6 reps: drift **+26bpm**, HR recovery
+  40, recoveries bottoming out at **137-142 against a Zone 4 floor of 159** - the same "never
+  actually recovers" pattern as 29 Jul, now visible on the current format.
+- **`effort_drift`**: drift *within* one sustained effort, the only kind a time trial has. Longest
+  continuous run block, first half vs second, same speed guard as rep drift. Daniel's 2km:
+  **151 -> 174, +23bpm**. Also added to the app's Run trend picker as its own metric, kept apart
+  from the rep-to-rep drift (same units, different measurement) and self-gated.
+- **The guard that widening needed, and it is the important part.** Reps are *repeats*, but Garmin's
+  run/walk detection finds every continuous run block, which on a mixed recording is not the same
+  thing. Daniel's trial holds three warm-up build-ups and the 2km; the first cut reported **"4 reps"
+  with a consistency of 24.7% and a fade of 0%**. `_not_a_rep_set` now refuses when the blocks are
+  too unalike and stores the reason in `reps_skipped` rather than going quiet. **A program-based
+  gate (read `sets` off the run exercise) was considered and rejected**: the coach re-prescribes
+  these sessions weekly, so today's prescription says nothing about a session logged last week.
+- **Known side effect, for Daniel to rule on:** the widening also lights up **Zone 2 run/walks** -
+  Daniel 13 Aug now shows 4 reps, Cerys 1 Aug shows 3. Those blocks are real (that IS their run/walk
+  structure, and Cerys's stated limiter is that Zone 2 is a walk for her), but it means Zone 2
+  sessions now join interval sessions on the app's rep-consistency and drift trends. Tighten by
+  requiring more blocks, or leave it - not decided.
+- Verified read-only against five real activities with `scratchpad/test_run_hr.py`, which enriches a
+  **copy** of the actual logged session so the real gate is exercised: 29 Jul still returns 6 and 5
+  with Cerys's derived numbers unchanged (consistency 30.8 / fade -27.7 / recovery 33), and **no
+  typed row was touched in any of them**. Backfilled onto all 12 linked sessions with `--refresh`.
+- `.gitignore` now covers `scratchpad/proto-*.json`: the prototype states are whole copies of the
+  store and **this repo is public**. `CACHE_NAME` -> **tt-v111**. **Needs a Claude Code restart**
+  before the coaching chat sees the new `garmin_activity` output.
+
+**2026-08-20 - the Garmin recording plan became its own field.** Coach-raised, approved by Daniel
+the same day. The recording protocol (one activity or several, where Start/Lap/End go, what each lap
+holds, what to type in, what to report back) was the first ~20 lines of each run session's
+`warmupNote`. Now `session.recordingNote`, drawn on the Session tab as a **collapsed `<details>`
+card above the warm-up**, with a matching field in the Program editor and a `recording` parameter on
+`write_run` and `write_session_notes`.
+- **The measured win:** on a 375x812 phone against the real `Run: Daniel`, pulling it out and folding
+  it up moves the warm-up heading **742px** up the page. **But the warm-up is still not on the first
+  screen** (it starts at ~1257px), because the **🧠 Coach card is now 627px tall** - a direct
+  consequence of the 17 Aug "longer coaching notes" change - and the cardio banner adds 154px. If the
+  warm-up being reachable still matters, that card is the next thing to look at, not this one.
+- **Collapsed by default is deliberate:** a separate section that is still expanded pushes the warm-up
+  down just as far, so folding it is the half of the complaint that actually gets fixed. Flip
+  `<details>` to `<details open>` in `renderLog` if that turns out wrong in the gym.
+- **The suggestion's premise was wrong** and it's worth knowing: it asked for "collapsible like the
+  warm-up", but nothing on the Session tab was collapsible. This establishes the pattern (borrowed
+  from `.coach-hist`) rather than following one.
+- Why it's a separate field and not just moved text: lap points are meaningless against a different
+  structure, so it must be rewritable **without** re-sending the hand-written mobility work; and it is
+  read twice - during by whoever trains, after by the coach, because a warm-up, a time trial and an
+  easy jog sit in **one** Garmin activity and the activity-level averages are worthless without
+  knowing which lap is which.
+- Store side: `scratchpad/apply_recording_split.py` splits at the `WARM-UP` heading and **refuses
+  rather than guesses** if a note isn't written that way. Idempotent, backs up first, applied 20 Aug.
+  `scratchpad/proto_recording.py` builds a local prototype state from the newest backup so this could
+  be seen with the real notes without ever opening the shared store.
+- `CACHE_NAME` -> **tt-v110**. v109 was taken by the run-session work landing from another chat in
+  parallel - **two chats were writing this repo all day; check `sw.js` rather than assuming the next
+  number is free.** **Needs a Claude Code restart** before the coaching chat sees `recording`.
+
+**2026-08-19 - the coach's first program changes, approved and applied.** Five coach-raised
+suggestions, all approved by Daniel in the gear menu the same day. Four were program data, one was
+app code. Worth noting what this session actually demonstrates: the `proposed -> open` gate did its
+job - the coach raised changes to the *program*, Daniel approved them, and only then were they
+built. That is the shape suggestion `1786995006416` is asking to formalise.
+- **Calf raise moved off the shoulder-pad machine onto the leg press**, in both Lower 1 and Lower 2.
+  Daniel and Cerys flagged it independently on 18 Aug, both stuck at 70kg with the pads hurting
+  before the calves worked. **Renamed to `Leg press calf raise` rather than kept** - Daniel's call,
+  and the same reasoning that keeps `Flat press (DB)` out of `Bench press`: records, the Last column
+  and the progress chart key on the NAME, and 70kg on a pad machine is not the same load as a leg
+  press, so keeping the name would splice two movements into one trend and one PR. The five logged
+  sessions each stay under the old name. Lower 2's `5/3/3` machine-setting note went with it - those
+  were the old machine's pins and would be actively wrong on the leg press.
+- **Goblet squat added to Lower 2**, 3x8-10, **last** on Daniel's instruction. Cerys asked for it to
+  reach depth her back squat can't. Flagged at the time and worth watching: Lower 2 already overruns
+  and the last exercise is the one that gets dropped - that is why Daniel's deadlift went unlogged
+  for so long. Placing it after Squat was offered and turned down.
+- **Lower 2 reordered** so the lunges follow the seated leg curl - they need floor space, which is
+  what disappears when a class is on.
+- **Bench press 4 sets -> 3** (target with it). **Upper 2's pull-ups deliberately left at 4**, though
+  the approved text allowed cutting them: "unassisted pull up" is one of Cerys's two goals and the
+  overrun evidence was about Upper 1. Lower 2's squat already read 3, so that part was a no-op. Also
+  tidied: Lower 1's deadlift had `sets=3` against a target of `4x5-8`, so the form drew three rows
+  under a target asking for four.
+- Script: `scratchpad/apply_aug19.py` (idempotent, verified by re-running, backs up data.json first).
+  `scratchpad/probe_program.py` dumps the program read-only - keep it, it is how the above was
+  grounded rather than guessed.
+- **The person toggle is now sticky** (`1787141099260`): the log form runs to ~3000px on a phone, so
+  swapping person cost a scroll to the top and back. `CACHE_NAME` -> **tt-v108**; v107 was taken by
+  the note-sync fix landing from another chat in parallel - **check `sw.js` before assuming the next
+  number is free.**
+
+**2026-08-17 - backlog session: two cleared, one dropped, three left for Daniel.** Of six items in
+the 💡 backlog, **none were safe to auto-apply** - every one had more than one reasonable reading,
+wrote to shared data, or was gated on approval. So they were put to Daniel first, and two built:
+- **Per-exercise coaching notes are now asked to be a note, not a cue** (`1786488544590`). Confirmed
+  again that this is **not a display bug**: `.coach` is `white-space:pre-wrap` with no clamp or
+  `max-height`, so a long note already rendered in full. The notes were short because the *tool* asked
+  for "a concrete next step". `write_coaching`'s description and `docs/prompts/coaching.md` now ask for
+  two to four sentences: the number, the reason it's that number, and what to do if it goes wrong.
+  **No app code, no cache bump**; it takes effect on the next Claude Code restart. The prompt also
+  warns that because `by_exercise` **merges**, the first review after this must rewrite *every* cue it
+  previously set or the app shows both styles at once.
+- **The coach can rewrite a session's warm-up / cool-down** (`1786574564394`): `session_notes(session)`
+  to read, `write_session_notes(session, warmup, cooldown, append)` to change. **Daniel chose the
+  shared-note mechanism over a per-person overlay**, so this is the one thing the coach writes that is
+  *not* per person - the notes live on the program and both of them read the same text, hence the tool
+  telling it to name whoever a line is for (as the notes already do for Cerys's PAILs/RAILs).
+  `append=True` adds a paragraph rather than flattening months of mobility work, and the previous text
+  comes back on every write so a bad one can be put straight back. **The subtle bit worth keeping:**
+  `program.updatedAt` is stamped in JS's exact `toISOString` format, because `mergeInData` compares
+  those stamps as plain **strings** and Python's default `+00:00` sorts *below* `Z` - a naive stamp
+  would have read as older than the phones' copy and the edit would silently never have arrived.
+  Program *structure* stays out of scope and is pointed at `propose_suggestion_tool`. `tt-v106`.
+  **Needs a Claude Code restart** before the coaching chat can see the two new tools.
+- **Dropped on Daniel's instruction: the exercise timer** (`1786488191424`) - resolved without
+  building. Don't re-raise it; the Phase 3 rest timer remains not wanted either.
+- **Still open, deliberately: "update export and import - ask specifics"** (`1786567246193`). Daniel's
+  call was "leave for now but keep", so it stays in the backlog **unresolved**. The options put to him,
+  for whenever it's picked up: an import preview before merging, export via the phone's share sheet
+  (the download is often blocked - there's already a copy-the-text fallback for exactly that), CSV
+  export of raw logs, or selective export by person/date range.
+- **Two left needing a decision, both "the coach writes to the program"** - see the section below.
+
+**2026-08-03 - the program moved to a Mon-Fri week, Sat + Sun off** (data change in the store, no
+app code): **Mon Lower 2 · Tue Upper 1 · Wed cardio · Thu Upper 2 · Fri Lower 1**. Legs/upper/
+cardio/upper/legs, Daniel's shape. **Lower 2 (squats) deliberately swapped onto Monday** so the
+heaviest session comes off two rest days; Lower 1 (leg press/RDL) took Friday.
+- **Six sessions into five slots, so both cardio sessions share Wednesday** and alternate week to
+  week - speed one week, Zone 2 the next. `sessionForDate()` takes the *first* Wednesday key in
+  `program.order`, so **`order` is what makes Speed + Core the one the app auto-opens**; Endurance
+  is one tap down the Log session list. A line at the top of each cardio `warmupNote` says so and
+  points at Home's ⚡/🏃 cards for which you did last. Verified in-browser that every weekday
+  resolves right, both Wednesdays list in order, and Sat/Sun fall back to Monday's session in the
+  dropdown (nothing is auto-logged).
+- **Nothing renamed** - session names key `coaching.bySession` and are stamped onto every logged
+  entry, so renaming would split History and orphan the coach's notes. Days are labels only; past
+  sessions keep the day they were actually done on.
+- Script: `scratchpad/apply_weekdays.py` (idempotent, checks each session's *expected* current day
+  before moving it, backs up data.json first).
+- **Open, for Daniel:** the old **Tuesday rest/mobility day** is now Upper 1 - if that mobility work
+  still wants a home it needs a weekend slot (it was never in the app, so nothing broke). And the
+  **Garmin Task Scheduler jobs still cover the old cardio days** (hourly Wed + Sat, plus 00:00-05:00
+  Thu + Sun): Wednesday is still right, the Sat/Sun windows are now dead weight - harmless, since
+  the job no-ops when nothing is pending, but worth trimming next time they're touched.
+
+Done and committed previously: the original handoff backlog, backlog **item 3**, **Phase 1** (hub +
+coaching foundation) and **Phase 2** (analysis features). **Phase 3 nice-to-haves (kg/lb toggle, Hevy CSV, plate calc) are explicitly NOT wanted** - don't
+resurrect these. The **rest timer was on that list and is now built** (7 Sep, `tt-v126`) - Daniel
+asked for it himself on 6 Sep, which supersedes both this line and the 17 Aug decision below.
+
+**2026-09-02 - a research pass, and five new method documents. No code, no data, no program change.**
+Daniel asked for a broad research pass on "everything that will help me and Cerys", scoped by
+`AskUserQuestion` to: the whole Hyrox event, fuelling/bodyweight/energy, sleep/recovery/injury, more
+on running and flexibility, and female-athlete material for Cerys. Division confirmed as **mixed
+doubles, no race date booked**. Kit confirmed as **rower and/or ski erg, sled, sandbags**. Strength
+programming toward the 100/200/200 was offered and **not selected - parked, not rejected**, and is
+logged as such in `BACKLOG.md`.
+
+New files, each with its own sources, indexed from a table added to `methods/coaching-method.md`:
+`methods/hyrox-method.md`, `methods/running-method.md`, `methods/fuelling-method.md`, `methods/recovery-method.md`,
+`methods/female-athlete-method.md`, plus sections 9-11 appended to `methods/flexibility-method.md` (assessment
+norms, session shape, and the Hyrox mobility overlap). `README.md` lists them all.
+
+The findings that changed how the project should think, rather than just adding reference material:
+
+- **Mixed doubles appears to put both partners on men's Open loads** - 152 kg sled push, 103 kg sled
+  pull, 2 x 24 kg carries, 20 kg sandbag, 6 kg ball, with only the wall-ball target height differing
+  by athlete. Against Cerys's current 30 kg squat and 30 kg deadlift that is a long strength runway,
+  and it starts now rather than at race minus twelve weeks. **Daniel confirmed this from his own
+  check the same day** ("from what I can tell it's the men's weights"), so three reads agree; it has
+  still not been read off the official rulebook, which 403s, and loads change between seasons.
+  Kit follow-up the same day: **no wall ball**, so seven of eight stations are trainable directly and
+  the eighth needs a medicine ball and a marked wall (now on the backlog).
+- **In doubles the running is 60-65% of the race**, not the ~49% it is solo, because the station work
+  halves and the 8 km does not. So for a pair, running is not one of the things you train, it is the
+  thing you train.
+- **Neither of them could currently run the running half of a Hyrox.** Daniel's longest run is
+  6.48 km on the watch, ~5.9 km corrected (26 Aug), but run as reps - his longest *continuous* effort
+  is 13:44 / 2.76 km. Cerys's longest continuous run is about a minute. Written up honestly in
+  `methods/hyrox-method.md` Part 3 as Phase 0 of the build rather than hidden in an appendix.
+- **One run a week cannot reach any of their running goals** - the evidence floor for improvement is
+  roughly three runs and 15-20 km a week. This is now the single highest-value proposal on the
+  backlog, and it is a conversation rather than a change because the reasons they run once a week
+  are real.
+- **Heavy lifting improves running economy** (meta-analytic, larger effect than plyometrics,
+  strongest at loads at or above 90% 1RM). Daniel's barbell goals and his sub-20 5k are the same
+  project, not competing ones. The interference effect is largely a non-issue at one to two runs a
+  week.
+- **Cerys's per-rep running cadence is 140-151 spm** and she is the one with shin splints. A 10%
+  increase cuts peak tibial acceleration ~11.5% and loading rate ~15.6%. Best
+  evidence-to-effort ratio found in the whole pass, and mechanically trivial on a fixed belt speed.
+- **The wellness gap is behavioural, not technical.** `methods/coaching-method.md` says no overnight data
+  exists; `garmin_wellness` has been built and working the whole time and returns nothing for the
+  reason its own docs give - the watches are only worn for workouts. Nothing needs building.
+- **Sub-8-hour sleep carries 1.7x the injury risk**, and Cerys has flagged three joints in six weeks.
+  Largest untouched lever either of them has.
+- **Cycle-phase training programming is not supported by the evidence** - reviews find no meaningful
+  effect on force production and state outright that current evidence cannot be used to write
+  guidelines. Reported as such in `methods/female-athlete-method.md` rather than repeating the popular
+  version. Iron and ferritin, by contrast, have strong evidence and are unmeasured.
+
+`CACHE_NAME` **not bumped** - no cached shell file was touched.
+
+**2026-09-02 (second pass) - strength, the week, testing, and treadmill-vs-outdoor.** Daniel asked
+what else was worth researching and picked all four offered. Three more docs -
+`methods/strength-method.md`, `methods/week-method.md`, `methods/testing-method.md` - plus a new Part 7 on
+`methods/running-method.md`. Kit and rules questions from the first pass both answered: **the loads are the
+men's weights**, and **there is no wall ball**.
+
+The findings, and two of them correct things this file previously said:
+
+- **They are novices, and the "responds to load faster than an incremental model predicts"
+  observation is a novice effect, not a special quality.** Daniel's squat went 40 → 48 → 70 → 80 →
+  100 in eight weeks; published novice expectation is +40-100 kg in a *year*. The practical advice
+  (give a target and a ceiling, let him pick inside it) is unchanged and still right. What changes is
+  the expectation: **it will stop, and when it does that is normal rather than a failure.**
+- **The deadlift mystery is solved, and it is a scheduling artefact.** One logged top set ever, 80 kg,
+  and his own note says it was a deliberate form session. The cause: Lower 1 is the **Friday**
+  session, the week runs about a day late and slips, and **Lower 1 has been logged twice since 20
+  July**. Principle: *whatever sits last in the week is the thing you will lose.* One of three named
+  strength goals is currently in the drop slot.
+- **Session length is the real constraint, not the number of days.** Lower 2 ran 92 and 88 minutes;
+  eight exercises on each upper and lower day; six weeks of feedback saying "cut down to keep the
+  session under 90 mins", "ended early", "cut short". A second run does not need a sixth day, it
+  needs shorter sessions.
+- **The second run already exists in the program.** `Weekend run (optional)` was built on 11 August,
+  is Garmin-tracked and deliberately skippable. It needs using, not building. Saturday is the better
+  default because running on legs tired from Lower 1 *is* compromised running.
+- **Peer-reviewed Hyrox research found**: VO2max (ρ = -0.71), endurance training volume (ρ = -0.68)
+  and body fat (ρ = 0.67) predicted finish time; **grip strength, resistance training volume and
+  muscle mass did not** (p = 0.79 / 0.31 / 0.94), and correlations existed only for the runs. Also
+  that the stations provoke *higher* intensity than the runs while the runs decide the time. n = 11,
+  so read the direction not the precision. Strength for Hyrox is a **sufficiency** problem.
+- **The goals are not equally hard.** At 74.6 kg, a 100 kg bench is 1.34x bodyweight (solid
+  intermediate) while a 200 kg squat is 2.68x (advanced edging elite). The bench sounds hardest and
+  is the most modest of the three.
+- **Cerys has no threshold at all** - her zones are percentages of a max, Daniel's come from a real
+  lactate-threshold estimate. Her max (199, with 192 observed) is probably fine; the missing piece is
+  threshold. **She cannot do the standard 30-minute field test** - her longest continuous run is a
+  minute - and it does not currently earn its place anyway. Daniel's version doubles as his longest
+  ever continuous run.
+- **Every kilometre either of them has run is on a belt**, and **treadmills absorb ~71% more shock
+  than asphalt**. Hyrox is 2-4 laps per kilometre on a hard arena floor. A first race-floor run is a
+  load increase that no watch metric will show - which matters most for Cerys's shins.
+- **The app already records RPE per set and nothing reads it.** It is exactly the input an
+  autoregulated progression needs, and it is the largest piece of unused information in the project.
+
+**Timing note:** Daniel's 28 Aug session note says a **new work schedule starts 7 September**, so the
+week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the questions worth answering while it is.
+
+### Features built (high level)
+- **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
+  keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
+  **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**
+  resolved to kg, per-exercise **setup notes**, **"Last" as relative time** + cross-session
+  "most recent" chip, **warm-up set flag** (tap set number → excluded from volume/PRs/heatmap).
+- **Cardio/running:** N-column exercises; running = Distance/Time/Pace with auto-pace + splits;
+  **TCX/GPX import** (Garmin/Strava files).
+- **History:** **This-week summary** (volume + muscle heatmap + weekly-volume bar chart), full
+  session list, filter/expand/delete.
+- **Progress:** **Records table** (current bests: weight/reps/**e1RM**/date) + exercise chart with
+  a **top-weight vs Est. 1RM** metric toggle. Plus a **🏃 Run** pane (5k estimate, a self-building
+  trend picker across pace/HR/efficiency/drift/HR-recovery/consistency/cadence/stride/ground-contact/
+  power/load/watch-RPE, and every run expanding to its **per-rep table**) - shown only when there's
+  running data.
+- **Body:** per-person **goals**, **bodyweight history** + trend chart + **scale CSV import**
+  (1byone-style, auto-detects date/weight columns, lb→kg).
+- **Save popup:** volume + fun comparison, PR medals, redrawn **muscle map** heatmap.
+- **Program editor:** add/edit/reorder, **exercise-name library** (avoid dup spellings), Lifting/
+  Running presets, optional 3rd column, setup notes, warm-up (fixed or %).
+- **Theme:** dark/light toggle (persisted, follows OS default).
+- **Data:** export/import (merge by id / person+date), **free GitHub cloud sync** + off-device
+  backup, **Coach-brief Markdown export** (paste into Claude / Obsidian).
+- **Coaching (two-way):** `mcp-coach/` MCP server exposes the data to Claude (subscription, no API
+  cost) AND `write_coaching(person, overall, by_exercise, by_session)` lets Claude push notes back →
+  shown as purple 🧠 Coach cards on Home + Log: a **per-session** focus note (`by_session`, keyed by
+  session name), an optional general `overall`, and a **per-exercise next-step** cue (`by_exercise`)
+  on each exercise. (Replaced the old auto-generated per-exercise plan.) Every write is also appended
+  to a **coaching history**, which the coach reads back via the **`coaching_history(person)`** tool to
+  track whether past advice was followed and the numbers improved. **It is no longer in `data.json`
+  and no longer shown in the app** - see the 14 Sep entry; it lives in `coaching-log.json` in the
+  sync repo and the phones never carry it. Coaching-chat starter prompt:
+  `docs/prompts/coaching.md`. **`by_session` + `coaching_history` need a Claude Code restart to load.**
+
+## File / architecture map
+- `index.html` - markup, dialogs, PWA meta, the muscle-map SVG (class-scoped styles, cloned for the
+  weekly heatmap).
+- `css/styles.css` - all styling; theme via CSS vars (`--bg/--card/--card-2/--input-bg/--ink/
+  --muted/--line/--brand/--brand-soft/--musc-*`).
+- `js/app.js` - single module. State + migration (`load`/`save`; `state = {people, weights, goals,
+  bodyweights, activePerson, program, logs, theme}`). Tabs render into `#view`: `renderLog`,
+  `renderHistory`(+week summary), `renderProgress`(+records), `renderRun`, `renderBody`,
+  `renderEdit`, `renderHelp` - the last three are the `progressPane` toggle inside Progress
+  (`progressPanes()` drops 🏃 Run when there's no running data).
+  Key helpers: `esc`, `possessive`, `relTime`, `weekMonday`, `isLifting`, `isRunning`, `ratesRpe`,
+  `parseRange`, `bestWeightSoFar`/`personRecords` (warm-up-aware), `epley`, `fmtRow`,
+  `addBodyweight`, `importBodyweightCsv`, `parseTcx`/`parseGpx`/`importRunIntoCard`, `coachBrief`,
+  cloud sync (`syncNow`/`mergeInData`/`exportPayload`/GitHub Contents API), `classifyMuscles`/
+  `muscleColor`/`paintMuscleMap`, and the Garmin read side (`garminLine`, `intervalStructureText`,
+  `repTableHtml`, `RUN_METRICS`/`drawRunChart`, `recoveryCardHtml`, `hrZonesCardHtml`). `formDrafts` + `sessionTimers` (the in-progress log form) persist
+  to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
+  after 12h - deliberately **not** part of the export/sync payload.
+- `sw.js` - service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
+  change to a cached file.** Currently `tt-v117`.
+- `manifest.webmanifest`, `icons/` - PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
+- `mcp-coach/` - Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
+- `mcp-garmin/` - Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,
+  `sample-activity.json`). Reads runs from Garmin Connect + imports one into the shared store;
+  maps a Garmin activity → the app's run-log shape. Same stdlib GitHub read/write as `mcp-coach`;
+  `garminconnect` imported lazily so `--selftest` runs without it. Extraction lives in
+  `activity_metrics` / `reps_from_typed_splits` / `rep_derived` / `activity_efficiency`;
+  `fetch_activity_extras` gathers the per-activity Garmin calls **once, up front**, because a store
+  write can retry and must never re-fetch. CLI: `--sync` (hourly, cheap), `--hrzones`, `--refresh`
+  (already-linked sessions), `--wellness` (overnight). What each field means is documented in
+  `mcp-garmin/README.md` → *What gets attached to a session*.
+- `scratchpad/probe_garmin{,2,3}.py` - read-only surveys of what a Garmin account actually holds.
+  Worth keeping: they're how the wear-time and VO₂max dead ends above were established, and re-running
+  one is cheaper than re-deriving it. Their output is gitignored (heart rates, profile ids).
+- `docs/` - `github-sync-setup.md`, `running-import.md`, `hub-and-coaching.md`, this file.
+- `sample-daniel.json` / `sample-cerys.json` - **gitignored** real exports, local test fixtures only.
+
+## Setup to switch things on (done by Daniel; I don't handle tokens)
+1. **Cloud sync** - gear → Cloud sync (GitHub): repo `Daniel0469/Training-Data`, a fine-grained
+   token with Contents: read & write on that repo, then **Sync now**. Repeat on Cerys's phone. See
+   `docs/github-sync-setup.md`.
+2. **Claude coaching** - `python -m pip install mcp`, set `TT_GITHUB_REPO=Daniel0469/Training-Data`
+   + `TT_GITHUB_TOKEN` (read), add the server to Claude Desktop/Code. See `mcp-coach/README.md`.
+
+## Decisions (so they're not relitigated)
+- **File import, not Garmin/Strava APIs:** Strava's API forbids feeding data to AI; Garmin's dev
+  program is on hold; self-exported files avoid both. (`docs/running-import.md`)
+- **MCP coaching over automatic API calls:** MCP runs on the Claude subscription (free); automatic
+  on-save API calls cost money and are not wanted.
+- **GitHub-as-store for sync:** free, no server, reuses the upsert-by-id merge; token stored only on
+  device, never in exports.
+- **Scale (1byone):** no usable API/Bluetooth (iOS blocks web Bluetooth); its export "doesn't work"
+  for Daniel → manual entry, or paste a scale **screenshot into Claude** (its vision reads the
+  number) rather than adding a heavy in-app OCR dependency.
+- **Data keyed by person NAME; drafts/timers in-memory.** Warm-ups stored as `entry.warmup` (row
+  indices) and excluded from volume/PRs/e1RM/heatmap everywhere.
+- **Strength and size first, one run a week (Daniel, 2 Nov 2026).** Replaces "fitness and Hyrox
+  first". The week is Mon Lower A, Tue Upper A + a run the coach picks each week, Wed mobility,
+  Thu Lower B, Fri Upper B. Conditioning work was cut from the lifts. `docs/term-routine.md` has
+  the table.
+
+## Automation approach (decided)
+Rule of thumb: **auto is fine when it's free + deterministic; keep a human gate when it bills or can
+break something.**
+- **Garmin run auto-import:** ✅ **fully hands-free by design, FREE** (no LLM). Event-driven: saving
+  a cardio session flags it (`garminWanted`); a scheduled `python mcp-garmin/server.py --sync
+  <server>` on the laptop links that day's run and the app auto-syncs on open. It's deterministic
+  Python (garminconnect + GitHub), so it doesn't use Claude and costs nothing. **Only remaining
+  step to make it hands-free: add the Windows Task Scheduler job(s)** - see `mcp-garmin/README.md`.
+  Caveat: runs when the laptop is on (the phone can't reach Garmin itself; slight delay also helps,
+  since the watch uploads a few min after you finish).
+- **Coaching:** ✅ **scheduled since 24 Sep 2026** - see *Automation to-do* item 2. The coaching
+  chat stays for anything beyond notes and suggestions. *(Superseded plan, kept for the record:)*
+  **semi-auto** (open the coaching chat weekly, paste the prompt - free, on the
+  subscription, keeps a human in the loop while calibrating). **Later, optional - fully hands-free
+  costs money:** a weekly **GitHub Action** calling the Anthropic API (a scheduled job can't use the
+  subscription). Est. **pennies/run, well under £1/month**: ~£0.30–0.60/mo on Sonnet 5, ~£0.50–1.00
+  on Opus 4.8, weekly, depending on how much history it reads. Real tradeoff isn't the money - it
+  pushes coaching to the phones **without Daniel reviewing it first** (lower stakes than code; a bad
+  cue is ignorable, not app-breaking).
+- **Code fixes / self-improvement:** **semi-auto now** (in-app 💡 suggestions sync to the backlog;
+  a dev chat reads them via the `suggestions` MCP tool, auto-applies easy fixes, consults on hard).
+  **Later, optional:** a scheduled agent that opens **pull requests for Daniel to review/merge** -
+  *not* auto-push to the live app. Deliberately keep a human merge gate (code deploys to both
+  phones; unlike coaching text, a bad change can break the app). Also token-heavy → would bill.
+
+### Automation to-do (on the plan)
+The two "make it hands-free" jobs:
+1. **Garmin auto-schedule (Daniel):** ✅ **DONE - Windows Task Scheduler task "TT Garmin sync
+   (Daniel)" is live** (runs `python mcp-garmin/server.py --sync training-garmin`; verified,
+   LastResult 0). **Free.** Cadence: **hourly all day Wed + Sat, and hourly 00:00–05:00 Thu + Sun**
+   (the 05:00 cutoff matches the app's ~5am training-day rollover, so a cardio session that spills
+   past midnight is still caught). Matcher uses the same 5am window, so an after-midnight Garmin run
+   links to the prior day's session. Runs only while the laptop is on. Manage it in Task Scheduler
+   or with `schtasks /Delete /TN "TT Garmin sync (Daniel)" /F`. **Cerys: Garmin fully set up DONE**
+   (2026-07-19). Session cached at `~/.garminconnect-cerys` via
+   `python server.py --login training-garmin-cerys` (verified it read a recent activity), **and the
+   Task Scheduler job "TT Garmin sync (Cerys)" is live** - an exact clone of Daniel's (hourly Wed/Sat
+   all day + Thu/Sun 00:00–05:00), running `--sync training-garmin-cerys`; verified with a manual run
+   (`ok:true`, nothing pending). Remove with `schtasks /Delete /TN "TT Garmin sync (Cerys)" /F`. Both
+   people are now on the hands-free Garmin auto-link.
+   NB: signing in took several tries - Garmin **429-rate-limits** repeated `--login` attempts; what
+   unblocked it was Cerys logging into connect.garmin.com in a browser on the laptop (cleared a
+   verification challenge) plus fixing a library-API break - see `mcp-garmin/README.md`
+   → *Troubleshooting sign-in*.
+2. **Hands-free coaching:** ✅ **DONE 24 Sep 2026 - free, on the subscription.** The GitHub Action
+   plan above is dropped: a Claude desktop-app **scheduled task, `weekly-coach`**, runs **Fridays
+   20:30** (the same slot as the study plan; if the app is closed it runs on next launch). It runs
+   `garmin_fill_pending` for both, then reviews everything logged since each person's last coaching.
+   **Daniel's rule: unattended it may only `write_coaching` (live) and raise suggestions, which
+   since 2 Nov 2026 it files as Home-Hub `training` issues labelled `needs-confirmation` and
+   `from:<name>` (open in-app suggestions are filed the same way, then marked done in the app); every other write - `write_run`, `write_session_notes`,
+   `write_program_change`, limiters - waits for a chat he is in.** It lists those under *Waiting for
+   a chat* in its summary. Enforced by the task prompt, not by the tools. Prompt:
+   `~/.claude/scheduled-tasks/weekly-coach/SKILL.md` (it reads `docs/prompts/coaching.md` for
+   everything else, so keep that current). A dry run on 24 Sep read the live store correctly and
+   wrote nothing, but there were no new sessions, so the write path is unproven until the first
+   Friday with new sessions.
+
+## Build order remaining (each stops for review)
+1. **Garmin MCP** - ✅ **built** (`mcp-garmin/`), pending Daniel's setup. Unofficial-login server
+   (community `garminconnect`) so Claude reads your runs and can **import a run into the app** (it
+   lands in History like any session; merges by Garmin activity id, no dupes). Reading needs only a
+   Garmin login; importing also needs the `TT_GITHUB_*` store token (Contents: read+write).
+   - **Auto-link on cardio days:** saving a cardio/running session tags it `garminWanted` (shown as
+     *⌚ awaiting run…*). A scheduled `python server.py --sync <server>` (or the `garmin_fill_pending`
+     tool) matches that day's Garmin run by person+date and **enriches the logged session** with HR,
+     cadence, elevation, calories, moving time, training effect, VO₂max + per-km split HR - **never
+     overwriting** entered data. Shows as a **⌚ Garmin** line in History. `--sync <server-name>`
+     reads that server's creds from `.mcp.json` (needs `TT_PERSON` in its env); schedule via Windows
+     Task Scheduler (it no-ops when nothing's pending, so hourly is cheap). Verified in-browser
+     (linked + awaiting sessions render, light+dark, no console errors); pure mapping via `--selftest`.
+   - **To switch on:** `pip install -r mcp-garmin/requirements.txt`, run `python server.py --login`
+     once (handles MFA → caches the session), register the `training-garmin` server, restart Claude
+     Code, then add the Task Scheduler job(s). See `mcp-garmin/README.md`. Credentials stay on the
+     laptop (env + `~/.garminconnect` cache).
+2. **Hub:** ~~home **dashboard**~~ ✅ → **nutrition** (protein/calorie + targets) → **sleep/wellness
+   check-in** → **auto weekly review**.
+   - **Nutrition now has a planned data source:** a separate **Home Hub** app (plants/chores/climate,
+     home server) will capture meals by barcode/camera and write them to the shared `data.json`;
+     this app displays them and feeds them to the coach. Contract + tracker-side work in
+     `docs/home-hub-link.md`. Nothing built yet.
+   - **Home dashboard - ✅ built.** New **Home** tab (`renderHome`), now the app's default landing.
+     Per active person: greeting + today's session (with a **Log it** shortcut), 🧠 Coach card,
+     stat tiles (sessions + volume this week, latest bodyweight with trend arrow, total sessions),
+     last session (with 🥇 + Garmin status), last run (km/time/HR), a bodyweight-trend mini-chart,
+     and goals. Reuses existing helpers; arrows jump to History/Body. Verified light+dark, nav works,
+     no console errors. `.tile`/`.tiles` CSS themed via vars. `CACHE_NAME` → tt-v31; Guide updated.
+   - **Scale input via phone screenshot - PARKED for the hub (re-confirmed 2026-08-11).** Daniel
+     logs bodyweight from a **screenshot of his scale app**, and wants the screenshot to capture
+     **more than bodyweight** (body fat, muscle mass, water, etc. - the whole readout). Designed
+     this out on 11 Aug and then parked the capture half: it stays the **hub's** job, as
+     `docs/home-hub-link.md` already assigns it. **Don't redesign it from scratch next time** -
+     the findings below are settled:
+     - **Daniel's preferred shape:** upload the screenshot from the phone → Claude reads it on the
+       laptop → metrics land in the app. **Verified viable end to end**: `mcp.server.fastmcp.Image`
+       takes raw `bytes` + `format`, so an MCP tool can hand Claude the image and its vision reads
+       it. Upload rides the existing sync token via the GitHub Contents API.
+     - **Three costs, all real:** (1) it is **not instant** - nothing happens until someone opens a
+       Claude chat, so the app needs a *"⏳ waiting to be read"* state mirroring `garminWanted`;
+       (2) **git keeps every blob forever**, so the repo only grows (~150KB compressed × 2 people ×
+       ~2/week ≈ 30MB/year; sync is unaffected, it fetches only `data.json`); (3) it **needs cloud
+       sync configured**, so a local-only install can't use it and still needs typed entry.
+     - **A fourth mechanism nobody had considered, worth revisiting:** don't read the image at all -
+       **the phone already has OCR**. iOS Live Text / Android Lens select-and-copy the text out of
+       the screenshot; the app then parses *pasted text* with a regex, like `importBodyweightCsv`
+       already does for CSV. No dependency, offline, on-phone, and robust to the scale app
+       redesigning. Its weakness is that OS-OCR ordering of ~10 labelled values can be messy to
+       parse reliably, which is the main argument for Claude's vision instead.
+     - **Still standing:** no heavy in-app OCR (Tesseract.js is a 2-15MB wasm dependency against a
+       codebase whose only dependency is Chart.js) - see the scale decision below.
+     - **Routes already ruled out, don't retry them:** 1byone has **no web portal and no public
+       API** (mobile app only), so nobody can log in and read it - not Claude, not a script. The
+       app *does* sync to **Apple Health / Google Fit / Fitbit**, and Garmin exposes exactly the
+       readout wanted (`get_body_composition` → weight, BMI, body fat, body water, bone mass,
+       muscle mass, physique rating, visceral fat, metabolic age) - but **Garmin will not pull
+       weight from Apple Health** (Daniel confirmed, 2026-08-11), so that chain is dead. Verified
+       separately that Daniel's Garmin holds **0 body-composition measurements** for May–Aug 2026.
+     - **Cheapest thing to retry first:** the 1byone **CSV export**, which the app documents as
+       including BMI and water weight. It's recorded as "doesn't work", but that's an old note -
+       and `importBodyweightCsv` already exists, so widening it past date+weight would be small.
+     - **Open schema, deliberately:** because Claude reads whatever labels are on the screenshot,
+       the record should be `{person, date, metrics:{label:{value,unit}}}` rather than a fixed
+       column list - nobody has to enumerate the scale's readout up front, and it adapts per model.
+     - **Bodyweight must keep living in `state.bodyweights`** whatever gets built. `setLoad`,
+       `personRecords`, Home's tiles and the coach all read it; a new metrics record writes
+       *through* to `addBodyweight` rather than forking it.
+
+## Next up (agreed with Daniel, 2026-07-23)
+
+Prioritised, scoped and sequenced by asking Daniel through each candidate area and each open design
+fork, rather than assuming. **Nothing here is started yet** - this is the plan, not a build log.
+
+**Parked for later - still wanted, just not this round** (not "no," just "not yet" - come back to
+these): sleep/wellness check-in, auto weekly review, hands-free coaching (still deliberately held
+off - human reviews coaching first), starter program templates at account creation (stays blank,
+per the earlier decision - not reopened), injury/niggle log, colour-collision check on import,
+real PWA icons, CSV export of raw log data, History search by exercise name, streak/consistency
+tracker, accessibility pass, progress photos (`localStorage` doesn't scale to image blobs - would
+need IndexedDB or cloud-only storage), multi-week periodization/mesocycles (the most open-ended
+item considered).
+
+**Design principle across the health-feature items below:** make them **opt-in per person**, not
+forced on every account - a settings toggle per account for which of these are tracked/shown.
+
+### Build order (effort-sized: S/M/L)
+1. ✅ **[S] DONE - Warn before a plain rename orphans history.** Confirm before an existing
+   account's name changes, matching the Delete-account warning; a first-time name (new account)
+   still saves with no prompt.
+2. ✅ **[S-M] DONE - RPE per set**, reusing the existing 1-10 scale (not a separate powerlifting-
+   style 6-10 half-step scale) - a per-set input, lifting exercises only, stored as a sparse
+   `entry.rpe` array, shown in History, carried through drafts.
+3. **[M] Body measurements beyond weight** - folds into the existing **Body tab**, not a new top-
+   level tab. New `state.measurements` entries (person, date, type, value) alongside the existing
+   `state.bodyweights`; a type selector (waist/chest/arms/etc.) and a trend chart per type,
+   mirroring the bodyweight chart pattern. No dependencies.
+4. **[M-L] Nutrition UI** - also folds into the **Body tab**. Daily kcal/protein targets per
+   person (alongside the existing goals), a manual add/edit entry form (description + kcal +
+   protein, optional carbs/fat - matching the `meals` contract already defined for the Home Hub
+   link), and today's totals + a weekly trend chart. Data plumbing (`state.meals`, merge-by-id)
+   already exists (`docs/home-hub-link.md` item 2) - this is purely the missing display layer.
+   Works standalone whether or not the Home Hub ever gets built.
+5. **[S] Coach sees nutrition** - a `nutrition(person, days)` MCP tool + a line in `coachBrief`.
+   **Depends on #4.** Mention in `docs/prompts/coaching.md` so the weekly chat actually uses it.
+6. ✅ **[L] DONE (scoped down) - Superset/circuit grouping.** Investigation found true round-by-
+   round interleaved entry would mean rebuilding per-exercise wiring (drafts, RPE, warm-ups,
+   notes, PR detection, muscle tagging) - Daniel picked the smaller, confirmed-safe scope instead:
+   **visual grouping only**. Program editor gets tick-to-select + "Group as superset"
+   (`groupId` field, `exerciseBlocks()` contiguous-run helper, group-aware `move()`); the Log form
+   wraps a grouped run's already-unmodified per-exercise cards in a bordered `.superset` block.
+   Zero changes needed to `saveSession`/`captureDraft`/`restoreDraft`/`wireExCard`.
+7. ✅ **[M] DONE (2026-07-28) - Add an exercise for today only.** Tom's suggestion. Daniel chose
+   *add* over *swap* (adding covers it - you just leave the one you skipped blank). The existing
+   exercise dialog opens in a today-only mode; the result goes into `formExtras`, persisted with
+   the drafts and never into `state.program`. `logExercises()` (program exercises + today's extras)
+   is what every `data-ei` on the log form indexes into, so extras get drafts, RPE, warm-ups, PR
+   medals and Garmin detection for free. Dashed card + "Today only" pill, ✕ to drop it (shifts the
+   draft entries), and the save popup offers **Add to program** for any that were logged.
+8. ✅ **[M] DONE (2026-07-28) - Bodyweight / assisted exercises score by real load.** Per-exercise
+   `load` (`"bw"` = bodyweight×`bwPct`% + typed, `"assist"` = bodyweight − typed, absent = normal),
+   set in the exercise dialog, which also renames the column Added/Assist. Everything scoring-
+   related goes through `setLoad()`: `bestWeightSoFar`, `personRecords`, save-time
+   volume + PR detection, `updateSetMedal`, the progress chart. Bodyweight is taken **as at the
+   session date** (`bodyweightOn`); entries are stamped with their load type on save, and older
+   unstamped ones fall back to the program definition by name, so flagging an exercise re-scores
+   its history. **Saved per-session volume totals are deliberately left as logged** (Daniel's call)
+   - records/PRs recompute live, History's per-session number doesn't move.
+9. **[blocked] Garmin sync off the laptop** - move the scheduled `--sync` jobs onto a home
+   server/Pi once the Home Hub hardware exists (`docs/home-hub-link.md` item 5), removing the
+   "only runs while the laptop is on" caveat. Not pure app-code work - independent of the ordering
+   above, revisit whenever the Pi is up.
+
+## Open in-app suggestions awaiting Daniel's decision (as of 2026-08-17)
+Both remaining items are the same shape - **the coach reaching into the program** - and neither is
+a small build. Answering the first largely settles the second:
+- **"have coach be able to suggest adjustments to the program - i.e. changing from 4 sets to 3, and
+  if i agree then it changes in the app"** (`1786995006416`, 17 Aug). The mechanism already exists in
+  outline: the `proposed → open → done/declined` lifecycle built on 12 Aug, with approval in the gear
+  💡 panel. What needs deciding is **scope** (sets/reps/target only, or adding and removing exercises
+  too - the second is far more destructive, since a removed exercise orphans its history), **where
+  approval happens** (the 💡 panel, or on the exercise itself in the Program tab, which reads better
+  for "4 sets → 3" but means a second approval surface), and **whether an approved change is applied
+  by the app or written by the coach**. Note the live hazard: `saveProgram()` stamps `updatedAt` and
+  pushes, so an approved change lands on **both** phones - and `mergeInData` deliberately refuses to
+  adopt a new program mid-workout, so a change approved during a session arrives after it's saved.
+- **The coach's own proposal, awaiting approval in the app** (`1786642972329`, `status: "proposed"`):
+  let a cardio session record **how** the aerobic work was done - run, incline walk, bike,
+  cross-trainer - instead of everything being an "Easy run (Zone 2)" row. Its evidence is real and
+  checkable: Cerys's 13 Aug incline walk logged as a run, reported at 10:27/km with an efficiency
+  figure whose own basis says it's diluted by walking, and now sitting on the same trend as her actual
+  runs. **The dev tool cannot see this until Daniel approves it in the gear 💡 panel** - that gate is
+  deliberate, so it has not been built. Approve or decline it there.
+
+### Cleared or settled on 17 Aug
+- ✅ **"have longer coaching notes for each exercise"** (`1786488544590`) - built, see the 17 Aug entry.
+- ✅ **"have coach be able to alter the warm up and cool downs"** (`1786574564394`) - built, shared-note
+  mechanism, see the 17 Aug entry.
+- ❌ **"add an optional exercise timer"** (`1786488191424`) - **Daniel's answer was to drop it**.
+  Resolved without building. **Superseded on 6 Sep**: Daniel raised a rest timer himself and it
+  shipped on 7 Sep - see the 2026-09-07 entry. The *exercise* timer is still not wanted.
+- ⏸ **"update export and import - ask specifics"** (`1786567246193`) - **left open on purpose**
+  ("leave for now but keep"). Still in the backlog, not resolved.
+- ✅ **DONE (2026-08-12) - "coach should be able to push suggestions aswell"** (`1786491755166`).
+  Daniel clarified the scope: anything a coaching note mentions that is really a request of the
+  **app** goes to the dev backlog for his approval, rather than sitting in a note he has to remember.
+  Built on `state.suggestions` rather than a parallel list. A suggestion now has a lifecycle:
+  `proposed` → `open` → `done`, with **`declined` as a second terminal state that is not the same as
+  `done`** - it means he said no, which both the coach and the dev tool can see, so a rejected idea
+  isn't re-raised weekly. The gate lives in `get_suggestions`: `proposed` is withheld from the
+  dev-facing tool unless asked for, so **approval is what turns a proposal into work**.
+  `propose_suggestion_tool(text, why, about)` is the coach's end and refuses text that already
+  exists in any state. Approval UI is the gear menu's 💡 panel only (Daniel's call - no Home card),
+  and **anyone on the device can action one**: the app has no owner concept and adding one for this
+  wasn't wanted. **`mergeInData` had to be generalised** - it only let `"done"` win, so an approval or
+  a decline on one phone would have been walked back by the other's older `proposed` copy; a status
+  rank now decides and the terminal states can't be undone. `tt-v105`.
+
+## Other open items
+- **Restart Claude Code** after any MCP server/`.mcp.json` change to load new tools (e.g.
+  `write_coaching` + `coaching_history`, `suggestions`, `resolve_suggestion_tool`, and `garmin_*` -
+  most recently `garmin_refresh_metrics` and `garmin_wellness`, added 12 Aug).
+- **Garmin one-time login:** run `python mcp-garmin/server.py --login` once to cache the session
+  (answers MFA), then register the `training-garmin` server - see `mcp-garmin/README.md`.
+- **Set goals** - **Daniel's are now set** (sub-20 5k, 100kg bench, 200kg squat, 200kg deadlift, as
+  of 2026-07-30). **Cerys's are still blank**, which makes her coaching weaker.
+- **Cerys has no bodyweight recorded** (0 weigh-ins, blank in Settings) - needed for her pull-up
+  scoring to work at all, and for any future bodyweight/assisted exercise. One entry on the Body
+  tab fixes it retrospectively, since bodyweight is looked up per session date.
+- **The two cardio sessions still carry `Warm-up jog` / `Warm-up` / `Cooldown` as logged
+  exercises**, which now duplicate the session's warm-up and cool-down note cards. Ask Daniel
+  whether to remove them from the program (their logged history would stay).
+- **1byone date mapping:** ambiguous slash dates default to D/M/Y; confirm against a real export.
+- **PWA icons:** done 13 Oct - the design v3 dumbbell mark (see README).
+- Done: code review, GitHub Pages deploy, auto-sync, MCP coach (read + write), in-app suggestions.
+  **Phase 3 mini-features (kg/lb toggle, Hevy CSV, plate calc) are NOT wanted.** The rest timer was
+  on that list until Daniel asked for one on 6 Sep; it shipped 7 Sep.
+
+## Dev notes
+- Serve any static way; a **no-cache dev server** avoids the browser HTTP/bfcache serving stale
+  css/js (send `Cache-Control: no-store`; navigate to a fresh `?v=N` URL to bust bfcache).
+- Verify features in-browser (light + dark, no console errors). Commit per feature. **Never add a
+  `Co-Authored-By` trailer or any other AI attribution** - Daniel asked for this explicitly and had
+  the existing history rewritten to remove it. (This line used to say the opposite, contradicting
+  `CLAUDE.md`.)
+- **Beware `\n` and `\'` inside a Bash heredoc** when scripting edits to `js/app.js`: the escapes
+  get eaten and you end up with real newlines inside a JS string literal, i.e. a parse error the
+  service worker will then happily cache. Use the Edit/Write tools for anything with backslashes,
+  and if the app suddenly has no globals, clear the SW caches before debugging anything else.
