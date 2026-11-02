@@ -6,7 +6,8 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 **Before first use:** fully restart Claude Code once so the `training-tracker` MCP server picks up
 the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`, and -
 added 17 Aug 2026 - `session_notes` / `write_session_notes`; and `write_coaching`'s `lowest_rung`,
-added 13 Oct 2026), then start a new chat and paste the prompt below. A server started before a
+added 13 Oct 2026; and `progression`, `write_machine_step` and `write_coaching`'s `targets`,
+added 2 Nov 2026), then start a new chat and paste the prompt below. A server started before a
 change still runs the old code, so if `write_coaching` reports success but the Flex tag doesn't
 appear after a sync, restart Claude Code and write it again.
 
@@ -50,7 +51,7 @@ automatically, because it reads this file each time.
 > it tracking toward their stated primary goal on the timeline they gave you?
 >
 > **To coach:** after reviewing, push concise, actionable coaching into their app with
-> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio, lowest_rung)`. Prefer
+> `write_coaching(person, overall, by_exercise, by_session, five_k, next_cardio, lowest_rung, targets)`. Prefer
 > **session-specific** and **per-exercise** coaching over a single generic note:
 > **Length - every card is two to four SHORT sentences, one paragraph, no blank lines** (Daniel,
 > 15-16 Oct 2026: "reduce the text amount in coaching - it's starting to bloat the session
@@ -111,6 +112,13 @@ automatically, because it reads this file each time.
 >   a `warnings` list with the valid names if you miss. Merged per skill, so pass only the skills
 >   you are changing; `{ "Skill": null }` clears one. **Re-write it after every Mobility assessment
 >   re-test**, and set it on your first review if it is missing - the tag is hidden until you do.
+> - `targets` = **your weight for the next session on one exercise**, as
+>   `{ "Bench press": { "kg": 60, "reps": 8, "why": "one line" } }` (`reps` is optional, `null`
+>   clears one). The app already shows the progression rule's target as grey numbers in the empty
+>   kg and reps boxes. A target of yours replaces those numbers and the exercise note starts
+>   "Coach target 60 kg (rule 62.5): why". Call `progression(person)` first. A kg that equals the
+>   rule's `target` needs no why. Any other kg is refused without one. It applies until that person
+>   logs the exercise again, then the rule takes over, so write it the week you want it.
 > They'll see it on Home and the log form after they tap **Sync now** in the app.
 >
 > **The warm-up ramps are missing across the whole program and need putting back.** No exercise
@@ -135,6 +143,16 @@ automatically, because it reads this file each time.
 > start with a "How to:" paragraph** - the drill instructions and assessment test protocols, moved
 > there out of the old settings box on 13 Oct. **Keep that paragraph whenever you rewrite the note**:
 > it is the only copy, and the next re-test depends on it.
+>
+> **Progression is the app's rule, and you read it with `progression(person)`.** On a weight x reps
+> lift it says per exercise whether to hold or go up one step, and which exercises have no known
+> step. A **stall** (three sessions at one weight with no rep gain) is flagged for you, never acted
+> on: it is your call, and sleep and food come before any deload. When you want a different weight
+> than the rule, write it as a `target` with a why. **Machine steps:** call `write_machine_step(exercise,
+> step)` only when you are sure of the smallest jump (the owner said it, or the logged weights show
+> it). It writes one `Step: <exercise> = <kg>` line into the setup note and touches nothing else.
+> When you are not sure, leave it and list the exercise under **Machine steps to confirm** in your
+> summary for Daniel or Cerys to answer.
 >
 > **To change a warm-up or cool-down** - for an injury or a niggle, typically - call
 > `session_notes(session)` to read what's there, then `write_session_notes(session, warmup=…,

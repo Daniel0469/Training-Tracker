@@ -9,16 +9,19 @@ laptop, on your **Claude subscription - no API billing**.
 **Read:** `people`, `goals(person)`, `recent_sessions(person, limit)`, `session(session_id)`,
 `prs(person)`, `bodyweight(person)`, `progress(person, exercise)`, `running_form(person)`,
 `limiters(person)`, `coaching_history(person)`, `session_notes(session)`, `run_session(person)`,
-`suggestions()`.
+`progression(person)`, `suggestions()`.
 
 **Write** (needs the token to have Contents: **read and write**): `write_coaching`,
-`write_limiter`, `write_session_notes`, `write_run`, `propose_suggestion_tool`,
+`write_limiter`, `write_session_notes`, `write_run`, `write_machine_step`, `propose_suggestion_tool`,
 `resolve_suggestion_tool`.
 Everything written lands in the shared `data.json` and reaches the phones on their next sync.
 
 Three of the writes are worth knowing the shape of before using them:
 - `write_coaching` is **per person** - Daniel and Cerys can get different notes on the same
-  session, and usually should.
+  session, and usually should. Its `targets` set the weight for one exercise's next session and
+  need a why when the kg differs from what `progression(person)` says.
+- `write_machine_step(exercise, step)` writes one `Step: <exercise> = <kg>` line into a session's
+  setup note and touches no other text. `progression.py` reads it as the machine's smallest jump.
 - `write_run` / `write_session_notes` carry **three** notes, not two: `recording` (how to
   record it on the watch - start, laps, end, what to report back) is deliberately separate
   from `warmup`, because the lap plan has to be rewritten whenever a session's structure

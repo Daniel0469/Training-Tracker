@@ -262,6 +262,30 @@ programming), then reduce the size of the jump, then add a lighter day, then mov
 **Applied:** Daniel's deadlift has been trained once. That is a frequency problem with a frequency
 solution, and it is more likely to move his deadlift than anything else in this document.
 
+## Double progression, and what the app does with it
+
+Every weight x reps lift with a rep range (3x8-12, not 2x5 light) runs on **double progression**:
+work in the range, and when every working set reaches the top of it, the next session goes up one
+step. Until then the weight stays and the reps climb. The app works this out from the logs and shows
+it as grey numbers in the empty boxes (`progCore` in `js/app.js`, `mcp-coach/progression.py`, both
+checked against `mcp-coach/progression_cases.json`).
+
+- **Working weight** is the most common typed weight in a session, ties to the heavier load. Warm-up
+  sets are left out.
+- **Progress** when the latest session had at least the programmed number of sets at the working
+  weight, none missed (reps blank, under the bottom of the range, or not ticked), and every one at
+  the top of the range. The target is one step up (one step down for assisted pull-ups). Anything
+  else holds the weight.
+- **The step** is the smallest jump the equipment allows: 2.5 kg on a barbell (5 kg on lower-body
+  barbell lifts), 1 kg on dumbbells below 10 kg and 2 kg from 10 kg. A machine's step is a `Step:`
+  line in a session's setup note (`Step: Seated row = 2.5`), else learned from the weights both
+  people have logged on it. When it is unknown the app keeps the weight and shows **Up one step**.
+- **Stalled** is flagged after three sessions at one weight when neither of the last two beat the one
+  before on total reps. The rule never deloads. A stall is the coach's call, and sleep and food come
+  before any change of load (see the signs above).
+- **The coach can override** one exercise for one session with a target and a reason
+  (`write_coaching(targets=...)`). It applies until that person logs the exercise again.
+
 ## Autoregulation, and the data already sitting in the app
 
 The evidence: **autoregulated load prescription is at least as good as percentage-based, and RIR-based
@@ -269,11 +293,11 @@ autoregulation produced greater strength improvements than fixed loading over 12
 trial. Subjective (RIR/RPE) and objective (velocity-based) approaches perform similarly. Autoregulated
 sessions also preserve bar speed better than fixed prescriptions.
 
-**The app already collects RPE on every set.** It was added in July, it covers lifting and running,
-and **nothing currently reads it.** That is the single largest piece of unused information in the
-project:
+**The app already collects RPE on every exercise.** It is one rating per exercise, picked under the
+set table, not one per set. It was added in July, it covers lifting and running, and **nothing
+currently reads it.** That is the single largest piece of unused information in the project:
 
-- RPE per set is exactly the input an autoregulated progression needs.
+- RPE per exercise is the input an autoregulated progression needs.
 - It would let a prescription say "work up to a top set at RPE 8" rather than naming a number that is
   either too light or too heavy depending on the day - which is precisely the problem Daniel keeps
   solving by overtaking the prescribed number.

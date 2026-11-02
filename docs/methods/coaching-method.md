@@ -138,7 +138,10 @@ someone whose limiter is tissue tolerance - see the overrides.
 
 - **Duration before intensity.** Add time at a pace before adding pace.
 - **Hold a known speed across weeks** while volume climbs, so the sessions are comparable.
-- **A completed rep range earns the next load**, not a good feeling.
+- **A completed rep range earns the next load**, not a good feeling. The app applies this as double
+  progression and shows the target in the set boxes. Read what it says with the `progression`
+  tool before writing a load, and see `strength-method.md` > *Double progression*. A stall is
+  flagged, never acted on by the app: a deload is your call.
 
 ## Returning to running after shin splints (MTSS)
 

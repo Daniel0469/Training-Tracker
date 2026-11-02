@@ -21,6 +21,16 @@ connected** in Claude Code and is **two-way** - it reads the data and can `write
 that show in the app. Coaching happens in a **separate Claude Code chat** - see
 `docs/prompts/coaching.md`. App development continues in the main chat.
 
+**Progression (2 Nov 2026, branch `phase6-progression`, not pushed):** the app shows the weight and
+rep range to aim for as grey numbers in the empty kg and reps boxes, from double progression
+(`docs/methods/strength-method.md`). A blank tick fills the target. A **Stalled** or **Up one step**
+tag sits on the target line. Each person has a **Progression targets** switch in Settings and each
+exercise a switch under the wrench (`state.progression`, merged newest-wins). Machine steps are
+`Step:` lines in the setup note, hidden from the setup card and written by `write_machine_step`.
+The coach reads `progression(person)` and overrides with `write_coaching(targets=...)`, which needs a
+why. Deloads on a stall are the coach's call. The app is versioned from `1.0` (`VERSION` in `sw.js`).
+Needs a Claude Code restart for the new tools. Not yet reviewed by Daniel.
+
 **This session (2026-07-23):** made the app usable by someone other than Daniel/Cerys.
 - **Blank-slate onboarding:** a genuinely fresh install has no accounts and no program - a
   **Create account** screen (name + colour swatch) gates the app until at least one exists; a

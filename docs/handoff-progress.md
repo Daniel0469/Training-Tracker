@@ -34,5 +34,17 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.
 - [ ] Blocked on Daniel: create the free Supabase project.
 
-## Phases 5 to 7
+## Phase 5
+- [ ] Not started.
+
+## Phase 6: Progression
+- [x] Research: double progression, with the step by equipment (`docs/methods/strength-method.md`).
+- [x] In-app rule with switches: one per person in Settings, one per exercise under the wrench.
+- [x] The target shows in the kg and reps boxes, and a blank tick fills it.
+- [x] Deloads only on stalls, and only by the coach: the app flags a stall and never changes the load.
+- [x] Machine steps learned from the logged weights, and confirmed by a `Step:` line in the setup note.
+- [x] Coach tools: `progression`, `write_machine_step`, and targets with a why in `write_coaching`.
+- [ ] Reviewed by Daniel.
+
+## Phase 7
 - [ ] Not started.

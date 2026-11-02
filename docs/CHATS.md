@@ -53,6 +53,7 @@ only docs read by a chat that has no other context.
   - **`training-tracker`** (coach): `people`, `goals`, `recent_sessions`, `session`, `prs`,
     `bodyweight`, `progress`, `running_form`, `limiters`, `write_limiter`, `write_coaching`,
     `session_notes`, `write_session_notes`, `run_session`, `write_run`, `write_log_entry`,
+    `progression`, `write_machine_step`,
     `coaching_history`, `program_changes`, `write_program_change`, `suggestions`,
     `propose_suggestion_tool`, `resolve_suggestion_tool`.
   - **`training-garmin`** (Daniel) and **`training-garmin-cerys`** (Cerys), one per person:

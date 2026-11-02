@@ -9,7 +9,7 @@ GitHub Pages.
 - `index.html` - markup, PWA meta tags, dialogs.
 - `css/styles.css` - all styling.
 - `js/app.js` - state, program data, and all app logic (rendering, save/import/export,
-  progressive-overload suggestions, PR detection, the muscle-map summary).
+  progression targets, PR detection, the muscle-map summary).
 - `manifest.webmanifest`, `icons/`, `sw.js` - PWA installability + offline support.
 - `fonts/` - Manrope (text) and JetBrains Mono (numbers), bundled variable woff2s so the app
   looks right offline; cached by `sw.js`. OFL licences alongside. See `docs/design-v3.md`.
@@ -21,6 +21,8 @@ GitHub Pages.
 - `docs/github-sync-setup.md` - one-time setup for the free GitHub cloud sync / backup.
 - `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
+  `progression.py` is the double progression rule (the same rule runs in `js/app.js`), read through the
+  `progression` tool; `write_machine_step` records a machine's step.
 - `mcp-garmin/` - a local MCP server that reads your runs from Garmin Connect and attaches what the
   watch recorded to the session you logged: heart rate and zones, **per-rep interval detail**,
   running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
