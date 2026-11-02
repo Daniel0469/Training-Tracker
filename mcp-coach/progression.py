@@ -243,13 +243,16 @@ def _pool(data, name):
     return weights
 
 
+def latest_log_id(data, person, name):
+    logged = _logged(data, person, name)
+    return logged[-1][0].get("id") if logged else None
+
+
 def coach_target(data, person, name):
     """The coach's target for `name` while it still applies: the person's latest log of it
     is the one it was written against."""
     t = ((((data.get("coaching") or {}).get(person) or {}).get("targets")) or {}).get(name)
-    logged = _logged(data, person, name)
-    latest = logged[-1][0].get("id") if logged else None
-    return t if isinstance(t, dict) and t.get("asOfLog") == latest else None
+    return t if isinstance(t, dict) and t.get("asOfLog") == latest_log_id(data, person, name) else None
 
 
 def progression_for(data, person, ex, session_key=None):

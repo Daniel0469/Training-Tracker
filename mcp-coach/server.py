@@ -22,6 +22,9 @@ Self-test without an MCP client:
 """
 import os, sys, json, base64, datetime, re, time, urllib.request, urllib.error
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import progression
+
 # Use the OS (Windows) trust store if available, so SSL works behind antivirus /
 # proxy TLS inspection that injects a root CA the default verifier rejects.
 try:
@@ -196,7 +199,7 @@ def _merge_lowest_rung(data, person, entry, lowest_rung):
     return warnings
 
 def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=None,
-                 next_cardio=None, session_swap=None, lowest_rung=None):
+                 next_cardio=None, session_swap=None, lowest_rung=None, targets=None):
     """Write coaching for a person into the shared data. `overall` is a general
     note; `by_session` maps session name -> a focus note for that session;
     `by_exercise` maps exercise name -> the next step on that exercise (a few
@@ -205,10 +208,13 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
     what to do in it; `session_swap` puts a different session on one weekday for one
     week; `lowest_rung` maps skill -> {"test", "why"}, the flexibility test that
     is currently limiting that skill (a None value clears that skill). All are
-    merged into any existing coaching. Shows in the app on
+    merged into any existing coaching; `targets` maps exercise name -> {"kg", "reps"?, "why"}
+    (None clears one), the coach's weight for the next session, refused when its kg differs
+    from the progression rule and has no why. Shows in the app on
     Home + the log form after the person syncs."""
     def mutate(data):
-        pending.pop("warn", None)         # mutate reruns on a conflict; its warnings must not stack
+        for key in ("warn", "error", "targets"):
+            pending.pop(key, None)        # mutate reruns on a conflict; its warnings must not stack
         coaching = data.get("coaching") or {}
         entry = coaching.get(person) or {}
         if overall:
@@ -220,6 +226,11 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
             warnings = _merge_lowest_rung(data, person, entry, lowest_rung)
             if warnings:
                 pending.setdefault("warn", []).extend(warnings)
+        if targets:
+            pending["targets"] = {}
+            pending["error"] = _merge_targets(data, person, entry, targets, pending["targets"])
+            if pending["error"]:
+                return None
         for key, notes in (("bySession", by_session), ("byExercise", by_exercise)):
             if notes:
                 entry[key] = {**(entry.get(key) or {}), **notes}
@@ -231,7 +242,7 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         rec = {"id": int(time.time() * 1000), "date": _today(), "person": person}
         for key, val in (("overall", overall), ("bySession", by_session), ("byExercise", by_exercise),
                          ("fiveK", five_k), ("nextCardio", next_cardio), ("sessionSwap", session_swap),
-                         ("lowestRung", lowest_rung)):
+                         ("lowestRung", lowest_rung), ("targets", targets)):
             if val:
                 rec[key] = val if isinstance(val, str) else dict(val)
         if len(rec) > 3:                  # something beyond id/date/person was written
@@ -239,13 +250,52 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
         return True
     pending = {}
     _github_update(mutate, f"Coaching update for {person}")
+    if pending.get("error"):
+        return {"ok": False, "error": pending["error"]}
     if pending.get("rec"):
         _log_append(pending["rec"], f"Coaching history: {person}")
     out = {"ok": True, "person": person,
            "message": f"Saved. {person} will see it in the app after tapping Sync now."}
     if pending.get("warn"):
         out["warnings"] = pending["warn"]
+    if pending.get("targets"):
+        out["targets"] = pending["targets"]
     return out
+
+def _merge_targets(data, person, entry, targets, saved):
+    """Fold the coach's `targets` ({exercise: {kg, reps?, why?} or None to clear}) into
+    entry["targets"], stamping each with what the rule says now and the person's latest log
+    of it. Returns an error text when one is refused, else None. A kg that differs from the
+    rule needs a why."""
+    known = {ex["name"]: ex for _, _, ex in progression.program_exercises(data, person)}
+    merged = dict(entry.get("targets") or {})
+    for name, t in targets.items():
+        if not t:
+            merged.pop(name, None)
+            continue
+        if name not in known:
+            return f"{person} has no exercise named {name!r} in the program."
+        kg = _num(t.get("kg"))
+        if kg is None or kg < 0:
+            return f"{name}: kg must be a number."
+        kg = int(kg) if kg == int(kg) else round(kg, 2)
+        rule = progression.progression_for(data, person, known[name])
+        why = str(t.get("why") or "").strip()
+        if (rule["target"] is None or abs(kg - rule["target"]) > 0.001) and not why:
+            says = f"{rule['status']} at {rule['target']:g} kg" if rule["target"] is not None else f"status {rule['status']}, no target"
+            return f"{name}: {kg:g} kg differs from the rule ({says}), so it needs a why."
+        rec = {"kg": kg}
+        if t.get("reps") not in (None, ""):
+            rec["reps"] = t["reps"]
+        if why:
+            rec["why"] = why
+        rec.update(rule=rule["target"], asOfLog=progression.latest_log_id(data, person, name), updated=_today())
+        merged[name] = saved[name] = rec
+    if merged:
+        entry["targets"] = merged
+    else:
+        entry.pop("targets", None)
+    return None
 
 def get_limiters(data, person=None):
     """What the athletes SAY is holding each session back, in their own words.
@@ -369,6 +419,80 @@ def set_session_notes(session, warmup=None, cooldown=None, append=False, recordi
     return _write(mutate, failed, lambda r: f"Session notes for {r['session']}",
                   "Saved to the shared program. BOTH people see this text; it reaches "
                   "their phones on the next Sync now, unless one is mid-workout.")
+
+def _step_line_re(exercise):
+    return re.compile(r"^\s*step:\s*" + re.escape(exercise) + r"\s*=.*$", re.I)
+
+def _with_step_line(note, exercise, step, add):
+    """`note` with the "Step: <exercise> = <step>" line set (None removes it). Every other
+    line is kept as it is. A missing line is added only when `add` is true."""
+    pattern = _step_line_re(exercise)
+    new = None if step is None else f"Step: {exercise} = {step:g}"
+    lines, out, placed = str(note or "").split("\n"), [], False
+    if not (new and add) and not any(pattern.match(line) for line in lines):
+        return note
+    for line in lines:
+        if pattern.match(line):
+            if new and not placed:
+                out.append(new)
+                placed = True
+            continue
+        out.append(line)
+    if new and not placed:
+        last = [i for i, line in enumerate(out) if progression.parse_step_lines(line)]
+        if last:
+            out.insert(last[-1] + 1, new)
+        else:
+            out = out + [""] if "".join(out).strip() else []
+            out.append(new)
+    return "\n".join(out).rstrip()
+
+def set_machine_step(exercise, step, session=None):
+    """Add, replace or remove the "Step: <exercise> = <step>" line in a session's setupNote.
+    Touches no other text. Without `session`, every line for the exercise is replaced (or
+    removed) and a missing one is added to the first session that has the exercise."""
+    if step is not None:
+        step = _num(step)
+        if step is None or step < 0:
+            return {"ok": False, "error": "step must be a number of kg, or null to remove the line."}
+        step = round(step, 2) or None
+    failed = {}
+    def mutate(data):
+        sessions = ((data.get("program") or {}).get("sessions")) or {}
+        having = [k for k, s in sessions.items()
+                  if any((e or {}).get("name") == exercise for e in (s or {}).get("exercises") or [])]
+        if not having:
+            failed["error"] = f"No exercise named {exercise!r} in the program."
+            return None
+        if session:
+            key, _ = _find_session(data, session)
+            if key not in having:
+                failed["error"] = f"{exercise!r} is not in the session {session!r}."
+                failed["sessions"] = [sessions[k].get("name") for k in having]
+                return None
+            keys, add_to = [key], key
+        else:
+            pattern = _step_line_re(exercise)
+            keys = [k for k, s in sessions.items()
+                    if any(pattern.match(line) for line in str((s or {}).get("setupNote") or "").split("\n"))]
+            add_to = None if keys else having[0]
+            keys = keys or [add_to]
+        previous = {}
+        for k in keys:
+            s = sessions[k]
+            before = str(s.get("setupNote") or "")
+            after = _with_step_line(before, exercise, step, k == add_to)
+            if after != before:
+                s["setupNote"] = after
+                previous[s.get("name")] = before
+        if not previous:
+            failed["error"] = "Nothing to change - the Step line already reads exactly that."
+            return None
+        data.setdefault("program", {})["updatedAt"] = _now_iso()
+        return {"exercise": exercise, "step": step, "sessions": list(previous), "previous": previous}
+    return _write(mutate, failed, f"Machine step: {exercise}",
+                  "Saved to the shared program. Both people use the same step; it reaches "
+                  "their phones on the next Sync now.")
 
 def _session_key(name, sessions):
     """A stable camelCase key from a session name - "Mobility assessment" becomes
@@ -1439,6 +1563,17 @@ def get_progress(data, person, exercise):
     pts.sort(key=lambda p: p["date"])
     return pts
 
+def get_progression(data, person):
+    """The progression rule's answer for each weight x reps exercise in `person`'s program,
+    with the coach's target where one still applies. `steps_to_confirm` lists the exercises
+    that apply but have no known step yet."""
+    if person not in (data.get("people") or []):
+        return {"error": f"No person named {person!r}.", "people": data.get("people") or []}
+    out = progression.report(data, person)
+    out["steps_to_confirm"] = [r["exercise"] for r in out["exercises"]
+                               if r["status"] in ("hold", "unsure") and r.get("step") is None]
+    return out
+
 # ---------------------------------------------------------------- MCP wiring
 def _register(mcp):
     @mcp.tool()
@@ -1932,11 +2067,50 @@ def _register(mcp):
                                   recording, setup, which, garmin), indent=2)
 
     @mcp.tool()
+    def progression(person: str) -> str:
+        """What the progression rule says for each of `person`'s weight x reps exercises, from
+        their logs. Read it before writing by_exercise notes or targets.
+
+        Per exercise: `status` is progress (every working set hit the top of the rep range, so
+        the target is one step up, or down for assisted), hold (same weight again), unsure (due
+        to progress but the step is unknown, so the target stays and the app says "up one step"),
+        zero (assisted at 0 assist, ready for load), none (nothing logged with a weight yet) or
+        off (the rule does not cover it: timed, fixed reps, bodyweight at 0). `w` is the working
+        weight of the latest session and `target` the weight the rule suggests next. `step` is
+        the jump and `source` where it came from: line (a Step line in a session's setupNote),
+        barbell or dumbbell (by exercise name), or ladder (learned from the weights both people
+        logged). `streak` is the number of latest sessions at the same weight. `stalled` is true
+        after three sessions at one weight with no rep gain. `coach` is your target for the
+        exercise while it still applies (until the person logs it again).
+
+        A stall is your call: the rule only flags it. Check sleep and food before a deload.
+        `steps_to_confirm` lists exercises that apply but have no known step. Write one with
+        write_machine_step when you are sure, and list the rest for the owner to confirm.
+        A target that differs from `target` goes in write_coaching(targets=...) with a why."""
+        return json.dumps(get_progression(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def write_machine_step(exercise: str, step: float | None, session: str | None = None) -> str:
+        """Set the progression step for an exercise: the smallest weight jump the machine or
+        dumbbell rack allows, in kg. It is written as one line, "Step: Seated row = 2.5", in a
+        session's setupNote and touches no other text. Both people share it. Pass step null (or
+        0) to remove the line.
+
+        `exercise` must be an exact exercise name in the program. Without `session` every
+        existing line for it is replaced and a missing one is added to the first session that has
+        the exercise. With `session` only that session's note changes. Only write a step you
+        are sure of (the owner said it, or the weights logged show it). When unsure, leave it and
+        list the exercise under "Machine steps to confirm" in your summary. The previous note
+        text comes back in the response."""
+        return json.dumps(set_machine_step(exercise, step, session), indent=2)
+
+    @mcp.tool()
     def write_coaching(person: str, overall: str = "", by_exercise: dict | None = None,
                        by_session: dict | None = None, five_k: dict | None = None,
                        next_cardio: dict | None = None,
                        session_swap: dict | None = None,
-                       lowest_rung: dict | None = None) -> str:
+                       lowest_rung: dict | None = None,
+                       targets: dict | None = None) -> str:
         """Push coaching to a person so it shows in their app (Home + Log) during workouts.
         `by_session` = {exact session name: focus note} shown on that session (Home shows
         today's; Log shows the open session's). Prefer this for session-level guidance.
@@ -1987,10 +2161,16 @@ def _register(mcp):
         the stop). Merged per skill - pass only the skills you are changing. Pass
         {"Skill": null} to clear one once that rung is fixed and the re-test has not
         yet shown the next. Re-write it after every Mobility assessment re-test.
+        `targets` = your weight for the next session, per exercise, as
+        {"Bench press": {"kg": 60, "reps": 8, "why": "one line of reasoning"}} (None clears one).
+        Read progression(person) first: it says what the rule suggests. A kg that equals
+        the rule's `target` needs no why. Any other kg is refused without one. It applies until
+        the person logs that exercise again, then the rule takes over, so write it the
+        week you want it. `reps` is optional.
         All merge into existing coaching. They see it after tapping Sync now."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
                                        five_k or None, next_cardio or None,
-                                       session_swap or None, lowest_rung or None), indent=2)
+                                       session_swap or None, lowest_rung or None, targets or None), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
