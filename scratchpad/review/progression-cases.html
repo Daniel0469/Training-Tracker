@@ -1,0 +1,87 @@
+<!-- Runs mcp-coach/progression_cases.json against the progression functions in js/app.js, the same
+     cases mcp-coach/test_progression.py runs against the Python copy. Serve the repo root
+     (python scratchpad/devserver.py) and open /scratchpad/review/progression-cases.html.
+     It reads the source text of js/app.js, compiles it once to prove the file parses, and runs
+     only the progression block with the few helpers it uses. It reads and writes no store. -->
+<!doctype html>
+<meta charset="utf-8">
+<title>Progression cases</title>
+<style>
+  :root { color-scheme: light dark; font: 14px/1.4 system-ui, sans-serif; }
+  body { margin: 1rem auto; max-width: 56rem; padding: 0 1rem; }
+  h1 { font-size: 1.2rem; }
+  ol { padding-left: 2rem; }
+  li.pass::marker { color: #1a7f37; content: "pass  "; }
+  li.fail::marker { color: #cf222e; content: "FAIL  "; font-weight: 700; }
+  pre { margin: .2rem 0 .6rem; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+  #sum.ok { color: #1a7f37; } #sum.bad { color: #cf222e; }
+</style>
+<h1 id="sum">Running...</h1>
+<p id="parse"></p>
+<ol id="list"></ol>
+<script>
+// A whole `function name(...) {...}` out of the source, by brace matching.
+function grab(src, name) {
+  const at = src.indexOf("function " + name + "(");
+  if (at < 0) throw new Error("function " + name + " not found in js/app.js");
+  let depth = 0;
+  for (let i = src.indexOf("{", at); i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}" && --depth === 0) return src.slice(at, i + 1);
+  }
+  throw new Error("unbalanced braces in " + name);
+}
+// Every key in `want` equal in `got`; lists must match whole; numbers to 1e-9.
+function matches(got, want) {
+  if (want && typeof want === "object" && !Array.isArray(want))
+    return !!got && typeof got === "object" && Object.keys(want).every(k => k in got && matches(got[k], want[k]));
+  if (Array.isArray(want))
+    return Array.isArray(got) && got.length === want.length && want.every((w, i) => matches(got[i], w));
+  if (typeof want === "number") return typeof got === "number" && Math.abs(got - want) < 1e-9;
+  return got === want;
+}
+async function main() {
+  const src = await fetch("/js/app.js", { cache: "no-store" }).then(r => r.text());
+  new Function(src);
+  document.getElementById("parse").textContent = "js/app.js compiles as a whole.";
+  const start = src.indexOf("// ---- Progression rule"), end = src.indexOf("function bestWeightSoFar(");
+  if (start < 0 || end < start) throw new Error("progression block not found in js/app.js");
+  const code = ["isLoadCol", "isLifting", "isTimed", "parseRange"].map(n => grab(src, n)).join("\n") + "\n" +
+    src.slice(start, end) + "\nreturn { parseStepLines, progLadder, stepCore, progCore };";
+  const F = new Function(code)();
+  const run = {
+    parseStepLines: i => F.parseStepLines(i.text),
+    progLadder: i => F.progLadder(i.weights),
+    stepCore: i => F.stepCore(i.ex, i.w, i.override, i.pool || []),
+    progCore: i => F.progCore(i.entries, i.ex, i.ctx || {}),
+  };
+  const cases = await fetch("/mcp-coach/progression_cases.json", { cache: "no-store" }).then(r => r.json());
+  const list = document.getElementById("list");
+  let bad = 0;
+  for (const c of cases) {
+    const li = document.createElement("li");
+    let got, ok;
+    try { got = run[c.fn](c.in); ok = matches(got, c.out) && (!c.exact || Object.keys(got).length === Object.keys(c.out).length); }
+    catch (e) { got = "threw " + e.message; ok = false; }
+    li.className = ok ? "pass" : "fail";
+    li.textContent = c.name;
+    if (!ok) {
+      bad++;
+      const pre = document.createElement("pre");
+      pre.textContent = "got  " + JSON.stringify(got) + "\nwant " + JSON.stringify(c.out);
+      li.appendChild(pre);
+    }
+    list.appendChild(li);
+  }
+  const sum = document.getElementById("sum");
+  sum.textContent = bad ? bad + " of " + cases.length + " cases FAIL" : "All " + cases.length + " cases pass";
+  sum.className = bad ? "bad" : "ok";
+  window.result = { total: cases.length, failed: bad };
+}
+main().catch(e => {
+  const sum = document.getElementById("sum");
+  sum.textContent = "Could not run: " + e.message;
+  sum.className = "bad";
+  window.result = { error: String(e) };
+});
+</script>

@@ -751,6 +751,143 @@ function logIndex(person){
   });
   return idx;
 }
+// ---- Progression rule: the weight to aim for next time on a lifting exercise ----
+// Pure functions that read no state. mcp-coach/progression.py is the Python copy, and both
+// run mcp-coach/progression_cases.json, so change them together.
+const PROG_MERGE=0.3;       // typed weights this close are one machine setting
+const PROG_GAP_SAME=0.5;    // step gaps this close are the same gap
+const PROG_REACH=1.5;       // the next rung counts only within this many steps
+const PROG_DB_BIG=10;       // dumbbells go up by 2 from this weight, by 1 below it
+const PROG_BARBELL=/\b(barbell|deadlift|squat|bench press)\b/i;
+const PROG_NOT_BARBELL=/\b(hack|machine|smith|cable|goblet|bulgarian|split|db|dumbbell)\b/i;
+const PROG_DUMBBELL=/\b(db|dumbbell|hammer curl)\b/i;
+const PROG_LOWER=["quads","glutes","hamstrings"];
+function progNum(x){ const v=parseFloat(x); return isNaN(v) ? null : v; }
+function progRound(x){ return x>=0 ? Math.floor(x*100+0.5)/100 : -Math.floor(-x*100+0.5)/100; }
+// "Step: Seated row = 2.5" lines -> {name: step}. A line with anything but one number is ignored.
+function parseStepLines(text){
+  const out={};
+  String(text||"").split(/\r?\n/).forEach(function(line){
+    const m=line.match(/^\s*step:\s*(.+?)\s*=\s*(\d+(?:\.\d+)?)\s*$/i);
+    if(m && +m[2]>0) out[m[1]]=+m[2];
+  });
+  return out;
+}
+// One summary per logged session, oldest first: the working weight w (the most common typed
+// one, ties to the heavier load), how many working rows are at it (n), their reps, and whether
+// any working row was a miss (reps blank or under the range bottom, or not ticked).
+function progHistory(entries, low, assist){
+  const out=[];
+  entries.forEach(function(e){
+    const warm=e.warmup||[], done=Array.isArray(e.done) ? e.done : null;
+    const rows=[];
+    (e.rows||[]).forEach(function(r,i){ if(warm.indexOf(i)<0) rows.push([i,r||[]]); });
+    const counts=new Map();
+    rows.forEach(function(x){ const v=progNum(x[1][0]); if(v!==null) counts.set(v,(counts.get(v)||0)+1); });
+    let w=null;
+    counts.forEach(function(c,v){
+      if(w===null || c>counts.get(w) || (c===counts.get(w) && (assist ? v<w : v>w))) w=v;
+    });
+    if(w===null) return;
+    let miss=false;
+    const reps=[];
+    rows.forEach(function(x){
+      const n=progNum(x[1][1]);
+      if(n===null || n<low || (done && done.indexOf(x[0])<0)) miss=true;
+      if(progNum(x[1][0])===w) reps.push(n||0);
+    });
+    out.push({w:w, n:reps.length, reps:reps, total:reps.reduce(function(a,b){ return a+b; },0), miss:miss});
+  });
+  return out;
+}
+// The weights a machine has been used at (typed weights within PROG_MERGE are one setting) and
+// the step between them: the finest gap seen at least twice. Confident needs three weights and
+// every gap a whole multiple of the step.
+function progLadder(weights){
+  const counts=new Map();
+  weights.forEach(function(w){ counts.set(w,(counts.get(w)||0)+1); });
+  const groups=[];
+  Array.from(counts.keys()).sort(function(a,b){ return a-b; }).forEach(function(v){
+    const g=groups[groups.length-1];
+    if(g && v-g[g.length-1]<=PROG_MERGE) g.push(v); else groups.push([v]);
+  });
+  const ladder=groups.map(function(g){
+    return g.reduce(function(best,v){ return counts.get(v)>counts.get(best) ? v : best; });
+  });
+  const gaps=[];
+  for(let i=1;i<ladder.length;i++) gaps.push(progRound(ladder[i]-ladder[i-1]));
+  gaps.sort(function(a,b){ return a-b; });
+  const gapGroups=[];
+  gaps.forEach(function(g){
+    const last=gapGroups[gapGroups.length-1];
+    if(last && g-last[0]<=PROG_GAP_SAME) last.push(g); else gapGroups.push([g]);
+  });
+  const repeated=gapGroups.filter(function(g){ return g.length>=2; })[0];
+  if(!repeated) return {ladder:ladder, step:null, confident:false};
+  const mid=Math.floor(repeated.length/2);
+  const step=progRound(repeated.length%2 ? repeated[mid] : (repeated[mid-1]+repeated[mid])/2);
+  const tolerance=Math.max(0.4, 0.15*step);
+  const whole=gaps.every(function(x){ const k=Math.floor(x/step+0.5); return k>=1 && Math.abs(x-k*step)<=tolerance; });
+  return {ladder:ladder, step:step, confident:ladder.length>=3 && whole};
+}
+// The smallest increase to try from weight w, and where it came from: a step line (override),
+// the barbell or dumbbell rule by exercise name, a ladder learned from `pool` (every working
+// weight either person logged on this name), else unknown.
+function stepCore(ex, w, override, pool){
+  const name=ex.name||"";
+  if(override) return {step:override, source:"line", ladder:null};
+  if(PROG_BARBELL.test(name) && !PROG_NOT_BARBELL.test(name)){
+    const lower=(ex.muscles||[]).some(function(m){ return PROG_LOWER.indexOf(m)>=0; });
+    return {step:lower ? 5 : 2.5, source:"barbell", ladder:null};
+  }
+  if(PROG_DUMBBELL.test(name)) return {step:w>=PROG_DB_BIG ? 2 : 1, source:"dumbbell", ladder:null};
+  const found=progLadder((pool||[]).filter(function(x){ return x>0; }));
+  if(found.confident) return {step:found.step, source:"ladder", ladder:found.ladder};
+  return {step:null, source:null, ladder:null};
+}
+// One step up (down for assisted): the next rung of the ladder when it is within reach.
+function progNextWeight(w, step, ladder, assist){
+  const sign=assist ? -1 : 1;
+  const near=(ladder||[]).filter(function(v){ const d=sign*(v-w); return d>PROG_MERGE && d<=PROG_REACH*step+1e-9; });
+  if(near.length) return assist ? Math.max.apply(null,near) : Math.min.apply(null,near);
+  return Math.max(0, progRound(w+sign*step));
+}
+function progResult(status, o){
+  return Object.assign({status:status, w:null, target:null, step:null, source:null, streak:0, stalled:false, flag:null, why:null}, o);
+}
+// Why the rule does not cover this exercise, or null when it does.
+function progApplies(ex){
+  if(!isLifting(ex)) return "not a weight x reps exercise";
+  if(isTimed(ex)) return "timed hold";
+  const rng=parseRange(ex.target);
+  return rng && rng.low<rng.high ? null : "fixed reps";
+}
+// entries: this person's logged entries of one exercise, oldest first. ctx: {override, pool}.
+// Progress when the latest session had at least `sets` rows at the working weight W, all at
+// the range top and none missed: aim one step up (down for assisted). Otherwise hold at W.
+// Stalled: the last three sessions at one weight and neither of the last two beat the one
+// before on total reps at W (a session with a miss does not count as beating).
+function progCore(entries, ex, ctx){
+  const why=progApplies(ex);
+  if(why) return progResult("off", {why:why});
+  const rng=parseRange(ex.target), assist=ex.load==="assist";
+  const hist=progHistory(entries, rng.low, assist);
+  if(!hist.length) return progResult("none");
+  const last=hist[hist.length-1];
+  if(last.w<=0) return assist ? progResult("zero", {w:0, flag:"Ready for load"}) : progResult("off", {why:"bodyweight"});
+  let streak=1;
+  while(streak<hist.length && hist[hist.length-1-streak].w===last.w) streak++;
+  const due=last.n>=ex.sets && !last.miss && Math.min.apply(null,last.reps)>=rng.high;
+  let stalled=false;
+  if(!due && streak>=3){
+    const t=hist.slice(-3);
+    stalled=![[t[0],t[1]],[t[1],t[2]]].some(function(p){ return !p[1].miss && p[1].total>p[0].total; });
+  }
+  const found=stepCore(ex, last.w, ctx.override, ctx.pool);
+  if(!due) return progResult("hold", {w:last.w, target:last.w, step:found.step, source:found.source, streak:streak, stalled:stalled, flag:stalled ? "Stalled" : null});
+  if(found.step===null) return progResult("unsure", {w:last.w, target:last.w, streak:streak, flag:"Up one step"});
+  return progResult("progress", {w:last.w, target:progNextWeight(last.w, found.step, found.ladder, assist), step:found.step, source:found.source, streak:streak});
+}
 function bestWeightSoFar(person, exerciseName){
   var best=logIndex(person).best.get(exerciseName);
   return best===undefined ? -Infinity : best;
