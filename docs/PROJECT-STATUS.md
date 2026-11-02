@@ -1158,8 +1158,8 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   `repTableHtml`, `RUN_METRICS`/`drawRunChart`, `recoveryCardHtml`, `hrZonesCardHtml`). `formDrafts` + `sessionTimers` (the in-progress log form) persist
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h - deliberately **not** part of the export/sync payload.
-- `sw.js` - service worker (cache-first shell + Chart.js). **Bump `CACHE_NAME` (tt-vN) on ANY
-  change to a cached file.** Currently `tt-v117`.
+- `sw.js` - service worker (cache-first shell + Chart.js). **Bump `VERSION` on ANY change to a
+  cached file** (1.0.1 for a fix, 1.1 for a feature). Currently `1.0`.
 - `manifest.webmanifest`, `icons/` - PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
 - `mcp-coach/` - Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` - Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,

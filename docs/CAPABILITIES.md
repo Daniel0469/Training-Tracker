@@ -180,7 +180,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **e1RM is an estimate** (Epley formula), not a measured 1-rep max.
 - **PWA icons are placeholders** - real branding is a TODO.
 - **No build step, minimal deps.** Vanilla JS + Chart.js (CDN) only. The service worker is
-  cache-first, so an installed app keeps old files until `CACHE_NAME` in `sw.js` is bumped on deploy.
+  cache-first, so an installed app keeps old files until `VERSION` in `sw.js` is bumped on deploy.
 
 ---
 

@@ -5736,13 +5736,24 @@ if("serviceWorker" in navigator){
 // Runs on every load and returns immediately unless forceUpdate left its mark.
 window.addEventListener("load", reportUpdateResult);
 
-// The running app version - the shell cache name, e.g. "tt-v47".
+// The running app version: the newest shell cache, "tt-1.0" read as "1.0". Caches from before
+// version numbers ("tt-v171") count as older than any numbered one.
+function shellVersionKey(name){
+  const m=/^tt-(\d+(?:\.\d+)*)$/.exec(name), legacy=/^tt-v(\d+)$/.exec(name);
+  return m ? [1].concat(m[1].split(".").map(Number)) : legacy ? [0, +legacy[1]] : null;
+}
+function compareShellKeys(a, b){
+  for(let i=0;i<Math.max(a.length,b.length);i++){
+    const d=(a[i]||0)-(b[i]||0);
+    if(d) return d;
+  }
+  return 0;
+}
 function shellVersion(){
   if(!window.caches) return Promise.resolve("");
   return caches.keys().then(keys=>{
-    const v=keys.filter(k=>/^tt-v/.test(k)).sort((a,b)=>
-      (parseInt(a.replace(/\D/g,""),10)||0)-(parseInt(b.replace(/\D/g,""),10)||0));
-    return v.length ? v[v.length-1] : "";
+    const v=keys.filter(k=>shellVersionKey(k)).sort((a,b)=>compareShellKeys(shellVersionKey(a), shellVersionKey(b)));
+    return v.length ? v[v.length-1].slice(3) : "";
   }).catch(()=>"");
 }
 // Show it in Settings.
@@ -5775,7 +5786,7 @@ function reportUpdateResult(){
       body="This browser doesn't expose a version to check against, so there's nothing to compare - but the app has been reloaded from the network.";
     }else if(now!==was && was){
       title="Updated";
-      body="You were on "+was+", you're now on "+now+".";
+      body="Updated "+was+" to "+now+".";
     }else if(!was){
       title="Updated";
       body="You're now on "+now+".";

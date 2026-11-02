@@ -18,9 +18,10 @@ feature proposals/specs.
   the live one (`scratchpad/proto_run.py` is the pattern: newest `data-backup-*.json` in,
   local state file out, shared store never opened). Pushing auto-deploys to both phones and
   writes real training data, so the review has to happen while it's still free.
-- **Bump `CACHE_NAME` in `sw.js` on ANY change to a cached shell file** (`index.html`,
+- **Bump `VERSION` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
-  bump, installed users keep the old files. Increment the `tt-vN` number.
+  bump, installed users keep the old files. `CACHE_NAME` is `"tt-" + VERSION`, and Settings shows
+  the version. A fix is a third number (1.0.1), a new feature is the second (1.1).
 - **Keep the Guide, README and the starter prompts current.** When you add or change a user-facing
   feature - or when anything is decided that a future chat would act on - update the prompt that
   owns it in `docs/prompts/` (`dev.md`, `coaching.md`, `running.md`). Daniel asked for this

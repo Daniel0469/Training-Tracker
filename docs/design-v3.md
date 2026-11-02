@@ -13,7 +13,7 @@ Where the mockups show numbers or names, they are sample data.
   screenshots of both people before pushing.
 - **Dark mode first.** Light mode is parked until the end - Daniel will ask for it. Keep light
   working (don't break it), but only design-review dark for now.
-- Bump `CACHE_NAME` in `sw.js` for every shell change. Update the Guide, README and prompts.
+- Bump `VERSION` in `sw.js` for every shell change. Update the Guide, README and prompts.
 - Two people, one phone: the person toggle must stay reachable while logging.
 - Personal use only - colour-blind safety is not a requirement.
 

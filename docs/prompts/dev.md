@@ -19,7 +19,7 @@ restart Claude Code so the `training-tracker` tools reload. New tools do not app
 > Work only on issues without `needs-confirmation`, never on `rejected` ones. Anything still in the
 > app's list (the `training-tracker` **`suggestions`** tool) hasn't been filed yet. **Auto-apply the
 > easy/safe ones** (verify in the browser - light + dark, no console errors - commit per feature,
-> bump `sw.js` CACHE_NAME on any shell change, then push to deploy), and **list the harder/riskier
+> bump `sw.js` VERSION on any shell change, then push to deploy), and **list the harder/riskier
 > ones for me to decide**. Close each issue you finish, or mark an in-app one done with
 > **`resolve_suggestion_tool`**. Also read
 > **`docs/coach-tooling-brief.md`** - the coaching chat's own account of what it can and cannot do,
@@ -37,8 +37,9 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 - **Prototype before pushing.** Build locally against a **copy** of the store
   (`scratchpad/proto_term.py` is the pattern) and show screenshots - both people, both themes -
   before anything is committed. Pushing auto-deploys to both phones.
-- **Bump `CACHE_NAME` in `sw.js`** on any change to a cached shell file. The service worker is
-  cache-first; without a bump, installed users keep the old files.
+- **Bump `VERSION` in `sw.js`** on any change to a cached shell file (`CACHE_NAME` is
+  `"tt-" + VERSION`, and Settings shows it). A fix is a third number (1.0.1), a new feature is the
+  second (1.1). The service worker is cache-first; without a bump, installed users keep the old files.
 - **Keep the Guide, the README and these prompts current** when a feature or a decision changes.
 - **A coach-owned job can be impossible, not just undone.** Before assigning work to the coaching
   chat, check the tool can actually do it - `docs/coach-tooling-brief.md` lists what cannot be
