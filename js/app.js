@@ -1514,6 +1514,10 @@ function cardioNoteHtml(exs, sess){
   }
   return html;
 }
+// The setup note without its "Step: name = kg" lines, which are for the progression rule, not for reading.
+function withoutStepLines(text){
+  return String(text||"").split(/\r?\n/).filter(line=>!Object.keys(parseStepLines(line)).length).join("\n").trim();
+}
 function sessionNotesHtml(sess){
   let html = "";
   // The session's own warm-up / cool-down notes (Program tab) bracket the
@@ -1532,9 +1536,10 @@ function sessionNotesHtml(sess){
   if(sess.garminNote){
     html += foldCard("setup-card", "target", 'Watch workout &middot; build this once', sess.garminNote);
   }
-  if(sess.setupNote){
+  const setup = withoutStepLines(sess.setupNote);
+  if(setup){
     html += foldCard("setup-card", "sliders", 'Treadmill program &middot; '
-      + (sess.garminNote ? 'if you are inside instead' : 'enter this before you start'), sess.setupNote);
+      + (sess.garminNote ? 'if you are inside instead' : 'enter this before you start'), setup);
   }
 
   // How to record this session on the watch - when to start the activity, where
@@ -3537,8 +3542,8 @@ function sessNotesHtml(k, s){
     + 'heart rate, zones and splits after it syncs.</span></label>'
     + '<label class="fld" style="margin-bottom:8px">Watch workout'
       + '<textarea class="notes" data-sessnote="garminNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. Connect &gt; Workouts &gt; Create a Workout &gt; Run: warm up 10:00, repeat 4x (run 4:00 HR 165-173 / recover 2:00), cool down 5:00">'+esc(gar)+'</textarea></label>'
-    + '<label class="fld" style="margin-bottom:8px">Treadmill program'
-      + '<textarea class="notes" data-sessnote="setupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 1: 5:00 at 8.0 warm-up jog / 2: 6:00 at 11.0 rep 1 / 3: 1:30 at 7.5 float">'+esc(set)+'</textarea></label>'
+    + '<label class="fld" style="margin-bottom:8px">Treadmill program / machine steps'
+      + '<textarea class="notes" data-sessnote="setupNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 1: 5:00 at 8.0 warm-up jog / 2: 6:00 at 11.0 rep 1 / 3: 1:30 at 7.5 float / Step: Seated row = 2.5">'+esc(set)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">Recording (Garmin)'
       + '<textarea class="notes" data-sessnote="recordingNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. start on the warm-up jog, lap at the start and end of the 2km, end before the core work">'+esc(rec)+'</textarea></label>'
     + '<label class="fld" style="margin-bottom:8px">Warm-up / mobility'
