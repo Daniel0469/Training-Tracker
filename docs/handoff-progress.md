@@ -44,7 +44,7 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Deloads only on stalls, and only by the coach: the app flags a stall and never changes the load.
 - [x] Machine steps learned from the logged weights, and confirmed by a `Step:` line in the setup note.
 - [x] Coach tools: `progression`, `write_machine_step`, and targets with a why in `write_coaching`.
-- [ ] Reviewed by Daniel.
+- [x] Reviewed by Daniel and shipped as version 1.0 (2 Nov).
 
 ## Phase 7
 - [ ] Not started.
