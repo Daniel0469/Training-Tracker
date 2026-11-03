@@ -1234,7 +1234,9 @@ function captureDraft(){
     const rpe=rpeSel?rpeSel.dataset.d:null;
     if(rpe!=null) any=true;
     const smithEl=card.querySelector('[data-exsmith]');
-    entries[ei]={rows,done,warm,rpe,smith:!!(smithEl&&smithEl.checked)};
+    const smith=!!(smithEl&&smithEl.checked);
+    if(smith) any=true;
+    entries[ei]={rows,done,warm,rpe,smith};
     // A changed set count is worth persisting on its own, so sets you add or
     // remove survive a re-render even before anything has been typed.
     // Runs deliberately render one blank split row whatever the program says
