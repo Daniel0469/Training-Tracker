@@ -43,7 +43,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, coachQuestions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -92,6 +92,10 @@ function fillStateDefaults(s){
   // Progression switches, each person's own: person -> {on:{value, updatedAt},
   // ex:{exercise NAME:{off, updatedAt}}}. Absent means on.
   if(!s.progression || typeof s.progression!=="object") s.progression={};
+  // Questions the coach asks each person: person -> [{id, question, why, priority, decision,
+  // askedAt, nextFollowUp, reminders, answer, answeredAt, status, updatedAt}]. The coach adds
+  // and closes them (mcp-coach), the person answers on Home. See mergeCoachQuestions.
+  if(!s.coachQuestions || typeof s.coachQuestions!=="object") s.coachQuestions={};
 }
 function migrateMachineNotes(s){
   // Migrate the old shared notes - but only on an install WITHOUT cloud sync. A
@@ -4168,7 +4172,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -4306,6 +4310,24 @@ function mergeProgression(data, tally){
     });
   }
 }
+function mergeCoachQuestions(data, tally){
+  // Coach questions: the coach adds and closes them and the phones answer them, so neither
+  // side is the authority - the newer edit of each question (by id) wins.
+  if(data.coachQuestions && typeof data.coachQuestions==="object"){
+    if(!state.coachQuestions) state.coachQuestions={};
+    Object.keys(data.coachQuestions).forEach(function(pn){
+      var theirs=data.coachQuestions[pn];
+      if(!Array.isArray(theirs)) return;
+      var mine=Array.isArray(state.coachQuestions[pn]) ? state.coachQuestions[pn] : (state.coachQuestions[pn]=[]);
+      theirs.forEach(function(tq){
+        if(!tq || !tq.id) return;
+        var i=mine.findIndex(function(q){ return q && q.id===tq.id; });
+        if(i<0){ mine.push(tq); tally.added++; }
+        else if((+tq.updatedAt||0)>(+mine[i].updatedAt||0)){ mine[i]=tq; tally.updated++; }
+      });
+    });
+  }
+}
 function mergeMeasurements(data, tally){
   // Measurements: one row per person+date, merged like bodyweights (newer updatedAt wins).
   if(Array.isArray(data.measurements)){
@@ -4436,6 +4458,7 @@ function mergeInData(data, adoptConfig, fromSync){
   overwritePerPerson("racePredictions", data.racePredictions);
   mergeMachineSettings(data, tally);
   mergeProgression(data, tally);
+  mergeCoachQuestions(data, tally);
   mergeMeasurements(data, tally);
   mergeNutritionTargets(data, tally);
   // Limiters: authored centrally like coaching, so incoming wins per person.
@@ -4577,7 +4600,7 @@ function peopleInPayload(d){
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
   (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","coachQuestions","nutritionTargets"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -4598,7 +4621,7 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","coachQuestions","nutritionTargets"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
@@ -5416,6 +5439,67 @@ function weekReviewCardHtml(person, now){
     + (fresh ? '<div style="margin-top:8px">'+esc(shortNote(coach.overall))+'</div>' : '')
     + '</div>';
 }
+// Questions from the coach (state.coachQuestions[person]). An open one shows its reason and a
+// box for the answer. Saving marks it answered and folds it to a one-line row that can be
+// reopened; closed ones (the coach is done with them) are not shown. An unsaved answer is kept
+// per person+question (and in localStorage), so a person switch or a sync re-render never loses
+// it or shows it to the other person.
+const CQ_DRAFT_KEY="flLiveTracker_cqdraft_v1";
+const CQ_RANK={safety:0, blocking:1, routine:2, optional:3};
+let coachQDrafts=(function(){ try{ return JSON.parse(localStorage.getItem(CQ_DRAFT_KEY))||{}; }catch(e){ return {}; } })();
+let coachQEditing={};
+function cqKey(person, id){ return person+"|"+id; }
+function cqDraftSet(key, text){
+  if(text) coachQDrafts[key]=text; else delete coachQDrafts[key];
+  try{ localStorage.setItem(CQ_DRAFT_KEY, JSON.stringify(coachQDrafts)); }catch(e){}
+}
+function personQuestions(person){
+  const list=(state.coachQuestions||{})[person];
+  return (Array.isArray(list)?list:[]).filter(q=>q && q.id && q.status!=="closed");
+}
+function coachQuestionsCardHtml(person){
+  const all=personQuestions(person);
+  if(!all.length) return "";
+  const rank=q=>CQ_RANK[q.priority]!=null ? CQ_RANK[q.priority] : CQ_RANK.routine;
+  const editing=q=>!!coachQEditing[cqKey(person,q.id)];
+  const open=all.filter(q=>q.status!=="answered" || editing(q)).sort((a,b)=>rank(a)-rank(b));
+  const done=all.filter(q=>q.status==="answered" && !editing(q));
+  const form=q=>{
+    const key=cqKey(person,q.id), text=key in coachQDrafts ? coachQDrafts[key] : (q.answer||"");
+    return '<div class="cq"><div class="cq-q">'+esc(q.question)
+      + (q.priority==="safety"?' <span class="conf" data-c="low">safety</span>':'')+'</div>'
+      + (q.why?'<div class="ex-meta">'+esc(q.why)+'</div>':'')
+      + '<textarea data-cqa rows="3" placeholder="Your answer">'+esc(text)+'</textarea>'
+      + '<div class="cq-actions">'+(q.status==="answered"?'<button class="mini" data-cqcancel="'+esc(q.id)+'">Cancel</button>':'')
+      + '<button class="mini" data-cqsave="'+esc(q.id)+'">Save</button></div></div>';
+  };
+  const row=q=>'<div class="cq cq-row"><span class="conf">Answered</span><span class="cq-line">'+esc(q.question)
+    + '</span><button class="mini" data-cqedit="'+esc(q.id)+'">Edit</button></div>';
+  return '<div class="card coach-card"><div class="flex-between" style="align-items:baseline">'
+    + '<div class="sec-title" style="margin:0">'+ico("chat")+'Questions from your coach</div>'
+    + (open.length?'<span class="conf" data-c="assigned">'+open.length+' open</span>':'')+'</div>'
+    + open.map(form).join("")+done.map(row).join("")+'</div>';
+}
+function wireCoachQuestions(person){
+  const find=id=>personQuestions(person).find(q=>String(q.id)===id);
+  document.querySelectorAll("[data-cqa]").forEach(ta=>{
+    const id=ta.closest(".cq").querySelector("[data-cqsave]").dataset.cqsave;
+    ta.addEventListener("input",()=>cqDraftSet(cqKey(person,id), ta.value));
+  });
+  document.querySelectorAll("[data-cqsave]").forEach(b=>b.onclick=()=>{
+    const q=find(b.dataset.cqsave), v=b.closest(".cq").querySelector("textarea").value.trim();
+    if(!q) return;
+    if(!v){ toast("Type an answer first"); return; }
+    Object.assign(q,{answer:v, answeredAt:localDateStr(), status:"answered", updatedAt:Date.now()});
+    cqDraftSet(cqKey(person,q.id), ""); delete coachQEditing[cqKey(person,q.id)];
+    save(); syncNow(true); renderView(); toast("Answer saved");
+  });
+  document.querySelectorAll("[data-cqedit]").forEach(b=>b.onclick=()=>{ coachQEditing[cqKey(person,b.dataset.cqedit)]=true; renderView(); });
+  document.querySelectorAll("[data-cqcancel]").forEach(b=>b.onclick=()=>{
+    const key=cqKey(person,b.dataset.cqcancel);
+    cqDraftSet(key, ""); delete coachQEditing[key]; renderView();
+  });
+}
 // The two cardio sessions are different jobs and read completely differently,
 // so they get a card each. One combined "last run" only ever showed whichever
 // came last - and worse, it could never show the intervals at all, because it
@@ -5506,6 +5590,7 @@ function renderHome(){
   if(coachSessNote){
     html+=noteCard("chat", 'Coach · '+esc(sess.name)+(coach.updated?' &middot; '+relTime(coach.updated):""), esc(coachSessNote), "coach-card");
   }
+  html += coachQuestionsCardHtml(p);
   html += weekReviewCardHtml(p);
   html += homeTilesHtml(p, pLogs);
 
@@ -5551,6 +5636,7 @@ function renderHome(){
   const go=tab=>switchTab(tab);
   const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
   document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
+  wireCoachQuestions(p);
 }
 
 function renderView(){

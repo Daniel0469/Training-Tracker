@@ -156,6 +156,14 @@
      person's colour - reads as "from your coach" without a colour of its own. */
   .coach-card{background:transparent;border:1.5px solid var(--line-2)}
   .coach-card .sec-title svg.ico{color:var(--brand)}
+  /* Coach questions on Home: each one under a rule, the answer box full width, answered
+     ones folded to a single truncated line. */
+  .cq{padding-top:10px;margin-top:10px;border-top:1px solid var(--line)}
+  .cq-q{font-weight:700}
+  .cq textarea{margin-top:8px;min-height:72px}
+  .cq-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+  .cq-row{display:flex;align-items:center;gap:8px;min-width:0}
+  .cq-line{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--ink-2)}
   .timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;color:var(--muted);min-width:58px;text-align:center}
   .timer.running{color:var(--brand)}
   .sets-wrap{overflow-x:auto}
