@@ -28,7 +28,11 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Coach ideas go straight to issues with `from:coach`. Rejected issues are read before proposing.
 
 ## Phase 3: Edit saved sessions
-- [ ] Waiting. Scope not decided.
+- [x] Edit sets dialog in the open History card: sets, warm-up marks, RPE, difficulty, note (built 3 Nov, version 1.3).
+- [x] Saving keeps every other key, stamps `editedAt` and `updatedAt`, and checks PRs again for the changed exercises on later sessions.
+- [x] Undo for the last five edits per person, 14 days, this phone only.
+- [x] `set_log_entry` in mcp-coach stamps `updatedAt`.
+- [ ] Reviewed by Daniel and shipped as version 1.3.
 
 ## Phase 4: Family setup
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.

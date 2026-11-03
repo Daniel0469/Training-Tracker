@@ -34,6 +34,17 @@ choice (the research default is two). The Friday run follows the read-decide-wri
 `docs/prompts/coaching.md`. Needs a Claude Code restart for the new tools. Personal seed drafts of
 the two profiles are not committed and wait for Daniel's review. The app is `1.1`.
 
+**Edit saved sessions (3 Nov 2026, branch `phase3-edit`, not pushed):** an **Edit sets** button in an
+open History card opens a dialog with the session's sets, warm-up marks, RPE per exercise, session
+difficulty and note. Sets can be changed, removed or added, and a set number toggles warm-up. Saving
+keeps every other key on the session, stamps `editedAt` and `updatedAt`, and checks PRs again for the
+changed exercises on every later session (`prChanges`), with a message saying which sessions gained or
+lost one. **Undo edit** shows on the newest edit's card (five steps per person, 14 days, this phone
+only, notes included). `set_log_entry` in mcp-coach now stamps `updatedAt`, checked by
+`scratchpad/run_coach_stamp.py`; needs a Claude Code restart. Cases are in
+`scratchpad/review/edit-cases.html`, the review stage in `scratchpad/review/edit-stage.html`
+(`python scratchpad/proto_edit.py` builds its data). The app is `1.3`. Not yet reviewed by Daniel.
+
 **Settings split (3 Nov 2026, branch `settings-split`, not pushed):** Settings opens on a **Profile**
 tab (name, colour, bodyweight, goals, **Improve the app** and four switches per person: Progression
 targets, Food and calories, Tape and body measures, Garmin and coach) and has an **Admin** tab (export,
@@ -1192,7 +1203,7 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h - deliberately **not** part of the export/sync payload.
 - `sw.js` - service worker (cache-first shell + Chart.js). **Bump `VERSION` on ANY change to a
-  cached file** (1.0.1 for a fix, 1.1 for a feature). Currently `1.2`.
+  cached file** (1.0.1 for a fix, 1.1 for a feature). Currently `1.3`.
 - `manifest.webmanifest`, `icons/` - PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
 - `mcp-coach/` - Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` - Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,

@@ -87,7 +87,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 ### History, Progress & Records
 - **History:** opens with a **This week** summary (total volume, session count, muscle heatmap,
   weekly-volume bar chart), then every saved session newest-first - filter by person, expand for
-  detail, delete.
+  detail, edit the sets, undo the last edit, delete.
 - **Progress:** current **bests** (weight, reps, estimated 1RM per exercise), then a chart of your
   top set for any exercise over time with both people on one graph and a top-weight vs Est. 1RM toggle.
 - Bodyweight and assisted movements are scored as what they actually load: bests show the real

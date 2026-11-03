@@ -87,5 +87,21 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   its sync config yet takes the store's PIN (`mergeAdminPin`). `adminUnlocked` is cleared when
   Settings opens and closes. It is a light lock. To reset a forgotten PIN, set `"adminPin":
   {"updatedAt": <now in ms>}` in the store's `data.json` with no hash.
+- **Saved sessions can be edited** (3 Nov 2026, version 1.3): **Edit sets** in an open History card opens
+  `#editLogDlg`. `applyLogEdit(log, edit, now)` replaces only `rows`, `warmup`, `done` and `rpe` on each
+  entry (indices renumbered when blank rows drop) plus the log's `feedback` and `difficulty`, keeps every
+  other key (`garmin`, `corrections`, `load`, `timed`, `smith`), recomputes `volume` and stamps
+  `editedAt` and `updatedAt`. An exercise left with no sets is dropped, a run is kept. If a run's rows
+  change and `garmin.rows_from` starts with `reps` or `laps` it becomes `edited in app`, which mcp-garmin's
+  `_fill_run_entry` does not replace. `prChanges(person, names, fromLog)` walks the person's logs in date
+  then id order with a running best (`indexLog`, `prevBestLookup`, `entryPr`) and recomputes `pr` for the
+  changed exercise names from the edited log on. `applyPrChanges` writes the flips and stamps `updatedAt`
+  on those logs only. Undo steps live in `localStorage` key `flLiveTracker_v1_undo` as `{person: [steps]}`,
+  outside the export and sync, five per person for 14 days, each holding before and after copies of every
+  log it touched. Undo is a new edit (fresh `updatedAt`, recheck, sync) and puts `editedAt` back to null,
+  because `mergeRecord` adopts a key a log no longer holds. The note editor records a step too. Cases:
+  `scratchpad/review/edit-cases.html` (or `edit-cases.js` under Electron as node). `set_log_entry` in
+  mcp-coach now stamps `updatedAt`. A stored `pr` flag can disagree with a full recompute (16 flags on 8
+  sessions in the 2 Nov copy, all June and July), so a recheck only touches the exercises an edit changed.
 - The Home Hub is a **separate app in its own repo with its own chat**. Don't build hub features
   here - see [../home-hub-link.md](../home-hub-link.md) for the shared data contract.
