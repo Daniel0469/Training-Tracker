@@ -4014,7 +4014,68 @@ function setSettingsTab(tab){
   document.querySelectorAll("#setTabs [data-set-tab]").forEach(b=>b.classList.toggle("active", b.dataset.setTab===tab));
   document.getElementById("setProfile").hidden=tab!=="profile";
   document.getElementById("setAdmin").hidden=tab!=="admin";
+  if(tab==="admin") renderAdminGate();
 }
+// The family PIN keeps Admin behind a code: state.adminPin = {salt, hash, updatedAt}, the hash being
+// SHA-256 of the salt bytes followed by the PIN, in hex. Unlocked only until the dialog closes.
+let adminUnlocked=false;
+const PIN_RE=/^\d{4,6}$/;
+const hasPin=()=>!!(state.adminPin && state.adminPin.hash);
+const hexOf=bytes=>Array.from(bytes, b=>b.toString(16).padStart(2,"0")).join("");
+function pinHash(saltHex, pin){
+  const salt=new Uint8Array(((saltHex||"").match(/../g)||[]).map(h=>parseInt(h,16))), digits=new TextEncoder().encode(pin);
+  const all=new Uint8Array(salt.length+digits.length); all.set(salt); all.set(digits, salt.length);
+  return crypto.subtle.digest("SHA-256", all).then(d=>hexOf(new Uint8Array(d)));
+}
+function pinMatches(pin){ return pinHash(state.adminPin.salt, pin).then(h=>h===state.adminPin.hash); }
+function storePin(pin){
+  const salt=hexOf(crypto.getRandomValues(new Uint8Array(16)));
+  return pinHash(salt, pin).then(hash=>{ state.adminPin={salt, hash, updatedAt:Date.now()}; save(); autoSync(); });
+}
+// Both PIN forms ask for the PIN twice when setting one: returns the reason it is not good, or "".
+function pinProblem(pin, again){
+  if(!window.crypto || !crypto.subtle) return "A PIN needs a secure (https) page.";
+  if(!PIN_RE.test(pin)) return "Use 4 to 6 digits.";
+  return pin===again ? "" : "The two PINs differ.";
+}
+function showPinError(id, msg){ const el=document.getElementById(id); el.textContent=msg; el.hidden=!msg; }
+function renderAdminGate(){
+  const gate=document.getElementById("adminGate");
+  gate.hidden=adminUnlocked;
+  document.getElementById("adminBody").hidden=!adminUnlocked;
+  if(adminUnlocked) return;
+  const setting=!hasPin(), field=(id,label)=>'<label class="fld" style="margin-bottom:8px">'+label
+    + '<input id="'+id+'" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></label>';
+  gate.innerHTML='<div class="sec-title">'+ico("lock")+(setting?'Set a family PIN':'Admin is locked')+'</div>'
+    + '<div class="hint" style="margin:0 0 10px">'+(setting
+      ? 'Admin holds backup, sync and delete. Choose 4 to 6 digits. Everyone who uses this app needs the PIN to open Admin, and it syncs to every phone.'
+      : 'Enter the family PIN to open Admin.')+'</div>'
+    + field("pinIn", setting?'New PIN':'PIN') + (setting?field("pinIn2",'Type it again'):'')
+    + '<div class="hint pin-err" id="pinErr" hidden></div>'
+    + '<div class="row"><button class="btn btn-primary grow" id="pinGo">'+(setting?'Set PIN':'Unlock')+'</button></div>';
+  const open=()=>{ adminUnlocked=true; renderAdminGate(); };
+  const go=()=>{
+    const pin=document.getElementById("pinIn").value;
+    if(setting){
+      const bad=pinProblem(pin, document.getElementById("pinIn2").value);
+      if(bad) return showPinError("pinErr", bad);
+      storePin(pin).then(()=>{ toast("PIN set"); open(); });
+    } else pinMatches(pin).then(ok=>{ if(ok) open(); else { document.getElementById("pinIn").value=""; showPinError("pinErr","Wrong PIN."); } });
+  };
+  document.getElementById("pinGo").onclick=go;
+  gate.querySelectorAll("input").forEach(i=>i.onkeydown=e=>{ if(e.key==="Enter") go(); });
+}
+document.getElementById("pinChange").onclick=()=>{
+  const old=document.getElementById("pinOld").value, pin=document.getElementById("pinNew").value, bad=pinProblem(pin, document.getElementById("pinNew2").value);
+  if(bad) return showPinError("pinChangeErr", bad);
+  pinMatches(old).then(ok=>{
+    if(!ok) return showPinError("pinChangeErr", "The current PIN is wrong.");
+    storePin(pin).then(()=>{
+      ["pinOld","pinNew","pinNew2"].forEach(id=>{ document.getElementById(id).value=""; });
+      showPinError("pinChangeErr", ""); document.getElementById("pinCfg").open=false; toast("PIN changed");
+    });
+  });
+};
 document.querySelectorAll("#setTabs [data-set-tab]").forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.setTab));
 // Who is on this device and what each has switched off. Read only: the switches are per person, set on their Profile.
 function renderAccountList(){
@@ -4068,6 +4129,7 @@ document.getElementById("settingsBtn").onclick=()=>{
   renderAccountList();
   renderProgramOwners();
   showAppVersion();
+  adminUnlocked=false;
   setSettingsTab("profile");
   setDlg.showModal();
   // Only once the dialog is actually on screen - autoGrow reads scrollHeight,
@@ -4200,13 +4262,16 @@ function saveSettingsPerson(){
   save(); renderPeople(); renderView();
 }
 setDlg.addEventListener("close", saveSettingsPerson);
+setDlg.addEventListener("close", ()=>{ adminUnlocked=false; });
 document.getElementById("settingsClose").onclick=()=>setDlg.close();
 document.getElementById("settingsClose2").onclick=()=>setDlg.close();
 document.getElementById("guideBtn").onclick=()=>{ setDlg.close(); switchTab("help"); };
 document.getElementById("ghSaveCfg").onclick=()=>{
   const cfg=loadSync();
-  cfg.repo=document.getElementById("ghRepo").value.trim();
-  cfg.path=document.getElementById("ghPath").value.trim()||"data.json";
+  const repo=document.getElementById("ghRepo").value.trim(), path=document.getElementById("ghPath").value.trim()||"data.json";
+  if(cfg.repo!==repo || cfg.path!==path) delete cfg.sha;
+  cfg.repo=repo;
+  cfg.path=path;
   cfg.token=document.getElementById("ghToken").value.trim();
   saveSyncCfg(cfg);
   setSyncStatus(cfg.repo&&cfg.token ? "Saved. Ready to sync "+cfg.repo : "Saved (repo + token needed to sync).");
@@ -4256,7 +4321,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, adminPin:state.adminPin, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -4407,6 +4472,14 @@ function mergeFeatures(data, tally){
     });
   }
 }
+function mergeAdminPin(data, tally, firstSync){
+  // The family PIN: one for everyone, so the newest edit wins. A phone that has never synced
+  // with this store takes the store's PIN whatever the stamps say, so it cannot keep a PIN of
+  // its own that nobody else knows.
+  var theirs=data.adminPin, mine=state.adminPin;
+  if(!theirs || typeof theirs!=="object") return;
+  if(!mine || firstSync || (+theirs.updatedAt||0)>(+mine.updatedAt||0)){ state.adminPin=theirs; tally.updated++; }
+}
 function mergeCoachQuestions(data, tally){
   // Coach questions: the coach adds and closes them and the phones answer them, so neither
   // side is the authority - the newer edit of each question (by id) wins.
@@ -4556,6 +4629,7 @@ function mergeInData(data, adoptConfig, fromSync){
   mergeMachineSettings(data, tally);
   mergeProgression(data, tally);
   mergeFeatures(data, tally);
+  mergeAdminPin(data, tally, fromSync && !loadSync().sha);
   mergeCoachQuestions(data, tally);
   mergeMeasurements(data, tally);
   mergeNutritionTargets(data, tally);

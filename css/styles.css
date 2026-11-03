@@ -649,6 +649,8 @@
   .sw:has(+ .sw-sub:not([hidden])){border-bottom:0}
   .sw-sub{padding:10px 0 6px 12px;border-bottom:1px solid var(--line)}
   .sw-sub .hint{margin-top:6px}
+  .pin-err{color:var(--bad);margin:0 0 8px;font-weight:700}
+  #adminGate .sec-title svg.ico{width:15px;height:15px;vertical-align:-3px;margin-right:6px}
   .sync-cfg summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
   .guide-sec{padding:0}
   .guide-sec summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
