@@ -31,6 +31,7 @@ let sessionTimers = {};
 // the program: the program is the plan, this is what actually happened.
 // Cleared when the session is saved; the save summary offers to promote one.
 let formExtras = {};
+let restStarts = {};
 let timerInterval = null;
 
 function load(){
@@ -325,17 +326,17 @@ function loadDrafts(){
   try{
     const d=JSON.parse(localStorage.getItem(DRAFT_KEY));
     if(d && d.savedAt && (Date.now()-d.savedAt) < DRAFT_TTL_MS)
-      return {drafts:d.drafts||{}, timers:d.timers||{}, extras:d.extras||{}};
+      return {drafts:d.drafts||{}, timers:d.timers||{}, extras:d.extras||{}, rests:d.rests||{}};
   }catch(e){}
-  return {drafts:{}, timers:{}, extras:{}};
+  return {drafts:{}, timers:{}, extras:{}, rests:{}};
 }
 function saveDrafts(){
   sbDraftsSaved();
   try{
-    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length){
+    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length && !Object.keys(restStarts).length){
       localStorage.removeItem(DRAFT_KEY); return;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers, extras:formExtras}));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers, extras:formExtras, rests:restStarts}));
   }catch(e){}
 }
 // Restored here rather than where they're declared: DRAFT_KEY isn't initialised
@@ -344,6 +345,7 @@ const restoredDrafts = loadDrafts();
 formDrafts = restoredDrafts.drafts;
 sessionTimers = restoredDrafts.timers;
 formExtras = restoredDrafts.extras;
+restStarts = restoredDrafts.rests;
 
 function toast(msg, ms){
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
@@ -1329,9 +1331,9 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 
 // Rest stopwatch: how long since the last set was ticked done. Counts UP - there
 // is no target to count down to, since what you rest is a judgement, not a
-// prescription. Deliberately not saved: it isn't a record of anything, it's a
-// glance between sets, so it lives in memory only and is gone on a reload. That
-// keeps it out of the drafts, out of the session, and out of sync entirely.
+// prescription. It is a glance between sets, not a record, so it is kept only in this
+// device's drafts (so a backgrounded app that the phone discards still has it) and never
+// in the session or the sync.
 // Keyed per person+session, exactly as formDrafts / sessionTimers / formExtras
 // are. Two people share one phone and swap the toggle between sets, so a single
 // global showed the other person your rest, still counting, the moment you handed
@@ -1342,9 +1344,9 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 // Each entry is {t: when the set was ticked, target: that exercise's suggested
 // rest in seconds, or 0}. The bar keeps counting past the target - it changes
 // colour rather than stopping.
-let restStarts = {}, restInterval = null;
-function startRest(targetSec){ restStarts[draftKey()] = {t:Date.now(), target:+targetSec||0, buzzed:false}; updateRestUI(); }
-function stopRest(){ delete restStarts[draftKey()]; updateRestUI(); }
+let restInterval = null;
+function startRest(targetSec){ restStarts[draftKey()] = {t:Date.now(), target:+targetSec||0, buzzed:false}; saveDrafts(); updateRestUI(); }
+function stopRest(){ delete restStarts[draftKey()]; saveDrafts(); updateRestUI(); }
 // Called from renderView, so every tab switch and every person switch lands the
 // bar on the right rest - or hides it - without each caller having to remember.
 function updateRestUI(){
@@ -6271,7 +6273,7 @@ function sbFormOpen(key){ return activeTab==="log" && draftKey()===key; }
 function sbTakeDraft(row){
   const key=row.person+"|"+row.session_key, body=row.body||{};
   if(row.deleted_at!=null || !body.draft){
-    delete formDrafts[key]; delete formExtras[key]; delete sbDraftHash[key];
+    delete formDrafts[key]; delete formExtras[key]; delete restStarts[key]; delete sbDraftHash[key];
   } else {
     formDrafts[key]=body.draft;
     if((body.extras||[]).length) formExtras[key]=body.extras; else delete formExtras[key];
