@@ -194,6 +194,7 @@
   table.rec td{padding:5px 8px;border-top:1px solid var(--line);white-space:nowrap}
   table.rec tbody tr:first-child td{border-top:0}
   td.prev,th.prev{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;width:92px;font-weight:600}
+  td.prev.prev-text{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
   td.done-cell,th.done-cell{width:48px;text-align:center;white-space:nowrap}
   /* The tick: a 40px rounded button, filled with the person's colour when done.
      appearance:none so it can be drawn; the check mark is the ::after. */

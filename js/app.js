@@ -1793,6 +1793,8 @@ function colInputAttr(ex, ci){
   const im=colInputMode(ex.cols[ci]);
   return (im ? ' inputmode="'+im+'"' : "") + (isRunning(ex) && ci===colIndex(ex,/pace/i) ? ' readonly' : "");
 }
+// A Last cell longer than "102.5 x 10" is text (a note from the last session) and wraps; a short one stays on one line.
+const PREV_TEXT_CHARS=10;
 function setRowHtml(n,ex,prevCell){
   const pt = progTarget(state.people[state.activePerson], ex);
   let cells="";
@@ -1806,7 +1808,7 @@ function setRowHtml(n,ex,prevCell){
   // A run has no per-row Last (its splits don't line up week to week - see
   // renderExForm), so it drops the column and its three inputs get the width.
   return '<tr><td class="setno" data-setno data-n="'+n+'" title="Tap to mark as a warm-up set">'+n+'</td>'+cells
-    + (isRunning(ex) ? '' : '<td class="prev">'+prevCell+'</td>')
+    + (isRunning(ex) ? '' : '<td class="prev'+(String(prevCell).length>PREV_TEXT_CHARS ? ' prev-text' : '')+'">'+prevCell+'</td>')
     + '<td class="done-cell"><input type="checkbox" data-done title="Mark set done"><span class="medal" data-medal hidden>PR</span></td></tr>';
 }
 // A target placeholder reads as the plain column label on a warm-up row.
