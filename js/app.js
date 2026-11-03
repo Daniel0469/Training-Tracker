@@ -5309,7 +5309,7 @@ function mergeInData(data, adoptConfig, fromSync){
   mergeMachineSettings(data, tally);
   mergeProgression(data, tally);
   mergeFeatures(data, tally);
-  mergeAdminPin(data, tally, fromSync && !loadSync().sha);
+  mergeAdminPin(data, tally, fromSync && isFirstSync());
   mergeCoachQuestions(data, tally);
   mergeMeasurements(data, tally);
   mergeNutritionTargets(data, tally);
@@ -5868,7 +5868,7 @@ function rowHash(row){
 const SB_KEY=KEY+"_sb";
 const SB_LIB_URL="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";
 const SB_LIB_SRI="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R";
-function sbBlank(){ return {url:"", key:"", email:"", mode:"github", cursor:null, dcursor:null, h:{}, d:{}, ps:{}, pv:{}, device:""}; }
+function sbBlank(){ return {url:"", key:"", email:"", mode:"github", cursor:null, dcursor:null, h:{}, d:{}, ps:{}, pv:{}, device:"d-"+Math.random().toString(36).slice(2, 8)}; }
 function sbRead(){ try{ return Object.assign(sbBlank(), JSON.parse(localStorage.getItem(SB_KEY))||{}); }catch(e){ return sbBlank(); } }
 let sb=sbRead();
 let sbClient=null, sbLibPromise=null;
@@ -5911,7 +5911,7 @@ function sbConnect(){
     .then(function(r){
       fsField("fsPass").value="";
       if(r.error) throw r.error;
-      setFsStatus("Connected as "+sb.email+". Not copied up yet.");
+      return sbMigrate();
     })
     .catch(function(e){ fsField("fsPass").value=""; setFsStatus("Sign-in failed ("+String((e && e.message) || e)+")"); });
 }
@@ -5923,6 +5923,137 @@ function sbDisconnect(){
   const out=was ? was.auth.signOut().catch(()=>{}) : Promise.resolve();
   renderFamilyStorage(); setFsStatus("Disconnected. This phone uses GitHub sync again.");
   return out;
+}
+// ---- First sign-in: copy everything on this phone up, read it back, then switch ----
+const SB_BATCH=200, SB_PAGE=1000;
+let sbLines=[], sbFirstPull=false;
+// A phone that has never synced takes the store's PIN; a connected one only when its stamp is newer.
+function isFirstSync(){ return sbOn() || sbFirstPull ? sbFirstPull : !loadSync().sha; }
+const rkey=r=>r.kind+"|"+r.key;
+function sbCheck(res){ if(res.error) throw res.error; return res.data; }
+// Postgres drops trailing zeros of the fraction, so pad it before comparing two server times as text.
+function tsKey(s){ return String(s||"").replace(/\.(\d+)/, (m, f)=>"."+f.padEnd(6, "0")); }
+function maxTs(rows, cur){ return rows.reduce((m, r)=>r.server_at && (m==null || tsKey(r.server_at)>tsKey(m)) ? r.server_at : m, cur); }
+// What the last sync saw, in the form toRecords wants: each person's slot and when a delete happened.
+function sbPrev(){
+  const prev={};
+  Object.keys(sb.ps).forEach(n=>{ prev["person|"+n]={body:{slot:sb.ps[n]}}; });
+  Object.keys(sb.d).forEach(k=>{ prev[k]=Object.assign(prev[k]||{}, {deleted_at:sb.d[k]}); });
+  return prev;
+}
+function sbLocalRows(){ return toRecords(state, Date.now(), sbPrev()); }
+function sbMarkSent(r){ sb.h[rkey(r)]=rowHash(r); if(r.deleted_at!=null) sb.d[rkey(r)]=r.deleted_at; }
+// Remembers what the server holds for programs (their version) and people (their slot).
+function sbNote(rows){
+  rows.forEach(r=>{
+    if(r.kind==="program") sb.pv[r.key]=+(r.body||{}).version||0;
+    else if(r.kind==="person" && Number.isInteger((r.body||{}).slot)) sb.ps[r.key]=r.body.slot;
+  });
+}
+async function sbUpload(rows, onProgress){
+  for(let i=0; i<rows.length; i+=SB_BATCH){
+    const batch=rows.slice(i, i+SB_BATCH);
+    sbCheck(await sbClient.from("records").upsert(batch.map(r=>Object.assign({by:"app"}, r)), {onConflict:"kind,key"}));
+    batch.forEach(sbMarkSent);
+    if(onProgress) onProgress(Math.min(i+SB_BATCH, rows.length), rows.length);
+  }
+}
+// Every row of a table changed since `cursor` (all rows when null), a page at a time. Rows written in one
+// statement share a server_at, so the next page starts at the last time seen and skips what it already has.
+async function sbFetchSince(table, cursor, idOf){
+  const out=[], seen=new Set();
+  let from=cursor, op="gt";
+  for(;;){
+    let q=sbClient.from(table).select("*").order("server_at", {ascending:true});
+    q=table==="records" ? q.order("kind").order("key") : q.order("person").order("session_key");
+    if(from) q=q[op]("server_at", from);
+    const page=sbCheck(await q.limit(SB_PAGE)), fresh=page.filter(r=>!seen.has(idOf(r)));
+    fresh.forEach(r=>{ seen.add(idOf(r)); out.push(r); });
+    if(page.length<SB_PAGE || !fresh.length) return out;
+    from=page[page.length-1].server_at; op="gte";
+  }
+}
+// Why the server's rows do not stand for the ones this phone sent: a row missing, older, or not deleted.
+function sbCompare(local, server){
+  const by={}, bad=[];
+  server.forEach(r=>{ by[rkey(r)]=r; });
+  local.forEach(r=>{
+    const s=by[rkey(r)];
+    if(!s) bad.push(r.kind+" "+r.key+" is missing");
+    else if((+s.updated_at||0)<(+r.updated_at||0)) bad.push(r.kind+" "+r.key+" is older on the server");
+    else if(r.deleted_at!=null && s.deleted_at==null) bad.push(r.kind+" "+r.key+" is not deleted on the server");
+  });
+  return bad;
+}
+// A payload for mergeInData from server rows. Goals and weights follow the accounts on this phone, not
+// the slots of whoever wrote them.
+function sbPayload(rows){
+  const data=fromRecords(rows), people={};
+  rows.forEach(r=>{ if(r.kind==="person") people[r.key]=r.body||{}; });
+  data.goals=state.people.map(n=>(people[n]||{}).goal||"");
+  data.weights=state.people.map(n=>(people[n]||{}).weight||"");
+  data.programIds={};
+  Object.keys(people).forEach(n=>{ if(people[n].programId) data.programIds[n]={id:people[n].programId, updatedAt:people[n].programIdAt||0}; });
+  return data;
+}
+// Merges server rows into this phone. A row identical to what this phone last sent or applied is skipped,
+// which keeps an echo of its own write from redrawing the screen.
+function sbApplyRows(rows){
+  const fresh=rows.filter(r=>sb.h[rkey(r)]!==rowHash(r));
+  sbNote(rows);
+  if(!fresh.length) return {added:0, updated:0};
+  captureDraft();
+  const payload=sbPayload(fresh), tally=mergeInData(payload, false, true);
+  overwritePerPerson("wellness", payload.wellness);
+  fresh.forEach(r=>{ if(r.deleted_at!=null && REC_STUB_KINDS.indexOf(r.kind)>=0) sb.d[rkey(r)]=r.deleted_at; });
+  const mine={};
+  sbLocalRows().forEach(r=>{ mine[rkey(r)]=r; });
+  fresh.forEach(r=>{
+    const m=mine[rkey(r)];
+    if(m && (rowHash(m)===rowHash(r) || (r.deleted_at!=null && m.deleted_at!=null))) sb.h[rkey(r)]=rowHash(m);
+  });
+  sbSave(); save(); renderPeople(); renderView();
+  return tally;
+}
+function sbSay(msg, replaceLast){
+  if(replaceLast && sbLines.length) sbLines[sbLines.length-1]=msg; else sbLines.push(msg);
+  sbRenderProgress();
+}
+function sbRenderProgress(){
+  const el=fsField("fsProgress"); if(!el) return;
+  el.hidden=!sbLines.length;
+  el.innerHTML=sbLines.map(l=>'<div>'+esc(l)+'</div>').join("");
+}
+// The automatic migration: upload every account on this phone (the table merges newest-wins, so two phones
+// holding the same accounts never duplicate), read it all back, and only when it matches switch over.
+// Nothing on the phone is deleted, whatever the result.
+async function sbMigrate(){
+  sbLines=[]; sb.h={}; sb.d={};
+  sbFirstPull=true;
+  try{
+    const local=sbLocalRows(), accounts=state.people.filter(Boolean).length;
+    sbSay("Reading this phone: "+local.length+" records from "+accounts+(accounts===1 ? " account." : " accounts."));
+    setFsStatus("Uploading..."); sbSay("Uploading 0 of "+local.length+"...");
+    await sbUpload(local, (done, all)=>sbSay("Uploading "+done+" of "+all+"...", true));
+    setFsStatus("Checking..."); sbSay("Reading it all back...");
+    const server=await sbFetchSince("records", null, rkey), bad=sbCompare(local, server);
+    if(bad.length){
+      sbSay(bad.length+(bad.length===1 ? " record does" : " records do")+" not match, so this phone stays on GitHub sync:");
+      bad.slice(0, 5).forEach(b=>sbSay(b));
+      setFsStatus("Check failed: "+bad.length+" differ. Still on GitHub sync.");
+      return false;
+    }
+    sbApplyRows(server);
+    sb.cursor=maxTs(server, null); sb.mode="supabase";
+    sbSave();
+    sbSay("All "+local.length+" records match. This phone now uses family storage. Nothing was deleted from this phone.");
+    renderFamilyStorage(); setFsStatus("Connected as "+sb.email+". "+local.length+" records copied and checked.");
+    return true;
+  }catch(e){
+    sbSay("Stopped: "+String((e && e.message) || e)+". This phone stays on GitHub sync.");
+    setFsStatus("Upload failed ("+String((e && e.message) || e)+")");
+    return false;
+  }finally{ sbFirstPull=false; }
 }
 // ==== end Family storage ====
 fsField("fsConnect").onclick=sbConnect;
