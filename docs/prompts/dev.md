@@ -68,5 +68,10 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
   exercise has no `notes` any more, and the coach MCP cannot write settings. An install without
   sync migrates old `notes` on load; synced phones got them from `scratchpad/apply_machine_settings.py`.
+- **Coach questions are per person** (3 Nov 2026): `state.coachQuestions[person] = [{id, question, why,
+  priority, decision, askedAt, nextFollowUp, reminders, answer, answeredAt, status, updatedAt}]`, shown on
+  Home for the active person only and merged per question id, newest `updatedAt` (ms) wins
+  (`mergeCoachQuestions`). The coach adds and closes them through `mcp-coach`; the phones answer. A
+  closed one is hidden, never deleted, so the merge cannot bring it back.
 - The Home Hub is a **separate app in its own repo with its own chat**. Don't build hub features
   here - see [../home-hub-link.md](../home-hub-link.md) for the shared data contract.

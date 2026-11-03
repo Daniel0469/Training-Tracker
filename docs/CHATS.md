@@ -41,6 +41,7 @@ only docs read by a chat that has no other context.
 ## Recurring rituals
 
 - **Weekly coaching:** open a coaching chat and paste [prompts/coaching.md](prompts/coaching.md).
+  It starts from the coach's memory (profile, decisions due, questions answered on Home).
 - **After a run block:** open a running chat and paste [prompts/running.md](prompts/running.md) to
   pull the watches and re-prescribe.
 - **Backlog review:** open a dev chat - it works through the confirmed `training` issues on Home-Hub (the Friday run files the in-app suggestions there).
@@ -53,7 +54,9 @@ only docs read by a chat that has no other context.
   - **`training-tracker`** (coach): `people`, `goals`, `recent_sessions`, `session`, `prs`,
     `bodyweight`, `progress`, `running_form`, `limiters`, `write_limiter`, `write_coaching`,
     `session_notes`, `write_session_notes`, `run_session`, `write_run`, `write_log_entry`,
-    `progression`, `write_machine_step`,
+    `progression`, `write_machine_step`, `coach_profile`, `write_coach_profile`, `coach_decisions`,
+    `add_coach_decision`, `review_coach_decision`, `coach_questions`, `add_coach_question`,
+    `remind_coach_question`, `close_coach_question`,
     `coaching_history`, `program_changes`, `write_program_change`, `suggestions`,
     `propose_suggestion_tool`, `resolve_suggestion_tool`.
   - **`training-garmin`** (Daniel) and **`training-garmin-cerys`** (Cerys), one per person:

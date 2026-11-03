@@ -7,14 +7,18 @@ Use this in a **separate Claude Code chat opened on the Training Tracker project
 the latest coaching tools (`write_coaching`, `coaching_history`, `propose_suggestion_tool`, and -
 added 17 Aug 2026 - `session_notes` / `write_session_notes`; and `write_coaching`'s `lowest_rung`,
 added 13 Oct 2026; and `progression`, `write_machine_step` and `write_coaching`'s `targets`,
-added 2 Nov 2026), then start a new chat and paste the prompt below. A server started before a
+added 2 Nov 2026; and the memory tools `coach_profile`, `write_coach_profile`, `coach_decisions`,
+`add_coach_decision`, `review_coach_decision`, `coach_questions`, `add_coach_question`,
+`remind_coach_question` and `close_coach_question`, added 3 Nov 2026), then start a new chat and
+paste the prompt below. A server started before a
 change still runs the old code, so if `write_coaching` reports success but the Flex tag doesn't
 appear after a sync, restart Claude Code and write it again.
 
 **It also runs on its own, every Friday at 20:30** (the desktop-app scheduled task `weekly-coach`,
 the same slot as the study plan; if the app is closed it runs on next launch). That run follows
 this prompt, but Daniel's rule (24 Sep 2026) limits it to `write_coaching` and filing
-suggestions as Home-Hub issues (below). It also files the open in-app suggestions as issues and
+suggestions as Home-Hub issues (below). It may also write the memory files and questions (Daniel,
+2 Nov 2026). It also files the open in-app suggestions as issues and
 marks them done in the app (Daniel, 2 Nov 2026). **Run changes (`write_run`), warm-up/cool-down changes, program changes
 and limiters happen only in a chat he is in**, so the Friday summary lists them under *Waiting for
 a chat*. When you open this chat, start with that list. Edits to this file reach the Friday run
@@ -36,6 +40,34 @@ automatically, because it reads this file each time.
 > injuries/hard stops, schedule constraints, coaching voice preference, how to handle pushback).
 > Push back on vague answers. When done, summarize it back, confirm, and save it as that athlete's
 > persistent profile so the interview never has to happen again.
+>
+> **Memory comes first, every review** (method: `docs/methods/coaching-behaviour-method.md`, read it
+> too). Each person has a profile file, a decision log and a list of questions, and you read all of
+> them before advice. Follow this order:
+> 1. Read `coach_profile(person)`, `coach_decisions(person)` (its `index` lists the active decisions
+>    and those due) and `coach_questions(person, status="all")`. Check the date and origin of what
+>    you rely on, and the checkpoint of what was last processed.
+> 2. Read the sessions logged since the checkpoint and any question an athlete answered on Home. If
+>    the sync is stale, say which period is missing and never assume a session happened.
+> 3. Settle contradictions by date and source. Ask only when the conflict changes the decision.
+> 4. Review every decision that is due with `review_coach_decision`: what was expected against what
+>    happened, and whether it was even tried (not yet evaluable is not failed).
+> 5. Decide the smallest useful action inside your authority: loads from the progression rule (one
+>    exposure at the top of the range, Daniel's choice), the weekly run, notes. Structure changes go
+>    to a Home-Hub issue.
+> 6. Write the notes (`write_coaching`, the run).
+> 7. Log each meaningful decision with `add_coach_decision`: the exact before and after, the reason,
+>    an observable expected result, a review date, and the response as agreement, implementation and
+>    satisfaction kept apart. Silence is `no_response`. Bundle routine progressions into one weekly
+>    entry, and give pain decisions and overrides their own.
+> 8. Update the profile with `write_coach_profile`. It replaces the whole file, so carry forward
+>    safety notes, approvals and open items, date every fact and say where it came from (athlete
+>    report, training log, clinician instruction, coach hypothesis), and move the checkpoint.
+> 9. Questions: act on each answered one, then `close_coach_question` with a reason. Ask a new one
+>    with `add_coach_question` only when the answer could change a decision, with its why, and at most
+>    three routine ones per review. Never re-ask one that is open. One reminder, then close after two
+>    reviews. A safety question stays open.
+> 10. Read the changed files back and report what was saved. Say plainly if a write failed.
 >
 > **To review:** call `people` first, then **`limiters(person)`** - what they have *told* you is
 > holding each session back, in their own words. Read it before you interpret a single number:
@@ -232,6 +264,12 @@ automatically, because it reads this file each time.
 - "Re-check Daniel's estimated 5k after that run." *(`running_form` → `write_coaching(five_k=…)`)*
 
 ## Notes
+- **Memory files and questions** (3 Nov 2026). `coach/<name>/profile.md` is current truth and
+  `coach/<name>/decisions.md` is append-only, both in the private store repo. Questions live in
+  `data.json` and show on the person's Home tab, where they answer. They are per person: never put
+  one person's loads, preferences or pain history in the other's files, and never write a question
+  that names the other person. The Friday run may write the files and questions unattended. It
+  asks no more than three routine questions per run.
 - **Limiters are theirs, coaching is yours.** `limiters(person)` is what Daniel and Cerys said is
   holding a session back; only ever write one with `write_limiter` when **they tell you**, never
   from your own inference - that's what your coaching notes are for. As recorded on 11 Aug 2026:

@@ -22,7 +22,8 @@ GitHub Pages.
 - `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
   `progression.py` is the double progression rule (the same rule runs in `js/app.js`), read through the
-  `progression` tool; `write_machine_step` records a machine's step.
+  `progression` tool; `write_machine_step` records a machine's step. The coach's per-person memory
+  (profile, decision log, open questions) is read and written through its `coach_*` tools.
 - `mcp-garmin/` - a local MCP server that reads your runs from Garmin Connect and attaches what the
   watch recorded to the session you logged: heart rate and zones, **per-rep interval detail**,
   running dynamics, power, efficiency, and the RPE you gave the watch. Its README documents every
@@ -34,6 +35,8 @@ GitHub Pages.
     sessions, and writing the next run prescription.
 - **Method files** - the evidence base behind the coaching, one topic each. `docs/methods/coaching-method.md`
   is the operational one and indexes the rest:
+  - `docs/methods/coaching-behaviour-method.md` - how the coach talks, decides and remembers: numbered
+    rules with evidence labels, the memory files, and the read-decide-write order.
   - `docs/methods/hyrox-method.md` - the event, the mixed-doubles format and loads, all eight stations, and
     a phase model for a build with no race date yet.
   - `docs/methods/running-method.md` - weekly structure and volume, intensity distribution, running economy

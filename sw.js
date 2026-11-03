@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.0";
+const VERSION = "1.1";
 const CACHE_NAME = "tt-" + VERSION;
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const APP_SHELL = [

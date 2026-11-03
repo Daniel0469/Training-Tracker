@@ -21,6 +21,19 @@ connected** in Claude Code and is **two-way** - it reads the data and can `write
 that show in the app. Coaching happens in a **separate Claude Code chat** - see
 `docs/prompts/coaching.md`. App development continues in the main chat.
 
+**Coach guide and memory (3 Nov 2026, branch `coach-memory`, not pushed):** the rules for how the
+coach behaves are in `docs/methods/coaching-behaviour-method.md` (numbered, each with its evidence
+label). The coach keeps two files per person in the private store repo, `coach/<name>/profile.md` and
+`decisions.md`, and open questions in `data.json` under `coachQuestions[person]`. The app shows a
+person's open questions on Home with a box for the answer; an answer folds to an Answered row and
+syncs (`mergeCoachQuestions`, newest `updatedAt` per id). The coach server gained `coach_profile`,
+`write_coach_profile`, `coach_decisions`, `add_coach_decision`, `review_coach_decision`,
+`coach_questions`, `add_coach_question`, `remind_coach_question` and `close_coach_question`, checked
+by `scratchpad/run_coach_memory.py`. Add load after one exposure at the top of the range is Daniel's
+choice (the research default is two). The Friday run follows the read-decide-write order in
+`docs/prompts/coaching.md`. Needs a Claude Code restart for the new tools. Personal seed drafts of
+the two profiles are not committed and wait for Daniel's review. The app is `1.1`.
+
 **Progression (2 Nov 2026, branch `phase6-progression`, not pushed):** the app shows the weight and
 rep range to aim for as grey numbers in the empty kg and reps boxes, from double progression
 (`docs/methods/strength-method.md`). A blank tick fills the target. A **Stalled** or **Up one step**

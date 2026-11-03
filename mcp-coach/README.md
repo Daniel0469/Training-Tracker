@@ -9,12 +9,29 @@ laptop, on your **Claude subscription - no API billing**.
 **Read:** `people`, `goals(person)`, `recent_sessions(person, limit)`, `session(session_id)`,
 `prs(person)`, `bodyweight(person)`, `progress(person, exercise)`, `running_form(person)`,
 `limiters(person)`, `coaching_history(person)`, `session_notes(session)`, `run_session(person)`,
-`progression(person)`, `suggestions()`.
+`progression(person)`, `suggestions()`, and the coach's memory: `coach_profile(person)`,
+`coach_decisions(person)`, `coach_questions(person, status)`.
 
 **Write** (needs the token to have Contents: **read and write**): `write_coaching`,
 `write_limiter`, `write_session_notes`, `write_run`, `write_machine_step`, `propose_suggestion_tool`,
-`resolve_suggestion_tool`.
-Everything written lands in the shared `data.json` and reaches the phones on their next sync.
+`resolve_suggestion_tool`, and the memory writes `write_coach_profile`, `add_coach_decision`,
+`review_coach_decision`, `add_coach_question`, `remind_coach_question`, `close_coach_question`.
+Everything written lands in the shared `data.json` and reaches the phones on their next sync,
+except the profile and decision files, which sit in the private store repo (below).
+
+The coach's memory, per person (method: `docs/methods/coaching-behaviour-method.md`):
+- `coach/<name>/profile.md` is the current truth and `write_coach_profile` replaces the whole file,
+  so read `coach_profile` first and carry forward everything still true.
+- `coach/<name>/decisions.md` is append-only. `add_coach_decision` adds an entry (change before and
+  after, reason, expected result, review date, agreement, implementation and satisfaction kept
+  apart). `review_coach_decision` sets the response and review fields on an existing entry and adds
+  a dated review line. Both rebuild the index of active and due decisions at the top.
+- Open questions live in `data.json` under `coachQuestions[person]`. `add_coach_question` shows one
+  on that person's Home tab, they answer it there, and `close_coach_question` removes it.
+  `remind_coach_question` counts a reminder. Ids are unique per person.
+- The two files sit in the same folder as the coaching log (`TT_GITHUB_LOG_PATH`, or beside
+  `TT_GITHUB_PATH`), and every tool checks the name against the people in `data.json`. The token
+  needs Contents: read and write on the store repo, as for the other writes.
 
 Three of the writes are worth knowing the shape of before using them:
 - `write_coaching` is **per person** - Daniel and Cerys can get different notes on the same
