@@ -1972,14 +1972,16 @@ function wireSetRow(tr, ex, best){
   cb.addEventListener("change", ()=>{
     tr.classList.toggle("done", cb.checked);
     if(cb.checked){
-      // A set ticked with no reps takes the target's top rep, and its weight too when that is blank
-      // as well. A weight already at the target (typed, or mirrored from the set above) is kept.
-      const pt = weightInput && repsInput && !tr.classList.contains("wset") && !repsInput.value.trim()
+      // A set ticked with no weight takes the target's weight, whatever is in the reps. One with no
+      // reps takes the target's top rep when its weight is blank too or already at the target (typed,
+      // or mirrored from the set above).
+      const pt = weightInput && repsInput && !tr.classList.contains("wset")
         ? progTarget(state.people[state.activePerson], ex) : null;
-      if(pt && pt.top && (!weightInput.value.trim() || parseFloat(weightInput.value)===+pt.kg)){
+      if(pt && pt.top){
         const blankKg=!weightInput.value.trim();
+        const fillReps=!repsInput.value.trim() && (blankKg || parseFloat(weightInput.value)===+pt.kg);
         if(blankKg) weightInput.value=pt.kg;
-        repsInput.value=pt.top;
+        if(fillReps) repsInput.value=pt.top;
         if(blankKg) weightInput.dispatchEvent(new Event("input", {bubbles:true}));
       }
       if(isLifting(ex) && repsInput && !repsInput.value.trim()){
