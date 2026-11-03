@@ -432,8 +432,8 @@
     border:1.5px dashed var(--line-2);border-radius:20px;background:transparent;color:var(--muted);font:inherit;font-size:14px;text-align:left;cursor:pointer}
   .add-row b{color:var(--brand);font-weight:800}
   .save-row{margin-bottom:30px;flex-wrap:nowrap}
-  /* "Last · 1 week ago" wraps under itself rather than holding the column at
-     117px - it was what pushed the set table into a sideways scroll. */
+  /* "Last · 2w" wraps under itself rather than holding the column wider - a wide
+     one pushed the set table into a sideways scroll. */
   table.sets th.prev{white-space:normal;line-height:1.25}
   #exForm .superset-label{justify-content:flex-start;gap:6px;letter-spacing:.08em;font-weight:800}
   #exForm .superset-label svg.ico{width:15px;height:15px}

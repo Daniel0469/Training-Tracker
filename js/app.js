@@ -1889,7 +1889,7 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
         + esc((prog ? prog.coachLine : "")+(prog && prog.coachLine && coach ? "\n" : "")+coach)+'</div></div>' : "")
     + (lastFrom?'<div class="recent">'+ico("clock")+'<b>Last</b> is from <b>'+esc(lastFrom)+'</b>, not this session</div>':"")
     + '<div class="sets-wrap"><table class="sets"><thead><tr><th class="setno-h">Set</th>'+ex.cols.map(c=>'<th>'+esc(colLabel(c))+'</th>').join("")
-    + (running ? '' : '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relTime(prevDate):"")+'</th>')
+    + (running ? '' : '<th class="prev" title="'+esc(prevDate)+(lastFrom?' · '+esc(lastFrom):"")+'">Last'+(prevDate?' · '+relShort(prevDate):"")+'</th>')
     + '<th class="done-cell">&#10003;</th></tr></thead><tbody>'+body+'</tbody></table></div>'
     // RPE isn't a lifting-only idea - a treadmill interval session has an
     // effort level just as much as a set of squats does, and so does a set of
