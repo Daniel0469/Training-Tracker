@@ -626,6 +626,9 @@
   .coach-card .pchange-head{display:none}
   .pc-approve{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
   .pc-approve:hover{color:var(--on-brand);filter:brightness(1.08)}
+  .pe-for{font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 0}
+  .pe-send{padding:10px 14px}
+  .prog-pick .fld{margin-bottom:0}
   .mini:disabled{opacity:.45;cursor:not-allowed}
   #view .prog-sess textarea.notes{background:var(--input-bg);border:1px solid var(--line-2);color:var(--ink);border-radius:12px;padding:8px 11px;font-size:13px}
   #view .prog-sess textarea.notes::placeholder{color:var(--muted)}

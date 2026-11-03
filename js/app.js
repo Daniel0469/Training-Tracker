@@ -3153,6 +3153,218 @@ function changeCardHtml(c){
     + '</div></div>';
 }
 
+// ---- Program edits between people ---------------------------------------
+// A program's members edit it straight away. Anyone else's edit, and a session copied across,
+// is a record in programChanges - {id, kind:"person"|"copy", programId, from, baseVersion, base,
+// proposed, createdAt, status} - that a member accepts or declines. base and proposed hold only
+// the sessions that differ, as {sessions:{key:session}, order?}; a session removed is null in
+// proposed. Coach changes have no `kind` and keep their own cards.
+const editSel={};   // person -> id of the program their Program tab is editing
+const editWork={};  // person|programId -> {baseVersion, base, prog, ack}: edits waiting to be sent
+function programLabel(prog){
+  const m=prog.members.filter(Boolean);
+  return prog.name || (m.length ? possessive(m.length>1 ? m.slice(0,-1).join(", ")+" and "+m[m.length-1] : m[0])+" program" : "Program");
+}
+// The program the Program tab edits for the active person: a member edits the live program, and
+// anyone else edits a copy of it that Send turns into a change.
+function editTarget(){
+  const me=state.people[state.activePerson], live=state.programs[editSel[me]]||progOf(me);
+  if(live.members.indexOf(me)>=0) return {live:live, prog:live, direct:true, me:me};
+  const key=me+"|"+live.id;
+  const work=editWork[key]||(editWork[key]={baseVersion:live.version, base:clone(live), prog:clone(live), ack:null});
+  return {live:live, prog:work.prog, direct:false, work:work, key:key, me:me};
+}
+function editProg(){ return editTarget().prog; }
+function saveEdit(){ const t=editTarget(); if(t.direct) saveProgram(t.live); }
+// What differs between a program as it was opened and as it is now.
+function diffPrograms(base, prog){
+  const out={base:{sessions:{}}, proposed:{sessions:{}}};
+  Object.keys(base.sessions).concat(Object.keys(prog.sessions).filter(k=>!(k in base.sessions))).forEach(function(k){
+    if(sameJson(base.sessions[k], prog.sessions[k])) return;
+    if(k in base.sessions) out.base.sessions[k]=clone(base.sessions[k]);
+    out.proposed.sessions[k]=k in prog.sessions ? clone(prog.sessions[k]) : null;
+  });
+  if(!sameJson(base.order, prog.order)){ out.base.order=base.order.slice(); out.proposed.order=prog.order.slice(); }
+  return out;
+}
+// Put a change into a live program. A session goes in only if it is still as the change found
+// it, so a session someone else edited meanwhile is left alone and reported as a clash. A copy
+// never clashes: each session lands under a key nobody has.
+function applyEdit(live, c){
+  const prop=c.proposed.sessions, applied=[], clashes=[];
+  if(c.kind==="copy"){
+    Object.keys(prop).forEach(function(k){
+      let key=slugify(prop[k].name), n=2;
+      while(live.sessions[key]) key=slugify(prop[k].name)+"-"+(n++);
+      live.sessions[key]=clone(prop[k]);
+      delete live.sessions[key].person;
+      live.order.push(key);
+      applied.push(key);
+    });
+    return {applied:applied, clashes:clashes, orderApplied:false};
+  }
+  const base=(c.base&&c.base.sessions)||{}, orderBefore=live.order.slice();
+  Object.keys(prop).forEach(function(k){
+    if(!sameJson(live.sessions[k], base[k])){ clashes.push(k); return; }
+    if(prop[k]===null){ delete live.sessions[k]; live.order=live.order.filter(x=>x!==k); }
+    else { live.sessions[k]=clone(prop[k]); if(live.order.indexOf(k)<0) live.order.push(k); }
+    applied.push(k);
+  });
+  const orderApplied=!!(c.proposed.order && sameJson(orderBefore, c.base.order));
+  if(orderApplied) live.order=c.proposed.order.filter(k=>k in live.sessions).concat(live.order.filter(k=>c.proposed.order.indexOf(k)<0));
+  return {applied:applied, clashes:clashes, orderApplied:orderApplied};
+}
+// One session's change in words: what was added, removed or altered.
+function sessionChangeLines(before, after){
+  const A=(before&&before.exercises)||[], B=(after&&after.exercises)||[], lines=[];
+  const byName=l=>{ const m={}; l.forEach(e=>{ m[e.name]=e; }); return m; }, ma=byName(A), mb=byName(B);
+  const val=v=>v==null||v===""?"-":v;
+  B.forEach(e=>{ if(!ma[e.name]) lines.push("Adds "+e.name); });
+  A.forEach(e=>{ if(!mb[e.name]) lines.push("Removes "+e.name); });
+  B.forEach(function(e){
+    const o=ma[e.name];
+    if(!o || sameJson(o, e)) return;
+    const bits=["sets","target","restSec"].filter(f=>o[f]!==e[f]).map(f=>f+" "+val(o[f])+" -> "+val(e[f]));
+    lines.push(e.name+": "+(bits.join(", ")||"details changed"));
+  });
+  if(!lines.length && !sameJson(A.map(e=>e.name), B.map(e=>e.name))) lines.push("Reorders the exercises");
+  const strip=s=>{ const o=Object.assign({}, s); delete o.exercises; return o; };
+  if(before && after && !sameJson(strip(before), strip(after))) lines.push("Changes the day or notes");
+  return lines;
+}
+function changeSummaryHtml(c){
+  const prop=c.proposed.sessions, base=(c.base&&c.base.sessions)||{};
+  return Object.keys(prop).map(function(k){
+    const after=prop[k], before=base[k];
+    const head = c.kind==="copy" ? esc(after.name)+' &middot; '+after.exercises.length+' exercise'+(after.exercises.length===1?'':'s')
+      : !after ? 'Removes '+esc(before.name)
+      : !before ? 'New session: '+esc(after.name)+' ('+after.exercises.length+' exercise'+(after.exercises.length===1?'':'s')+')'
+      : esc(after.name);
+    const lines=c.kind==="copy" || !before || !after ? [] : sessionChangeLines(before, after);
+    return '<div class="pchange-what">'+head+'</div>'
+      + (lines.length ? '<div class="pchange-why">'+lines.map(esc).join('<br>')+'</div>' : '');
+  }).join("")
+    + (c.proposed.order && c.kind!=="copy" ? '<div class="pchange-why">Changes the order of the sessions</div>' : '');
+}
+function programEdits(){
+  return (state.programChanges||[]).filter(c=>c && (c.kind==="person" || c.kind==="copy") && c.status==="pending");
+}
+// Waiting for the active person to accept: they are a member of the program it is for.
+function editsForMe(){
+  const me=state.people[state.activePerson];
+  return programEdits().filter(c=>{ const pr=state.programs[c.programId]; return pr && pr.members.indexOf(me)>=0; });
+}
+function editsFromMe(){
+  const me=state.people[state.activePerson];
+  return programEdits().filter(c=>c.from===me && state.programs[c.programId]);
+}
+function editCardHtml(c){
+  const live=state.programs[c.programId], moved=c.kind==="person" && live.version!==c.baseVersion;
+  const clash=moved ? applyEdit(clone(live), c).clashes.length : 0;
+  return '<div class="pchange">'
+    + '<div class="pchange-head">'+esc(c.from)+(c.kind==="copy"?' sent a session':' changes the program')+'</div>'
+    + changeSummaryHtml(c)
+    + (clash ? '<div class="pchange-why">'+clash+(clash===1?' session has':' sessions have')+' changed since, so '+(clash===1?'it stays':'they stay')+' as '+(clash===1?'it is':'they are')+'.</div>' : '')
+    + '<div class="row" style="gap:6px;margin-top:7px">'
+    + '<button class="mini pc-approve" data-peaccept="'+esc(c.id)+'">Accept</button>'
+    + '<button class="mini" data-pedecline="'+esc(c.id)+'">Decline</button>'
+    + '</div></div>';
+}
+// The Accept / Decline cards for the active person, on Home and on the Program tab.
+function programEditBannerHtml(){
+  const list=editsForMe();
+  if(!list.length) return "";
+  return '<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Program changes &middot; '+list.length+' waiting</div>'
+    + list.map(c=>'<div class="pe-for">'+esc(programLabel(state.programs[c.programId]))+'</div>'+editCardHtml(c)).join("")+'</div>';
+}
+function sentEditsHtml(){
+  return editsFromMe().map(c=>'<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Waiting for '+esc(state.programs[c.programId].members.join(" and "))+' to accept</div>'
+    + changeSummaryHtml(c)
+    + '<div class="row" style="margin-top:7px"><button class="mini" data-pewithdraw="'+esc(c.id)+'">Withdraw</button></div></div>').join("");
+}
+function programEditById(id){ return (state.programChanges||[]).find(x=>String(x.id)===String(id)); }
+function acceptProgramEdit(id){
+  const c=programEditById(id), live=c && state.programs[c.programId];
+  if(!c || c.status!=="pending") return;
+  if(!live){ setChangeStatus(c, "declined"); save(); renderView(); return; }
+  if(draftOnProgram(live.id)){ toast("Save the workout in progress first"); return; }
+  const res=applyEdit(live, c), done=res.applied.length>0 || res.orderApplied, left=res.clashes.length;
+  setChangeStatus(c, done ? "applied" : "declined");
+  if(left) c.clashes=res.clashes;
+  if(done) saveProgram(live); else save();
+  autoSync();
+  renderView();
+  toast(!done ? "Nothing could be applied - those sessions changed since"
+    : "Accepted"+(left ? ", "+left+(left===1?" session":" sessions")+" left as "+(left===1?"it was":"they were") : ""));
+}
+function declineProgramEdit(id){
+  const c=programEditById(id);
+  if(!c || c.status!=="pending") return;
+  setChangeStatus(c, "declined"); save(); autoSync(); renderView();
+  toast("Declined");
+}
+function withdrawProgramEdit(id){
+  const c=programEditById(id);
+  if(!c || c.status!=="pending") return;
+  c.status="withdrawn"; c.withdrawnAt=new Date().toISOString(); c.by=state.people[state.activePerson]||"";
+  save(); autoSync(); renderView();
+  toast("Withdrawn");
+}
+function wireProgramEditButtons(){
+  document.querySelectorAll("[data-peaccept]").forEach(b=>b.onclick=()=>acceptProgramEdit(b.dataset.peaccept));
+  document.querySelectorAll("[data-pedecline]").forEach(b=>b.onclick=()=>declineProgramEdit(b.dataset.pedecline));
+  document.querySelectorAll("[data-pewithdraw]").forEach(b=>b.onclick=()=>withdrawProgramEdit(b.dataset.pewithdraw));
+}
+function pushProgramEdit(rec){
+  state.programChanges.push(Object.assign({id:"pe-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    from:state.people[state.activePerson], createdAt:new Date().toISOString(), status:"pending"}, rec));
+  save(); autoSync();
+}
+// Send what was changed in a program the active person is not a member of.
+function sendProgramEdit(){
+  const t=editTarget(); if(t.direct) return;
+  const d=diffPrograms(t.work.base, t.prog);
+  if(!Object.keys(d.proposed.sessions).length && !d.proposed.order){ toast("Nothing changed"); return; }
+  pushProgramEdit({kind:"person", programId:t.live.id, baseVersion:t.work.baseVersion, base:d.base, proposed:d.proposed});
+  delete editWork[t.key];
+  renderEdit();
+  toast("Sent to "+t.live.members.join(" and ")+" for approval");
+}
+// The editor's top cards: who is accepting what, which program is open, and what Send does.
+function editHeaderHtml(t){
+  const ids=Object.keys(state.programs).filter(id=>state.programs[id].members.length || id===t.live.id);
+  let html=programEditBannerHtml();
+  if(ids.length>1){
+    html+='<div class="card prog-pick"><label class="fld">Editing<select id="progPick">'
+      + ids.map(id=>'<option value="'+esc(id)+'"'+(id===t.live.id?' selected':'')+'>'+esc(programLabel(state.programs[id]))+(state.programs[id].members.indexOf(t.me)>=0?' (yours)':'')+'</option>').join("")
+      + '</select></label>'
+      + (t.direct ? '' : '<div class="hint">Not yours, so your edits are sent to '+esc(t.live.members.join(" and "))+' to accept. Nothing changes until they do.</div>')
+      + '</div>';
+  }
+  if(!t.direct){
+    const w=t.work, moved=w.baseVersion!==t.live.version && w.ack!==t.live.version;
+    const n=Object.keys(diffPrograms(w.base, t.prog).proposed.sessions).length;
+    if(moved) html+='<div class="card coach-card pe-clash"><div class="sec-title">'+ico("chat")+'Changed since you opened it</div>'
+      + '<div class="hint" style="margin:0 0 8px">'+esc(t.live.updatedBy||"Someone")+' changed this program since you opened it.</div>'
+      + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="peReload">Reload</button><button class="mini" id="peKeep">Keep mine</button></div></div>';
+    html+='<div class="card pe-send"><div class="flex-between"><div>'+(n ? '<b>'+n+' session'+(n===1?'':'s')+'</b> changed' : 'No changes yet')+'</div>'
+      + '<div class="row" style="gap:6px"><button class="mini" id="peDiscard"'+(n?'':' disabled')+'>Discard</button>'
+      + '<button class="mini pc-approve" id="peSend"'+(n&&!moved?'':' disabled')+'>Send</button></div></div></div>';
+  }
+  return html+sentEditsHtml();
+}
+function wireEditHeader(t){
+  const pick=document.getElementById("progPick");
+  if(pick) pick.onchange=()=>{ editSel[t.me]=pick.value; progSel=""; groupMode=false; selectedExRefs.clear(); renderEdit(); };
+  wireProgramEditButtons();
+  if(t.direct) return;
+  const on=(id, fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
+  on("peReload", ()=>{ delete editWork[t.key]; renderEdit(); });
+  on("peKeep", ()=>{ t.work.ack=t.live.version; renderEdit(); });
+  on("peDiscard", ()=>{ delete editWork[t.key]; renderEdit(); toast("Discarded"); });
+  on("peSend", sendProgramEdit);
+}
+
 function progressPanes(){
   const keys=["lifts"];
   if(hasRunData()) keys.push("run");
@@ -3971,7 +4183,7 @@ let notesOpenKey="";
 // top of the session - the row just carries a tag saying which one it touches.
 function exRowHtml(k, ei, ex){
   const ref=k+':'+ei;
-  const waiting=changesForSession((progOf().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
+  const waiting=changesForSession((editProg().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
   return '<div class="prog-row">'
     + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
     + '<div class="row-grow"><div class="ex-name">'+esc(ex.name)+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</div>'
@@ -4020,23 +4232,23 @@ function sessNotesHtml(k, s){
     + '</div>';
 }
 function renderEdit(){
-  const keys=orderedKeys();
+  const t=editTarget(), keys=orderedKeys(t.prog), ownLive=t.direct && t.live===progOf(t.me);
   if(keys.indexOf(progSel)<0) progSel = keys.indexOf(curSession)>=0 ? curSession : (keys[0]||"");
-  let html="";
+  let html=editHeaderHtml(t);
   if(!keys.length){
     html+='<div class="card empty">No sessions yet.<br>Tap <b>+ Add session</b> below to create your first workout day.</div>';
   } else {
     // The week as a swipeable row of chips; a dot marks one with a coach change
     // waiting, since its card is only on screen once it's picked.
     html+='<div class="chips" id="progChips">'+keys.map(k=>{
-        const ss=progOf().sessions[k], pend=changesForSession(ss.name).length;
+        const ss=t.prog.sessions[k], pend=ownLive ? changesForSession(ss.name).length : 0;
         return '<button type="button" class="chip'+(k===progSel?' active':'')+'" data-sesspick="'+esc(k)+'">'
           + '<b>'+esc(ss.name)+'</b><span>'+esc(ss.day)+(ss.person?' · '+esc(ss.person):'')+'</span>'
           + (pend?'<i class="chip-dot" title="'+pend+' coach change'+(pend===1?'':'s')+' waiting"></i>':'')+'</button>';
       }).join("")+'</div>';
-    const k=progSel, s=progOf().sessions[k];
+    const k=progSel, s=editProg().sessions[k];
     const n=s.exercises.length;
-    const pend=changesForSession(s.name);
+    const pend=ownLive ? changesForSession(s.name) : [];
     const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
     if(pend.length){
       html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach suggests · '+pend.length+' waiting</div>'
@@ -4083,6 +4295,7 @@ function renderEdit(){
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
+  wireEditHeader(t);
   document.querySelectorAll("[data-selex]").forEach(cb=>cb.onchange=()=>{
     if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
     renderEdit();
@@ -4098,17 +4311,17 @@ function renderEdit(){
     ta.addEventListener("input", ()=>autoGrow(ta));
   });
   document.querySelectorAll("[data-sesscardio]").forEach(cb=>cb.addEventListener("change",()=>{
-    const sess=progOf().sessions[cb.dataset.sesscardio]; if(!sess) return;
+    const sess=editProg().sessions[cb.dataset.sesscardio]; if(!sess) return;
     if(cb.checked) sess.cardio=true; else delete sess.cardio;
-    saveProgram();
+    saveEdit();
     toast(cb.checked ? "Garmin will sync this session" : "Garmin will ignore this session");
   }));
   document.querySelectorAll("[data-sessnote]").forEach(ta=>ta.addEventListener("change",()=>{
-    const sess=progOf().sessions[ta.dataset.sesskey]; if(!sess) return;
+    const sess=editProg().sessions[ta.dataset.sesskey]; if(!sess) return;
     const field=ta.dataset.sessnote, v=ta.value.trim();
     if(v===(sess[field]||"")) return;
     if(v) sess[field]=v; else delete sess[field];
-    saveProgram();
+    saveEdit();
     toast(field==="warmupNote" ? "Warm-up note saved"
         : field==="recordingNote" ? "Recording note saved"
         : field==="setupNote" ? "Treadmill program saved"
@@ -4130,7 +4343,7 @@ function renderEdit(){
 // A "group" of one exercise isn't a group - clear a groupId once only one
 // member of it is left (e.g. after deleting the exercise that was its pair).
 function cleanupSoloGroups(sessionKey){
-  const arr=progOf().sessions[sessionKey].exercises;
+  const arr=editProg().sessions[sessionKey].exercises;
   const counts={};
   arr.forEach(ex=>{ if(ex.groupId) counts[ex.groupId]=(counts[ex.groupId]||0)+1; });
   arr.forEach(ex=>{ if(ex.groupId && counts[ex.groupId]<2) delete ex.groupId; });
@@ -4140,27 +4353,27 @@ function groupSelected(sessionKey){
     .filter(r=>r.startsWith(sessionKey+":"))
     .map(r=>+r.split(":")[1]).sort((a,b)=>a-b);
   if(refs.length<2) return;
-  const arr=progOf().sessions[sessionKey].exercises;
+  const arr=editProg().sessions[sessionKey].exercises;
   const gid="grp-"+Date.now();
   const selectedSet=new Set(refs);
   const members=refs.map(i=>arr[i]);
   members.forEach(ex=>{ ex.groupId=gid; });
   const before=arr.slice(0, refs[0]);
   const after=arr.filter((ex,i)=> i>refs[0] && !selectedSet.has(i));
-  progOf().sessions[sessionKey].exercises=before.concat(members, after);
+  editProg().sessions[sessionKey].exercises=before.concat(members, after);
   selectedExRefs.clear();
-  saveProgram(); renderEdit(); toast("Grouped as superset");
+  saveEdit(); renderEdit(); toast("Grouped as superset");
 }
 function ungroupExercises(sessionKey, groupId){
-  progOf().sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
-  saveProgram(); renderEdit(); toast("Ungrouped");
+  editProg().sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
+  saveEdit(); renderEdit(); toast("Ungrouped");
 }
 // Moves the contiguous block containing exercise `ref` (its whole superset
 // group if it's grouped, otherwise just itself) up/down past the adjacent
 // block, keeping grouped members adjacent - see exerciseBlocks().
 function move(ref,dir){
   const a=ref.split(":"); const sessionKey=a[0];
-  const arr=progOf().sessions[sessionKey].exercises;
+  const arr=editProg().sessions[sessionKey].exercises;
   const i=+a[1];
   const gid=arr[i].groupId;
   let lo=i, hi=i;
@@ -4184,7 +4397,7 @@ function move(ref,dir){
   const start=Math.min(lo,oLo);
   const newOrder = dir<0 ? thisBlock.concat(otherBlock) : otherBlock.concat(thisBlock);
   arr.splice(start, thisBlock.length+otherBlock.length, ...newOrder);
-  saveProgram(); renderEdit();
+  saveEdit(); renderEdit();
 }
 
 // Common exercise names, so a brand-new account (no program, no logs yet) has
@@ -4211,8 +4424,8 @@ const exDlg=document.getElementById("exDlg");
 function exerciseLibrary(){
   const set={};
   COMMON_EXERCISES.forEach(n=>{ set[n]=true; });
-  Object.keys(progOf().sessions).forEach(k=>{
-    progOf().sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
+  Object.keys(editProg().sessions).forEach(k=>{
+    editProg().sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
   });
   state.logs.forEach(l=>(l.entries||[]).forEach(e=>{ if(e.name) set[e.name]=true; }));
   return Object.keys(set).sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1);
@@ -4222,7 +4435,7 @@ function exerciseLibrary(){
 function openExDlg(sessionKey,ei,todayOnly){
   exDlgCtx={sessionKey,ei,todayOnly:!!todayOnly};
   const editing = ei!=null;
-  const ex = editing? progOf().sessions[sessionKey].exercises[ei]
+  const ex = editing? editProg().sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
   document.getElementById("exNameList").innerHTML =
     exerciseLibrary().map(n=>'<option value="'+esc(n)+'"></option>').join("");
@@ -4300,10 +4513,10 @@ document.getElementById("exCancel").onclick=()=>exDlg.close();
 document.getElementById("exRemove").onclick=()=>{
   const c=exDlgCtx; if(!c || c.ei==null || c.todayOnly) return;
   if(!confirm("Remove this exercise from the program?")) return;
-  progOf().sessions[c.sessionKey].exercises.splice(c.ei,1);
+  editProg().sessions[c.sessionKey].exercises.splice(c.ei,1);
   cleanupSoloGroups(c.sessionKey);
   selectedExRefs.clear();
-  saveProgram(); exDlg.close(); renderEdit(); toast("Removed");
+  saveEdit(); exDlg.close(); renderEdit(); toast("Removed");
 };
 document.getElementById("exPresetLift").onclick=()=>{
   document.getElementById("exCol0").value="Weight (kg)";
@@ -4391,7 +4604,7 @@ document.getElementById("exSave").onclick=()=>{
   // Settings are the selected person's, keyed by name. A rename carries everyone's
   // settings to the new name unless that name already has its own.
   const who=state.people[state.activePerson];
-  const oldName=(exDlgCtx.ei!=null && !exDlgCtx.todayOnly) ? (progOf().sessions[exDlgCtx.sessionKey].exercises[exDlgCtx.ei]||{}).name : null;
+  const oldName=(exDlgCtx.ei!=null && !exDlgCtx.todayOnly) ? (editProg().sessions[exDlgCtx.sessionKey].exercises[exDlgCtx.ei]||{}).name : null;
   if(oldName && oldName!==name) Object.keys(state.machineSettings||{}).forEach(pn=>{
     const by=state.machineSettings[pn];
     if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
@@ -4406,7 +4619,7 @@ document.getElementById("exSave").onclick=()=>{
   // "Seated cable row" to "Seated row" wiped Seated row's "7".
   const shown=oldName ? msGet(who, oldName) : (exDlgCtx.ei!=null ? msGet(who, name) : "");
   if(settingsText!==shown) msSet(who, name, settingsText);
-  const arr=progOf().sessions[exDlgCtx.sessionKey].exercises;
+  const arr=editProg().sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
     // membership over, or the edited exercise silently drops out of the group
@@ -4416,7 +4629,7 @@ document.getElementById("exSave").onclick=()=>{
     arr[exDlgCtx.ei]=ex;
   } else arr.push(ex);
   cleanupSoloGroups(exDlgCtx.sessionKey);
-  saveProgram(); exDlg.close(); renderEdit(); toast("Saved");
+  saveEdit(); exDlg.close(); renderEdit(); toast("Saved");
 };
 
 const setDlg=document.getElementById("settingsDlg");
@@ -5325,7 +5538,7 @@ document.getElementById("coachBriefBtn").onclick=()=>exportCoachBrief();
 // Import shared session, which decodes and adds it as a new program session.
 function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-+|-+$)/g,"") || "session"; }
 function sessionShareCode(sessionKey){
-  const s=progOf().sessions[sessionKey];
+  const s=editProg().sessions[sessionKey];
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
@@ -5337,7 +5550,7 @@ function sessionShareCode(sessionKey){
   return b64encode(JSON.stringify(payload));
 }
 function shareSession(sessionKey){
-  const s=progOf().sessions[sessionKey];
+  const s=editProg().sessions[sessionKey];
   const text="🏋️ "+s.name+" workout - paste this into Training Tracker → Program → Import shared session:\n\n"+sessionShareCode(sessionKey);
   if(navigator.share){
     navigator.share({text}).catch(()=>{}); // user cancelling the share sheet isn't an error
@@ -5358,15 +5571,15 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   catch(e){ toast("Couldn't read that code"); return; }
   if(!payload || payload.type!=="tt-session" || !Array.isArray(payload.exercises)){ toast("Not a valid shared session"); return; }
   let key=slugify(payload.name), n=2;
-  while(progOf().sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
-  progOf().sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
-  if(payload.garminNote) progOf().sessions[key].garminNote=String(payload.garminNote);
-  if(payload.setupNote) progOf().sessions[key].setupNote=String(payload.setupNote);
-  if(payload.recordingNote) progOf().sessions[key].recordingNote=String(payload.recordingNote);
-  if(payload.warmupNote) progOf().sessions[key].warmupNote=String(payload.warmupNote);
-  if(payload.cooldownNote) progOf().sessions[key].cooldownNote=String(payload.cooldownNote);
-  progOf().order.push(key);
-  saveProgram(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
+  while(editProg().sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
+  editProg().sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.garminNote) editProg().sessions[key].garminNote=String(payload.garminNote);
+  if(payload.setupNote) editProg().sessions[key].setupNote=String(payload.setupNote);
+  if(payload.recordingNote) editProg().sessions[key].recordingNote=String(payload.recordingNote);
+  if(payload.warmupNote) editProg().sessions[key].warmupNote=String(payload.warmupNote);
+  if(payload.cooldownNote) editProg().sessions[key].cooldownNote=String(payload.cooldownNote);
+  editProg().order.push(key);
+  saveEdit(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
   toast("Added "+(payload.name||"session"));
 };
 const sessionDlg=document.getElementById("sessionDlg");
@@ -5384,10 +5597,10 @@ document.getElementById("sessSave").onclick=()=>{
   if(!name){ toast("Name required"); return; }
   const day=document.getElementById("sessDay").value;
   let key=slugify(name), n=2;
-  while(progOf().sessions[key]){ key=slugify(name)+"-"+n; n++; }
-  progOf().sessions[key]={name, day, exercises:[]};
-  progOf().order.push(key);
-  saveProgram(); sessionDlg.close(); renderEdit();
+  while(editProg().sessions[key]){ key=slugify(name)+"-"+n; n++; }
+  editProg().sessions[key]={name, day, exercises:[]};
+  editProg().order.push(key);
+  saveEdit(); sessionDlg.close(); renderEdit();
   toast("Added "+name);
 };
 
@@ -6233,7 +6446,7 @@ function renderHome(){
   const lastIntervals=pLogs.find(l=>(l.entries||[]).some(e=>isIntervalEntry(e, p)));
   const coach=coachOf(p);
   const sess=progOf().sessions[curSession];
-  let html=todayCardHtml(sess, pLogs);
+  let html=programEditBannerHtml()+todayCardHtml(sess, pLogs);
 
   html += sessionSwapCardHtml(p);
 
@@ -6290,6 +6503,7 @@ function renderHome(){
   const lb=document.getElementById("homeLogBtn"); if(lb) lb.onclick=()=>go("log");
   document.querySelectorAll("[data-home-go]").forEach(b=>b.onclick=()=>go(b.dataset.homeGo));
   wireCoachQuestions(p);
+  wireProgramEditButtons();
 }
 
 function renderView(){
