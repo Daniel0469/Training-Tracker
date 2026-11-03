@@ -3330,6 +3330,13 @@ function sendProgramEdit(){
   renderEdit();
   toast("Sent to "+t.live.members.join(" and ")+" for approval");
 }
+// A session sent to someone else's program: it lands there when they accept.
+function sendSessionCopy(sessionKey, person){
+  const s=editProg().sessions[sessionKey], to=progOf(person);
+  pushProgramEdit({kind:"copy", programId:to.id, baseVersion:to.version, base:{sessions:{}}, proposed:{sessions:{[sessionKey]:clone(s)}}});
+  renderEdit();
+  toast("Copy of "+s.name+" sent to "+person+" for approval");
+}
 // The editor's top cards: who is accepting what, which program is open, and what Send does.
 function editHeaderHtml(t){
   const ids=Object.keys(state.programs).filter(id=>state.programs[id].members.length || id===t.live.id);
@@ -4264,7 +4271,8 @@ function renderEdit(){
           : '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
             + '<button class="mini" id="groupStart">'+ico("swap")+'Group as superset</button>'
             + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
-            + '<button class="mini" data-shareex="'+k+'">Share</button>')
+            + '<button class="mini" data-shareex="'+k+'">Share</button>'
+            + (copyTargets(t.live).length ? '<button class="mini" data-copyex="'+k+'">Copy to...</button>' : ''))
       + '</div>'
       + sessNotesHtml(k, s);
     exerciseBlocks(s.exercises).forEach(block=>{
@@ -4295,6 +4303,7 @@ function renderEdit(){
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
+  document.querySelectorAll("[data-copyex]").forEach(b=>b.onclick=()=>openCopyDlg(b.dataset.copyex));
   wireEditHeader(t);
   document.querySelectorAll("[data-selex]").forEach(cb=>cb.onchange=()=>{
     if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
@@ -5583,6 +5592,22 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   toast("Added "+(payload.name||"session"));
 };
 const sessionDlg=document.getElementById("sessionDlg");
+// Everyone on this device whose program is not the one being edited, to copy a session to.
+function copyTargets(prog){
+  return state.people.filter(n=>n && progOf(n).id!==prog.id);
+}
+let copyKey="";
+function openCopyDlg(sessionKey){
+  copyKey=sessionKey;
+  document.getElementById("copyTitle").textContent="Copy "+editProg().sessions[sessionKey].name+" to";
+  document.getElementById("copyWho").innerHTML=copyTargets(editTarget().live).map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+  document.getElementById("copyDlg").showModal();
+}
+document.getElementById("copyCancel").onclick=()=>document.getElementById("copyDlg").close();
+document.getElementById("copySend").onclick=()=>{
+  document.getElementById("copyDlg").close();
+  sendSessionCopy(copyKey, document.getElementById("copyWho").value);
+};
 // "Later" just closes it - the change stays pending in the Program tab, and
 // pcVisit stops it reopening until the session is opened again.
 document.getElementById("pcDlgLater").onclick=()=>document.getElementById("pcDlg").close();
