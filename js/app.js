@@ -3341,9 +3341,15 @@ function sendSessionCopy(sessionKey, person){
   toast("Copy of "+s.name+" sent to "+person+" for approval");
 }
 // The editor's top cards: who is accepting what, which program is open, and what Send does.
+function programClashHtml(by){
+  return '<div class="card coach-card pe-clash"><div class="sec-title">'+ico("chat")+'Changed since you opened it</div>'
+    + '<div class="hint" style="margin:0 0 8px">'+esc(by||"Someone")+' changed this program since you opened it.</div>'
+    + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="peReload">Reload</button><button class="mini" id="peKeep">Keep mine</button></div></div>';
+}
 function editHeaderHtml(t){
   const ids=Object.keys(state.programs).filter(id=>state.programs[id].members.length || id===t.live.id);
   let html=programEditBannerHtml();
+  if(t.direct && sbClashes[t.live.id]) html+=programClashHtml(sbClashes[t.live.id].updatedBy);
   if(ids.length>1){
     html+='<div class="card prog-pick"><label class="fld">Editing<select id="progPick">'
       + ids.map(id=>'<option value="'+esc(id)+'"'+(id===t.live.id?' selected':'')+'>'+esc(programLabel(state.programs[id]))+(state.programs[id].members.indexOf(t.me)>=0?' (yours)':'')+'</option>').join("")
@@ -3354,9 +3360,7 @@ function editHeaderHtml(t){
   if(!t.direct){
     const w=t.work, moved=w.baseVersion!==t.live.version && w.ack!==t.live.version;
     const n=Object.keys(diffPrograms(w.base, t.prog).proposed.sessions).length;
-    if(moved) html+='<div class="card coach-card pe-clash"><div class="sec-title">'+ico("chat")+'Changed since you opened it</div>'
-      + '<div class="hint" style="margin:0 0 8px">'+esc(t.live.updatedBy||"Someone")+' changed this program since you opened it.</div>'
-      + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="peReload">Reload</button><button class="mini" id="peKeep">Keep mine</button></div></div>';
+    if(moved) html+=programClashHtml(t.live.updatedBy);
     html+='<div class="card pe-send"><div class="flex-between"><div>'+(n ? '<b>'+n+' session'+(n===1?'':'s')+'</b> changed' : 'No changes yet')+'</div>'
       + '<div class="row" style="gap:6px"><button class="mini" id="peDiscard"'+(n?'':' disabled')+'>Discard</button>'
       + '<button class="mini pc-approve" id="peSend"'+(n&&!moved?'':' disabled')+'>Send</button></div></div></div>';
@@ -3367,8 +3371,8 @@ function wireEditHeader(t){
   const pick=document.getElementById("progPick");
   if(pick) pick.onchange=()=>{ editSel[t.me]=pick.value; progSel=""; groupMode=false; selectedExRefs.clear(); renderEdit(); };
   wireProgramEditButtons();
-  if(t.direct) return;
   const on=(id, fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
+  if(t.direct){ on("peReload", ()=>sbClashReload(t.live.id)); on("peKeep", ()=>sbClashKeep(t.live.id)); return; }
   on("peReload", ()=>{ delete editWork[t.key]; renderEdit(); });
   on("peKeep", ()=>{ t.work.ack=t.live.version; renderEdit(); });
   on("peDiscard", ()=>{ delete editWork[t.key]; renderEdit(); toast("Discarded"); });
@@ -6082,17 +6086,42 @@ function sbOutbox(){
     out.push({kind:kind, key:k.slice(at+1), person:null, body:{}, updated_at:0, deleted_at:Date.now()});
     gone.add(k);
   });
-  return {rows:out.filter(r=>r.kind!=="program"), gone:gone};
+  return {rows:out.filter(r=>r.kind!=="program"), programs:out.filter(r=>r.kind==="program" && !sbClashes[r.key]), gone:gone};
 }
 async function sbFlush(){
   const box=sbOutbox();
-  if(!box.rows.length) return 0;
   try{
-    await sbUpload(box.rows);
+    if(box.rows.length) await sbUpload(box.rows);
     box.gone.forEach(k=>{ delete sb.h[k]; delete sb.d[k]; });
+    for(const r of box.programs) await sbPushProgram(r);
   }finally{ sbSave(); }
-  return box.rows.length;
+  return box.rows.length+box.programs.length;
 }
+// A program is saved with save_program, which only accepts the edit if the stored version is the one this
+// phone last saw. 'conflict' means someone saved it first: the edit stays here, behind the clash warning.
+const sbClashes={};
+async function sbPushProgram(r){
+  const base=+sb.pv[r.key]||0, res=await sbClient.rpc("save_program", {id:r.key, body:r.body, base_version:base});
+  if(res.error) throw res.error;
+  if(res.data==="conflict") return sbProgramClash(r.key);
+  sb.pv[r.key]=base+1;
+  if(state.programs[r.key]){ state.programs[r.key].version=base+1; save(); }
+  sbMarkSent(r);
+}
+async function sbProgramClash(id){
+  const row=sbCheck(await sbClient.from("records").select("*").eq("kind", "program").eq("key", id))[0];
+  if(!row) return;
+  sb.pv[id]=+row.body.version||0;
+  sbClashes[id]=row.body;
+  if(activeTab==="edit") renderEdit();
+  toast(((row.body.updatedBy || "Someone")+" changed a program on another phone"));
+}
+function sbClashReload(id){
+  state.programs[id]=clone(sbClashes[id]); delete sbClashes[id];
+  sbLocalRows().filter(r=>r.kind==="program" && r.key===id).forEach(sbMarkSent);
+  sbSave(); save(); renderEdit();
+}
+function sbClashKeep(id){ delete sbClashes[id]; renderEdit(); sbSyncNow(true); }
 // Programs the people rows point at but this phone does not hold yet.
 async function sbMissingPrograms(rows){
   const have=new Set(Object.keys(state.programs)), need=[], extra=[];
@@ -6181,6 +6210,7 @@ function sbStop(){
   clearTimeout(sbSoon); clearTimeout(sbQueueTimer); sbQueue=[];
   Object.keys(sbDraftTimers).forEach(k=>clearTimeout(sbDraftTimers[k]));
   sbDraftTimers={}; sbDraftHash={}; sbChips={};
+  Object.keys(sbClashes).forEach(k=>delete sbClashes[k]);
 }
 // ---- Drafts: the form being typed, shared between the phones ----
 // One drafts row per person and session (the key formDrafts already uses, person|session). The body holds
