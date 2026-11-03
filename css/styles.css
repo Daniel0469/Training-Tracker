@@ -464,6 +464,7 @@
   .pr-badge{display:inline-block;vertical-align:middle;padding:1px 7px;border-radius:999px;background:var(--gold);color:var(--gold-ink);
     font:800 10px/16px var(--font);letter-spacing:.05em}
   .home-tiles{grid-template-columns:1fr 1fr;gap:12px}
+  .home-tiles.odd .tile:last-child{grid-column:1/-1}
   .home-tiles .tile{background:var(--card);border-radius:20px;padding:14px 16px}
   .home-tiles .tile .big{font-size:26px}
   .home-tiles .tile .lbl{font-size:12.5px}

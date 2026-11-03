@@ -415,7 +415,7 @@ function nextCardioLives(nc){
 // the session it names usually has no day of its own.
 function liveSessionSwap(){
   var p=state.people[state.activePerson];
-  var sw=((state.coaching&&state.coaching[p])||{}).sessionSwap;
+  var sw=coachOf(p).sessionSwap;
   if(!sw || !sw.session || !sw.day || !sw.updated) return null;
   if(!sessionKeyByName(sw.session)) return null;
   var since=String(sw.updated).slice(0,10);
@@ -426,7 +426,7 @@ function liveSessionSwap(){
 }
 function liveNextCardio(){
   var p=state.people[state.activePerson];
-  var nc=((state.coaching&&state.coaching[p])||{}).nextCardio;
+  var nc=coachOf(p).nextCardio;
   if(!nc || !nc.session || !nc.updated) return null;
   if(!nextCardioLives(nc)) return null;
   var since=String(nc.updated).slice(0,10);
@@ -953,7 +953,7 @@ function progressionFor(person, ex){
 // The coach's target for this exercise while it still applies: the person's latest log of it
 // is the one it was written against.
 function coachTargetFor(person, name){
-  const t=(((state.coaching||{})[person]||{}).targets||{})[name];
+  const t=(coachOf(person).targets||{})[name];
   if(!t || typeof t!=="object") return null;
   const logged=progEntries(person).get(name), latest=logged ? logged[logged.length-1].log.id : null;
   return (t.asOfLog==null ? null : t.asOfLog)===latest ? t : null;
@@ -992,6 +992,9 @@ function featSet(person, key, value){
   (state.features[person]||(state.features[person]={}))[key]={on:value, updatedAt:Date.now()};
   save(); autoSync();
 }
+// The coach's current notes for a person: empty while their Garmin and coach switch is off, so
+// every coach card, note and target reads as if nothing was written.
+function coachOf(person){ return featOn(person, "garmin") ? ((state.coaching||{})[person]||{}) : {}; }
 // What the Log form shows for one exercise: the weight and reps to aim for (the coach's when one
 // still applies, else the rule's), the line for a coach target, and a flag. null shows nothing.
 function progTarget(person, ex){
@@ -1448,13 +1451,13 @@ function renderLog(){
   followActivePerson();
   const sess = state.program.sessions[curSession];
   const prev = latestLog(p, curSession);
-  const coach = (state.coaching && state.coaching[p]) || {};
+  const coach = coachOf(p);
   // Programmed exercises plus anything added for today only.
   const exs = logExercises();
   document.getElementById("view").innerHTML = logHeaderHtml(p, prev)
     + logCoachCardsHtml(p, sess, coach)
     + lastTimeHtml(sess, prev)
-    + cardioNoteHtml(exs, sess)
+    + cardioNoteHtml(exs, sess, p)
     + sessionNotesHtml(sess)
     + '<div id="exForm">' + exerciseCardsHtml(exs, p, prev, coach) + '</div>'
     + '<button type="button" class="add-row" id="addTodayEx"><span>Machine taken? <b>'+ico("plus")+'Add exercise</b></span>'
@@ -1485,6 +1488,7 @@ function logHeaderHtml(p, prev){
     + '</div><div class="hint">Workout time - saved with the session.</div></div>';
 }
 function logCoachCardsHtml(p, sess, coach){
+  if(!featOn(p, "garmin")) return "";
   let html = "";
   const sessNote = (coach.bySession && sess && coach.bySession[sess.name]) || "";
   if(sessNote){
@@ -1518,7 +1522,8 @@ function logCoachCardsHtml(p, sess, coach){
   }
   return html;
 }
-function cardioNoteHtml(exs, sess){
+function cardioNoteHtml(exs, sess, p){
+  const watch = hasGarmin() && featOn(p, "garmin");
   let html = "";
   // Cardio day: the run auto-fills from Garmin, so tell them to just save.
   // Unless nothing here has ever been near a watch, in which case leading with
@@ -1526,10 +1531,10 @@ function cardioNoteHtml(exs, sess){
   // the manual route is their route, so it goes first and the watch isn't
   // mentioned at all.
   if(exs.some(e=>isRunning(e))){
-    html += hasGarmin()
+    html += watch
       ? '<div class="cardio-note">'+ico("watch")+'<b>Cardio day.</b> If you wear your Garmin, just <b>log &amp; save</b> - leave the run\'s row <b>empty</b> and its distance, splits, pace &amp; ♥ HR fill themselves in once it syncs. <b>Ticking its box is optional</b> - it never types anything in, so the row stays free for Garmin either way. Ticks are saved now, and they\'re what fills the done bar on your weekly muscle card. Prefer to do it yourself? Type the splits below, or <b>import</b> a file.</div>'
       : '<div class="cardio-note">'+ico("run")+'<b>Cardio day.</b> Type your distance and time below and the <b>pace works itself out</b>. One row per split if you want them, or just the total on one row. Got a watch file? <b>Import</b> a TCX/GPX from Garmin or Strava instead.</div>';
-  } else if(isCardioSession(sess) && exs.some(e=>isGarminCardio(e)) && hasGarmin()){
+  } else if(isCardioSession(sess) && exs.some(e=>isGarminCardio(e)) && watch){
     // Interval-style cardio: the person types their own paces, so Garmin only adds
     // the measurements it alone knows (HR, zones, calories) - it never overwrites.
     // Nothing useful to say here without a watch: you just type your paces in, and
@@ -1627,7 +1632,7 @@ function feelCardHtml(){
     // Only worth saying to someone who actually has a coach. On an install with
     // no coaching and no cloud sync it promised a feature that was never coming,
     // and pointed at a "sync" that isn't set up.
-    + (hasCoaching() ? '<div class="hint">Coaching notes show at the top and on each exercise after a sync.</div>' : '')
+    + (hasCoaching() && featOn(state.people[state.activePerson], "garmin") ? '<div class="hint">Coaching notes show at the top and on each exercise after a sync.</div>' : '')
     + '</div>'
     + '<div class="row save-row">'
     + '<button class="btn btn-ghost" id="clearForm">Clear</button>'
@@ -1798,7 +1803,7 @@ function renderExForm(ex,ei,last,prevDate,lastFrom,coach,lastRun){
         + '<span class="hint" style="margin:0">On the Smith machine</span></label>' : '')
     + '<span class="row actions" style="margin-left:auto"><button class="mini" data-addset>+ set</button>'
     + '<button class="mini" data-delset>- set</button>'
-    + (isRunning(ex)?'<button class="mini" data-runimport title="Import a TCX/GPX file">'+ico("upload")+'Import run</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
+    + (isRunning(ex) && featOn(person, "garmin")?'<button class="mini" data-runimport title="Import a TCX/GPX file">'+ico("upload")+'Import run</button><input type="file" data-runfile accept=".tcx,.gpx,.xml" style="display:none">':'')
     + '</span></div></div>';
 }
 // Drop a today-only exercise again (added by mistake, or the machine freed up).
@@ -2172,7 +2177,7 @@ function renderHistory(){
 // power and ground contact and others do not record either, and VO2max only
 // appears for outdoor runs.
 function garminLine(l){
-  const g=l.garmin; if(!g) return "";
+  const g=l.garmin; if(!g || !featOn(l.person, "garmin")) return "";
   const bits=[];
   if(g.avg_hr!=null) bits.push("avg HR "+g.avg_hr);
   if(g.max_hr!=null) bits.push("max "+g.max_hr);
@@ -2241,6 +2246,7 @@ function intervalStructureText(g){
   return "reps on the watch: "+s+(extra.length?" · "+extra.join(" · "):"");
 }
 function garminStatus(l){
+  if(!featOn(l.person, "garmin")) return "";
   if(l.garminActivityId) return ' · Garmin';
   if(l.garminWanted) return ' · awaiting run…';
   return "";
@@ -2463,7 +2469,7 @@ function drawHist(who){
       + '<div class="log-detail '+(open?"open":"")+'" id="d'+l.id+'"><table>'
       + (rows||'<tr><td class="ex-meta">No set data</td></tr>')+'</table>'
       + histNoteHtml(l)+garminLine(l)
-      + hrZoneBarHtml((l.garmin||{}).hr_zone_secs)
+      + hrZoneBarHtml((l.garmin||{}).hr_zone_secs, l.person)
       + '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="mini log-del" data-del="'+l.id+'">Delete session</button></div>'
       + '</div></div>';
   }).join("");
@@ -2719,7 +2725,7 @@ function progressPanes(){
   if(hasFlexData()) keys.push("flex");
   if(hasDurationData()) keys.push("time");
   keys.push("body");
-  if(hasFoodData()) keys.push("food");
+  if(hasFoodData(state.people[state.activePerson])) keys.push("food");
   return keys;
 }
 // Sessions with a duration, oldest first, for one person - optionally just one
@@ -2769,7 +2775,7 @@ function flexHistory(person){
 // = {skill: {test, why}}) and this only maps it onto the ladder: test name ->
 // the skills it is currently limiting.
 function flexLowestRungs(p){
-  const lr=((state.coaching&&state.coaching[p])||{}).lowestRung||{};
+  const lr=coachOf(p).lowestRung||{};
   const byTest={}, lines=[];
   Object.keys(lr).forEach(function(skill){
     const r=lr[skill]; if(!r || !r.test) return;
@@ -3147,13 +3153,13 @@ function runSessionHtml(l){
     + '<b>'+esc(l.sessionName||"Run")+'</b>'
     + '<div class="ex-meta num">'+esc(l.date)+' · '+relTime(l.date)
     + (bits.length?' · '+esc(bits.join(" · ")):"")+garminStatus(l)+'</div></div></div>'
-    + garminLine(l)+hrZoneBarHtml((l.garmin||{}).hr_zone_secs)+repTableHtml(l)+'</div>';
+    + garminLine(l)+hrZoneBarHtml((l.garmin||{}).hr_zone_secs, l.person)+repTableHtml(l)+'</div>';
 }
 // The reps as they were actually run. Columns appear only when the watch recorded
 // them, so a watch with no power or ground contact gets a narrower table
 // rather than a row of blanks.
 function repTableHtml(l){
-  const reps=repsOf(l); if(!reps||!(reps.reps||[]).length) return "";
+  const reps=repsOf(l); if(!reps||!(reps.reps||[]).length||!featOn(l.person, "garmin")) return "";
   const rows=reps.reps;
   const hasPwr=rows.some(r=>r.power_w!=null), hasCad=rows.some(r=>r.cadence_spm!=null);
   const hasRec=rows.some(r=>r.recovery_sec!=null);
@@ -3288,6 +3294,7 @@ function renderBody(){
   const latest=latestBw(p);
   const pc = personSwatch(p);
   const goal=(state.goals&&state.goals[state.activePerson])||"";
+  const on=featOn(p, "body");
   // Body is the second pane of the Progress tab, so it carries the same toggle.
   // Reached directly (Home's ⚖ arrow), it sets progressPane itself first.
   // Design v3 order: goals, the trend (what you open it for), add a weigh-in,
@@ -3297,13 +3304,13 @@ function renderBody(){
     + (goal ? '<div style="white-space:pre-wrap">'+esc(goal)+'</div>'
             : '<div class="hint" style="margin:0">No goals set yet - add them via the gear menu.</div>')
     + '</div>';
-  html+='<div class="card"><div class="sec-title">'+ico("trend")+'Bodyweight · '+esc(p)+'</div>'
+  if(on) html+='<div class="card"><div class="sec-title">'+ico("trend")+'Bodyweight · '+esc(p)+'</div>'
     + '<div class="big-stat">'+(latest
         ? '<b class="num">'+latest.kg+'<small> kg</small></b><span>'+esc(relTime(latest.date))+'</span>'
         : '<span>No bodyweight logged for '+esc(p)+' yet - add one below, or import from your scale app.</span>')+'</div>'
     + (hist.length?'<div class="chart-box" style="height:220px"><canvas id="bwChart"></canvas></div>':'')
     + '</div>';
-  html+='<div class="card"><div class="sec-title">Add a weigh-in</div>'
+  if(on) html+='<div class="card"><div class="sec-title">Add a weigh-in</div>'
     + '<div class="bw-add">'
     + '<label class="fld">Date<input id="bwDate" type="date" value="'+localDateStr()+'"></label>'
     + '<label class="fld">kg<input id="bwKg" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>'
@@ -3313,12 +3320,13 @@ function renderBody(){
     + '<input id="bwFile" type="file" accept=".csv,text/csv,text/plain" style="display:none">'
     + '<div class="hint" style="margin-top:6px">A CSV exported from your scale app (e.g. 1byone Health). Date + weight columns are detected automatically.</div>'
     + '</div>';
-  html+=measurementsCardHtml(p);
-  if(hist.length){
+  if(on) html+=measurementsCardHtml(p);
+  if(on && hist.length){
     html+='<div class="card"><div class="sec-title">'+hist.length+' entr'+(hist.length===1?"y":"ies")+'</div><div id="bwList"></div></div>';
   }
   document.getElementById("view").innerHTML=html;
   wirePaneToggle();
+  if(!on) return;
   wireMeasurements(p);
 
   document.getElementById("bwAdd").onclick=()=>{
@@ -3430,9 +3438,10 @@ function drawMeasureChart(person){
 // side shows each day against the person's targets.
 let foodChart=null, foodMetric="protein";
 function foodTarget(person){ return (state.nutritionTargets||{})[person]||{}; }
-function hasFoodData(){
-  return (state.meals||[]).some(m=>m && state.people.indexOf(m.person)>=0)
-    || state.people.some(n=>{ const t=foodTarget(n); return t.kcal||t.protein; });
+function hasFoodData(person){
+  if(!featOn(person, "food")) return false;
+  const t=foodTarget(person);
+  return !!(t.kcal || t.protein) || (state.meals||[]).some(m=>m && m.person===person);
 }
 // One person's meals grouped by date: {date: {kcal, protein, fibre, meals}}, meals in time
 // order. Fibre stays null for a day with no fibre recorded: unknown, not 0.
@@ -4612,7 +4621,7 @@ function coachBrief(person){
   const favg=k=>Math.round(week.reduce((t,d)=>t+d[k],0)/week.length);
   const fest=week.reduce((t,d)=>t+d.meals.filter(m=>m.estimated).length,0);
   const fibreDays=week.filter(d=>d.fibre!=null);
-  md+="## Nutrition (last 7 days)\n"+(week.length
+  if(featOn(person, "food")) md+="## Nutrition (last 7 days)\n"+(week.length
     ? "Logged "+week.length+" of 7 days · average **"+favg("kcal").toLocaleString()+" kcal**"+(ft.kcal?" (target "+ft.kcal.toLocaleString()+")":"")
       + " · **"+favg("protein")+" g protein**"+(ft.protein?" (target "+ft.protein+")":"")
       + (fibreDays.length?" · "+Math.round(fibreDays.reduce((t,d)=>t+d.fibre,0)/fibreDays.length)+" g fibre":"")
@@ -5350,6 +5359,7 @@ function fmtHm(sec){
   return h? h+"h "+(m<10?"0":"")+m+"m" : m+"m";
 }
 function recoveryCardHtml(person){
+  if(!featOn(person, "garmin")) return "";
   const all=(state.wellness&&state.wellness[person])||{};
   const dates=Object.keys(all).filter(d=>all[d]&&Object.keys(all[d]).length).sort();
   if(!dates.length) return "";
@@ -5391,6 +5401,7 @@ function recoveryCardHtml(person){
     + (dates.length>1?' · '+dates.length+' nights on record':'')+'</div></div>';
 }
 function hrZonesCardHtml(person){
+  if(!featOn(person, "garmin")) return "";
   const z=(state.hrZones&&state.hrZones[person])||null;
   if(!z || !Array.isArray(z.floors) || z.floors.length<5) return "";
   const stat=(lab,v)=> v==null?"":lab+' <b>'+esc(String(v))+'</b>';
@@ -5412,8 +5423,8 @@ function hrZonesCardHtml(person){
 // Stacked bar of where a run's time actually sat across the HR zones (seconds per
 // zone, Z1..Z5, from Garmin - see mcp-garmin fetch_hr_zone_times). Complements the
 // zone-range card above: that says what the bands are, this says which you were in.
-function hrZoneBarHtml(secs){
-  if(!Array.isArray(secs)) return "";
+function hrZoneBarHtml(secs, person){
+  if(!Array.isArray(secs) || !featOn(person, "garmin")) return "";
   const total=secs.reduce(function(t,s){ return t+(s||0); },0);
   if(total<=0) return "";
   const bar=secs.map(function(s,i){
@@ -5432,7 +5443,8 @@ function hrZoneBarHtml(secs){
 // Until the coach has looked, Garmin's own prediction shows instead - clearly marked
 // unreviewed, because that model runs optimistic without hard efforts to learn from.
 function fiveKCardHtml(person){
-  const est=((state.coaching&&state.coaching[person])||{}).fiveK;
+  if(!featOn(person, "garmin")) return "";
+  const est=coachOf(person).fiveK;
   const pred=(state.racePredictions&&state.racePredictions[person])||null;
   let time, pace, basis, conf, when;
   if(est && est.time){
@@ -5462,7 +5474,7 @@ function fiveKCardHtml(person){
 // has been logged it stays on screen but goes quiet, so you can still see what
 // was asked for without a fortnight-old prescription still driving the app.
 function nextCardioCardHtml(person){
-  const nc=((state.coaching&&state.coaching[person])||{}).nextCardio;
+  const nc=coachOf(person).nextCardio;
   if(!nc || !nc.session || !nextCardioLives(nc)) return "";
   const live=!!liveNextCardio();
   const when=nc.updated ? "Coach · "+relTime(String(nc.updated).slice(0,10)) : "From your coach";
@@ -5480,7 +5492,7 @@ function nextCardioCardHtml(person){
     + '</div>';
 }
 function sessionSwapCardHtml(person){
-  const sw=((state.coaching&&state.coaching[person])||{}).sessionSwap;
+  const sw=coachOf(person).sessionSwap;
   if(!sw || !sw.session || !sessionKeyByName(sw.session)) return "";
   const live=!!liveSessionSwap();
   const when=sw.updated ? "Coach · "+relTime(String(sw.updated).slice(0,10)) : "From your coach";
@@ -5521,7 +5533,7 @@ function weekReviewCardHtml(person, now){
   const prevVol=(weeklyVolumes(person).find(w=>w.week===shiftDate(wk,-7))||{}).volume||0;
   const change=prevVol ? Math.round((vol-prevVol)/prevVol*100) : null;
   const prs=logs.reduce((t,l)=>t+(l.entries||[]).filter(e=>e.pr).length,0);
-  const coach=(state.coaching&&state.coaching[person])||{};
+  const coach=coachOf(person);
   const fresh=coach.overall && coach.updated && localDateStr(new Date(coach.updated))>=shiftDate(wk,4);
   const bits=[days+' of '+planned+' days', vol.toLocaleString()+' kg'+(change!=null?' ('+(change>0?'+':'')+change+'%)':''), prs+' PR'+(prs===1?'':'s')];
   return '<div class="card"><div class="sec-title">'+ico("flag")+'Week review</div>'
@@ -5544,6 +5556,7 @@ function cqDraftSet(key, text){
   try{ localStorage.setItem(CQ_DRAFT_KEY, JSON.stringify(coachQDrafts)); }catch(e){}
 }
 function personQuestions(person){
+  if(!featOn(person, "garmin")) return [];
   const list=(state.coachQuestions||{})[person];
   return (Array.isArray(list)?list:[]).filter(q=>q && q.id && q.status!=="closed");
 }
@@ -5615,7 +5628,7 @@ function cardioCardHtml(log, title, lead, pc){
     + '<h3 class="home-h">'+esc(log.sessionName)+' <span class="pill" data-sw="'+pc+'">'+relTime(log.date)+'</span></h3>'
     + '<div class="ex-meta num">'+(bits.length?bits.map(esc).join(' · '):'-')+garminStatus(log)+'</div>'
     + (structure?'<div class="ex-meta" style="margin-top:3px">'+esc(structure)+'</div>':'')
-    + hrZoneBarHtml(g.hr_zone_secs)+'</div>';
+    + hrZoneBarHtml(g.hr_zone_secs, log.person)+'</div>';
 }
 function todayCardHtml(sess, pLogs){
   // This card follows curSession (so Log it → takes you where you were), but it
@@ -5641,14 +5654,14 @@ function homeTilesHtml(p, pLogs){
   const thisWk=weekMonday(localDateStr());
   const wkLogs=pLogs.filter(l=>weekMonday(l.date)===thisWk);
   const wkVol=wkLogs.reduce((t,l)=>t+logVolume(l),0);
-  const bw=bwFor(p);
+  const bwOn=featOn(p, "body"), bw=bwFor(p);
   const latest=bw.length? bw[bw.length-1] : null;
   let bwDelta="";
   if(bw.length>=2){ const d=Math.round((bw[bw.length-1].kg-bw[bw.length-2].kg)*10)/10; bwDelta = d>0?'▲ '+d:d<0?'▼ '+Math.abs(d):'-'; }
-  return '<div class="tiles home-tiles">'
+  return '<div class="tiles home-tiles'+(bwOn?'':' odd')+'">'
     + '<div class="tile"><div class="big">'+wkLogs.length+'</div><div class="lbl">sessions this week</div></div>'
     + '<div class="tile"><div class="big">'+wkVol.toLocaleString()+'</div><div class="lbl">kg volume this week</div></div>'
-    + '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'-')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>'
+    + (bwOn ? '<div class="tile"><div class="big">'+(latest? latest.kg+'<span class="sub"> kg</span>':'-')+'</div><div class="lbl">bodyweight'+(bwDelta?' · '+bwDelta:'')+'</div></div>' : '')
     + '<div class="tile"><div class="big">'+pLogs.length+'</div><div class="lbl">sessions logged</div></div>'
     + '</div>';
 }
@@ -5668,7 +5681,7 @@ function renderHome(){
   const last=pLogs[0];
   const lastRun=pLogs.find(l=>(l.entries||[]).some(e=>isRunning(e)));
   const lastIntervals=pLogs.find(l=>(l.entries||[]).some(e=>isIntervalEntry(e)));
-  const coach=(state.coaching&&state.coaching[p])||{};
+  const coach=coachOf(p);
   const sess=state.program.sessions[curSession];
   let html=todayCardHtml(sess, pLogs);
 
@@ -5684,13 +5697,13 @@ function renderHome(){
   html += weekReviewCardHtml(p);
   html += homeTilesHtml(p, pLogs);
 
-  if(hasFoodData()){
+  if(hasFoodData(p)){
     const ft=foodTarget(p), fd=foodDays(p)[localDateStr()]||{kcal:0, protein:0};
     html+='<div class="card"><div class="flex-between"><div class="sec-title" style="margin:0">'+ico("target")+'Food today</div>'
       + '<button class="mini" data-home-go="food">Food →</button></div>'
       + '<div style="margin-top:8px">'+foodBarHtml("Calories", fd.kcal, ft.kcal, "")+foodBarHtml("Protein", fd.protein, ft.protein, " g")+'</div></div>';
   }
-  if(measurementsDue(p)){
+  if(featOn(p, "body") && measurementsDue(p)){
     html+='<div class="card flex-between"><div class="sec-title" style="margin:0">'+ico("trend")+'Measurements due</div>'
       + '<button class="mini" data-home-go="body">Body →</button></div>';
   }
