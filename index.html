@@ -100,6 +100,23 @@
     <button class="btn btn-ghost grow" id="importBtn">Import / merge</button>
   </div>
   <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Admin &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Family storage</div>
+  <div class="sync-status"><i class="sync-dot" id="fsDot"></i><span class="hint" id="fsStatus" style="margin:0">Not connected.</span>
+    <button class="btn btn-primary" id="fsSyncBtn" hidden>Sync now</button></div>
+  <div id="fsProgress" class="hint" hidden></div>
+  <details class="sync-cfg" id="fsCfg"><summary>Connection</summary>
+  <label class="fld" style="margin-bottom:8px">Project URL<input id="fsUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="off"></label>
+  <label class="fld" style="margin-bottom:8px">Publishable key<input id="fsKey" type="text" autocomplete="off"></label>
+  <div class="row" style="margin-bottom:8px">
+    <label class="fld grow">Family email<input id="fsEmail" type="email" autocomplete="off"></label>
+    <label class="fld grow">Password<input id="fsPass" type="password" autocomplete="off"></label>
+  </div>
+  <div class="row" style="margin-bottom:6px">
+    <button class="btn btn-ghost grow" id="fsConnect">Connect</button>
+    <button class="btn btn-ghost grow" id="fsDisconnect" hidden>Disconnect</button>
+  </div>
+  </details>
+  <div class="hint" style="margin-bottom:14px">The family's shared storage. The first time you connect, everything on this phone, for every account on it, is copied up and checked, and only then does this phone switch over. Nothing on the phone is deleted. The password is not kept on the phone. Disconnect goes back to GitHub sync.</div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
   <!-- Design v3: status first. The repo / path / token fields fold away once
        sync is set up (renderSettings opens the fold when it isn't). -->

@@ -4777,6 +4777,7 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("ghPath").value=sc.path||"";
   document.getElementById("ghToken").value=sc.token||"";
   setSyncStatus(sc.repo&&sc.token ? "Configured for "+sc.repo+(sc.sha?" · last synced OK":"") : "Not configured.");
+  renderFamilyStorage();
   // The sync fields are only worth showing when there is nothing to show instead.
   document.getElementById("ghCfg").open = !(sc.repo&&sc.token);
   document.getElementById("sugText").value="";
@@ -5654,12 +5655,13 @@ function ghPutFile(cfg, payloadStr, sha){
 // The status line drives the dot beside it (design v3): green when synced or
 // set up, red when the last attempt failed, pulsing while it runs, grey when
 // sync isn't configured. Read off the message so no caller has to pass it.
-function setSyncStatus(msg){
-  const el=document.getElementById("ghStatus"); if(el) el.textContent=msg;
-  const dot=document.getElementById("ghDot"); if(!dot) return;
-  dot.dataset.s = /fail/i.test(msg) ? "bad" : /Syncing/.test(msg) ? "busy"
-    : /^(Synced|Configured|Saved\. Ready)/.test(msg) ? "ok" : "off";
+function paintStatus(textId, dotId, msg){
+  const el=document.getElementById(textId); if(el) el.textContent=msg;
+  const dot=document.getElementById(dotId); if(!dot) return;
+  dot.dataset.s = /fail/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
+    : /^(Synced|Configured|Saved\. Ready|Connected)/.test(msg) ? "ok" : "off";
 }
+function setSyncStatus(msg){ paintStatus("ghStatus", "ghDot", msg); }
 // Pull remote -> merge (logs+bodyweights union) -> push merged local back.
 // quiet=true for automatic syncs (on save / on open): no toasts, best-effort.
 function syncNow(quiet){
@@ -5860,7 +5862,71 @@ function rowHash(row){
   const body=row.kind==="program" ? Object.assign({}, row.body, {version:undefined}) : row.body;
   return recHash(recCanon([row.person, body, row.updated_at, row.deleted_at]));
 }
+// The connection to the family's storage. Kept on this phone only: the project address, the
+// publishable key and the family email. The password is never kept (supabase-js keeps the session).
+// mode is "github" (the default) or "supabase".
+const SB_KEY=KEY+"_sb";
+const SB_LIB_URL="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";
+const SB_LIB_SRI="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R";
+function sbBlank(){ return {url:"", key:"", email:"", mode:"github", cursor:null, dcursor:null, h:{}, d:{}, ps:{}, pv:{}, device:""}; }
+function sbRead(){ try{ return Object.assign(sbBlank(), JSON.parse(localStorage.getItem(SB_KEY))||{}); }catch(e){ return sbBlank(); } }
+let sb=sbRead();
+let sbClient=null, sbLibPromise=null;
+function sbSave(){ try{ localStorage.setItem(SB_KEY, JSON.stringify(sb)); }catch(e){} }
+function sbOn(){ return sb.mode==="supabase"; }
+function setFsStatus(msg){ paintStatus("fsStatus", "fsDot", msg); }
+// supabase-js is fetched only once a connection exists, never for a phone on GitHub storage.
+function sbLoadLib(){
+  if(window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
+  return sbLibPromise || (sbLibPromise=new Promise(function(res, rej){
+    const s=document.createElement("script");
+    s.src=SB_LIB_URL; s.integrity=SB_LIB_SRI; s.crossOrigin="anonymous";
+    s.onload=()=>window.supabase && window.supabase.createClient ? res(window.supabase) : rej(new Error("the storage library did not start"));
+    s.onerror=()=>{ sbLibPromise=null; rej(new Error("could not load the storage library")); };
+    document.head.appendChild(s);
+  }));
+}
+function sbEnsureClient(){
+  return sbClient ? Promise.resolve(sbClient) : sbLoadLib().then(lib=>sbClient=lib.createClient(sb.url, sb.key, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:false}}));
+}
+function fsField(id){ return document.getElementById(id); }
+function renderFamilyStorage(){
+  if(!fsField("fsUrl")) return;
+  fsField("fsUrl").value=sb.url; fsField("fsKey").value=sb.key; fsField("fsEmail").value=sb.email; fsField("fsPass").value="";
+  fsField("fsDisconnect").hidden=!(sbOn() || sb.url);
+  fsField("fsConnect").hidden=sbOn();
+  fsField("fsSyncBtn").hidden=!sbOn();
+  fsField("fsCfg").open=!sbOn();
+  if(!sbOn()) setFsStatus(sb.url ? "Not connected. Press Connect." : "Not connected.");
+  else if(!/^(Synced|Syncing|Sync failed|Offline)/.test(fsField("fsStatus").textContent)) setFsStatus("Connected as "+sb.email);
+}
+// Signs in with the family email and password. The password goes straight to supabase-js.
+function sbConnect(){
+  sb.url=fsField("fsUrl").value.trim().replace(/\/+$/, ""); sb.key=fsField("fsKey").value.trim(); sb.email=fsField("fsEmail").value.trim();
+  const pass=fsField("fsPass").value;
+  if(!/^https:\/\/[^\s/]+$/.test(sb.url) || !sb.key || !sb.email || !pass){ setFsStatus("Fill in the address, key, email and password."); return Promise.resolve(); }
+  sbSave(); setFsStatus("Signing in...");
+  return sbEnsureClient()
+    .then(c=>c.auth.signInWithPassword({email:sb.email, password:pass}))
+    .then(function(r){
+      fsField("fsPass").value="";
+      if(r.error) throw r.error;
+      setFsStatus("Connected as "+sb.email+". Not copied up yet.");
+    })
+    .catch(function(e){ fsField("fsPass").value=""; setFsStatus("Sign-in failed ("+String((e && e.message) || e)+")"); });
+}
+// Back to GitHub sync. The project address and key stay, so Connect only needs the password again.
+function sbDisconnect(){
+  const was=sbClient;
+  sb=Object.assign(sbBlank(), {url:sb.url, key:sb.key, email:sb.email, device:sb.device});
+  sbSave();
+  const out=was ? was.auth.signOut().catch(()=>{}) : Promise.resolve();
+  renderFamilyStorage(); setFsStatus("Disconnected. This phone uses GitHub sync again.");
+  return out;
+}
 // ==== end Family storage ====
+fsField("fsConnect").onclick=sbConnect;
+fsField("fsDisconnect").onclick=sbDisconnect;
 
 function renderHelp(){
   // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
