@@ -735,31 +735,41 @@ function latestLog(person, sessionKey){
 // One pass over a person's logs, by exercise name and counting only the first entry of
 // that name in each log: the latest entry ({log, entry}), the best working-set load, and
 // for timed holds the longest hold at each weight.
-function logIndex(person){
-  if(personIndex[person]) return personIndex[person];
-  const idx=personIndex[person]={latest:new Map(), best:new Map(), holds:new Map()};
-  state.logs.forEach(function(l){
-    if(l.person!==person) return;
-    const seen=new Set(), seenTimed=new Set();
-    (l.entries||[]).forEach(function(e){
-      const work=e.rows ? workRows(e) : [];
-      if(isTimed(e) && !seenTimed.has(e.name)){
-        seenTimed.add(e.name);
-        const byWeight=idx.holds.get(e.name)||{};
-        idx.holds.set(e.name, byWeight);
-        work.forEach(function(r){ const w=holdWeight(r[0]), cur=byWeight[w]; byWeight[w]=Math.max(cur===undefined?0:cur, parseRest(r[1])); });
-      }
-      if(seen.has(e.name)) return;
-      seen.add(e.name);
-      const last=idx.latest.get(e.name);
-      if(!last || l.date>last.log.date || (l.date===last.log.date && l.id>last.log.id)) idx.latest.set(e.name, {log:l, entry:e});
-      work.forEach(function(r){
-        const w=setLoad(e, r[0], person, l.date), top=idx.best.get(e.name);
-        if(!isNaN(w) && (top===undefined || w>top)) idx.best.set(e.name, w);
-      });
+function newLogIndex(){ return {latest:new Map(), best:new Map(), holds:new Map()}; }
+// Adds one log to an index from newLogIndex.
+function indexLog(idx, l, person){
+  const seen=new Set(), seenTimed=new Set();
+  (l.entries||[]).forEach(function(e){
+    const work=e.rows ? workRows(e) : [];
+    if(isTimed(e) && !seenTimed.has(e.name)){
+      seenTimed.add(e.name);
+      const byWeight=idx.holds.get(e.name)||{};
+      idx.holds.set(e.name, byWeight);
+      work.forEach(function(r){ const w=holdWeight(r[0]), cur=byWeight[w]; byWeight[w]=Math.max(cur===undefined?0:cur, parseRest(r[1])); });
+    }
+    if(seen.has(e.name)) return;
+    seen.add(e.name);
+    const last=idx.latest.get(e.name);
+    if(!last || l.date>last.log.date || (l.date===last.log.date && l.id>last.log.id)) idx.latest.set(e.name, {log:l, entry:e});
+    work.forEach(function(r){
+      const w=setLoad(e, r[0], person, l.date), top=idx.best.get(e.name);
+      if(!isNaN(w) && (top===undefined || w>top)) idx.best.set(e.name, w);
     });
   });
+}
+function logIndex(person){
+  if(personIndex[person]) return personIndex[person];
+  const idx=personIndex[person]=newLogIndex();
+  state.logs.forEach(function(l){ if(l.person===person) indexLog(idx, l, person); });
   return idx;
+}
+// The earlier bests a PR is measured against: the best working load of a name (-Infinity when none),
+// and the longest hold of a name at a weight (0 when none).
+function prevBestLookup(idx){
+  return {
+    best:function(name){ const b=idx.best.get(name); return b===undefined ? -Infinity : b; },
+    hold:function(name, weight){ const b=(idx.holds.get(name)||{})[weight]; return b===undefined ? 0 : b; }
+  };
 }
 // ---- Progression rule: the weight to aim for next time on a lifting exercise ----
 // Pure functions that read no state. mcp-coach/progression.py is the Python copy, and both
@@ -2049,28 +2059,72 @@ function readEntryFromCard(card, ex){
   if(ex.muscles&&ex.muscles.length) en.muscles=ex.muscles.slice();
   return en;
 }
+// The record an entry sets against the earlier bests in `prev` (see prevBestLookup): null, or
+// {pr, weight, hold}. A lift's pr is its new best load. A timed hold's pr is the longest hold, at
+// `weight` kg, and `hold` is true. A first-ever set is no record.
+function entryPr(en, person, date, prev){
+  if(isTimed(en)){
+    var top={}, found=null;
+    workRows(en).forEach(function(r){ var w=holdWeight(r[0]), s=parseRest(r[1]); if(s>(top[w]||0)) top[w]=s; });
+    Object.keys(top).some(function(k){
+      var before=prev.hold(en.name, +k);
+      if(!(before>0 && top[k]>before)) return false;
+      found={pr:top[k], weight:+k, hold:true}; return true;
+    });
+    return found;
+  }
+  if(!isLifting(en)) return null; // col-0 is only a weight (kg) for lifting entries
+  var ws=workRows(en).map(function(r){return setLoad(en, r[0], person, date);}).filter(function(v){return !isNaN(v);});
+  if(!ws.length) return null;
+  var thisMax=Math.max.apply(null,ws), before=prev.best(en.name);
+  return before>-Infinity && thisMax>before ? {pr:Math.round(thisMax*10)/10, weight:null, hold:false} : null;
+}
 // Stamps 'pr' on the entries that beat this person's earlier best and returns them as a list.
-function findPrs(entries, person, date){
+// `prev` defaults to the bests in the saved logs.
+function findPrs(entries, person, date, prev){
   var prs=[];
+  prev=prev||prevBestLookup(logIndex(person));
   entries.forEach(function(en){
-    if(isTimed(en)){
-      var top={};
-      workRows(en).forEach(function(r){ var w=holdWeight(r[0]), s=parseRest(r[1]); if(s>(top[w]||0)) top[w]=s; });
-      Object.keys(top).some(function(k){
-        var prev=holdBestSoFar(person, en.name, +k);
-        if(!(prev>0 && top[k]>prev)) return false;
-        en.pr=top[k]; prs.push({name:en.name, weight:+k, hold:top[k]}); return true;
-      });
-      return;
-    }
-    if(!isLifting(en)) return; // col-0 is only a weight (kg) for lifting entries
-    var ws=workRows(en).map(function(r){return setLoad(en, r[0], person, date);}).filter(function(v){return !isNaN(v);});
-    if(!ws.length) return;
-    var thisMax=Math.max.apply(null,ws);
-    var prevBest=bestWeightSoFar(person,en.name);
-    if(prevBest>-Infinity && thisMax>prevBest){ en.pr=Math.round(thisMax*10)/10; prs.push({name:en.name,weight:en.pr}); }
+    var r=entryPr(en, person, date, prev);
+    if(!r) return;
+    en.pr=r.pr;
+    prs.push(r.hold ? {name:en.name, weight:r.weight, hold:r.pr} : {name:en.name, weight:r.pr});
   });
   return prs;
+}
+// The flags a changed session can move. Walks the person's logs in date then id order with a
+// running best, the way the logs were saved, and from `fromLog` onward works out again the pr of
+// each entry named in `names`. Returns the entries whose flag flips (and, on fromLog itself, whose
+// value changes) as {log, entry, name, was, now}, without writing anything.
+const byDateThenId=(a,b)=> a.date<b.date?-1 : a.date>b.date?1 : a.id<b.id?-1 : a.id>b.id?1 : 0;
+function prChanges(person, names, fromLog){
+  const want=new Set(names), changes=[];
+  if(!want.size) return changes;
+  const idx=newLogIndex(), prev=prevBestLookup(idx);
+  let live=false;
+  state.logs.filter(function(l){ return l && l.person===person; }).sort(byDateThenId).forEach(function(l){
+    const isFrom=String(l.id)===String(fromLog.id);
+    if(isFrom) live=true;
+    if(live) (l.entries||[]).forEach(function(en){
+      if(!want.has(en.name) || !en.rows) return;
+      const r=entryPr(en, person, l.date, prev), was=en.pr==null ? null : en.pr, now=r ? r.pr : null;
+      if((was===null)!==(now===null) || (isFrom && now!==was)) changes.push({log:l, entry:en, name:en.name, was:was, now:now});
+    });
+    indexLog(idx, l, person);
+  });
+  return changes;
+}
+// Writes prChanges' result and stamps updatedAt on the logs it touched, and only those.
+function applyPrChanges(changes, now){
+  changes.forEach(function(c){
+    if(c.now===null) delete c.entry.pr; else c.entry.pr=c.now;
+    c.log.updatedAt=now;
+  });
+}
+function recheckPrs(person, names, fromLog){
+  const changes=prChanges(person, names, fromLog);
+  applyPrChanges(changes, Date.now());
+  return changes;
 }
 // This person's session is over; the other's is not.
 function clearDraftState(){

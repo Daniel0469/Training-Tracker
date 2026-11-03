@@ -1,0 +1,42 @@
+<!-- Runs the cases in edit-cases.js against js/app.js: the PR recheck, applyLogEdit and the undo steps.
+     Serve the repo root (python scratchpad/devserver.py) and open /scratchpad/review/edit-cases.html.
+     It reads the source text of js/app.js, compiles it once to prove the file parses, and runs the
+     functions it needs on small fixture stores. It reads and writes no real store. -->
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edit cases</title>
+<style>
+  :root { color-scheme: light dark; font: 14px/1.4 system-ui, sans-serif; }
+  body { margin: 1rem auto; max-width: 56rem; padding: 0 1rem; }
+  h1 { font-size: 1.2rem; }
+  ol { padding-left: 2rem; }
+  li.pass::marker { color: #1a7f37; content: "pass  "; }
+  li.fail::marker { color: #cf222e; content: "FAIL  "; font-weight: 700; }
+  pre { margin: .2rem 0 .6rem; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+  #sum.ok { color: #1a7f37; } #sum.bad { color: #cf222e; }
+</style>
+<h1 id="sum">Running...</h1>
+<p id="parse"></p>
+<ol id="list"></ol>
+<script src="edit-cases.js"></script>
+<script>
+(async () => {
+  const src = await fetch("../../js/app.js", { cache: "no-store" }).then(r => r.text());
+  new Function(src);
+  document.getElementById("parse").textContent = "js/app.js compiles as a whole.";
+  const res = window.EditCases.runCases(src);
+  const list = document.getElementById("list");
+  res.forEach(r => {
+    const li = document.createElement("li");
+    li.className = r.ok ? "pass" : "fail";
+    li.textContent = r.name;
+    if (!r.ok) { const pre = document.createElement("pre"); pre.textContent = r.why; li.appendChild(pre); }
+    list.appendChild(li);
+  });
+  const bad = res.filter(r => !r.ok).length, sum = document.getElementById("sum");
+  sum.textContent = bad ? bad + " of " + res.length + " cases FAIL" : "All " + res.length + " cases pass";
+  sum.className = bad ? "bad" : "ok";
+  window.result = { total: res.length, failed: bad };
+})().catch(e => { document.getElementById("sum").textContent = "Error: " + e.message; window.result = { error: e.message }; });
+</script>
