@@ -5665,6 +5665,7 @@ function setSyncStatus(msg){ paintStatus("ghStatus", "ghDot", msg); }
 // Pull remote -> merge (logs+bodyweights union) -> push merged local back.
 // quiet=true for automatic syncs (on save / on open): no toasts, best-effort.
 function syncNow(quiet){
+  if(sbOn()) return sbSyncNow(quiet);
   const cfg=loadSync();
   if(!cfg.repo || !cfg.token){ if(!quiet) toast("Add your GitHub repo + token first"); return Promise.resolve(); }
   cfg.path=cfg.path||"data.json";
@@ -5695,7 +5696,10 @@ function syncNow(quiet){
   });
 }
 // Best-effort background sync - only if configured. Used after save and on open.
-function autoSync(){ const c=loadSync(); if(c.repo && c.token) syncNow(true); }
+function autoSync(){
+  if(sbOn()){ sbSyncSoon(); return; }
+  const c=loadSync(); if(c.repo && c.token) syncNow(true);
+}
 
 // ==== Family storage (Supabase) ====
 // Every synced thing is one row of the `records` table: {kind, key, person, body, updated_at,
@@ -5894,9 +5898,10 @@ function renderFamilyStorage(){
   if(!fsField("fsUrl")) return;
   fsField("fsUrl").value=sb.url; fsField("fsKey").value=sb.key; fsField("fsEmail").value=sb.email; fsField("fsPass").value="";
   fsField("fsDisconnect").hidden=!(sbOn() || sb.url);
-  fsField("fsConnect").hidden=sbOn();
+  fsField("fsConnect").hidden=sbOn() && !sbSignInNeeded;
+  fsField("fsConnect").textContent=sbOn() ? "Sign in again" : "Connect";
   fsField("fsSyncBtn").hidden=!sbOn();
-  fsField("fsCfg").open=!sbOn();
+  fsField("fsCfg").open=!sbOn() || sbSignInNeeded;
   if(!sbOn()) setFsStatus(sb.url ? "Not connected. Press Connect." : "Not connected.");
   else if(!/^(Synced|Syncing|Sync failed|Offline)/.test(fsField("fsStatus").textContent)) setFsStatus("Connected as "+sb.email);
 }
@@ -5911,13 +5916,15 @@ function sbConnect(){
     .then(function(r){
       fsField("fsPass").value="";
       if(r.error) throw r.error;
-      return sbMigrate();
+      sbSignInNeeded=false;
+      return sbOn() ? sbStart() : sbMigrate().then(ok=>ok && sbStart());
     })
     .catch(function(e){ fsField("fsPass").value=""; setFsStatus("Sign-in failed ("+String((e && e.message) || e)+")"); });
 }
 // Back to GitHub sync. The project address and key stay, so Connect only needs the password again.
 function sbDisconnect(){
   const was=sbClient;
+  sbStop(); sbSignInNeeded=false;
   sb=Object.assign(sbBlank(), {url:sb.url, key:sb.key, email:sb.email, device:sb.device});
   sbSave();
   const out=was ? was.auth.signOut().catch(()=>{}) : Promise.resolve();
@@ -6055,9 +6062,123 @@ async function sbMigrate(){
     return false;
   }finally{ sbFirstPull=false; }
 }
+// ---- Ongoing sync: send what changed, pull what is newer, listen for changes ----
+// save() is unchanged and writes localStorage first. What changed is found by comparing toRecords(state)
+// with the hash of each row as last sent or applied (sb.h), so edits made offline simply stay different
+// until they reach the server.
+const SB_GONE_KINDS=["measurement","suggestion","program_change","coach_question"];
+const SB_DEBOUNCE_MS=1500, SB_TICK_MS=30000, SB_REALTIME_MS=250;
+let sbRunning=null, sbAgain=false, sbSoon=null, sbWired=false, sbTicker=null, sbChannel=null, sbQueue=[], sbQueueTimer=null, sbSignInNeeded=false;
+// Rows to send, and the keys among them that are deletions of rows this phone no longer has.
+function sbOutbox(){
+  const rows=sbLocalRows(), live=new Set(), out=[], gone=new Set();
+  rows.forEach(r=>{ live.add(rkey(r)); if(sb.h[rkey(r)]!==rowHash(r)) out.push(r); });
+  Object.keys(sb.h).forEach(k=>{
+    const at=k.indexOf("|"), kind=k.slice(0, at);
+    if(live.has(k) || SB_GONE_KINDS.indexOf(kind)<0) return;
+    out.push({kind:kind, key:k.slice(at+1), person:null, body:{}, updated_at:0, deleted_at:Date.now()});
+    gone.add(k);
+  });
+  return {rows:out.filter(r=>r.kind!=="program"), gone:gone};
+}
+async function sbFlush(){
+  const box=sbOutbox();
+  if(!box.rows.length) return 0;
+  try{
+    await sbUpload(box.rows);
+    box.gone.forEach(k=>{ delete sb.h[k]; delete sb.d[k]; });
+  }finally{ sbSave(); }
+  return box.rows.length;
+}
+// Programs the people rows point at but this phone does not hold yet.
+async function sbMissingPrograms(rows){
+  const have=new Set(Object.keys(state.programs)), need=[], extra=[];
+  rows.forEach(r=>{ if(r.kind==="program") have.add(r.key); });
+  rows.forEach(r=>{ const id=r.kind==="person" && (r.body||{}).programId; if(id && !have.has(id) && need.indexOf(id)<0) need.push(id); });
+  for(const id of need) extra.push.apply(extra, sbCheck(await sbClient.from("records").select("*").eq("kind", "program").eq("key", id)));
+  return extra;
+}
+// Only rows with a server_at after the cursor, never the whole store.
+async function sbPull(){
+  const rows=await sbFetchSince("records", sb.cursor, rkey);
+  if(!rows.length) return 0;
+  const tally=sbApplyRows(rows.concat(await sbMissingPrograms(rows)));
+  sb.cursor=maxTs(rows, sb.cursor);
+  sbSave();
+  return tally.added+tally.updated;
+}
+async function sbSessionOk(){
+  const res=await sbClient.auth.getSession();
+  sbSignInNeeded=!(res.data && res.data.session);
+  if(sbSignInNeeded){ setFsStatus("Sync failed: signed out. Open Admin and sign in again."); renderFamilyStorage(); }
+  return !sbSignInNeeded;
+}
+async function sbCycle(quiet){
+  if(navigator.onLine===false){ setFsStatus("Offline. Edits are kept and sync when this phone is back online."); return; }
+  setFsStatus("Syncing...");
+  try{
+    await sbEnsureClient();
+    if(!(await sbSessionOk())) return;
+    const sent=await sbFlush(), got=await sbPull();
+    setFsStatus("Synced "+new Date().toLocaleTimeString()+" - "+sent+" sent, "+got+" received");
+    if(!quiet) toast("Synced"); else if(got) toast("Synced - "+got+" update"+(got===1 ? "" : "s")+" pulled");
+  }catch(e){
+    setFsStatus("Sync failed ("+String((e && e.message) || e)+")");
+    if(!quiet) toast("Sync failed");
+  }
+}
+// One cycle at a time. A request that arrives while one runs makes a follow-up run.
+function sbSyncNow(quiet){
+  if(!sbOn()) return Promise.resolve();
+  if(sbRunning){ sbAgain=true; return sbRunning; }
+  sbRunning=sbCycle(quiet).then(function(){ sbRunning=null; if(sbAgain){ sbAgain=false; sbSyncSoon(); } });
+  return sbRunning;
+}
+function sbSyncSoon(){
+  clearTimeout(sbSoon);
+  sbSoon=setTimeout(function(){ sbSoon=null; sbSyncNow(true); }, SB_DEBOUNCE_MS);
+}
+function sbRealtime(payload){
+  if(!sbOn() || !payload || !payload.new || !payload.new.kind) return;
+  sbQueue.push(payload.new);
+  clearTimeout(sbQueueTimer);
+  sbQueueTimer=setTimeout(function(){
+    const rows=sbQueue; sbQueue=[];
+    try{ sbApplyRows(rows); }catch(e){ setFsStatus("Sync failed ("+String((e && e.message) || e)+")"); }
+  }, SB_REALTIME_MS);
+}
+function sbSubscribe(){
+  sbUnsubscribe();
+  sbChannel=sbClient.channel("tt-family").on("postgres_changes", {event:"*", schema:"public", table:"records"}, sbRealtime).subscribe();
+}
+function sbUnsubscribe(){ if(sbChannel && sbClient) sbClient.removeChannel(sbChannel); sbChannel=null; }
+// Syncs when the phone is back online, when the app comes back into view, and every 30 seconds while it is in view.
+function sbWire(){
+  if(sbWired) return;
+  sbWired=true;
+  window.addEventListener("online", ()=>sbSyncNow(true));
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") sbSyncNow(true); });
+  sbTicker=setInterval(()=>{ if(document.visibilityState==="visible") sbSyncNow(true); }, SB_TICK_MS);
+}
+// Runs on open and after a sign-in on a phone that is already switched over.
+async function sbStart(){
+  if(!sbOn()) return;
+  try{
+    await sbEnsureClient();
+    if(!(await sbSessionOk())) return;
+    sbSubscribe(); sbWire();
+    renderFamilyStorage();
+    await sbSyncNow(true);
+  }catch(e){ setFsStatus("Sync failed ("+String((e && e.message) || e)+")"); }
+}
+function sbStop(){
+  sbUnsubscribe();
+  clearTimeout(sbSoon); clearTimeout(sbQueueTimer); sbQueue=[];
+}
 // ==== end Family storage ====
 fsField("fsConnect").onclick=sbConnect;
 fsField("fsDisconnect").onclick=sbDisconnect;
+fsField("fsSyncBtn").onclick=()=>sbSyncNow(false);
 
 function renderHelp(){
   // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
@@ -7038,7 +7159,7 @@ if(window.Chart) Chart.defaults.font.family = '"Manrope",system-ui,sans-serif';
 initTheme();
 renderPeople();
 renderView();
-autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
+if(sbOn()) sbStart(); else autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
 
 // Ask the browser to protect this site's storage from automatic eviction under
 // storage pressure - relevant for anyone not using cloud sync, since local data
