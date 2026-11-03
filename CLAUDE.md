@@ -86,8 +86,9 @@ feature proposals/specs.
 ## Where things are (`js/app.js`, single module)
 
 - State + migration: `load` / `save`; `state = {people, weights, bodyweights, activePerson,
-  program, logs, theme}`.
-- Program model: `program.sessions[key] = {name, day, exercises:[{name, warmup, notes, target,
+  programs, programIds, logs, theme}`. Read a person's program with `progOf(person)`.
+- Program model: `programs[id] = {id, members, version, updatedAt, order, sessions}` and
+  `sessions[key] = {name, day, exercises:[{name, warmup, notes, target,
   sets, cols[]}]}`. `cols` is N columns (2 = lifting, 3 = running Distance/Time/Pace).
 - Tabs render into `#view`: `renderLog`, `renderHistory`, `renderProgress`, `renderBody`,
   `renderEdit`, `renderHelp`.

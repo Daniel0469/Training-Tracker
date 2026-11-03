@@ -45,6 +45,17 @@ only, notes included). `set_log_entry` in mcp-coach now stamps `updatedAt`, chec
 `scratchpad/review/edit-cases.html`, the review stage in `scratchpad/review/edit-stage.html`
 (`python scratchpad/proto_edit.py` builds its data). The app is `1.3`. Not yet reviewed by Daniel.
 
+**Programs per person (3 Nov 2026, branch `p4-app`, not pushed, Phase 4 part B1):** every person has a program
+(`state.programs`, `state.programIds`, read with `progOf`), shared by its `members`. Daniel and Cerys keep one. The Program tab has an
+**Editing** box listing every program. A member's edit applies at once and bumps the program's `version`. Anyone else's edits stay in a
+copy until **Send**, which adds a change record to `programChanges` that a member accepts or declines on Home or Program, with a
+per-session summary. **Copy to...** on a session sends a copy the same way. Accept applies only the sessions unchanged since the
+change was made and lists the rest as clashes. The paste share code is unchanged. Old single-program stores and exports are wrapped on
+load and on import. No Supabase yet and the app is still `1.3`; 2.0 comes with the sync engine. Prototype: `python
+scratchpad/proto_programs.py`, stage `scratchpad/review/programs-stage.html`, cases `scratchpad/review/programs-cases.js`.
+Not yet reviewed by Daniel. `mcp-coach` still reads the old top-level `program`, which the push keeps writing; it knows nothing
+of `programs` or the new change kinds yet.
+
 **Settings split (3 Nov 2026, branch `settings-split`, not pushed):** Settings opens on a **Profile**
 tab (name, colour, bodyweight, goals, **Improve the app** and four switches per person: Progression
 targets, Food and calories, Tape and body measures, Garmin and coach) and has an **Admin** tab (export,

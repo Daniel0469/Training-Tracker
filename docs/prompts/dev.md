@@ -68,6 +68,19 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
   exercise has no `notes` any more, and the coach MCP cannot write settings. An install without
   sync migrates old `notes` on load; synced phones got them from `scratchpad/apply_machine_settings.py`.
+- **Programs are per person** (3 Nov 2026, built on branch `p4-app`, not pushed): `state.programs[id] = {id, name?, members, version,
+  updatedAt, updatedBy, order, sessions}` and `state.programIds[person] = {id, updatedAt}`. Daniel and Cerys share one program
+  (`p-daniel-cerys`), anyone else gets their own. Read a program with `progOf(person)` (no argument is the active person) -
+  never `state.program`, which no longer exists. `load()` wraps an old single `program` once (`migratePrograms`), and an old-shape
+  export or store is wrapped the same way (`incomingPrograms`). Programs merge per id, newest `updatedAt` wins, held back while
+  someone on the program has a log draft open (`mergePrograms`). `saveProgram(prog)` bumps `version`. The push still writes the
+  active first person's program as the old top-level `program`, so readers that predate programs keep working.
+  The Program tab edits `editProg()`: the live program for a member, a copy for anyone else. Sending that copy, or a session copy,
+  adds a record to `state.programChanges` with `kind` "person" or "copy" (coach changes have none): `{id, kind, programId, from,
+  baseVersion, base, proposed, createdAt, status}`, where `base` and `proposed` hold only the sessions that differ. A member accepts it
+  on Home or Program (`applyEdit`): a session is applied only if it is unchanged since `base`, the rest are listed in `clashes`.
+  Cases: `scratchpad/review/programs-cases.js`. Review stage: `scratchpad/review/programs-stage.html`
+  (`python scratchpad/proto_programs.py` builds its data).
 - **Coach questions are per person** (3 Nov 2026): `state.coachQuestions[person] = [{id, question, why,
   priority, decision, askedAt, nextFollowUp, reminders, answer, answeredAt, status, updatedAt}]`, shown on
   Home for the active person only and merged per question id, newest `updatedAt` (ms) wins
