@@ -2973,6 +2973,9 @@ function loadBreakdown(r){
 // for - so they're behind a toggle. Also keeps one Chart.js instance live at a
 // time. Resets to Lifts on reload, like the Program tab's chosen session.
 let progressPane="lifts";
+// The Lifts chart's exercise and metric, kept so a person switch or a visit to another tab
+// redraws the same chart. The chart shows both people, so this is not per person.
+let progPick={ex:null, metric:"weight"};
 const PANE_LABELS={lifts:"Lifts", run:"Run", flex:"Flex", time:"Time", body:"Body", food:"Food"};
 // 🏃 Run only joins the toggle once there's running data to put in it, so a
 // lifting-only install sees the same two-way toggle it always did rather than a
@@ -3674,8 +3677,10 @@ function renderProgress(){
     + '<div class="sec-title">'+ico("flag")+'Records · '+esc(p)+' <span class="pill" data-sw="'+pc+'">current bests</span></div>'
     + recTable + '</div>';
   wirePaneToggle();
-  document.getElementById("progEx").onchange=drawChart;
-  document.getElementById("progMetric").onchange=drawChart;
+  const exSel=document.getElementById("progEx"), metricSel=document.getElementById("progMetric");
+  if(allEx.indexOf(progPick.ex)>=0) exSel.value=progPick.ex;
+  metricSel.value=progPick.metric;
+  exSel.onchange=metricSel.onchange=()=>{ progPick={ex:exSel.value, metric:metricSel.value}; drawChart(); };
   drawChart();
 }
 function drawChart(){
