@@ -1,0 +1,120 @@
+<!-- Local review harness for the 2.0.1 fixes: loads a copy of the store (the newest data-backup in
+     scratchpad/, gitignored) into localStorage, opens the app in a frame, then plays one scene.
+     ?scene=pr|autofill|bottombar|scroll|search|smith|rest|connect-error|connect-timeout|connect-defaults|addsearch &person=0|1 &theme=light|dark
+     pr         raise the weight on a lift, reps drop: only set 1 is badged
+     autofill   reps typed, kg blank, tick: the target kg fills
+     bottombar  Session tab part-way down with the rest bar, sets bar and tab bar
+     scroll     a mobility session whose last-time notes are long: no sideways scroll
+     search     Progress with an exercise and metric picked, after a person swap and back
+     smith      Smith tick set, swap person and back: still ticked
+     rest       rest started, the page reloaded (the phone dropping the app): the rest is back
+     connect-error     Admin > Family storage, a project address with a path typed, Connect pressed: the message under the button
+     connect-timeout   the storage library never loads: "Signing in..." under the button, then after 15 s the clear error
+     connect-defaults  family defaults filled in: only the password and Connect, Advanced folded below
+     addsearch         Program tab, Add exercise, "ben" typed: the suggestion list under the name box, no Remove button
+     Never touches the shared store. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const person = +(q.get("person") || 0), theme = q.get("theme") || "light", scene = q.get("scene") || "pr";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const BACKUPS = ["/scratchpad/data-backup-20261103T180000Z.json", "/scratchpad/data-backup-20261102T131207Z.json"];
+async function loadStore() {
+  for (const u of BACKUPS) { const r = await fetch(u, {cache: "no-store"}); if (r.ok) return r.json(); }
+  throw new Error("no data-backup-*.json in scratchpad/");
+}
+const frame = document.getElementById("f");
+const load = () => new Promise(r => { frame.onload = r; frame.src = "/index.html"; });
+(async () => {
+  const s = await loadStore();
+  s.theme = theme;
+  s.activePerson = person;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  await load();
+  await wait(600);
+  let w = frame.contentWindow, d = frame.contentDocument;
+  const E = code => w.eval(code);
+  // First session this person owns holding an exercise that matches `pred`, as [sessionKey, exerciseIndex].
+  const find = pred => E("(function(){const p=state.people[state.activePerson];for(const k of progOf(p).order){if(!ownsSession(k,p))continue;const exs=progOf(p).sessions[k].exercises;for(let i=0;i<exs.length;i++){if(("
+    + pred + ")(exs[i],p))return [k,i];}}})()");
+  const open = (k) => { E("curSession=" + JSON.stringify(k)); w.switchTab("log", true); };
+  const row = (ei, r) => d.querySelector('#exForm .ex[data-ei="' + ei + '"] tbody').rows[r];
+  const type = (ei, r, c, v) => { const el = row(ei, r).querySelector('[data-c="' + c + '"]'); el.value = v; el.dispatchEvent(new Event("input", {bubbles: true})); };
+  const tick = (ei, r) => row(ei, r).querySelector("[data-done]").click();
+  const show = ei => d.querySelector('#exForm .ex[data-ei="' + ei + '"]').scrollIntoView({block: "start"});
+  const swap = async who => { d.querySelectorAll(".ptoggle button")[who].click(); await wait(150); };
+  const lift = "(ex,p)=>isLifting(ex)&&!isTimed(ex)&&bestWeightSoFar(p,ex.name)>0&&progTarget(p,ex)";
+
+  if (scene === "pr") {
+    const [k, ei] = find(lift); open(k);
+    const best = E("bestWeightSoFar(state.people[state.activePerson]," + JSON.stringify(E("progOf().sessions['" + k + "'].exercises[" + ei + "].name")) + ")");
+    type(ei, 0, 0, String(best + 2.5));
+    type(ei, 0, 1, "6"); type(ei, 1, 1, "5"); type(ei, 2, 1, "4");
+    tick(ei, 0); tick(ei, 1); tick(ei, 2);
+    show(ei); frame.contentWindow.scrollBy(0, -70);
+  } else if (scene === "autofill") {
+    const [k, ei] = find(lift); open(k);
+    type(ei, 0, 1, "10");
+    tick(ei, 0);
+    show(ei); frame.contentWindow.scrollBy(0, -70);
+  } else if (scene === "bottombar") {
+    const [k, ei] = find(lift); open(k);
+    type(ei, 0, 1, "8"); tick(ei, 0); tick(ei, 1);
+    frame.contentWindow.scrollTo(0, 900);
+  } else if (scene === "scroll") {
+    const [k] = find("(ex)=>/mobility|rounds/i.test((ex.cols||[]).join(' '))"); open(k);
+    d.querySelector("#exForm .ex").scrollIntoView({block: "start"}); frame.contentWindow.scrollBy(0, -70);
+  } else if (scene === "search") {
+    w.switchTab("progress", true);
+    const sel = d.getElementById("progEx");
+    sel.value = [...sel.options].some(o => o.value === "Squat") ? "Squat" : sel.options[1].value; sel.onchange();
+    d.getElementById("progMetric").value = "e1rm"; d.getElementById("progMetric").onchange();
+    await swap(1 - person); await swap(person);
+  } else if (scene === "smith") {
+    const [k, ei] = find("(ex)=>usesSmith(ex)"); open(k);
+    d.querySelector('#exForm .ex[data-ei="' + ei + '"] [data-exsmith]').click();
+    await swap(1 - person); await swap(person);
+    show(ei); frame.contentWindow.scrollBy(0, -70);
+  } else if (scene === "rest") {
+    const [k, ei] = find(lift); open(k);
+    type(ei, 0, 1, "8"); tick(ei, 0);
+    w.flushDraftSave();
+    await wait(2500);
+    await new Promise(r => { frame.onload = r; frame.contentWindow.location.reload(); });
+    await wait(600);
+    w = frame.contentWindow; d = frame.contentDocument;
+    w.eval("curSession=" + JSON.stringify(k)); w.switchTab("log", true);
+    frame.contentWindow.scrollTo(0, 400);
+  } else if (scene.indexOf("connect") === 0) {
+    d.querySelectorAll("dialog[open]").forEach(x => x.close());
+    d.getElementById("settingsBtn").click();
+    E('setSettingsTab("admin"); adminUnlocked=true; renderAdminGate()');
+    await wait(300);
+    const set = (id, v) => { d.getElementById(id).value = v; };
+    if (scene === "connect-defaults") {
+      E('FAMILY_DEFAULTS.url="https://example.supabase.co"; FAMILY_DEFAULTS.key="sb_publishable_example"; FAMILY_DEFAULTS.email="family@example.test"; renderFamilyStorage(); fsField("fsAdv").open=false');
+    } else if (scene === "connect-error") {
+      set("fsUrl", "https://example.supabase.co/rest/v1"); set("fsKey", "sb_publishable_example"); set("fsEmail", "family@example.test"); set("fsPass", "x");
+      d.getElementById("fsConnect").click();
+    } else {
+      E('document.head.appendChild=function(){}');
+      set("fsUrl", "https://example.supabase.co"); set("fsKey", "sb_publishable_example"); set("fsEmail", "family@example.test"); set("fsPass", "x");
+      d.getElementById("fsConnect").click();
+      if (q.get("wait")) await wait(16000);
+    }
+    await wait(400);
+    d.getElementById("fsConnect").scrollIntoView({block: "center"});
+  } else if (scene === "addsearch") {
+    d.querySelectorAll("dialog[open]").forEach(x => x.close());
+    w.switchTab("edit", true);
+    await wait(300);
+    d.querySelector("[data-addex]").click();
+    await wait(200);
+    const name = d.getElementById("exName");
+    name.value = "ben"; name.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+})();
+</script>
