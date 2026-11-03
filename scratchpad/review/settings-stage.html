@@ -1,0 +1,55 @@
+<!-- Local review harness for the Settings split: loads the prototype state copy into
+     localStorage (python scratchpad/proto_settings.py writes it), opens the app in a frame,
+     then plays one scene.
+     ?person=0|1 &theme=light|dark &scene=profile|info|admin-locked|admin|setpin|home|progress
+     person 0 is Daniel (food off, Garmin and coach on), 1 is Cerys (food on, body off, Garmin and
+     coach off). The family PIN in the copy is 1234. Never touches the shared store. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const person = +(q.get("person") || 0), theme = q.get("theme") || "light", scene = q.get("scene") || "profile";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const s = await fetch("/scratchpad/proto-settings-state.json", {cache: "no-store"}).then(r => r.json());
+  s.theme = theme;
+  s.activePerson = person;
+  if (scene === "setpin") delete s.adminPin;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  const f = document.getElementById("f");
+  f.src = "/index.html";
+  await new Promise(r => f.onload = r);
+  await wait(600);
+  const w = f.contentWindow, d = f.contentDocument;
+  d.querySelectorAll("dialog[open]").forEach(x => x.close());
+  const openSettings = async tab => {
+    d.getElementById("settingsBtn").click();
+    await wait(300);
+    if (tab) { d.querySelector('[data-set-tab="' + tab + '"]').click(); await wait(100); }
+  };
+  if (scene === "profile") {
+    await openSettings();
+    d.getElementById("featRows").scrollIntoView({block: "center"});
+  } else if (scene === "info") {
+    await openSettings();
+    d.querySelectorAll("#featRows [data-info]").forEach(b => b.click());
+    d.getElementById("featRows").scrollIntoView({block: "start"});
+  } else if (scene === "admin-locked" || scene === "setpin") {
+    await openSettings("admin");
+  } else if (scene === "admin") {
+    await openSettings("admin");
+    d.getElementById("pinIn").value = "1234";
+    d.getElementById("pinGo").click();
+    await wait(300);
+    d.getElementById("accountList").scrollIntoView({block: "center"});
+  } else if (scene === "home") {
+    w.switchTab("home");
+  } else if (scene === "progress") {
+    w.switchTab("progress");
+    await wait(300);
+    d.querySelector('[data-pane="body"]').click();
+  }
+})();
+</script>
