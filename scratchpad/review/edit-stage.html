@@ -1,0 +1,79 @@
+<!-- Local review harness for editing saved sessions: loads the prototype state copy into localStorage
+     (python scratchpad/proto_edit.py writes it and scratchpad/proto-edit-scenes.json), opens the app in a
+     frame, then plays one scene. Serve the repo root first: python scratchpad/devserver.py
+     ?person=0|1 &theme=light|dark &scene=history|dialog|raise|lower|addremove|run|undo
+     person 0 is Daniel, 1 is Cerys.
+       history    the Bench press session from 19/26 Oct open in History: Edit sets, Edit note, Undo edit
+       dialog     the edit dialog open on that session
+       raise      an early Bench press goes up and is saved, so the records after it go; the toast says which
+       lower      one Bench press comes down and is saved, so the next session gets the record
+       addremove  the same dialog with a set removed, one marked as a warm-up and one added (not saved)
+       run        a watch-filled run in the dialog with a time changed and the pace following (not saved)
+       undo       the lower edit saved, History open on the card with the Undo edit button
+     Never touches the shared store. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const person = +(q.get("person") || 0), theme = q.get("theme") || "light", scene = q.get("scene") || "history";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const get = p => fetch(p, {cache: "no-store"}).then(r => r.json());
+  const s = await get("/scratchpad/proto-edit-state.json");
+  const scenes = (await get("/scratchpad/proto-edit-scenes.json"))[s.people[person]];
+  s.theme = theme;
+  s.activePerson = person;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  const f = document.getElementById("f");
+  f.src = "/index.html";
+  await new Promise(r => f.onload = r);
+  await wait(500);
+  const w = f.contentWindow, d = f.contentDocument;
+  w.confirm = () => true;
+  const keepToast = w.toast;
+  w.toast = (m) => keepToast.call(w, m, 600000);
+  d.querySelectorAll("dialog[open]").forEach(x => x.close());
+  w.switchTab("history");
+  await wait(300);
+  const card = name => Array.from(d.querySelectorAll("#editLogBody .ed-ex")).find(c => (c.querySelector(".ed-name") || {}).textContent.indexOf(name) === 0);
+  const typeAll = (c, col, value) => c.querySelectorAll('tbody [data-c="' + col + '"]').forEach(i => { i.value = value; i.dispatchEvent(new Event("input", {bubbles: true})); });
+  const openCard = id => {
+    const b = d.querySelector('[data-toggle="' + id + '"]');
+    if (!b.closest(".log-item").classList.contains("open")) b.click();
+    w.scrollTo({top: b.getBoundingClientRect().top + w.scrollY - 120, behavior: "instant"});
+  };
+  const edit = async (sc, name) => {
+    w.openEditLog(sc.id);
+    await wait(200);
+    typeAll(card(name), 0, sc.to);
+    await wait(100);
+    d.getElementById("editLogSave").click();
+    await wait(400);
+    openCard(sc.id);
+  };
+  if (scene === "history") openCard(scenes.addremove.id);
+  if (scene === "dialog") { w.openEditLog(scenes.addremove.id); }
+  if (scene === "raise") await edit(scenes.raise, "Bench press");
+  if (scene === "lower") await edit(scenes.lower, "Bench press");
+  if (scene === "undo") { await edit(scenes.lower, "Bench press"); d.getElementById("toast").classList.remove("show"); }
+  if (scene === "addremove") {
+    w.openEditLog(scenes.addremove.id);
+    await wait(200);
+    const c = card("Bench press"), rows = () => c.querySelectorAll("tbody tr");
+    rows()[1].querySelector("[data-erm]").click();
+    rows()[0].querySelector("[data-setno]").click();
+    c.querySelector("[data-eadd]").click();
+    c.scrollIntoView({block: "center"});
+  }
+  if (scene === "run") {
+    w.openEditLog(scenes.run.id);
+    await wait(200);
+    const c = card("Easy run");
+    const t = c.querySelectorAll("tbody tr")[1].querySelector('[data-c="1"]');
+    t.value = "4:30"; t.dispatchEvent(new Event("input", {bubbles: true}));
+    c.scrollIntoView({block: "center"});
+  }
+})();
+</script>
