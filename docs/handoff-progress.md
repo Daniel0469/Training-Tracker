@@ -32,7 +32,7 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Saving keeps every other key, stamps `editedAt` and `updatedAt`, and checks PRs again for the changed exercises on later sessions.
 - [x] Undo for the last five edits per person, 14 days, this phone only.
 - [x] `set_log_entry` in mcp-coach stamps `updatedAt`.
-- [ ] Reviewed by Daniel and shipped as version 1.3.
+- [x] Reviewed by Daniel and shipped as version 1.3 (3 Nov).
 
 ## Phase 4: Family setup
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.
