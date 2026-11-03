@@ -38,8 +38,9 @@ const CONSTS = ["clone", "byDateThenId", "sameJson", "trimRow", "numSort", "shor
 // The app's own functions, bound to `state` and to the given stand-ins for the page.
 function makeApi(src, state, env) {
   const mem = {}, store = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
-  const body = "let progExIndex=null, bwIndex={}, personIndex={}, progIndex={};\nconst KEY=\"test\", localStorage=env.localStorage||store;\n"
+  const body = "let progExIndex={}, bwIndex={}, personIndex={}, progIndex={};\nconst KEY=\"test\", localStorage=env.localStorage||store;\n"
     + "function save(){ clearCaches(); env.saved=(env.saved||0)+1; }\nfunction syncNow(){ env.synced=(env.synced||0)+1; }\n"
+    + "function progOf(){ return state.program || { order: [], sessions: {} }; }\n"
     + CONSTS.map(n => grabConst(src, n)).join("\n") + "\n"
     + FUNCTIONS.map(n => grab(src, n)).join("\n")
     + "\nreturn { " + FUNCTIONS.concat(CONSTS).join(", ") + " };";

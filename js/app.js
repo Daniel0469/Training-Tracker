@@ -13,7 +13,9 @@ const clone = o => JSON.parse(JSON.stringify(o));
 let state = load();
 if(!state.namesSet){ if(state.people[0]==="Me") state.people[0]="Daniel"; if(state.people[1]==="Partner") state.people[1]="Cerys"; state.namesSet=true; try{save();}catch(e){} }
 let activeTab = "home";
-let curSession = state.program.order[0];
+let curSession = progOf().order[0];
+// The session each person last had open, so a switch to someone on a different program lands on theirs.
+const sessionOf = {};
 let curDate = localDateStr();
 let justSavedId = null;
 // Per person+session drafts of the in-progress log form, so switching person
@@ -26,7 +28,7 @@ let formDrafts = {};
 let sessionTimers = {};
 // Exercises added to today's log only (gym busy, something hurts, swapped a
 // movement) - same person+session keying, and deliberately not written into
-// state.program: the program is the plan, this is what actually happened.
+// the program: the program is the plan, this is what actually happened.
 // Cleared when the session is saved; the save summary offers to promote one.
 let formExtras = {};
 let timerInterval = null;
@@ -40,11 +42,11 @@ function load(){
       migrateMachineNotes(s);
       seedBodyweights(s);
       migrateWarmupPct(s);
-      return withProgramShim(s);
+      return s;
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return withProgramShim({ people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, programs:{}, programIds:{}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] });
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, programs:{}, programIds:{}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -188,11 +190,6 @@ function migratePrograms(s){
     if(ids.length) s.programIds[pn]={id:ids[0], updatedAt:0};
   });
 }
-// state.program reads as the active person's program until every caller names its person.
-function withProgramShim(s){
-  Object.defineProperty(s, "program", {get:function(){ return progOf(); }, enumerable:false, configurable:true});
-  return s;
-}
 // A program made on this phone gets a random tail, so two phones starting fresh never share an id.
 function uniqueProgramId(base){
   var id;
@@ -219,6 +216,14 @@ function claimProgram(person){
   } else if(person && p.members.indexOf(person)<0) p.members.push(person);
   if(person) state.programIds[person]={id:p.id, updatedAt:0};
   return p;
+}
+// A renamed account keeps its program: the new name takes its place in the member lists.
+function renameInPrograms(from, to){
+  Object.keys(state.programs).forEach(function(id){
+    var m=state.programs[id].members, at=m.indexOf(from);
+    if(at>=0) m[at]=to;
+  });
+  if(state.programIds[from]){ state.programIds[to]={id:state.programIds[from].id, updatedAt:Date.now()}; delete state.programIds[from]; }
 }
 function saveProgram(prog){
   prog=prog||progOf();
@@ -248,34 +253,36 @@ function saveProgram(prog){
 // the wrong definition, so a name whose definitions disagree resolves to
 // nothing and the set is read as the plain number typed. Stamped entries are
 // unaffected - they carry their own load type.
-let progExIndex=null;
+let progExIndex={};
 // Derived data, built on first use and dropped whenever the state it reads changes.
 let bwIndex={}, personIndex={}, progIndex={};
-function clearCaches(){ progExIndex=null; bwIndex={}; personIndex={}; progIndex={}; }
-function programExerciseByName(name){
-  if(!progExIndex){
-    progExIndex={};
+function clearCaches(){ progExIndex={}; bwIndex={}; personIndex={}; progIndex={}; }
+function programExerciseByName(name, person){
+  const prog=progOf(person), sessions=prog.sessions||{};
+  let index=progExIndex[prog.id];
+  if(!index){
+    index=progExIndex[prog.id]={};
     const clash={};
-    Object.keys((state.program&&state.program.sessions)||{}).forEach(function(k){
-      ((state.program.sessions[k].exercises)||[]).forEach(function(ex){
+    Object.keys(sessions).forEach(function(k){
+      ((sessions[k].exercises)||[]).forEach(function(ex){
         if(!ex || !ex.name) return;
-        const seen=progExIndex[ex.name];
-        if(!seen){ progExIndex[ex.name]=ex; return; }
+        const seen=index[ex.name];
+        if(!seen){ index[ex.name]=ex; return; }
         if((seen.load||"")!==(ex.load||"") || (seen.bwPct||100)!==(ex.bwPct||100)) clash[ex.name]=true;
       });
     });
-    Object.keys(clash).forEach(function(n){ progExIndex[n]=null; });
+    Object.keys(clash).forEach(function(n){ index[n]=null; });
   }
-  return progExIndex[name]||null;
+  return index[name]||null;
 }
-function loadTypeOf(e){
+function loadTypeOf(e, person){
   if(!e) return "";
   if(e.load) return e.load;
-  const def=programExerciseByName(e.name);
+  const def=programExerciseByName(e.name, person);
   return (def && def.load) || "";
 }
-function loadPctOf(e){
-  const src = (e && e.load) ? e : programExerciseByName(e && e.name);
+function loadPctOf(e, person){
+  const src = (e && e.load) ? e : programExerciseByName(e && e.name, person);
   const pct = src && src.bwPct;
   return (pct && pct>0) ? Math.min(100, pct) : 100;
 }
@@ -295,12 +302,12 @@ function bodyweightOn(person, date){
 // What one set actually loaded, in kg. Takes either a logged entry or a program
 // exercise - both carry the load flags.
 function setLoad(e, typed, person, date){
-  const type=loadTypeOf(e);
+  const type=loadTypeOf(e, person);
   const v=parseFloat(typed);
   if(!type) return v;
   const bw=bodyweightOn(person, date);
   if(bw==null) return v; // never weighed in: nothing better to do than take the number typed
-  const own=bw*(loadPctOf(e)/100);
+  const own=bw*(loadPctOf(e, person)/100);
   const add=isNaN(v)?0:v;
   return Math.max(0, type==="assist" ? own-add : own+add);
 }
@@ -380,10 +387,11 @@ function exerciseBlocks(exercises){
 // exists in the program and you can pick it any day you fancy it, but it isn't
 // part of the week and nothing nags you about it.
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
-function orderedKeys(){
-  return state.program.order.slice().sort(function(a,b){
-    var da=DOW[String(state.program.sessions[a].day||"").toLowerCase()]||99;
-    var db=DOW[String(state.program.sessions[b].day||"").toLowerCase()]||99;
+function orderedKeys(prog){
+  prog=prog||progOf();
+  return prog.order.slice().sort(function(a,b){
+    var da=DOW[String(prog.sessions[a].day||"").toLowerCase()]||99;
+    var db=DOW[String(prog.sessions[b].day||"").toLowerCase()]||99;
     return da-db;
   });
 }
@@ -393,7 +401,7 @@ function orderedKeys(){
 // No `person` means it belongs to everybody, which is every session that existed
 // before this, so nothing changes for them.
 function ownsSession(k, p){
-  var o=(state.program.sessions[k]||{}).person;
+  var o=(progOf(p).sessions[k]||{}).person;
   return !o || o===p;
 }
 // The sessions the active person can actually log. The Program tab deliberately
@@ -408,8 +416,8 @@ function sessionForDate(dstr){
   var names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   var target=names[wd];
   var me=state.people[state.activePerson];
-  var keys=state.program.order.filter(function(k){
-    return String(state.program.sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
+  var keys=progOf().order.filter(function(k){
+    return String(progOf().sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
   });
   // 0. A one-week swap from the coach, which beats everything below. Checked
   // Before the single-session shortcut on purpose: the session it names is
@@ -430,7 +438,7 @@ function sessionForDate(dstr){
   //   3. otherwise program.order decides, as it always did
   var live=liveNextCardio();
   if(live){
-    var picked=keys.filter(function(k){ return state.program.sessions[k].name===live.session; })[0];
+    var picked=keys.filter(function(k){ return progOf().sessions[k].name===live.session; })[0];
     if(picked) return picked;
   }
   var alt=alternatedKey(keys);
@@ -442,18 +450,18 @@ function sessionForDate(dstr){
 function alternatedKey(keys){
   var p=state.people[state.activePerson];
   var names={};
-  keys.forEach(function(k){ names[state.program.sessions[k].name]=k; });
+  keys.forEach(function(k){ names[progOf().sessions[k].name]=k; });
   var seen={}, logs=state.logs.filter(function(l){ return l.person===p; })
     .sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:b.id-a.id; });
   // Newest first, so the first time we meet a name is the last time it was done.
   logs.forEach(function(l){ if(names[l.sessionName] && !(l.sessionName in seen)) seen[l.sessionName]=l.date; });
   // Anything never done comes first - that's the one that's overdue.
-  var never=keys.filter(function(k){ return !(state.program.sessions[k].name in seen); });
+  var never=keys.filter(function(k){ return !(progOf().sessions[k].name in seen); });
   if(never.length) return never[0];
   var oldest=null;
   keys.forEach(function(k){
-    var d=seen[state.program.sessions[k].name];
-    if(oldest===null || d<seen[state.program.sessions[oldest].name]) oldest=k;
+    var d=seen[progOf().sessions[k].name];
+    if(oldest===null || d<seen[progOf().sessions[oldest].name]) oldest=k;
   });
   return oldest;
 }
@@ -469,7 +477,7 @@ function alternatedKey(keys){
 // renamed in the term reset.
 function nextCardioLives(nc){
   if(!nc || !nc.session) return false;
-  var ss=(state.program&&state.program.sessions)||{};
+  var ss=progOf().sessions;
   return Object.keys(ss).some(function(k){ return (ss[k]||{}).name===nc.session; });
 }
 // The coach's one-week session swap, or null once it's been used or gone stale.
@@ -499,7 +507,7 @@ function liveNextCardio(){
   var since=String(nc.updated).slice(0,10);
   var done=state.logs.some(function(l){
     if(l.person!==p || String(l.date)<since) return false;
-    return (l.entries||[]).some(function(e){ return isRunning(e)||isIntervalEntry(e); });
+    return (l.entries||[]).some(function(e){ return isRunning(e)||isIntervalEntry(e, p); });
   });
   return done ? null : nc;
 }
@@ -716,7 +724,12 @@ function renderPeople(){
   el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
     if(+b.dataset.p===state.activePerson) return;
     captureDraft();
-    state.activePerson=+b.dataset.p; save(); renderPeople(); renderView();
+    const from=state.people[state.activePerson];
+    sessionOf[from]=curSession;
+    state.activePerson=+b.dataset.p;
+    const to=state.people[state.activePerson];
+    if(progOf(to).id!==progOf(from).id) curSession=progOf(to).sessions[sessionOf[to]] ? sessionOf[to] : (sessionForDate(curDate)||progOf(to).order[0]);
+    save(); renderPeople(); renderView();
     if(activeTab==="log" && formDrafts[draftKey()])
       toast("Restored "+possessive(state.people[state.activePerson])+" unsaved entry");
   });
@@ -1002,7 +1015,7 @@ function progEntries(person){
 }
 // The step from a "Step: name = kg" line in a session's setup note; the open session's line wins.
 function stepFor(name){
-  const sessions=state.program.sessions;
+  const sessions=progOf().sessions;
   const keys=Object.keys(sessions).sort((a,b)=>(a===curSession?0:1)-(b===curSession?0:1));
   for(let i=0;i<keys.length;i++){
     const step=parseStepLines(sessions[keys[i]].setupNote)[name];
@@ -1149,14 +1162,14 @@ function msSet(person, name, text){
 }
 // The exercise list the Log form works from: the session's programmed exercises
 // followed by anything added for today only. Every `data-ei` on the log form
-// indexes into this, not state.program - so the extras get set rows, drafts,
+// indexes into this, not the program - so the extras get set rows, drafts,
 // warm-up flags, RPE and PR medals with no special-casing anywhere else.
 function logExercises(){
-  const sess=state.program.sessions[curSession]||{};
+  const sess=progOf().sessions[curSession]||{};
   return (sess.exercises||[]).concat(formExtras[draftKey()]||[]);
 }
 function programExCount(){
-  return (((state.program.sessions[curSession]||{}).exercises)||[]).length;
+  return (((progOf().sessions[curSession]||{}).exercises)||[]).length;
 }
 // Typing doesn't re-render, so nothing used to reach localStorage between the
 // explicit capture points (tab/person/session switch) - a phone that discarded
@@ -1518,9 +1531,9 @@ function colLabel(c){
 function followActivePerson(){
   const p = state.people[state.activePerson];
   if(!ownsSession(curSession, p)){
-    const day=(state.program.sessions[curSession]||{}).day;
-    const sameDay=myKeys().filter(k=>(state.program.sessions[k]||{}).day===day);
-    curSession = sameDay.find(k=>(state.program.sessions[k]||{}).person)
+    const day=(progOf().sessions[curSession]||{}).day;
+    const sameDay=myKeys().filter(k=>(progOf().sessions[k]||{}).day===day);
+    curSession = sameDay.find(k=>(progOf().sessions[k]||{}).person)
       || sameDay[0] || sessionForDate(curDate) || myKeys()[0] || curSession;
   }
 }
@@ -1528,7 +1541,7 @@ function renderLog(){
   const p = state.people[state.activePerson];
   clearCaches();
   followActivePerson();
-  const sess = state.program.sessions[curSession];
+  const sess = progOf().sessions[curSession];
   const prev = latestLog(p, curSession);
   const coach = coachOf(p);
   // Programmed exercises plus anything added for today only.
@@ -1547,7 +1560,7 @@ function renderLog(){
 }
 function logHeaderHtml(p, prev){
   const opts = myKeys().map(k=>{
-    const s=state.program.sessions[k];
+    const s=progOf().sessions[k];
     return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(s.day)+'</option>';
   }).join("");
   const prevNote = prev
@@ -2209,7 +2222,7 @@ function clearDraftState(){
   saveDrafts();
 }
 function saveSession(){
-  const sess=state.program.sessions[curSession];
+  const sess=progOf().sessions[curSession];
   const exs=logExercises();
   const person=state.people[state.activePerson];
   const date=document.getElementById("logDate").value || todayStr();
@@ -2683,9 +2696,9 @@ function isSplitRow(r, di){ const d=parseFloat(r[di]); return isNaN(d) || d>0; }
 // run - treadmill reps logged as speeds. The program marks those with garminRun
 // (see isGarminCardio), but a *logged* entry never carries that flag, so resolve
 // it back to the program definition by name - the same fallback loadTypeOf uses.
-function isIntervalEntry(e){
+function isIntervalEntry(e, person){
   if(!e || isRunning(e)) return false;
-  const def=programExerciseByName(e.name);
+  const def=programExerciseByName(e.name, person);
   return !!(def && def.garminRun===true);
 }
 // Fastest single split, as m:ss per km. Computed from each row's own distance
@@ -2967,7 +2980,7 @@ function changesForSession(sessionName){
   return pendingChanges().filter(c=> c.session===sessionName);
 }
 function sessionKeyByName(name){
-  return orderedKeys().find(k=> (state.program.sessions[k]||{}).name===name);
+  return orderedKeys().find(k=> (progOf().sessions[k]||{}).name===name);
 }
 // What the change would do, in words, for the card and the confirm.
 function describeChange(c){
@@ -2976,7 +2989,7 @@ function describeChange(c){
   if(c.op==="move") return "Move "+c.exercise+(c.after ? " after "+c.after : " to the start");
   const bits=[];
   const key=sessionKeyByName(c.session);
-  const ex=key ? (state.program.sessions[key].exercises||[]).find(e=>e.name===c.exercise) : null;
+  const ex=key ? (progOf().sessions[key].exercises||[]).find(e=>e.name===c.exercise) : null;
   // sets and target are short enough to show both sides. warmup and notes
   // are whole lines of text, and "notes: feet
   // on the bottom edge of the platform, press through the balls of the feet →
@@ -3037,7 +3050,7 @@ function applyProgramChange(id){
   const c=(state.programChanges||[]).find(x=>String(x.id)===String(id));
   if(!c || c.status!=="pending") return;
   const key=sessionKeyByName(c.session);
-  const sess=key ? state.program.sessions[key] : null;
+  const sess=key ? progOf().sessions[key] : null;
   if(!sess){ toast("That session isn't in the program any more"); setChangeStatus(c,"declined"); save(); renderEdit(); return; }
   const exs=sess.exercises||(sess.exercises=[]);
   const i=exs.findIndex(e=>e.name===c.exercise);
@@ -3289,7 +3302,7 @@ function renderTime(){
   // Only offer sessions this person has actually timed, so the picker can't
   // select an empty chart.
   const keys=[...new Set(timedLogsFor(p).map(l=>l.sessionKey))]
-    .filter(k=>state.program.sessions[k]);
+    .filter(k=>progOf().sessions[k]);
   if(timeSession && keys.indexOf(timeSession)<0) timeSession="";
   const logs=timedLogsFor(p, timeSession);
   const mins=logs.map(l=>l.durationSec/60);
@@ -3304,7 +3317,7 @@ function renderTime(){
     + '<label class="fld grow">Session<select id="timeSession">'
     + '<option value=""'+(timeSession?"":" selected")+'>All sessions</option>'
     + keys.map(k=>'<option value="'+esc(k)+'"'+(k===timeSession?' selected':'')+'>'
-        + esc(state.program.sessions[k].name)+'</option>').join("")
+        + esc(progOf().sessions[k].name)+'</option>').join("")
     + '</select></label></div>'
     + '<div class="hint" style="margin-bottom:10px">How long each session took, for both people. '
     + 'Only sessions you ran the timer on appear.</div>'
@@ -3468,11 +3481,11 @@ function drawChart(){
 // no running at all never sees the pane (see hasRunData) - the toggle stays two-way,
 // exactly as it was.
 function hasRunData(){
-  return state.logs.some(l=>l && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e)) || l.garmin));
+  return state.logs.some(l=>l && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e, l.person)) || l.garmin));
 }
 function runLogsFor(person){
   return state.logs.filter(l=>l && l.person===person
-      && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e)) || l.garmin))
+      && ((l.entries||[]).some(e=>isRunning(e)||isIntervalEntry(e, person)) || l.garmin))
     .slice().sort((a,b)=> a.date<b.date?-1: a.date>b.date?1:0);
 }
 // The per-rep block mcp-garmin derives from Garmin's run/walk splits, and the trend
@@ -3496,7 +3509,7 @@ function bestPaceSec(l){
     });
     if(best!=null) return Math.round(best);
   }
-  const iv=(l.entries||[]).find(e=>isIntervalEntry(e));
+  const iv=(l.entries||[]).find(e=>isIntervalEntry(e, l.person));
   if(iv && iv.cols && /km\s*\/\s*h/i.test(String(iv.cols[0]))){
     let top=null;
     (iv.rows||[]).forEach(r=>{ const v=parseFloat(r&&r[0]); if(!isNaN(v)&&v>0&&(top==null||v>top)) top=v; });
@@ -3564,7 +3577,7 @@ function runSessionHtml(l){
   const summary=run?runSummaryFromEntry(run, l.garmin):"";
   if(summary) bits.push(summary);
   else {
-    const iv=(l.entries||[]).find(e=>isIntervalEntry(e));
+    const iv=(l.entries||[]).find(e=>isIntervalEntry(e, l.person));
     const s=iv?bestSpeedFromEntry(iv):"";
     if(s) bits.push("best "+s);
   }
@@ -3958,7 +3971,7 @@ let notesOpenKey="";
 // top of the session - the row just carries a tag saying which one it touches.
 function exRowHtml(k, ei, ex){
   const ref=k+':'+ei;
-  const waiting=changesForSession((state.program.sessions[k]||{}).name).some(c=>c.exercise===ex.name);
+  const waiting=changesForSession((progOf().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
   return '<div class="prog-row">'
     + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
     + '<div class="row-grow"><div class="ex-name">'+esc(ex.name)+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</div>'
@@ -4016,12 +4029,12 @@ function renderEdit(){
     // The week as a swipeable row of chips; a dot marks one with a coach change
     // waiting, since its card is only on screen once it's picked.
     html+='<div class="chips" id="progChips">'+keys.map(k=>{
-        const ss=state.program.sessions[k], pend=changesForSession(ss.name).length;
+        const ss=progOf().sessions[k], pend=changesForSession(ss.name).length;
         return '<button type="button" class="chip'+(k===progSel?' active':'')+'" data-sesspick="'+esc(k)+'">'
           + '<b>'+esc(ss.name)+'</b><span>'+esc(ss.day)+(ss.person?' · '+esc(ss.person):'')+'</span>'
           + (pend?'<i class="chip-dot" title="'+pend+' coach change'+(pend===1?'':'s')+' waiting"></i>':'')+'</button>';
       }).join("")+'</div>';
-    const k=progSel, s=state.program.sessions[k];
+    const k=progSel, s=progOf().sessions[k];
     const n=s.exercises.length;
     const pend=changesForSession(s.name);
     const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
@@ -4085,13 +4098,13 @@ function renderEdit(){
     ta.addEventListener("input", ()=>autoGrow(ta));
   });
   document.querySelectorAll("[data-sesscardio]").forEach(cb=>cb.addEventListener("change",()=>{
-    const sess=state.program.sessions[cb.dataset.sesscardio]; if(!sess) return;
+    const sess=progOf().sessions[cb.dataset.sesscardio]; if(!sess) return;
     if(cb.checked) sess.cardio=true; else delete sess.cardio;
     saveProgram();
     toast(cb.checked ? "Garmin will sync this session" : "Garmin will ignore this session");
   }));
   document.querySelectorAll("[data-sessnote]").forEach(ta=>ta.addEventListener("change",()=>{
-    const sess=state.program.sessions[ta.dataset.sesskey]; if(!sess) return;
+    const sess=progOf().sessions[ta.dataset.sesskey]; if(!sess) return;
     const field=ta.dataset.sessnote, v=ta.value.trim();
     if(v===(sess[field]||"")) return;
     if(v) sess[field]=v; else delete sess[field];
@@ -4117,7 +4130,7 @@ function renderEdit(){
 // A "group" of one exercise isn't a group - clear a groupId once only one
 // member of it is left (e.g. after deleting the exercise that was its pair).
 function cleanupSoloGroups(sessionKey){
-  const arr=state.program.sessions[sessionKey].exercises;
+  const arr=progOf().sessions[sessionKey].exercises;
   const counts={};
   arr.forEach(ex=>{ if(ex.groupId) counts[ex.groupId]=(counts[ex.groupId]||0)+1; });
   arr.forEach(ex=>{ if(ex.groupId && counts[ex.groupId]<2) delete ex.groupId; });
@@ -4127,19 +4140,19 @@ function groupSelected(sessionKey){
     .filter(r=>r.startsWith(sessionKey+":"))
     .map(r=>+r.split(":")[1]).sort((a,b)=>a-b);
   if(refs.length<2) return;
-  const arr=state.program.sessions[sessionKey].exercises;
+  const arr=progOf().sessions[sessionKey].exercises;
   const gid="grp-"+Date.now();
   const selectedSet=new Set(refs);
   const members=refs.map(i=>arr[i]);
   members.forEach(ex=>{ ex.groupId=gid; });
   const before=arr.slice(0, refs[0]);
   const after=arr.filter((ex,i)=> i>refs[0] && !selectedSet.has(i));
-  state.program.sessions[sessionKey].exercises=before.concat(members, after);
+  progOf().sessions[sessionKey].exercises=before.concat(members, after);
   selectedExRefs.clear();
   saveProgram(); renderEdit(); toast("Grouped as superset");
 }
 function ungroupExercises(sessionKey, groupId){
-  state.program.sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
+  progOf().sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
   saveProgram(); renderEdit(); toast("Ungrouped");
 }
 // Moves the contiguous block containing exercise `ref` (its whole superset
@@ -4147,7 +4160,7 @@ function ungroupExercises(sessionKey, groupId){
 // block, keeping grouped members adjacent - see exerciseBlocks().
 function move(ref,dir){
   const a=ref.split(":"); const sessionKey=a[0];
-  const arr=state.program.sessions[sessionKey].exercises;
+  const arr=progOf().sessions[sessionKey].exercises;
   const i=+a[1];
   const gid=arr[i].groupId;
   let lo=i, hi=i;
@@ -4198,8 +4211,8 @@ const exDlg=document.getElementById("exDlg");
 function exerciseLibrary(){
   const set={};
   COMMON_EXERCISES.forEach(n=>{ set[n]=true; });
-  Object.keys(state.program.sessions).forEach(k=>{
-    state.program.sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
+  Object.keys(progOf().sessions).forEach(k=>{
+    progOf().sessions[k].exercises.forEach(e=>{ if(e.name) set[e.name]=true; });
   });
   state.logs.forEach(l=>(l.entries||[]).forEach(e=>{ if(e.name) set[e.name]=true; }));
   return Object.keys(set).sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1);
@@ -4209,7 +4222,7 @@ function exerciseLibrary(){
 function openExDlg(sessionKey,ei,todayOnly){
   exDlgCtx={sessionKey,ei,todayOnly:!!todayOnly};
   const editing = ei!=null;
-  const ex = editing? state.program.sessions[sessionKey].exercises[ei]
+  const ex = editing? progOf().sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
   document.getElementById("exNameList").innerHTML =
     exerciseLibrary().map(n=>'<option value="'+esc(n)+'"></option>').join("");
@@ -4287,7 +4300,7 @@ document.getElementById("exCancel").onclick=()=>exDlg.close();
 document.getElementById("exRemove").onclick=()=>{
   const c=exDlgCtx; if(!c || c.ei==null || c.todayOnly) return;
   if(!confirm("Remove this exercise from the program?")) return;
-  state.program.sessions[c.sessionKey].exercises.splice(c.ei,1);
+  progOf().sessions[c.sessionKey].exercises.splice(c.ei,1);
   cleanupSoloGroups(c.sessionKey);
   selectedExRefs.clear();
   saveProgram(); exDlg.close(); renderEdit(); toast("Removed");
@@ -4378,7 +4391,7 @@ document.getElementById("exSave").onclick=()=>{
   // Settings are the selected person's, keyed by name. A rename carries everyone's
   // settings to the new name unless that name already has its own.
   const who=state.people[state.activePerson];
-  const oldName=(exDlgCtx.ei!=null && !exDlgCtx.todayOnly) ? (state.program.sessions[exDlgCtx.sessionKey].exercises[exDlgCtx.ei]||{}).name : null;
+  const oldName=(exDlgCtx.ei!=null && !exDlgCtx.todayOnly) ? (progOf().sessions[exDlgCtx.sessionKey].exercises[exDlgCtx.ei]||{}).name : null;
   if(oldName && oldName!==name) Object.keys(state.machineSettings||{}).forEach(pn=>{
     const by=state.machineSettings[pn];
     if(by[oldName] && !by[name]) by[name]=Object.assign({}, by[oldName], {updatedAt:Date.now()});
@@ -4393,7 +4406,7 @@ document.getElementById("exSave").onclick=()=>{
   // "Seated cable row" to "Seated row" wiped Seated row's "7".
   const shown=oldName ? msGet(who, oldName) : (exDlgCtx.ei!=null ? msGet(who, name) : "");
   if(settingsText!==shown) msSet(who, name, settingsText);
-  const arr=state.program.sessions[exDlgCtx.sessionKey].exercises;
+  const arr=progOf().sessions[exDlgCtx.sessionKey].exercises;
   if(exDlgCtx.ei!=null){
     // Editing rebuilds the exercise object from scratch - carry its superset
     // membership over, or the edited exercise silently drops out of the group
@@ -4512,7 +4525,7 @@ function renderAccountList(){
 // The sessions that belong to one person, as the program holds them. Read only.
 function renderProgramOwners(){
   const by={};
-  state.program.order.forEach(k=>{ const s=state.program.sessions[k]; if(s && s.person) (by[s.person]||(by[s.person]=[])).push(s.name); });
+  progOf().order.forEach(k=>{ const s=progOf().sessions[k]; if(s && s.person) (by[s.person]||(by[s.person]=[])).push(s.name); });
   const who=Object.keys(by);
   document.getElementById("programOwners").innerHTML = who.length
     ? 'Sessions offered to one person only:'+who.map(n=>'<br><b>'+esc(n)+'</b> - '+by[n].map(esc).join(", ")).join("")
@@ -4663,7 +4676,7 @@ function saveSettingsPerson(){
     // (state.people[i] currently empty) needs no warning - nothing to orphan.
     const wasNamed=!!state.people[i];
     if(!wasNamed || confirm("Rename "+state.people[i]+" to \""+nm+"\"? Future logs save under the new name - history logged under \""+state.people[i]+"\" stays saved but won't show as this account's anymore unless you rename back to it exactly."))
-      state.people[i]=nm;
+      { if(wasNamed) renameInPrograms(state.people[i], nm); state.people[i]=nm; }
   }
   const prevWeight=(state.weights[i]||"").trim();
   state.colors[i]=readSwatchPicker(document.getElementById("pColor"));
@@ -5105,7 +5118,7 @@ function personRecords(person){
         // bodyweight or assisted figure came from.
         if(!(e.name in best) || w>best[e.name].kg)
           best[e.name]={kg:w, reps:isNaN(reps)?null:reps, date:l.date,
-            load:loadTypeOf(e), typed:parseFloat(r[0]), bw:bodyweightOn(person,l.date), pct:loadPctOf(e)};
+            load:loadTypeOf(e, person), typed:parseFloat(r[0]), bw:bodyweightOn(person,l.date), pct:loadPctOf(e, person)};
       });
     });
   });
@@ -5312,7 +5325,7 @@ document.getElementById("coachBriefBtn").onclick=()=>exportCoachBrief();
 // Import shared session, which decodes and adds it as a new program session.
 function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-+|-+$)/g,"") || "session"; }
 function sessionShareCode(sessionKey){
-  const s=state.program.sessions[sessionKey];
+  const s=progOf().sessions[sessionKey];
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
   const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
@@ -5324,7 +5337,7 @@ function sessionShareCode(sessionKey){
   return b64encode(JSON.stringify(payload));
 }
 function shareSession(sessionKey){
-  const s=state.program.sessions[sessionKey];
+  const s=progOf().sessions[sessionKey];
   const text="🏋️ "+s.name+" workout - paste this into Training Tracker → Program → Import shared session:\n\n"+sessionShareCode(sessionKey);
   if(navigator.share){
     navigator.share({text}).catch(()=>{}); // user cancelling the share sheet isn't an error
@@ -5345,14 +5358,14 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   catch(e){ toast("Couldn't read that code"); return; }
   if(!payload || payload.type!=="tt-session" || !Array.isArray(payload.exercises)){ toast("Not a valid shared session"); return; }
   let key=slugify(payload.name), n=2;
-  while(state.program.sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
-  state.program.sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
-  if(payload.garminNote) state.program.sessions[key].garminNote=String(payload.garminNote);
-  if(payload.setupNote) state.program.sessions[key].setupNote=String(payload.setupNote);
-  if(payload.recordingNote) state.program.sessions[key].recordingNote=String(payload.recordingNote);
-  if(payload.warmupNote) state.program.sessions[key].warmupNote=String(payload.warmupNote);
-  if(payload.cooldownNote) state.program.sessions[key].cooldownNote=String(payload.cooldownNote);
-  state.program.order.push(key);
+  while(progOf().sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
+  progOf().sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  if(payload.garminNote) progOf().sessions[key].garminNote=String(payload.garminNote);
+  if(payload.setupNote) progOf().sessions[key].setupNote=String(payload.setupNote);
+  if(payload.recordingNote) progOf().sessions[key].recordingNote=String(payload.recordingNote);
+  if(payload.warmupNote) progOf().sessions[key].warmupNote=String(payload.warmupNote);
+  if(payload.cooldownNote) progOf().sessions[key].cooldownNote=String(payload.cooldownNote);
+  progOf().order.push(key);
   saveProgram(); document.getElementById("importSessionText").value=""; importSessionDlg.close(); renderEdit();
   toast("Added "+(payload.name||"session"));
 };
@@ -5371,9 +5384,9 @@ document.getElementById("sessSave").onclick=()=>{
   if(!name){ toast("Name required"); return; }
   const day=document.getElementById("sessDay").value;
   let key=slugify(name), n=2;
-  while(state.program.sessions[key]){ key=slugify(name)+"-"+n; n++; }
-  state.program.sessions[key]={name, day, exercises:[]};
-  state.program.order.push(key);
+  while(progOf().sessions[key]){ key=slugify(name)+"-"+n; n++; }
+  progOf().sessions[key]={name, day, exercises:[]};
+  progOf().order.push(key);
   saveProgram(); sessionDlg.close(); renderEdit();
   toast("Added "+name);
 };
@@ -5625,8 +5638,9 @@ const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",add
 function isMobilityWork(ex){ return isFlexTest(ex) || /^rounds?$/i.test(String((ex.cols||[])[0]||"").trim()); }
 function weeklyCoverage(person){
   const m={}; Object.keys(MUSCLE_LABELS).forEach(k=>m[k]=0);
-  orderedKeys().forEach(k=>{
-    const s=state.program.sessions[k];
+  const prog=progOf(person);
+  orderedKeys(prog).forEach(k=>{
+    const s=prog.sessions[k];
     if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
     if(!ownsSession(k, person)) return;
     (s.exercises||[]).forEach(ex=>{
@@ -5658,7 +5672,7 @@ function weeklyDone(person){
   return m;
 }
 function coverageCardHtml(person){
-  if(!orderedKeys().length) return "";
+  if(!orderedKeys(progOf(person)).length) return "";
   const m=weeklyCoverage(person), keys=Object.keys(MUSCLE_LABELS);
   const max=Math.max.apply(null, keys.map(k=>m[k]));
   if(!max) return "";
@@ -5821,12 +5835,12 @@ function paintMuscleMap(svgEl, museSets){
 // One-tap "that swap was a keeper" - copies a today-only exercise into the
 // program for next time. Strips the todayOnly marker so it becomes a normal
 // programmed exercise.
-function promoteTodayExercise(sessionKey, ex, btn){
-  const sess=state.program.sessions[sessionKey];
+function promoteTodayExercise(prog, sessionKey, ex, btn){
+  const sess=prog.sessions[sessionKey];
   if(!sess){ toast("That session no longer exists"); return; }
   const def=clone(ex); delete def.todayOnly;
   sess.exercises.push(def);
-  saveProgram();
+  saveProgram(prog);
   btn.disabled=true; btn.textContent="Added ✓";
   toast("Added "+def.name+" to "+sess.name);
 }
@@ -5851,7 +5865,7 @@ function showSaveSummary(volume, prs, entries, promotable, promoteKey){
   document.getElementById("savePRs").innerHTML=prHtml;
   const promoteEl=document.getElementById("savePromote");
   const extras=promotable||[];
-  const sess=state.program.sessions[promoteKey];
+  const prog=progOf(), sess=prog.sessions[promoteKey];
   if(promoteEl){
     promoteEl.innerHTML = (extras.length && sess)
       ? '<div class="hint" style="margin:10px 0 6px">Added just for today. Keep '
@@ -5863,7 +5877,7 @@ function showSaveSummary(volume, prs, entries, promotable, promoteKey){
           }).join("")
       : '';
     promoteEl.querySelectorAll("[data-promote]").forEach(function(b){
-      b.onclick=function(){ promoteTodayExercise(promoteKey, extras[+b.dataset.promote], b); };
+      b.onclick=function(){ promoteTodayExercise(prog, promoteKey, extras[+b.dataset.promote], b); };
     });
   }
   document.getElementById("saveDlg").showModal();
@@ -6061,8 +6075,9 @@ function weekReviewCardHtml(person, now){
   if(!(dow===6 || dow===0 || dow===1 || (dow===5 && d.getHours()>=20))) return "";
   const today=localDateStr(d), wk=weekMonday(dow===1 ? shiftDate(today,-3) : today);
   const logs=state.logs.filter(l=>l.person===person && weekMonday(l.date)===wk);
-  const planned=new Set(state.program.order.filter(k=>DOW[String(state.program.sessions[k].day||"").toLowerCase()] && ownsSession(k, person))
-    .map(k=>String(state.program.sessions[k].day).toLowerCase())).size;
+  const prog=progOf(person);
+  const planned=new Set(prog.order.filter(k=>DOW[String(prog.sessions[k].day||"").toLowerCase()] && ownsSession(k, person))
+    .map(k=>String(prog.sessions[k].day).toLowerCase())).size;
   const days=new Set(logs.map(l=>l.date)).size;
   const vol=logs.reduce((t,l)=>t+logVolume(l),0);
   const prevVol=(weeklyVolumes(person).find(w=>w.week===shiftDate(wk,-7))||{}).volume||0;
@@ -6215,9 +6230,9 @@ function renderHome(){
   const pLogs=state.logs.filter(l=>l.person===p).sort((a,b)=> (a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   const last=pLogs[0];
   const lastRun=pLogs.find(l=>(l.entries||[]).some(e=>isRunning(e)));
-  const lastIntervals=pLogs.find(l=>(l.entries||[]).some(e=>isIntervalEntry(e)));
+  const lastIntervals=pLogs.find(l=>(l.entries||[]).some(e=>isIntervalEntry(e, p)));
   const coach=coachOf(p);
-  const sess=state.program.sessions[curSession];
+  const sess=progOf().sessions[curSession];
   let html=todayCardHtml(sess, pLogs);
 
   html += sessionSwapCardHtml(p);
@@ -6253,7 +6268,7 @@ function renderHome(){
     html+=cardioCardHtml(lastRun, ico("run")+'Last Zone 2 run', lead, pc);
   }
   if(lastIntervals){
-    const ivEntry=(lastIntervals.entries||[]).find(e=>isIntervalEntry(e));
+    const ivEntry=(lastIntervals.entries||[]).find(e=>isIntervalEntry(e, p));
     const best=bestSpeedFromEntry(ivEntry);
     html+=cardioCardHtml(lastIntervals, ico("bolt")+'Last intervals', best?'best '+best:'', pc);
   }
@@ -6282,9 +6297,9 @@ function renderView(){
   // No sessions yet: nothing to log, chart or review, so Program is the only
   // useful place. syncTabButtons keeps the bar honest about the redirect -
   // otherwise tapping Session on a blank install lit Session and showed Program.
-  if(!state.program.order.length){ activeTab="edit"; syncTabButtons(); }
-  if(!state.program.sessions[curSession]) curSession=state.program.order[0];
-  if(state.program.order.length) followActivePerson();
+  if(!progOf().order.length){ activeTab="edit"; syncTabButtons(); }
+  if(!progOf().sessions[curSession]) curSession=sessionForDate(curDate)||progOf().order[0];
+  if(progOf().order.length) followActivePerson();
   // Leaving the Session tab ends the visit, so coming back asks again about any
   // change still waiting (see maybeShowChangeDialog).
   if(activeTab!=="log") pcVisit=null;
