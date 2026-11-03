@@ -1938,19 +1938,31 @@ function addSetRow(btn){
 function cardBestWeight(ex){
   return isLifting(ex) ? bestWeightSoFar(state.people[state.activePerson], ex.name) : -Infinity;
 }
-function updateSetMedal(tr, ex, best){
+// A ticked set earns the medal only when it beats the saved best and every ticked work set above it,
+// so a new top weight is badged once, on the set that reached it. Warm-up sets never earn one.
+function paintSetMedal(tr, ex, best){
   const medal=tr.querySelector("[data-medal]");
   if(!medal) return;
   const person=state.people[state.activePerson], typed=tr.querySelector('[data-c="0"]').value;
-  const w=setLoad(ex, typed, person, curDate);
+  const above=Array.from(tr.parentNode.rows).slice(0, tr.sectionRowIndex)
+    .filter(r=>r.querySelector("[data-done]").checked && !r.classList.contains("wset"));
+  const aboveVals=col=>above.map(r=>r.querySelector('[data-c="'+col+'"]').value);
   let pr;
   if(isTimed(ex)){
-    const prev=holdBestSoFar(person, ex.name, holdWeight(typed));
-    pr = prev>0 && parseRest(tr.querySelector('[data-c="1"]').value)>prev;
-  } else pr = isLifting(ex) && !isNaN(w) && best>-Infinity && w>best;
-  // Warm-up sets never earn a PR medal.
-  medal.hidden = !(pr && !tr.classList.contains("wset"));
+    const weight=holdWeight(typed), saved=holdBestSoFar(person, ex.name, weight);
+    const held=aboveVals(1).filter((v,i)=>holdWeight(aboveVals(0)[i])===weight).map(parseRest);
+    pr = saved>0 && parseRest(tr.querySelector('[data-c="1"]').value)>Math.max.apply(null, [saved].concat(held));
+  } else {
+    const w=setLoad(ex, typed, person, curDate);
+    pr = isLifting(ex) && !isNaN(w) && best>-Infinity
+      && w>Math.max.apply(null, [best].concat(aboveVals(0).map(v=>setLoad(ex, v, person, curDate)).filter(v=>!isNaN(v))));
+  }
+  medal.hidden = !(pr && tr.querySelector("[data-done]").checked && !tr.classList.contains("wset"));
   tr.classList.toggle("pr", !medal.hidden);
+}
+// Repaints this set and the ticked ones below it, whose medal depends on it.
+function updateSetMedal(tr, ex, best){
+  Array.from(tr.parentNode.rows).slice(tr.sectionRowIndex).forEach(r=>paintSetMedal(r, ex, best));
 }
 function wireSetRow(tr, ex, best){
   const cb=tr.querySelector("[data-done]");
@@ -1979,7 +1991,7 @@ function wireSetRow(tr, ex, best){
       // last set you finished" rather than since the first one.
       startRest(ex.restSec);
     } else {
-      tr.querySelector("[data-medal]").hidden=true; tr.classList.remove("pr");
+      updateSetMedal(tr, ex, best);
       stopRest();  // unticking is an undo, so the rest it started goes too
     }
   });
