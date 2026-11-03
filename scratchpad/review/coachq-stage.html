@@ -1,0 +1,41 @@
+<!-- Local review harness for the coach questions card: loads the prototype state copy into
+     localStorage (python scratchpad/proto_coach_questions.py writes it), opens the app in a frame,
+     then plays one scene.
+     ?person=0|1 &theme=light|dark &scene=home|answered
+     home: Home as it opens. answered: types an answer into the first open question and saves it,
+     so the card shows the folded Answered row. person 0 is Daniel, 1 is Cerys.
+     Never touches the shared store. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const person = +(q.get("person") || 0), theme = q.get("theme") || "light", scene = q.get("scene") || "home";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const s = await fetch("/scratchpad/proto-coachq-state.json", {cache: "no-store"}).then(r => r.json());
+  s.theme = theme;
+  s.activePerson = person;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  const f = document.getElementById("f");
+  f.src = "/index.html";
+  await new Promise(r => f.onload = r);
+  await wait(500);
+  const w = f.contentWindow, d = f.contentDocument;
+  d.querySelectorAll("dialog[open]").forEach(x => x.close());
+  w.switchTab("home");
+  await wait(300);
+  if (scene === "answered") {
+    const ta = d.querySelector("[data-cqa]");
+    if (ta) {
+      ta.value = "Yes, it felt fine. The last two exercises were rushed.";
+      ta.dispatchEvent(new Event("input", {bubbles: true}));
+      d.querySelector("[data-cqsave]").click();
+      await wait(300);
+    }
+  }
+  const card = d.querySelector(".cq");
+  if (card) w.scrollTo({top: card.getBoundingClientRect().top + w.scrollY - 150, behavior: "instant"});
+})();
+</script>
