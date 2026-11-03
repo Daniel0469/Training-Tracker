@@ -192,6 +192,9 @@ Import writes into the **GitHub store** the app syncs to (the same repo as cloud
 
 Reading runs (the `garmin_*` list/detail tools) doesn't need these - only importing does.
 
+Or the **Supabase store** (`docs/supabase-setup.md`): set `TT_SUPABASE_URL` and `TT_SUPABASE_SECRET_KEY`
+instead. While `TT_SUPABASE_URL` is set it wins over the GitHub settings.
+
 ### 4. Register it with Claude
 
 **Claude Code** - from the repo:

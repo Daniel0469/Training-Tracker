@@ -8,6 +8,9 @@ and goals, and give feedback toward each person's goals.
 Runs on your Claude subscription via MCP - no Anthropic API billing.
 
 Data source (read-only), chosen by environment variables:
+  * Supabase (when TT_SUPABASE_URL is set, it wins over the GitHub store; docs/supabase-setup.md):
+      TT_SUPABASE_URL         the project URL
+      TT_SUPABASE_SECRET_KEY  the project's secret key
   * GitHub store (recommended - the same private repo the app syncs to):
       TT_GITHUB_REPO   e.g. owner/training-data
       TT_GITHUB_TOKEN  a fine-grained token with Contents:read on that repo
@@ -35,6 +38,8 @@ except Exception:
 
 # ---------------------------------------------------------------- data loading
 def load_data():
+    if _sb_on():
+        return _sb_read_with_sha()[0]
     if os.environ.get("TT_GITHUB_REPO") and os.environ.get("TT_GITHUB_TOKEN"):
         return _github_read_with_sha()[0]
     f = os.environ.get("TT_DATA_FILE")
@@ -45,6 +50,35 @@ def load_data():
         "No data source. Set TT_GITHUB_REPO + TT_GITHUB_TOKEN (recommended) "
         "or TT_DATA_FILE. See mcp-coach/README.md."
     )
+
+# ---------------------------------------------------------------- Supabase store
+# The same read -> mutate -> write contract as the GitHub store below: _sb_read_with_sha returns
+# (data, snapshot, url, key) and _sb_write(data, snapshot, url, key, message) writes only the
+# rows that changed, raising a 409 when a row moved since the read. tt_records.py has the mapping.
+def _sb_on():
+    return bool(os.environ.get("TT_SUPABASE_URL"))
+
+def _sb_cfg():
+    url, key = os.environ.get("TT_SUPABASE_URL"), os.environ.get("TT_SUPABASE_SECRET_KEY")
+    if not key:
+        raise RuntimeError("Supabase needs TT_SUPABASE_SECRET_KEY as well as TT_SUPABASE_URL.")
+    return url, key
+
+def _records():
+    import tt_records
+    return tt_records
+
+def _prog_of(data, person):
+    """The program `person` trains, from data in either shape (the app's progOf)."""
+    return _records().prog_of(data, person)
+
+def _sb_read_with_sha():
+    url, key = _sb_cfg()
+    rows = _records().fetch_rows(url, key)
+    return _records().from_records(rows), _records().snapshot(rows), url, key
+
+def _sb_write(data, snap, url, key, message):
+    _records().write_rows(url, key, snap, _records().to_records(data, prev=snap), "coach")
 
 # ---------------------------------------------------------------- writing (coaching)
 def _github_cfg():
@@ -89,6 +123,10 @@ def _log_cfg():
 def _log_read_with_sha():
     """The history file as (entries, sha, url, token). A missing file is not an
     error - it is what the first write looks like - and comes back as ([], None)."""
+    if _sb_on():
+        url, key = _sb_cfg()
+        rows = _records().fetch_rows(url, key, "coach_log")
+        return _records().coach_parts(rows)[1], _records().snapshot(rows), url, key
     repo, token, path = _log_cfg()
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
     try:
@@ -99,6 +137,11 @@ def _log_read_with_sha():
         raise
     entries = json.loads(base64.b64decode(j["content"]))
     return (entries if isinstance(entries, list) else []), j["sha"], url, token
+
+def _log_write(entries, sha, url, token, message):
+    if _sb_on():
+        return _records().write_rows(url, token, sha, _records().to_records({}, coaching_log=entries), "coach")
+    return _gh_put(url, token, entries, message, sha, indent=1)
 
 def _log_append(rec, message, attempts=3):
     """Append one entry to the history file, retrying on a race like _github_update.
@@ -113,7 +156,7 @@ def _log_append(rec, message, attempts=3):
             return True                       # already there, from an earlier attempt
         entries.append(rec)
         try:
-            _gh_put(url, token, entries, message, sha, indent=1)
+            _log_write(entries, sha, url, token, message)
             return True
         except urllib.error.HTTPError as e:
             if e.code not in (409, 412, 422) or attempt == attempts - 1:
@@ -121,12 +164,16 @@ def _log_append(rec, message, attempts=3):
     return False
 
 def _github_read_with_sha():
+    if _sb_on():
+        return _sb_read_with_sha()
     repo, token, path = _github_cfg()
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
     j = _gh_request(url, token)
     return json.loads(base64.b64decode(j["content"])), j["sha"], url, token
 
 def _github_write(data, sha, url, token, message):
+    if _sb_on():
+        return _sb_write(data, sha, url, token, message)
     return _gh_put(url, token, data, message, sha)
 
 def _github_update(mutate, message, attempts=3, read=None, write=None, conflicts=(409, 412)):
@@ -1601,6 +1648,8 @@ def get_progression(data, person):
 # and the open questions in data.json (coachQuestions[person]) so the app can show and answer them.
 # The method is docs/methods/coaching-behaviour-method.md.
 def _coach_path(person, name):
+    if _sb_on():
+        return f"coach/{person}/{name}"
     log = _log_cfg()[2]
     return (log.rsplit("/", 1)[0] + "/" if "/" in log else "") + f"coach/{person}/{name}"
 
@@ -1622,9 +1671,22 @@ def _text_write(box, sha, url, token, message):
         body["sha"] = sha
     return _gh_request(url, token, body)
 
+def _sb_text_read(path):
+    """A coach file as a coach_file row, in the shape _text_read_with_sha returns."""
+    url, secret = _sb_cfg()
+    rows = _records().fetch_rows(url, secret, "coach_file", "/".join(path.split("/")[-2:]))
+    files = _records().coach_parts(rows)[0]
+    return {"text": "".join(files.values()), "exists": bool(files)}, _records().snapshot(rows), url, secret
+
+def _sb_text_write(path, box, snap, url, secret, message):
+    key = "/".join(path.split("/")[-2:])
+    return _records().write_rows(url, secret, snap, _records().to_records({}, coach_files={key: box["text"]}), "coach")
+
 def _text_io(path):
     """The read, write and conflict codes that make _github_update work on a text file. 422 is
     what GitHub answers when two writers both try to create the same file."""
+    if _sb_on():
+        return {"read": lambda: _sb_text_read(path), "write": lambda *a: _sb_text_write(path, *a)}
     return {"read": lambda: _text_read_with_sha(path), "write": _text_write, "conflicts": (409, 412, 422)}
 
 def _person_named(data, person):
@@ -1660,7 +1722,7 @@ def get_coach_profile(data, person):
     name = _person_named(data, person)
     if not name:
         return _unknown_person(data, person)
-    box = _text_read_with_sha(_coach_path(name, "profile.md"))[0]
+    box = _text_io(_coach_path(name, "profile.md"))["read"]()[0]
     return {"person": name, "exists": box["exists"], "text": box["text"]}
 
 def set_coach_profile(person, text):
@@ -1762,7 +1824,7 @@ def get_coach_decisions(data, person):
     name = _person_named(data, person)
     if not name:
         return _unknown_person(data, person)
-    box = _text_read_with_sha(_coach_path(name, "decisions.md"))[0]
+    box = _text_io(_coach_path(name, "decisions.md"))["read"]()[0]
     blocks = _split_decisions(box["text"]) or []
     return {"person": name, "exists": box["exists"], "index": _decision_index(blocks), "text": box["text"]}
 

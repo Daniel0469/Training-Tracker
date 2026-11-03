@@ -21,6 +21,9 @@ Importing a run also needs the GitHub store the app syncs to (write access):
   * TT_GITHUB_REPO   e.g. Daniel0469/Training-Data
   * TT_GITHUB_TOKEN  a fine-grained token with Contents: read AND write on that repo
   * TT_GITHUB_PATH   optional, default data.json
+or the Supabase store (when TT_SUPABASE_URL is set it wins over the GitHub store):
+  * TT_SUPABASE_URL         the project URL
+  * TT_SUPABASE_SECRET_KEY  the project's secret key
 
 Setup + Claude config: see mcp-garmin/README.md.
 
@@ -1432,13 +1435,48 @@ def _gh_request(url, token, body=None):
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r)
 
+# The same read -> mutate -> write contract as the GitHub store: _sb_read_with_sha returns
+# (data, snapshot, url, key) and _sb_write writes only the rows that changed, raising a 409 when a
+# row moved since the read. tt_records.py (a copy of mcp-coach/tt_records.py) has the mapping.
+def _sb_on():
+    return bool(os.environ.get("TT_SUPABASE_URL"))
+
+def _sb_cfg():
+    url, key = os.environ.get("TT_SUPABASE_URL"), os.environ.get("TT_SUPABASE_SECRET_KEY")
+    if not key:
+        raise RuntimeError("Supabase needs TT_SUPABASE_SECRET_KEY as well as TT_SUPABASE_URL.")
+    return url, key
+
+def _records():
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import tt_records
+    return tt_records
+
+def _prog_of(data, person):
+    """The program `person` trains, from data in either shape (the app's progOf)."""
+    return _records().prog_of(data, person)
+
+def _sb_read_with_sha():
+    url, key = _sb_cfg()
+    rows = _records().fetch_rows(url, key)
+    return _records().from_records(rows), _records().snapshot(rows), url, key
+
+def _sb_write(data, snap, url, key, message):
+    _records().write_rows(url, key, snap, _records().to_records(data, prev=snap), "garmin")
+
 def _github_read_with_sha():
+    if _sb_on():
+        return _sb_read_with_sha()
     repo, token, path = _github_cfg()
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
     j = _gh_request(url, token)
     return json.loads(base64.b64decode(j["content"])), j["sha"], url, token
 
 def _github_write(data, sha, url, token, message):
+    if _sb_on():
+        return _sb_write(data, sha, url, token, message)
     return _gh_request(url, token, {
         "message": message,
         "content": base64.b64encode(json.dumps(data, indent=2).encode("utf-8")).decode("ascii"),

@@ -81,6 +81,10 @@ Use the **GitHub store** the app syncs to (recommended, always current):
 
 …or a local export file instead: `TT_DATA_FILE=/path/to/training-data-YYYY-MM-DD.json`.
 
+…or the **Supabase store** (`docs/supabase-setup.md`). When `TT_SUPABASE_URL` is set it wins over the
+GitHub settings, and `TT_SUPABASE_SECRET_KEY` (the project's secret key) is needed too. Reads and writes
+go to the `records` table, and the coach files and coaching log are rows there as well.
+
 Quick sanity check (no Claude needed):
 ```
 python server.py --selftest /path/to/an-export.json
