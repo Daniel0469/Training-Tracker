@@ -330,6 +330,7 @@ function loadDrafts(){
   return {drafts:{}, timers:{}, extras:{}};
 }
 function saveDrafts(){
+  sbDraftsSaved();
   try{
     if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length){
       localStorage.removeItem(DRAFT_KEY); return;
@@ -1178,6 +1179,7 @@ function programExCount(){
 let draftSaveTimer=null;
 function scheduleDraftSave(){
   clearTimeout(draftSaveTimer);
+  sbTyped();
   draftSaveTimer=setTimeout(()=>{ draftSaveTimer=null; captureDraft(); }, 700);
 }
 function flushDraftSave(){ clearTimeout(draftSaveTimer); draftSaveTimer=null; captureDraft(); }
@@ -1557,6 +1559,7 @@ function renderLog(){
     + (sess.cooldownNote ? noteCard("snow", 'Cool-down', esc(sess.cooldownNote)) : "")
     + feelCardHtml();
   wireLogView(exs, sess);
+  sbShowChip();
 }
 function logHeaderHtml(p, prev){
   const opts = myKeys().map(k=>{
@@ -6120,6 +6123,7 @@ async function sbCycle(quiet){
     await sbEnsureClient();
     if(!(await sbSessionOk())) return;
     const sent=await sbFlush(), got=await sbPull();
+    await sbPullDrafts();
     setFsStatus("Synced "+new Date().toLocaleTimeString()+" - "+sent+" sent, "+got+" received");
     if(!quiet) toast("Synced"); else if(got) toast("Synced - "+got+" update"+(got===1 ? "" : "s")+" pulled");
   }catch(e){
@@ -6149,7 +6153,8 @@ function sbRealtime(payload){
 }
 function sbSubscribe(){
   sbUnsubscribe();
-  sbChannel=sbClient.channel("tt-family").on("postgres_changes", {event:"*", schema:"public", table:"records"}, sbRealtime).subscribe();
+  sbChannel=sbClient.channel("tt-family").on("postgres_changes", {event:"*", schema:"public", table:"records"}, sbRealtime)
+    .on("postgres_changes", {event:"*", schema:"public", table:"drafts"}, p=>{ if(p && p.new) sbApplyDraft(p.new); }).subscribe();
 }
 function sbUnsubscribe(){ if(sbChannel && sbClient) sbClient.removeChannel(sbChannel); sbChannel=null; }
 // Syncs when the phone is back online, when the app comes back into view, and every 30 seconds while it is in view.
@@ -6157,7 +6162,7 @@ function sbWire(){
   if(sbWired) return;
   sbWired=true;
   window.addEventListener("online", ()=>sbSyncNow(true));
-  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") sbSyncNow(true); });
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") sbSyncNow(true); else sbFlushDrafts(); });
   sbTicker=setInterval(()=>{ if(document.visibilityState==="visible") sbSyncNow(true); }, SB_TICK_MS);
 }
 // Runs on open and after a sign-in on a phone that is already switched over.
@@ -6174,6 +6179,90 @@ async function sbStart(){
 function sbStop(){
   sbUnsubscribe();
   clearTimeout(sbSoon); clearTimeout(sbQueueTimer); sbQueue=[];
+  Object.keys(sbDraftTimers).forEach(k=>clearTimeout(sbDraftTimers[k]));
+  sbDraftTimers={}; sbDraftHash={}; sbChips={};
+}
+// ---- Drafts: the form being typed, shared between the phones ----
+// One drafts row per person and session (the key formDrafts already uses, person|session). The body holds
+// the form, the extras added for today and the workout timer. The newest edit wins; an incoming draft for the
+// form that is open applies unless this phone typed in it in the last 10 seconds, and then it waits behind a
+// "load?" chip. Drafts older than 12 hours are ignored.
+const SB_DRAFT_MS=1500, SB_TYPED_MS=10000;
+let sbDraftTimers={}, sbDraftHash={}, sbLocalAt={}, sbLastTyped={}, sbChips={};
+function sbTyped(){ sbLastTyped[draftKey()]=Date.now(); }
+function sbDraftBody(key){
+  const d=formDrafts[key];
+  return d ? {draft:d, extras:formExtras[key]||[], timer:sessionTimers[key]||null} : null;
+}
+function sbDraftHashOf(key){ const b=sbDraftBody(key); return b ? recHash(recCanon(b)) : "gone"; }
+// Called whenever the drafts are saved: schedules a send for each draft that now differs from what the
+// server last had from this phone.
+function sbDraftsSaved(){
+  if(!sbOn()) return;
+  Object.keys(formDrafts).concat(Object.keys(sbDraftHash)).forEach(key=>{
+    const now=sbDraftHashOf(key);
+    if(sbDraftHash[key]===now || (now==="gone" && sbDraftHash[key]===undefined)) return;
+    sbLocalAt[key]=Date.now();
+    if(now==="gone") delete sbChips[key];
+    clearTimeout(sbDraftTimers[key]);
+    sbDraftTimers[key]=setTimeout(()=>sbSendDraft(key), SB_DRAFT_MS);
+  });
+}
+async function sbSendDraft(key){
+  delete sbDraftTimers[key];
+  const body=sbDraftBody(key), hash=sbDraftHashOf(key), at=Date.now(), cut=key.lastIndexOf("|");
+  if(!sbOn() || navigator.onLine===false || sbDraftHash[key]===hash) return;
+  const row={person:key.slice(0, cut), session_key:key.slice(cut+1), body:body||{}, updated_at:at, deleted_at:body ? null : at, device:sb.device};
+  try{
+    sbCheck(await sbClient.from("drafts").upsert(row, {onConflict:"person,session_key"}));
+    sbDraftHash[key]=hash;
+    if(!body) delete sbDraftHash[key];
+  }catch(e){}
+}
+// Sends what is waiting now, for when the app is about to go to the background.
+function sbFlushDrafts(){ Object.keys(sbDraftTimers).forEach(key=>{ clearTimeout(sbDraftTimers[key]); sbSendDraft(key); }); }
+function sbFormOpen(key){ return activeTab==="log" && draftKey()===key; }
+function sbTakeDraft(row){
+  const key=row.person+"|"+row.session_key, body=row.body||{};
+  if(row.deleted_at!=null || !body.draft){
+    delete formDrafts[key]; delete formExtras[key]; delete sbDraftHash[key];
+  } else {
+    formDrafts[key]=body.draft;
+    if((body.extras||[]).length) formExtras[key]=body.extras; else delete formExtras[key];
+    if(body.timer) sessionTimers[key]=body.timer;
+    sbDraftHash[key]=sbDraftHashOf(key);
+  }
+  sbLocalAt[key]=+row.updated_at||Date.now();
+  delete sbChips[key];
+  saveDrafts();
+  if(sbFormOpen(key)) renderView();
+}
+function sbApplyDraft(row){
+  if(!sbOn() || !row || row.device===sb.device || state.people.indexOf(row.person)<0) return;
+  const key=row.person+"|"+row.session_key, now=Date.now(), at=+row.updated_at||0;
+  if(now-at>DRAFT_TTL_MS || (sbLocalAt[key]||0)>=at) return;
+  if(row.deleted_at==null && sbDraftHash[key]===recHash(recCanon(row.body||{}))) return;
+  if(row.deleted_at!=null && !formDrafts[key]) return;
+  if(sbFormOpen(key) && now-(sbLastTyped[key]||0)<SB_TYPED_MS){
+    if(row.deleted_at==null){ sbChips[key]=row; sbShowChip(); }
+    return;
+  }
+  sbTakeDraft(row);
+}
+// The "Updated on another phone - load?" chip, at the top of the open Session form of the person it is for.
+function sbShowChip(){
+  const old=document.getElementById("draftChip"); if(old && old.remove) old.remove();
+  const key=draftKey(), row=sbChips[key], view=document.getElementById("view");
+  if(!row || activeTab!=="log" || !view) return;
+  view.insertAdjacentHTML("afterbegin", '<div class="card coach-card" id="draftChip"><div class="flex-between"><div>Updated on another phone - load?</div>'
+    + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="draftChipLoad">Load</button><button class="mini" id="draftChipKeep">Keep mine</button></div></div></div>');
+  document.getElementById("draftChipLoad").onclick=()=>sbTakeDraft(row);
+  document.getElementById("draftChipKeep").onclick=()=>{ delete sbChips[key]; sbShowChip(); };
+}
+async function sbPullDrafts(){
+  const rows=await sbFetchSince("drafts", sb.dcursor, r=>r.person+"|"+r.session_key);
+  rows.forEach(sbApplyDraft);
+  if(rows.length){ sb.dcursor=maxTs(rows, sb.dcursor); sbSave(); }
 }
 // ==== end Family storage ====
 fsField("fsConnect").onclick=sbConnect;
