@@ -482,9 +482,10 @@ stopwatch.** Three suggestions were open; one was discarded, two built.
 - **⏱ Rest stopwatch** (`1788720193350`). Ticking a set's **done** box shows a sticky pill above the
   nav bar counting how long you've been resting; any tick restarts it, so it reads *since the last set
   you finished*; unticking or tapping it dismisses it; leaving the Session tab or saving stops it.
-  **Counts up, not down** - there is no target, what you rest is a judgement. **Not saved anywhere**,
-  on Daniel's instruction: memory only, so it never reaches the drafts, the session, the other phone
-  or the coach, and a reload starts it from nothing. Sticky rather than in the form because the log
+  **Counts up, not down** - there is no target, what you rest is a judgement. **Kept only in this
+  phone's drafts** (`restStarts` by person and session, written with the form drafts), so a reload or a
+  phone that drops the app resumes it from the original tick, and it never reaches the session, the other
+  phone or the coach. Sticky rather than in the form because the log
   form runs to ~6,100px on a 375px phone - verified still on screen at 2,200px down. `tt-v126`.
   **Note this reverses two earlier decisions** recorded in this file - the exercise timer dropped on
   17 Aug and "Phase 3 rest timer NOT wanted" - superseded by Daniel's own 6 Sep suggestion.
