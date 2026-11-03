@@ -24,6 +24,18 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 - **Delete this account** (Settings) frees the slot for someone else; your logged history stays
   saved under your old name rather than being erased, same as renaming.
 
+### Settings, switches & the family PIN
+- The gear opens **Settings** on a **Profile** tab: name, colour, bodyweight, goals and four switches
+  per person (**Progression targets**, **Food and calories**, **Tape and body measures**, **Garmin
+  and coach**), each with an **i** that says what it does. Switches hide and never delete, and are
+  synced per person (`features`, the newer edit wins). New accounts start with everything on.
+- Garmin and coach off hides the coach's notes, targets, questions and session swap, the watch data
+  (heart rate, sleep, zones, 5k estimate) and **Import run**. The coach then writes nothing for that
+  person.
+- An **Admin** tab holds export and import, cloud sync, the accounts on this device, clear program,
+  delete account and the PIN. It opens behind a **family PIN** (4 to 6 digits, set the first time,
+  shared and synced, a light lock). A forgotten PIN is reset by editing `adminPin` in `data.json`.
+
 ### Home
 - Opens here by default. At-a-glance hub for the selected person: today's session (with a **Log it**
   shortcut), the **🧠 Coach** note for that session only, a **Week review** from Friday 20:00 to
@@ -84,12 +96,12 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
 ### Body, goals & bodyweight
 - Bodyweight over time with a trend chart; add by hand or **⬆ Import from scale (CSV)** (e.g.
   1byone Health - auto-detects the date and weight columns, lb→kg).
-- Per-person **goals** (gear menu) - shown on Body, and travel with the data so a coach can see them.
+- Per-person **goals** (gear menu, Profile) - shown on Body, and travel with the data so a coach can see them.
 - **Measurements** (tape, cm), every 4 weeks: neck, shoulders, chest, waist, hips, and both sides of
   upper arm, forearm, thigh and calf, in one form on Body, with a chart per site (left and right
   together). Home shows "Measurements due" once 28 days have passed. Synced (`measurements`, one row
   per person and date, the newer edit wins); the coach reads them with the `measurements` tool.
-- **Coach brief (Markdown)** button bundles goals, PRs, bodyweight, the last 7 days of food and recent sessions to paste into
+- **Coach brief** button in Settings (under the Garmin and coach switch) bundles goals, PRs, bodyweight, the last 7 days of food and recent sessions to paste into
   Claude / Obsidian.
 
 ### Food
@@ -99,7 +111,7 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   listed with its amount when the hub sent one (grams, or ml for a drink) and **est.** marking
   estimated macros, a 14-day protein or calories chart with the target line,
   and the last two days, which fold open to their meals. Older meals stay in the store, not on screen.
-- Per-person **calorie and protein targets** in the gear menu (`nutritionTargets`, synced; the newer
+- Per-person **calorie and protein targets** in the gear menu under the Food and calories switch (`nutritionTargets`, synced; the newer
   edit wins). Home shows today's totals with a link to the pane.
 
 ### Coaching (two-way, via Claude)

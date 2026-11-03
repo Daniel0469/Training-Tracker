@@ -9,7 +9,8 @@ GitHub Pages.
 - `index.html` - markup, PWA meta tags, dialogs.
 - `css/styles.css` - all styling.
 - `js/app.js` - state, program data, and all app logic (rendering, save/import/export,
-  progression targets, PR detection, the muscle-map summary).
+  progression targets, the Settings Profile and Admin tabs with the per-person switches and the family
+  PIN, PR detection, the muscle-map summary).
 - `manifest.webmanifest`, `icons/`, `sw.js` - PWA installability + offline support.
 - `fonts/` - Manrope (text) and JetBrains Mono (numbers), bundled variable woff2s so the app
   looks right offline; cached by `sw.js`. OFL licences alongside. See `docs/design-v3.md`.

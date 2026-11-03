@@ -73,5 +73,19 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   Home for the active person only and merged per question id, newest `updatedAt` (ms) wins
   (`mergeCoachQuestions`). The coach adds and closes them through `mcp-coach`; the phones answer. A
   closed one is hidden, never deleted, so the merge cannot bring it back.
+- **Settings has two tabs and per-person switches** (3 Nov 2026, version 1.2): Profile (name, colour,
+  bodyweight, goals, four switches, Improve the app) and Admin (export, import, sync, accounts list,
+  clear program, delete account, change PIN). `state.features[person] = {food|body|garmin: {on,
+  updatedAt}}`, read with `featOn(person, key)` (absent means on, `progression` delegates to its own
+  switch) and written with `featSet`, merged per switch by newest `updatedAt` (`mergeFeatures`). Every
+  surface a switch hides checks `featOn` for the person being shown, and `coachOf(person)` returns no
+  coach notes while Garmin and coach is off. A switch hides and never deletes. New work that adds a
+  coach, watch, food or body surface must check the matching switch. The coach server refuses notes,
+  targets and questions for a person with Garmin and coach off (`progression.coach_on`).
+- **Admin PIN** (3 Nov 2026): `state.adminPin = {salt, hash, updatedAt}`, the hash being SHA-256 of
+  the salt bytes plus the PIN, in hex. Newest `updatedAt` wins, except that a phone with no `sha` in
+  its sync config yet takes the store's PIN (`mergeAdminPin`). `adminUnlocked` is cleared when
+  Settings opens and closes. It is a light lock. To reset a forgotten PIN, set `"adminPin":
+  {"updatedAt": <now in ms>}` in the store's `data.json` with no hash.
 - The Home Hub is a **separate app in its own repo with its own chat**. Don't build hub features
   here - see [../home-hub-link.md](../home-hub-link.md) for the shared data contract.

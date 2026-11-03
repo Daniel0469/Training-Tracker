@@ -34,6 +34,16 @@ choice (the research default is two). The Friday run follows the read-decide-wri
 `docs/prompts/coaching.md`. Needs a Claude Code restart for the new tools. Personal seed drafts of
 the two profiles are not committed and wait for Daniel's review. The app is `1.1`.
 
+**Settings split (3 Nov 2026, branch `settings-split`, not pushed):** Settings opens on a **Profile**
+tab (name, colour, bodyweight, goals, **Improve the app** and four switches per person: Progression
+targets, Food and calories, Tape and body measures, Garmin and coach) and has an **Admin** tab (export,
+import, sync, accounts on this device, clear program, delete account, change PIN). The switches are
+`state.features[person]`, merged newest-wins (`mergeFeatures`), and hide without deleting. Admin sits
+behind a family PIN (`state.adminPin`, salted SHA-256, synced, a light lock). The coach server refuses
+notes, targets and questions for a person with Garmin and coach off, checked by
+`scratchpad/run_coach_switch.py`. Needs a Claude Code restart for the new coach behaviour. The app is
+`1.2`. Not yet reviewed by Daniel.
+
 **Progression (2 Nov 2026, branch `phase6-progression`, not pushed):** the app shows the weight and
 rep range to aim for as grey numbers in the empty kg and reps boxes, from double progression
 (`docs/methods/strength-method.md`). A blank tick fills the target. A **Stalled** or **Up one step**
@@ -1182,7 +1192,7 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   to their own localStorage key `flLiveTracker_v1_drafts` via `loadDrafts`/`saveDrafts`, expiring
   after 12h - deliberately **not** part of the export/sync payload.
 - `sw.js` - service worker (cache-first shell + Chart.js). **Bump `VERSION` on ANY change to a
-  cached file** (1.0.1 for a fix, 1.1 for a feature). Currently `1.0`.
+  cached file** (1.0.1 for a fix, 1.1 for a feature). Currently `1.2`.
 - `manifest.webmanifest`, `icons/` - PWA (design v3 dumbbell icon, made by `scratchpad/make_icons.py`).
 - `mcp-coach/` - Python MCP coaching server (`server.py`, `README.md`, `requirements.txt`).
 - `mcp-garmin/` - Python MCP Garmin server (`server.py`, `README.md`, `requirements.txt`,

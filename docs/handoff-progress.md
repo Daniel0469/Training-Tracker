@@ -35,7 +35,9 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [ ] Blocked on Daniel: create the free Supabase project.
 
 ## Phase 5
-- [ ] Not started.
+- [x] Settings split built as version 1.2 (3 Nov): Profile and Admin tabs, four per-person switches,
+      Admin behind a family PIN, and the coach skipping a person with Garmin and coach off.
+- [ ] Reviewed by Daniel and shipped.
 
 ## Phase 6: Progression
 - [x] Research: double progression, with the step by equipment (`docs/methods/strength-method.md`).
