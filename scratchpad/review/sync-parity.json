@@ -1,0 +1,3505 @@
+{
+ "cases": [
+  {
+   "name": "new shape",
+   "now": 1793700000000,
+   "input": {
+    "people": [
+     "Alex",
+     "",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     "",
+     72.5
+    ],
+    "goals": [
+     "squat 100",
+     "",
+     ""
+    ],
+    "programs": {
+     "p-alex": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "p-sam": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-alex",
+      "updatedAt": 1793600000000
+     },
+     "Sam": {
+      "id": "p-sam",
+      "updatedAt": 0
+     }
+    },
+    "logs": [
+     {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "id": 1793000000003,
+      "date": "2026-11-01"
+     },
+     {
+      "person": "Alex",
+      "date": "no id"
+     },
+     "not a log"
+    ],
+    "bodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     },
+     {
+      "person": "Sam",
+      "kg": 1
+     }
+    ],
+    "measurements": [
+     {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     }
+    ],
+    "meals": [
+     {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     },
+     {
+      "id": 7,
+      "name": "No owner"
+     }
+    ],
+    "suggestions": [
+     {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     }
+    ],
+    "programChanges": [
+     {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     }
+    ],
+    "coachQuestions": {
+     "Alex": [
+      {
+       "id": 5,
+       "question": "Sleep?",
+       "updatedAt": 1793500000000
+      },
+      {
+       "question": "no id"
+      },
+      "x"
+     ],
+     "Sam": "not a list"
+    },
+    "coaching": {
+     "Alex": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "Sam": "plain text"
+    },
+    "hrZones": {
+     "Alex": {
+      "max": 190
+     }
+    },
+    "racePredictions": {
+     "Alex": [
+      1,
+      2,
+      3
+     ]
+    },
+    "machineSettings": {
+     "Alex": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     }
+    },
+    "progression": {
+     "Sam": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     }
+    },
+    "features": {},
+    "nutritionTargets": {
+     "Alex": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     }
+    },
+    "limiters": {
+     "Alex": null
+    },
+    "wellness": {
+     "Alex": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     }
+    },
+    "adminPin": {
+     "salt": "s",
+     "hash": "h",
+     "updatedAt": 1793100000000
+    },
+    "deletedLogs": [
+     1793000000099,
+     1793000000003
+    ],
+    "deletedBodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-09-01",
+      "deletedAt": 1793000000000
+     },
+     {
+      "person": "Sam",
+      "date": "2026-09-02"
+     },
+     {
+      "person": "Sam"
+     }
+    ],
+    "deletedMeals": [
+     {
+      "id": "m-0",
+      "deletedAt": 1793000100000
+     },
+     {
+      "id": 8
+     }
+    ]
+   },
+   "prev": null,
+   "rows": [
+    {
+     "kind": "bodyweight",
+     "key": "Alex:2026-09-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-09-01"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793000000000
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Alex:2026-11-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     "updated_at": 1793600000123,
+     "deleted_at": null
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Sam:2026-09-02",
+     "person": "Sam",
+     "body": {
+      "person": "Sam",
+      "date": "2026-09-02"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Sam:2026-11-01",
+     "person": "Sam",
+     "body": {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "coach_question",
+     "key": "Alex:5",
+     "person": "Alex",
+     "body": {
+      "id": 5,
+      "question": "Sleep?",
+      "updatedAt": 1793500000000
+     },
+     "updated_at": 1793500000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "family",
+     "key": "adminPin",
+     "person": null,
+     "body": {
+      "salt": "s",
+      "hash": "h",
+      "updatedAt": 1793100000000
+     },
+     "updated_at": 1793100000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000001",
+     "person": "Alex",
+     "body": {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     "updated_at": 1793000500000,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000002",
+     "person": "Sam",
+     "body": {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000003",
+     "person": null,
+     "body": {
+      "id": 1793000000003,
+      "date": "2026-11-01"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "log",
+     "key": "1793000000099",
+     "person": null,
+     "body": {
+      "id": 1793000000099
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "meal",
+     "key": "7",
+     "person": null,
+     "body": {
+      "id": 7,
+      "name": "No owner"
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "meal",
+     "key": "8",
+     "person": null,
+     "body": {
+      "id": 8
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "meal",
+     "key": "m-0",
+     "person": null,
+     "body": {
+      "id": "m-0"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793000100000
+    },
+    {
+     "kind": "meal",
+     "key": "m-1",
+     "person": "Alex",
+     "body": {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     },
+     "updated_at": 1793650000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "measurement",
+     "key": "Alex:2026-10-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     },
+     "updated_at": 1790845200000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "slot": 0,
+      "weight": "80",
+      "goal": "squat 100",
+      "programId": "p-alex",
+      "programIdAt": 1793600000000
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "slot": 2,
+      "weight": 72.5,
+      "programId": "p-sam",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:coaching",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "updated_at": 1793491200000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:coaching",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "_v": "plain text"
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:hrZones",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "max": 190
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:limiters",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "_v": null
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:machineSettings",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     },
+     "updated_at": 1793400000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:nutritionTargets",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     },
+     "updated_at": 1793200000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:progression",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     },
+     "updated_at": 1793300000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:racePredictions",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "_v": [
+       1,
+       2,
+       3
+      ]
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:wellness",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-alex",
+     "person": null,
+     "body": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "updated_at": 1793527200123,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-sam",
+     "person": null,
+     "body": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "updated_at": 1793608215123,
+     "deleted_at": null
+    },
+    {
+     "kind": "program_change",
+     "key": "pe-abc",
+     "person": null,
+     "body": {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     },
+     "updated_at": 1793620800000,
+     "deleted_at": null
+    },
+    {
+     "kind": "suggestion",
+     "key": "11",
+     "person": "Sam",
+     "body": {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     },
+     "updated_at": 1793613600000,
+     "deleted_at": null
+    }
+   ],
+   "payload": {
+    "version": 1,
+    "people": [
+     "Alex",
+     "",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     "",
+     72.5
+    ],
+    "goals": [
+     "squat 100",
+     "",
+     ""
+    ],
+    "suggestions": [
+     {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     }
+    ],
+    "programChanges": [
+     {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     }
+    ],
+    "meals": [
+     {
+      "id": 7,
+      "name": "No owner"
+     },
+     {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     }
+    ],
+    "measurements": [
+     {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     }
+    ],
+    "bodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     }
+    ],
+    "logs": [
+     {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     }
+    ],
+    "deletedLogs": [
+     1793000000003,
+     1793000000099
+    ],
+    "deletedBodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-09-01",
+      "deletedAt": 1793000000000
+     },
+     {
+      "person": "Sam",
+      "date": "2026-09-02",
+      "deletedAt": 1793700000000
+     }
+    ],
+    "deletedMeals": [
+     {
+      "id": 8,
+      "deletedAt": 1793700000000
+     },
+     {
+      "id": "m-0",
+      "deletedAt": 1793000100000
+     }
+    ],
+    "coachQuestions": {
+     "Alex": [
+      {
+       "id": 5,
+       "question": "Sleep?",
+       "updatedAt": 1793500000000
+      }
+     ]
+    },
+    "programs": {
+     "p-alex": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "p-sam": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-alex",
+      "updatedAt": 1793600000000
+     },
+     "Sam": {
+      "id": "p-sam",
+      "updatedAt": 0
+     }
+    },
+    "program": {
+     "id": "p-alex",
+     "members": [
+      "Alex"
+     ],
+     "version": 4,
+     "updatedAt": "2026-11-01T10:00:00.123Z",
+     "updatedBy": "Alex",
+     "order": [
+      "a",
+      "b"
+     ],
+     "sessions": {
+      "a": {
+       "name": "Upper",
+       "day": "Monday",
+       "exercises": [
+        {
+         "name": "Bench press",
+         "warmup": "",
+         "target": "3x8",
+         "sets": 3,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      },
+      "b": {
+       "name": "Lower",
+       "day": "Thursday",
+       "exercises": [
+        {
+         "name": "Squat",
+         "warmup": "",
+         "target": "5x8",
+         "sets": 5,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "coaching": {
+     "Alex": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "Sam": "plain text"
+    },
+    "hrZones": {
+     "Alex": {
+      "max": 190
+     }
+    },
+    "machineSettings": {
+     "Alex": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     }
+    },
+    "progression": {
+     "Sam": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     }
+    },
+    "features": {},
+    "nutritionTargets": {
+     "Alex": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     }
+    },
+    "limiters": {
+     "Alex": null
+    },
+    "wellness": {
+     "Alex": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     }
+    },
+    "racePredictions": {
+     "Alex": [
+      1,
+      2,
+      3
+     ]
+    },
+    "adminPin": {
+     "salt": "s",
+     "hash": "h",
+     "updatedAt": 1793100000000
+    }
+   }
+  },
+  {
+   "name": "new shape with a previous sync",
+   "now": 1793700000000,
+   "input": {
+    "people": [
+     "Alex",
+     "",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     "",
+     72.5
+    ],
+    "goals": [
+     "squat 100",
+     "",
+     ""
+    ],
+    "programs": {
+     "p-alex": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "p-sam": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-alex",
+      "updatedAt": 1793600000000
+     },
+     "Sam": {
+      "id": "p-sam",
+      "updatedAt": 0
+     }
+    },
+    "logs": [
+     {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "id": 1793000000003,
+      "date": "2026-11-01"
+     },
+     {
+      "person": "Alex",
+      "date": "no id"
+     },
+     "not a log"
+    ],
+    "bodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     },
+     {
+      "person": "Sam",
+      "kg": 1
+     }
+    ],
+    "measurements": [
+     {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     }
+    ],
+    "meals": [
+     {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     },
+     {
+      "id": 7,
+      "name": "No owner"
+     }
+    ],
+    "suggestions": [
+     {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     }
+    ],
+    "programChanges": [
+     {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     }
+    ],
+    "coachQuestions": {
+     "Alex": [
+      {
+       "id": 5,
+       "question": "Sleep?",
+       "updatedAt": 1793500000000
+      },
+      {
+       "question": "no id"
+      },
+      "x"
+     ],
+     "Sam": "not a list"
+    },
+    "coaching": {
+     "Alex": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "Sam": "plain text"
+    },
+    "hrZones": {
+     "Alex": {
+      "max": 190
+     }
+    },
+    "racePredictions": {
+     "Alex": [
+      1,
+      2,
+      3
+     ]
+    },
+    "machineSettings": {
+     "Alex": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     }
+    },
+    "progression": {
+     "Sam": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     }
+    },
+    "features": {},
+    "nutritionTargets": {
+     "Alex": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     }
+    },
+    "limiters": {
+     "Alex": null
+    },
+    "wellness": {
+     "Alex": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     }
+    },
+    "adminPin": {
+     "salt": "s",
+     "hash": "h",
+     "updatedAt": 1793100000000
+    },
+    "deletedLogs": [
+     1793000000099,
+     1793000000003
+    ],
+    "deletedBodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-09-01",
+      "deletedAt": 1793000000000
+     },
+     {
+      "person": "Sam",
+      "date": "2026-09-02"
+     },
+     {
+      "person": "Sam"
+     }
+    ],
+    "deletedMeals": [
+     {
+      "id": "m-0",
+      "deletedAt": 1793000100000
+     },
+     {
+      "id": 8
+     }
+    ]
+   },
+   "prev": [
+    {
+     "kind": "person",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "slot": 4,
+      "extra": 1
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000099",
+     "person": null,
+     "body": {
+      "id": 1793000000099
+     },
+     "updated_at": 0,
+     "deleted_at": 1793111111111
+    },
+    {
+     "kind": "log",
+     "key": "1793000000003",
+     "person": null,
+     "body": {
+      "id": 1793000000003
+     },
+     "updated_at": 0,
+     "deleted_at": 1793222222222
+    }
+   ],
+   "rows": [
+    {
+     "kind": "bodyweight",
+     "key": "Alex:2026-09-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-09-01"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793000000000
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Alex:2026-11-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     "updated_at": 1793600000123,
+     "deleted_at": null
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Sam:2026-09-02",
+     "person": "Sam",
+     "body": {
+      "person": "Sam",
+      "date": "2026-09-02"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "bodyweight",
+     "key": "Sam:2026-11-01",
+     "person": "Sam",
+     "body": {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "coach_question",
+     "key": "Alex:5",
+     "person": "Alex",
+     "body": {
+      "id": 5,
+      "question": "Sleep?",
+      "updatedAt": 1793500000000
+     },
+     "updated_at": 1793500000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "family",
+     "key": "adminPin",
+     "person": null,
+     "body": {
+      "salt": "s",
+      "hash": "h",
+      "updatedAt": 1793100000000
+     },
+     "updated_at": 1793100000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000001",
+     "person": "Alex",
+     "body": {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     "updated_at": 1793000500000,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000002",
+     "person": "Sam",
+     "body": {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "log",
+     "key": "1793000000003",
+     "person": null,
+     "body": {
+      "id": 1793000000003,
+      "date": "2026-11-01"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793222222222
+    },
+    {
+     "kind": "log",
+     "key": "1793000000099",
+     "person": null,
+     "body": {
+      "id": 1793000000099
+     },
+     "updated_at": 0,
+     "deleted_at": 1793111111111
+    },
+    {
+     "kind": "meal",
+     "key": "7",
+     "person": null,
+     "body": {
+      "id": 7,
+      "name": "No owner"
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "meal",
+     "key": "8",
+     "person": null,
+     "body": {
+      "id": 8
+     },
+     "updated_at": 0,
+     "deleted_at": 1793700000000
+    },
+    {
+     "kind": "meal",
+     "key": "m-0",
+     "person": null,
+     "body": {
+      "id": "m-0"
+     },
+     "updated_at": 0,
+     "deleted_at": 1793000100000
+    },
+    {
+     "kind": "meal",
+     "key": "m-1",
+     "person": "Alex",
+     "body": {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     },
+     "updated_at": 1793650000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "measurement",
+     "key": "Alex:2026-10-01",
+     "person": "Alex",
+     "body": {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     },
+     "updated_at": 1790845200000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "slot": 0,
+      "weight": "80",
+      "goal": "squat 100",
+      "programId": "p-alex",
+      "programIdAt": 1793600000000
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "slot": 4,
+      "extra": 1,
+      "weight": 72.5,
+      "programId": "p-sam",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:coaching",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "updated_at": 1793491200000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:coaching",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "_v": "plain text"
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:hrZones",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "max": 190
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:limiters",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "_v": null
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:machineSettings",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     },
+     "updated_at": 1793400000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:nutritionTargets",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     },
+     "updated_at": 1793200000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:progression",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     },
+     "updated_at": 1793300000000,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:racePredictions",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "_v": [
+       1,
+       2,
+       3
+      ]
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person_data:wellness",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-alex",
+     "person": null,
+     "body": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "updated_at": 1793527200123,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-sam",
+     "person": null,
+     "body": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "updated_at": 1793608215123,
+     "deleted_at": null
+    },
+    {
+     "kind": "program_change",
+     "key": "pe-abc",
+     "person": null,
+     "body": {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     },
+     "updated_at": 1793620800000,
+     "deleted_at": null
+    },
+    {
+     "kind": "suggestion",
+     "key": "11",
+     "person": "Sam",
+     "body": {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     },
+     "updated_at": 1793613600000,
+     "deleted_at": null
+    }
+   ],
+   "payload": {
+    "version": 1,
+    "people": [
+     "Alex",
+     "",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     "",
+     72.5
+    ],
+    "goals": [
+     "squat 100",
+     "",
+     ""
+    ],
+    "suggestions": [
+     {
+      "id": 11,
+      "person": "Sam",
+      "text": "more legs",
+      "status": "done",
+      "updatedAt": 1793000000000,
+      "doneAt": "2026-11-02T10:00:00Z",
+      "approvedAt": 1793100000000
+     }
+    ],
+    "programChanges": [
+     {
+      "id": "pe-abc",
+      "kind": "person",
+      "programId": "p-alex",
+      "from": "Sam",
+      "createdAt": "2026-11-02T12:00:00.000Z",
+      "status": "pending",
+      "at": "2026-11-02T12:00:00.000Z"
+     }
+    ],
+    "meals": [
+     {
+      "id": 7,
+      "name": "No owner"
+     },
+     {
+      "id": "m-1",
+      "person": "Alex",
+      "name": "Oats",
+      "kcal": 350,
+      "updatedAt": 1793650000000
+     }
+    ],
+    "measurements": [
+     {
+      "person": "Alex",
+      "date": "2026-10-01",
+      "waist": 82,
+      "updatedAt": "2026-10-01T09:00:00Z"
+     }
+    ],
+    "bodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-11-01",
+      "kg": 80.2,
+      "updatedAt": 1793600000123
+     },
+     {
+      "person": "Sam",
+      "date": "2026-11-01",
+      "kg": 72.5
+     }
+    ],
+    "logs": [
+     {
+      "id": 1793000000001,
+      "person": "Alex",
+      "date": "2026-10-30",
+      "updatedAt": 1793000500000,
+      "entries": []
+     },
+     {
+      "id": 1793000000002,
+      "person": "Sam",
+      "date": "2026-10-31",
+      "entries": [
+       {
+        "name": "Squat",
+        "rows": [
+         [
+          "60",
+          "8"
+         ]
+        ]
+       }
+      ]
+     }
+    ],
+    "deletedLogs": [
+     1793000000003,
+     1793000000099
+    ],
+    "deletedBodyweights": [
+     {
+      "person": "Alex",
+      "date": "2026-09-01",
+      "deletedAt": 1793000000000
+     },
+     {
+      "person": "Sam",
+      "date": "2026-09-02",
+      "deletedAt": 1793700000000
+     }
+    ],
+    "deletedMeals": [
+     {
+      "id": 8,
+      "deletedAt": 1793700000000
+     },
+     {
+      "id": "m-0",
+      "deletedAt": 1793000100000
+     }
+    ],
+    "coachQuestions": {
+     "Alex": [
+      {
+       "id": 5,
+       "question": "Sleep?",
+       "updatedAt": 1793500000000
+      }
+     ]
+    },
+    "programs": {
+     "p-alex": {
+      "id": "p-alex",
+      "members": [
+       "Alex"
+      ],
+      "version": 4,
+      "updatedAt": "2026-11-01T10:00:00.123Z",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Upper",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Lower",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "p-sam": {
+      "id": "p-sam",
+      "members": [
+       "Sam"
+      ],
+      "version": 1,
+      "updatedAt": "2026-11-02T08:30:15.123456Z",
+      "updatedBy": "Sam",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "Full",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "Legs",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-alex",
+      "updatedAt": 1793600000000
+     },
+     "Sam": {
+      "id": "p-sam",
+      "updatedAt": 0
+     }
+    },
+    "program": {
+     "id": "p-alex",
+     "members": [
+      "Alex"
+     ],
+     "version": 4,
+     "updatedAt": "2026-11-01T10:00:00.123Z",
+     "updatedBy": "Alex",
+     "order": [
+      "a",
+      "b"
+     ],
+     "sessions": {
+      "a": {
+       "name": "Upper",
+       "day": "Monday",
+       "exercises": [
+        {
+         "name": "Bench press",
+         "warmup": "",
+         "target": "3x8",
+         "sets": 3,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      },
+      "b": {
+       "name": "Lower",
+       "day": "Thursday",
+       "exercises": [
+        {
+         "name": "Squat",
+         "warmup": "",
+         "target": "5x8",
+         "sets": 5,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "coaching": {
+     "Alex": {
+      "notes": "ok",
+      "updated": "2026-11-01T00:00:00Z"
+     },
+     "Sam": "plain text"
+    },
+    "hrZones": {
+     "Alex": {
+      "max": 190
+     }
+    },
+    "machineSettings": {
+     "Alex": {
+      "Leg press": {
+       "text": "seat 4",
+       "updatedAt": 1793400000000
+      }
+     }
+    },
+    "progression": {
+     "Sam": {
+      "on": {
+       "value": false,
+       "updatedAt": 1793300000000
+      }
+     }
+    },
+    "features": {},
+    "nutritionTargets": {
+     "Alex": {
+      "kcal": 2800,
+      "protein": 160,
+      "updatedAt": 1793200000000
+     }
+    },
+    "limiters": {
+     "Alex": null
+    },
+    "wellness": {
+     "Alex": {
+      "2026-11-01": {
+       "sleep": 80
+      }
+     }
+    },
+    "racePredictions": {
+     "Alex": [
+      1,
+      2,
+      3
+     ]
+    },
+    "adminPin": {
+     "salt": "s",
+     "hash": "h",
+     "updatedAt": 1793100000000
+    }
+   }
+  },
+  {
+   "name": "old shape",
+   "now": 1793700000000,
+   "input": {
+    "version": 1,
+    "people": [
+     "Alex",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     ""
+    ],
+    "goals": [
+     "",
+     "get fit"
+    ],
+    "program": {
+     "order": [
+      "a"
+     ],
+     "version": "3",
+     "updatedAt": "2026-10-20T10:00:00Z",
+     "sessions": {
+      "a": {
+       "name": "Full body",
+       "exercises": [
+        {
+         "name": "Row",
+         "warmup": "",
+         "target": "3x8",
+         "sets": 3,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "logs": [
+     {
+      "id": 5,
+      "person": "Alex",
+      "date": "2026-10-20"
+     }
+    ],
+    "deletedLogs": [],
+    "deletedBodyweights": [],
+    "deletedMeals": []
+   },
+   "prev": null,
+   "rows": [
+    {
+     "kind": "log",
+     "key": "5",
+     "person": "Alex",
+     "body": {
+      "id": 5,
+      "person": "Alex",
+      "date": "2026-10-20"
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "slot": 0,
+      "weight": "80",
+      "programId": "p-alex-sam",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "slot": 1,
+      "goal": "get fit",
+      "programId": "p-alex-sam",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-alex-sam",
+     "person": null,
+     "body": {
+      "order": [
+       "a"
+      ],
+      "version": 3,
+      "updatedAt": "2026-10-20T10:00:00Z",
+      "sessions": {
+       "a": {
+        "name": "Full body",
+        "exercises": [
+         {
+          "name": "Row",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      },
+      "id": "p-alex-sam",
+      "members": [
+       "Alex",
+       "Sam"
+      ]
+     },
+     "updated_at": 1792490400000,
+     "deleted_at": null
+    }
+   ],
+   "payload": {
+    "version": 1,
+    "people": [
+     "Alex",
+     "Sam"
+    ],
+    "weights": [
+     "80",
+     ""
+    ],
+    "goals": [
+     "",
+     "get fit"
+    ],
+    "suggestions": [],
+    "programChanges": [],
+    "meals": [],
+    "measurements": [],
+    "bodyweights": [],
+    "logs": [
+     {
+      "id": 5,
+      "person": "Alex",
+      "date": "2026-10-20"
+     }
+    ],
+    "deletedLogs": [],
+    "deletedBodyweights": [],
+    "deletedMeals": [],
+    "coachQuestions": {},
+    "programs": {
+     "p-alex-sam": {
+      "order": [
+       "a"
+      ],
+      "version": 3,
+      "updatedAt": "2026-10-20T10:00:00Z",
+      "sessions": {
+       "a": {
+        "name": "Full body",
+        "exercises": [
+         {
+          "name": "Row",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      },
+      "id": "p-alex-sam",
+      "members": [
+       "Alex",
+       "Sam"
+      ]
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-alex-sam",
+      "updatedAt": 0
+     },
+     "Sam": {
+      "id": "p-alex-sam",
+      "updatedAt": 0
+     }
+    },
+    "program": {
+     "order": [
+      "a"
+     ],
+     "version": 3,
+     "updatedAt": "2026-10-20T10:00:00Z",
+     "sessions": {
+      "a": {
+       "name": "Full body",
+       "exercises": [
+        {
+         "name": "Row",
+         "warmup": "",
+         "target": "3x8",
+         "sets": 3,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      }
+     },
+     "id": "p-alex-sam",
+     "members": [
+      "Alex",
+      "Sam"
+     ]
+    },
+    "coaching": {},
+    "hrZones": {},
+    "machineSettings": {},
+    "progression": {},
+    "features": {},
+    "nutritionTargets": {},
+    "limiters": {},
+    "wellness": {},
+    "racePredictions": {}
+   }
+  },
+  {
+   "name": "program that no person names",
+   "now": 1793700000000,
+   "input": {
+    "people": [
+     "Alex",
+     "Sam"
+    ],
+    "programs": {
+     "p-1": {
+      "id": "p-1",
+      "members": [
+       "Alex",
+       "Sam"
+      ],
+      "version": 2,
+      "updatedAt": "",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "A",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "B",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "gone"
+     }
+    }
+   },
+   "prev": null,
+   "rows": [
+    {
+     "kind": "person",
+     "key": "Alex",
+     "person": "Alex",
+     "body": {
+      "slot": 0,
+      "programId": "p-1",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "person",
+     "key": "Sam",
+     "person": "Sam",
+     "body": {
+      "slot": 1,
+      "programId": "p-1",
+      "programIdAt": 0
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    },
+    {
+     "kind": "program",
+     "key": "p-1",
+     "person": null,
+     "body": {
+      "id": "p-1",
+      "members": [
+       "Alex",
+       "Sam"
+      ],
+      "version": 2,
+      "updatedAt": "",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "A",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "B",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     },
+     "updated_at": 0,
+     "deleted_at": null
+    }
+   ],
+   "payload": {
+    "version": 1,
+    "people": [
+     "Alex",
+     "Sam"
+    ],
+    "weights": [
+     "",
+     ""
+    ],
+    "goals": [
+     "",
+     ""
+    ],
+    "suggestions": [],
+    "programChanges": [],
+    "meals": [],
+    "measurements": [],
+    "bodyweights": [],
+    "logs": [],
+    "deletedLogs": [],
+    "deletedBodyweights": [],
+    "deletedMeals": [],
+    "coachQuestions": {},
+    "programs": {
+     "p-1": {
+      "id": "p-1",
+      "members": [
+       "Alex",
+       "Sam"
+      ],
+      "version": 2,
+      "updatedAt": "",
+      "updatedBy": "Alex",
+      "order": [
+       "a",
+       "b"
+      ],
+      "sessions": {
+       "a": {
+        "name": "A",
+        "day": "Monday",
+        "exercises": [
+         {
+          "name": "Bench press",
+          "warmup": "",
+          "target": "3x8",
+          "sets": 3,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       },
+       "b": {
+        "name": "B",
+        "day": "Thursday",
+        "exercises": [
+         {
+          "name": "Squat",
+          "warmup": "",
+          "target": "5x8",
+          "sets": 5,
+          "cols": [
+           "Weight (kg)",
+           "Reps"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    "programIds": {
+     "Alex": {
+      "id": "p-1",
+      "updatedAt": 0
+     },
+     "Sam": {
+      "id": "p-1",
+      "updatedAt": 0
+     }
+    },
+    "program": {
+     "id": "p-1",
+     "members": [
+      "Alex",
+      "Sam"
+     ],
+     "version": 2,
+     "updatedAt": "",
+     "updatedBy": "Alex",
+     "order": [
+      "a",
+      "b"
+     ],
+     "sessions": {
+      "a": {
+       "name": "A",
+       "day": "Monday",
+       "exercises": [
+        {
+         "name": "Bench press",
+         "warmup": "",
+         "target": "3x8",
+         "sets": 3,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      },
+      "b": {
+       "name": "B",
+       "day": "Thursday",
+       "exercises": [
+        {
+         "name": "Squat",
+         "warmup": "",
+         "target": "5x8",
+         "sets": 5,
+         "cols": [
+          "Weight (kg)",
+          "Reps"
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "coaching": {},
+    "hrZones": {},
+    "machineSettings": {},
+    "progression": {},
+    "features": {},
+    "nutritionTargets": {},
+    "limiters": {},
+    "wellness": {},
+    "racePredictions": {}
+   }
+  },
+  {
+   "name": "blank install",
+   "now": 1793700000000,
+   "input": {
+    "people": [
+     "",
+     ""
+    ],
+    "logs": [],
+    "programs": {},
+    "programIds": {}
+   },
+   "prev": null,
+   "rows": [],
+   "payload": {
+    "version": 1,
+    "people": [
+     "",
+     ""
+    ],
+    "weights": [
+     "",
+     ""
+    ],
+    "goals": [
+     "",
+     ""
+    ],
+    "suggestions": [],
+    "programChanges": [],
+    "meals": [],
+    "measurements": [],
+    "bodyweights": [],
+    "logs": [],
+    "deletedLogs": [],
+    "deletedBodyweights": [],
+    "deletedMeals": [],
+    "coachQuestions": {},
+    "programs": {},
+    "programIds": {},
+    "program": {
+     "order": [],
+     "sessions": {}
+    },
+    "coaching": {},
+    "hrZones": {},
+    "machineSettings": {},
+    "progression": {},
+    "features": {},
+    "nutritionTargets": {},
+    "limiters": {},
+    "wellness": {},
+    "racePredictions": {}
+   }
+  }
+ ],
+ "ms": [
+  [
+   "2026-11-01T10:00:00.123Z",
+   1793527200123
+  ],
+  [
+   "2026-11-01",
+   1793491200000
+  ],
+  [
+   "2026-11-01T10:00:00",
+   1793527200000
+  ],
+  [
+   "2026-11-01T10:00",
+   1793527200000
+  ],
+  [
+   "2026-11-01 10:00:00+01:00",
+   1793523600000
+  ],
+  [
+   "2026-11-01T10:00:00.1234567Z",
+   1793527200123
+  ],
+  [
+   "",
+   0
+  ],
+  [
+   "nope",
+   0
+  ],
+  [
+   12.9,
+   12
+  ],
+  [
+   -5.5,
+   -5
+  ],
+  [
+   null,
+   0
+  ],
+  [
+   true,
+   0
+  ],
+  [
+   1793700000000,
+   1793700000000
+  ],
+  [
+   "2026-01-01T00:00:11.148Z",
+   1767225611148
+  ],
+  [
+   "2026-01-01T13:31:11.161Z",
+   1767274271161
+  ],
+  [
+   "2026-01-01T23:41:11.171Z",
+   1767310871171
+  ],
+  [
+   "2026-01-09T00:00:39.236Z",
+   1767916839236
+  ],
+  [
+   "2026-01-09T13:31:39.249Z",
+   1767965499249
+  ],
+  [
+   "2026-01-09T23:41:39.259Z",
+   1768002099259
+  ],
+  [
+   "2026-01-17T00:00:07.324Z",
+   1768608007324
+  ],
+  [
+   "2026-01-17T13:31:07.337Z",
+   1768656667337
+  ],
+  [
+   "2026-01-17T23:41:07.347Z",
+   1768693267347
+  ],
+  [
+   "2026-01-28T00:00:08.445Z",
+   1769558408445
+  ],
+  [
+   "2026-01-28T13:31:08.458Z",
+   1769607068458
+  ],
+  [
+   "2026-01-28T23:41:08.468Z",
+   1769643668468
+  ],
+  [
+   "2026-02-01T00:00:11.285Z",
+   1769904011285
+  ],
+  [
+   "2026-02-01T13:31:11.298Z",
+   1769952671298
+  ],
+  [
+   "2026-02-01T23:41:11.308Z",
+   1769989271308
+  ],
+  [
+   "2026-02-09T00:00:39.373Z",
+   1770595239373
+  ],
+  [
+   "2026-02-09T13:31:39.386Z",
+   1770643899386
+  ],
+  [
+   "2026-02-09T23:41:39.396Z",
+   1770680499396
+  ],
+  [
+   "2026-02-17T00:00:07.461Z",
+   1771286407461
+  ],
+  [
+   "2026-02-17T13:31:07.474Z",
+   1771335067474
+  ],
+  [
+   "2026-02-17T23:41:07.484Z",
+   1771371667484
+  ],
+  [
+   "2026-02-28T00:00:08.582Z",
+   1772236808582
+  ],
+  [
+   "2026-02-28T13:31:08.595Z",
+   1772285468595
+  ],
+  [
+   "2026-02-28T23:41:08.605Z",
+   1772322068605
+  ],
+  [
+   "2026-03-01T00:00:11.422Z",
+   1772323211422
+  ],
+  [
+   "2026-03-01T13:31:11.435Z",
+   1772371871435
+  ],
+  [
+   "2026-03-01T23:41:11.445Z",
+   1772408471445
+  ],
+  [
+   "2026-03-09T00:00:39.510Z",
+   1773014439510
+  ],
+  [
+   "2026-03-09T13:31:39.523Z",
+   1773063099523
+  ],
+  [
+   "2026-03-09T23:41:39.533Z",
+   1773099699533
+  ],
+  [
+   "2026-03-17T00:00:07.598Z",
+   1773705607598
+  ],
+  [
+   "2026-03-17T13:31:07.611Z",
+   1773754267611
+  ],
+  [
+   "2026-03-17T23:41:07.621Z",
+   1773790867621
+  ],
+  [
+   "2026-03-28T00:00:08.719Z",
+   1774656008719
+  ],
+  [
+   "2026-03-28T13:31:08.732Z",
+   1774704668732
+  ],
+  [
+   "2026-03-28T23:41:08.742Z",
+   1774741268742
+  ],
+  [
+   "2026-04-01T00:00:11.559Z",
+   1775001611559
+  ],
+  [
+   "2026-04-01T13:31:11.572Z",
+   1775050271572
+  ],
+  [
+   "2026-04-01T23:41:11.582Z",
+   1775086871582
+  ],
+  [
+   "2026-04-09T00:00:39.647Z",
+   1775692839647
+  ],
+  [
+   "2026-04-09T13:31:39.660Z",
+   1775741499660
+  ],
+  [
+   "2026-04-09T23:41:39.670Z",
+   1775778099670
+  ],
+  [
+   "2026-04-17T00:00:07.735Z",
+   1776384007735
+  ],
+  [
+   "2026-04-17T13:31:07.748Z",
+   1776432667748
+  ],
+  [
+   "2026-04-17T23:41:07.758Z",
+   1776469267758
+  ],
+  [
+   "2026-04-28T00:00:08.856Z",
+   1777334408856
+  ],
+  [
+   "2026-04-28T13:31:08.869Z",
+   1777383068869
+  ],
+  [
+   "2026-04-28T23:41:08.879Z",
+   1777419668879
+  ],
+  [
+   "2026-05-01T00:00:11.696Z",
+   1777593611696
+  ],
+  [
+   "2026-05-01T13:31:11.709Z",
+   1777642271709
+  ],
+  [
+   "2026-05-01T23:41:11.719Z",
+   1777678871719
+  ],
+  [
+   "2026-05-09T00:00:39.784Z",
+   1778284839784
+  ],
+  [
+   "2026-05-09T13:31:39.797Z",
+   1778333499797
+  ],
+  [
+   "2026-05-09T23:41:39.807Z",
+   1778370099807
+  ],
+  [
+   "2026-05-17T00:00:07.872Z",
+   1778976007872
+  ],
+  [
+   "2026-05-17T13:31:07.885Z",
+   1779024667885
+  ],
+  [
+   "2026-05-17T23:41:07.895Z",
+   1779061267895
+  ],
+  [
+   "2026-05-28T00:00:08.993Z",
+   1779926408993
+  ],
+  [
+   "2026-05-28T13:31:08.006Z",
+   1779975068006
+  ],
+  [
+   "2026-05-28T23:41:08.016Z",
+   1780011668016
+  ],
+  [
+   "2026-06-01T00:00:11.833Z",
+   1780272011833
+  ],
+  [
+   "2026-06-01T13:31:11.846Z",
+   1780320671846
+  ],
+  [
+   "2026-06-01T23:41:11.856Z",
+   1780357271856
+  ],
+  [
+   "2026-06-09T00:00:39.921Z",
+   1780963239921
+  ],
+  [
+   "2026-06-09T13:31:39.934Z",
+   1781011899934
+  ],
+  [
+   "2026-06-09T23:41:39.944Z",
+   1781048499944
+  ],
+  [
+   "2026-06-17T00:00:07.009Z",
+   1781654407009
+  ],
+  [
+   "2026-06-17T13:31:07.022Z",
+   1781703067022
+  ],
+  [
+   "2026-06-17T23:41:07.032Z",
+   1781739667032
+  ],
+  [
+   "2026-06-28T00:00:08.130Z",
+   1782604808130
+  ],
+  [
+   "2026-06-28T13:31:08.143Z",
+   1782653468143
+  ],
+  [
+   "2026-06-28T23:41:08.153Z",
+   1782690068153
+  ],
+  [
+   "2026-07-01T00:00:11.970Z",
+   1782864011970
+  ],
+  [
+   "2026-07-01T13:31:11.983Z",
+   1782912671983
+  ],
+  [
+   "2026-07-01T23:41:11.993Z",
+   1782949271993
+  ],
+  [
+   "2026-07-09T00:00:39.058Z",
+   1783555239058
+  ],
+  [
+   "2026-07-09T13:31:39.071Z",
+   1783603899071
+  ],
+  [
+   "2026-07-09T23:41:39.081Z",
+   1783640499081
+  ],
+  [
+   "2026-07-17T00:00:07.146Z",
+   1784246407146
+  ],
+  [
+   "2026-07-17T13:31:07.159Z",
+   1784295067159
+  ],
+  [
+   "2026-07-17T23:41:07.169Z",
+   1784331667169
+  ],
+  [
+   "2026-07-28T00:00:08.267Z",
+   1785196808267
+  ],
+  [
+   "2026-07-28T13:31:08.280Z",
+   1785245468280
+  ],
+  [
+   "2026-07-28T23:41:08.290Z",
+   1785282068290
+  ],
+  [
+   "2026-08-01T00:00:11.107Z",
+   1785542411107
+  ],
+  [
+   "2026-08-01T13:31:11.120Z",
+   1785591071120
+  ],
+  [
+   "2026-08-01T23:41:11.130Z",
+   1785627671130
+  ],
+  [
+   "2026-08-09T00:00:39.195Z",
+   1786233639195
+  ],
+  [
+   "2026-08-09T13:31:39.208Z",
+   1786282299208
+  ],
+  [
+   "2026-08-09T23:41:39.218Z",
+   1786318899218
+  ],
+  [
+   "2026-08-17T00:00:07.283Z",
+   1786924807283
+  ],
+  [
+   "2026-08-17T13:31:07.296Z",
+   1786973467296
+  ],
+  [
+   "2026-08-17T23:41:07.306Z",
+   1787010067306
+  ],
+  [
+   "2026-08-28T00:00:08.404Z",
+   1787875208404
+  ],
+  [
+   "2026-08-28T13:31:08.417Z",
+   1787923868417
+  ],
+  [
+   "2026-08-28T23:41:08.427Z",
+   1787960468427
+  ],
+  [
+   "2026-09-01T00:00:11.244Z",
+   1788220811244
+  ],
+  [
+   "2026-09-01T13:31:11.257Z",
+   1788269471257
+  ],
+  [
+   "2026-09-01T23:41:11.267Z",
+   1788306071267
+  ],
+  [
+   "2026-09-09T00:00:39.332Z",
+   1788912039332
+  ],
+  [
+   "2026-09-09T13:31:39.345Z",
+   1788960699345
+  ],
+  [
+   "2026-09-09T23:41:39.355Z",
+   1788997299355
+  ],
+  [
+   "2026-09-17T00:00:07.420Z",
+   1789603207420
+  ],
+  [
+   "2026-09-17T13:31:07.433Z",
+   1789651867433
+  ],
+  [
+   "2026-09-17T23:41:07.443Z",
+   1789688467443
+  ],
+  [
+   "2026-09-28T00:00:08.541Z",
+   1790553608541
+  ],
+  [
+   "2026-09-28T13:31:08.554Z",
+   1790602268554
+  ],
+  [
+   "2026-09-28T23:41:08.564Z",
+   1790638868564
+  ],
+  [
+   "2026-10-01T00:00:11.381Z",
+   1790812811381
+  ],
+  [
+   "2026-10-01T13:31:11.394Z",
+   1790861471394
+  ],
+  [
+   "2026-10-01T23:41:11.404Z",
+   1790898071404
+  ],
+  [
+   "2026-10-09T00:00:39.469Z",
+   1791504039469
+  ],
+  [
+   "2026-10-09T13:31:39.482Z",
+   1791552699482
+  ],
+  [
+   "2026-10-09T23:41:39.492Z",
+   1791589299492
+  ],
+  [
+   "2026-10-17T00:00:07.557Z",
+   1792195207557
+  ],
+  [
+   "2026-10-17T13:31:07.570Z",
+   1792243867570
+  ],
+  [
+   "2026-10-17T23:41:07.580Z",
+   1792280467580
+  ],
+  [
+   "2026-10-28T00:00:08.678Z",
+   1793145608678
+  ],
+  [
+   "2026-10-28T13:31:08.691Z",
+   1793194268691
+  ],
+  [
+   "2026-10-28T23:41:08.701Z",
+   1793230868701
+  ],
+  [
+   "2026-11-01T00:00:11.518Z",
+   1793491211518
+  ],
+  [
+   "2026-11-01T13:31:11.531Z",
+   1793539871531
+  ],
+  [
+   "2026-11-01T23:41:11.541Z",
+   1793576471541
+  ],
+  [
+   "2026-11-09T00:00:39.606Z",
+   1794182439606
+  ],
+  [
+   "2026-11-09T13:31:39.619Z",
+   1794231099619
+  ],
+  [
+   "2026-11-09T23:41:39.629Z",
+   1794267699629
+  ],
+  [
+   "2026-11-17T00:00:07.694Z",
+   1794873607694
+  ],
+  [
+   "2026-11-17T13:31:07.707Z",
+   1794922267707
+  ],
+  [
+   "2026-11-17T23:41:07.717Z",
+   1794958867717
+  ],
+  [
+   "2026-11-28T00:00:08.815Z",
+   1795824008815
+  ],
+  [
+   "2026-11-28T13:31:08.828Z",
+   1795872668828
+  ],
+  [
+   "2026-11-28T23:41:08.838Z",
+   1795909268838
+  ],
+  [
+   "2026-12-01T00:00:11.655Z",
+   1796083211655
+  ],
+  [
+   "2026-12-01T13:31:11.668Z",
+   1796131871668
+  ],
+  [
+   "2026-12-01T23:41:11.678Z",
+   1796168471678
+  ],
+  [
+   "2026-12-09T00:00:39.743Z",
+   1796774439743
+  ],
+  [
+   "2026-12-09T13:31:39.756Z",
+   1796823099756
+  ],
+  [
+   "2026-12-09T23:41:39.766Z",
+   1796859699766
+  ],
+  [
+   "2026-12-17T00:00:07.831Z",
+   1797465607831
+  ],
+  [
+   "2026-12-17T13:31:07.844Z",
+   1797514267844
+  ],
+  [
+   "2026-12-17T23:41:07.854Z",
+   1797550867854
+  ],
+  [
+   "2026-12-28T00:00:08.952Z",
+   1798416008952
+  ],
+  [
+   "2026-12-28T13:31:08.965Z",
+   1798464668965
+  ],
+  [
+   "2026-12-28T23:41:08.975Z",
+   1798501268975
+  ]
+ ]
+}

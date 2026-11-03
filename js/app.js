@@ -5695,6 +5695,173 @@ function syncNow(quiet){
 // Best-effort background sync - only if configured. Used after save and on open.
 function autoSync(){ const c=loadSync(); if(c.repo && c.token) syncNow(true); }
 
+// ==== Family storage (Supabase) ====
+// Every synced thing is one row of the `records` table: {kind, key, person, body, updated_at,
+// deleted_at}. toRecords / fromRecords are the same mapping as mcp-coach/tt_records.py
+// (docs/supabase-setup.md, Part 3), and scratchpad/review/sync-cases.js fails when they differ.
+const REC_PERSON_FIELDS=["coaching","hrZones","machineSettings","progression","features","nutritionTargets","limiters","wellness","racePredictions"];
+const REC_STUB_KINDS=["log","bodyweight","meal"];
+const REC_STAMPS={suggestion:["updatedAt","doneAt","approvedAt","declinedAt"], program_change:["updatedAt","at","appliedAt","declinedAt","withdrawnAt"]};
+const recIsObj=v=>!!v && typeof v==="object" && !Array.isArray(v);
+// A time as ms since 1970: a number, or an ISO date or datetime string (UTC when it has no zone). 0 when it is neither.
+function recMs(v){
+  if(typeof v==="number") return isFinite(v) ? Math.trunc(v) : 0;
+  const m=typeof v==="string" && /^(\d{4}-\d\d-\d\d)(?:[T ](\d\d)(?::(\d\d)(?::(\d\d))?)?)?(?:\.(\d+))?(Z|[+-]\d\d(?::?\d\d)?)?$/.exec(v);
+  if(!m) return 0;
+  const zone=(m[6]||"Z").replace(/^([+-]\d\d)(\d\d)$/,"$1:$2").replace(/^([+-]\d\d)$/,"$1:00");
+  const secs=Date.parse(m[1]+"T"+(m[2]||"00")+":"+(m[3]||"00")+":"+(m[4]||"00")+zone);
+  if(isNaN(secs)) return 0;
+  // The same float steps as Python's datetime.timestamp() * 1000, so both sides land on the same ms.
+  return Math.trunc(((secs*1000+(+((m[5]||"")+"000000").slice(0,6)))/1e6)*1000);
+}
+function recStamp(item, kind){
+  return Math.max.apply(null, (REC_STAMPS[kind]||["updatedAt"]).map(f=>recMs(item[f])).concat([0]));
+}
+// The newest `updatedAt` or `updated` anywhere near the top of a per-person object.
+function recDeepStamp(v, depth){
+  if(depth===undefined) depth=3;
+  if(depth<0 || !v || typeof v!=="object") return 0;
+  let best=0;
+  Object.keys(v).forEach(k=>{ best=Math.max(best, (k==="updatedAt"||k==="updated") ? recMs(v[k]) : recDeepStamp(v[k], depth-1)); });
+  return best;
+}
+function recNatural(a, b){
+  const na=/^-?\d+$/.test(a.key), nb=/^-?\d+$/.test(b.key);
+  if(a.kind!==b.kind) return a.kind<b.kind ? -1 : 1;
+  if(na!==nb) return na ? -1 : 1;
+  if(na) return +a.key - +b.key;
+  return a.key<b.key ? -1 : a.key>b.key ? 1 : 0;
+}
+// The programs of a payload as ({id: program}, {person: {id, updatedAt}}). An old payload has one
+// `program`, which is wrapped as shared by the people it names, as migratePrograms does.
+function recPrograms(data){
+  const named=(data.people||[]).filter(Boolean), programs={}, ids={};
+  Object.keys(data.programs||{}).forEach(i=>{ if(recIsObj(data.programs[i])) programs[i]=data.programs[i]; });
+  Object.keys(data.programIds||{}).forEach(n=>{ if(recIsObj(data.programIds[n])) ids[n]=data.programIds[n]; });
+  const old=data.program;
+  if(!Object.keys(programs).length && recIsObj(old) && old.sessions && Object.keys(old.sessions).length){
+    const w=wrapProgram(old, named);
+    programs[w.id]=w;
+  }
+  named.forEach(n=>{
+    if((ids[n]||{}).id in programs) return;
+    delete ids[n];
+    const found=Object.keys(programs).find(i=>(programs[i].members||[]).indexOf(n)>=0);
+    if(found) ids[n]={id:found, updatedAt:0};
+  });
+  return {programs:programs, ids:ids};
+}
+// Rows for everything in a data.json-shaped payload (the state has the same shape). `prev` is
+// {"kind|key": {body, deleted_at}} of what an earlier sync saw: it keeps a person's slot and the
+// time an earlier delete happened.
+function toRecords(data, now, prev){
+  now=now||Date.now(); prev=prev||{};
+  const rows={};
+  const put=(kind, key, person, body, at)=>{ rows[kind+"|"+key]={kind:kind, key:String(key), person:person, body:body, updated_at:at, deleted_at:null}; };
+  const tomb=(kind, key, person, stub, deletedAt)=>{
+    const at=Math.trunc(+deletedAt||0) || (prev[kind+"|"+key]||{}).deleted_at || now;
+    if(!rows[kind+"|"+key]) put(kind, key, person, stub, 0);
+    rows[kind+"|"+key].deleted_at=at;
+  };
+  const owner=x=>x.person==null ? null : x.person;
+  const weights=data.weights||[], goals=data.goals||[], pg=recPrograms(data);
+  (data.people||[]).forEach((name, slot)=>{
+    if(!name) return;
+    const body=Object.assign({}, (prev["person|"+name]||{}).body);
+    if(!Number.isInteger(body.slot)) body.slot=slot;
+    [["weight",weights],["goal",goals]].forEach(f=>{
+      if(slot<f[1].length && f[1][slot]!=="" && f[1][slot]!=null) body[f[0]]=f[1][slot]; else delete body[f[0]];
+    });
+    const ref=pg.ids[name];
+    if(ref){ body.programId=ref.id; body.programIdAt=ref.updatedAt||0; } else { delete body.programId; delete body.programIdAt; }
+    put("person", name, name, body, 0);
+  });
+  REC_PERSON_FIELDS.forEach(field=>{
+    const all=data[field]||{};
+    Object.keys(all).forEach(p=>put("person_data:"+field, p, p, recIsObj(all[p]) ? all[p] : {_v:all[p]}, recDeepStamp(all[p])));
+  });
+  Object.keys(pg.programs).forEach(id=>put("program", id, null, pg.programs[id], recMs(pg.programs[id].updatedAt)));
+  const dayKey=x=>x.person && x.date ? x.person+":"+x.date : null;
+  [["logs","log",x=>x.id], ["bodyweights","bodyweight",dayKey], ["measurements","measurement",dayKey], ["meals","meal",x=>x.id],
+   ["suggestions","suggestion",x=>x.id], ["programChanges","program_change",x=>x.id]].forEach(l=>{
+    (data[l[0]]||[]).forEach(item=>{
+      const key=recIsObj(item) ? l[2](item) : null;
+      if(key!=null) put(l[1], key, owner(item), item, recStamp(item, l[1]));
+    });
+  });
+  const questions=data.coachQuestions||{};
+  Object.keys(questions).forEach(p=>(Array.isArray(questions[p]) ? questions[p] : []).forEach(q=>{
+    if(recIsObj(q) && q.id!=null) put("coach_question", p+":"+q.id, p, q, recStamp(q, "coach_question"));
+  }));
+  if(recIsObj(data.adminPin)) put("family", "adminPin", null, data.adminPin, recMs(data.adminPin.updatedAt));
+  (data.deletedLogs||[]).forEach(id=>tomb("log", id, null, {id:id}, 0));
+  (data.deletedBodyweights||[]).forEach(t=>{ if(recIsObj(t) && t.person && t.date) tomb("bodyweight", t.person+":"+t.date, t.person, {person:t.person, date:t.date}, t.deletedAt); });
+  (data.deletedMeals||[]).forEach(t=>{ if(recIsObj(t) && t.id!=null) tomb("meal", t.id, null, {id:t.id}, t.deletedAt); });
+  return Object.keys(rows).map(k=>rows[k]).sort(recNatural);
+}
+// A deleted record whose last edit is newer than the delete (it was added back) is alive.
+function recAlive(row){ return row.deleted_at==null || (row.updated_at||0)>row.deleted_at; }
+// A data.json-shaped payload from rows. The people sit in their slots, and the program the first person trains is `program`.
+function fromRecords(rows){
+  const data={version:1, people:["",""], weights:["",""], goals:["",""], suggestions:[], programChanges:[], meals:[], measurements:[],
+    bodyweights:[], logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[], coachQuestions:{}, programs:{}, programIds:{},
+    program:{order:[], sessions:{}}};
+  REC_PERSON_FIELDS.forEach(f=>{ data[f]={}; });
+  const persons=[], lists={bodyweight:"bodyweights", measurement:"measurements", meal:"meals", suggestion:"suggestions", program_change:"programChanges"};
+  clone(rows).sort(recNatural).forEach(row=>{
+    const kind=row.kind, body=row.body||{}, person=row.person||body.person;
+    if(row.deleted_at!=null && REC_STUB_KINDS.indexOf(kind)>=0){
+      if(kind==="log") data.deletedLogs.push("id" in body ? body.id : row.key);
+      else if(kind==="bodyweight") data.deletedBodyweights.push({person:person, date:body.date, deletedAt:row.deleted_at});
+      else data.deletedMeals.push({id:"id" in body ? body.id : row.key, deletedAt:row.deleted_at});
+    }
+    if(!recAlive(row)) return;
+    if(kind==="log") data.logs.push(body);
+    else if(lists[kind]) data[lists[kind]].push(body);
+    else if(kind==="coach_question") (data.coachQuestions[person||row.key.split(":")[0]]||(data.coachQuestions[person||row.key.split(":")[0]]=[])).push(body);
+    else if(kind==="person") persons.push(row);
+    else if(kind==="program") data.programs[row.key]=body;
+    else if(kind==="family" && row.key==="adminPin") data.adminPin=body;
+    else if(kind.indexOf("person_data:")===0 && REC_PERSON_FIELDS.indexOf(kind.slice(12))>=0)
+      data[kind.slice(12)][person||row.key]=Object.keys(body).length===1 && "_v" in body ? body._v : body;
+  });
+  const slotOf=r=>Number.isInteger(r.body.slot) ? r.body.slot : 99;
+  persons.sort((a,b)=>slotOf(a)-slotOf(b) || (a.key<b.key ? -1 : a.key>b.key ? 1 : 0));
+  persons.forEach(r=>{
+    let slot=r.body.slot;
+    if(!(Number.isInteger(slot) && slot>=0 && slot<data.people.length && !data.people[slot])){
+      data.people.push(""); data.weights.push(""); data.goals.push("");
+      slot=data.people.length-1;
+    }
+    data.people[slot]=r.key; data.weights[slot]=r.body.weight==null ? "" : r.body.weight; data.goals[slot]=r.body.goal==null ? "" : r.body.goal;
+  });
+  persons.forEach(r=>{
+    if(r.body.programId in data.programs) data.programIds[r.key]={id:r.body.programId, updatedAt:r.body.programIdAt||0};
+  });
+  const first=persons.map(r=>(data.programIds[r.key]||{}).id).find(Boolean);
+  if(Object.keys(data.programs).length) data.program=data.programs[first||Object.keys(data.programs).sort()[0]];
+  return data;
+}
+// A sorted-key JSON text, so two bodies that hold the same things give the same text.
+function recCanon(v){
+  if(Array.isArray(v)) return "["+v.map(recCanon).join(",")+"]";
+  if(v && typeof v==="object") return "{"+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+":"+recCanon(v[k])).join(",")+"}";
+  return JSON.stringify(v===undefined ? null : v);
+}
+function recHash(text){
+  let h1=0xdeadbeef, h2=0x41c6ce57;
+  for(let i=0;i<text.length;i++){ const c=text.charCodeAt(i); h1=Math.imul(h1^c, 2654435761); h2=Math.imul(h2^c, 1597334677); }
+  h1=Math.imul(h1^(h1>>>16), 2246822507)^Math.imul(h2^(h2>>>13), 3266489909);
+  h2=Math.imul(h2^(h2>>>16), 2246822507)^Math.imul(h1^(h1>>>13), 3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);
+}
+// What a row holds, for telling whether it changed. A program's version is the server's to count.
+function rowHash(row){
+  const body=row.kind==="program" ? Object.assign({}, row.body, {version:undefined}) : row.body;
+  return recHash(recCanon([row.person, body, row.updated_at, row.deleted_at]));
+}
+// ==== end Family storage ====
+
 function renderHelp(){
   // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
   // a contents list. A numbered title ("3 &middot; Time it...") keeps its number
