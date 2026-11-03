@@ -1127,6 +1127,9 @@ def set_log_entry(session_id, exercise, rows, why=""):
             return None
         previous = json.loads(json.dumps(entry.get("rows")))
         entry["rows"] = clean
+        # The app's mergeRecord settles a log edited on both sides by updatedAt, so without
+        # this stamp a phone holding any newer edit kept its old rows over this correction.
+        log["updatedAt"] = _now_ms()
         note = str(why or "").strip()
         # Stamped so the next reader can tell a corrected entry from a synced one.
         log.setdefault("corrections", []).append(
@@ -2150,7 +2153,10 @@ def _register(mcp):
 
         Say what you changed and why in `why` - it is kept on the session alongside the
         previous rows, which also come back in the response so a bad edit can be undone.
-        A corrected entry is never silently overwritten by a later sync."""
+        A corrected entry is never silently overwritten by a later sync.
+
+        A session a person has edited in the app carries `editedAt` (ms, null once they undid
+        it). Its sets were changed by the person, so read them as typed, not as a sync's guess."""
         return json.dumps(set_log_entry(session_id, exercise, rows, why), indent=2)
 
     @mcp.tool()

@@ -83,6 +83,9 @@ automatically, because it reads this file each time.
 > to see **what you last advised** - then judge whether they followed it and whether the numbers
 > actually improved since (e.g. did the squat cue "add 2.5kg" show up as +2.5kg this week?). Read
 > their session `feedback` notes closely - that's where injuries, form cues and how they felt live.
+> A session they changed in the app after saving it carries `editedAt` (ms, null once they undid
+> it): its sets, warm-up marks, RPE, difficulty and note are what they say they did, so read them as
+> typed. `write_log_entry` is for a sync's wrong guess, not for those.
 > Cross-reference against their saved profile: does recent training respect their hard stops, and is
 > it tracking toward their stated primary goal on the timeline they gave you?
 >
