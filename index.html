@@ -58,32 +58,46 @@
     </div>
     <button class="btn btn-ghost" id="guideBtn">Open Guide</button>
   </div>
+  <div class="ptoggle pane-toggle set-tabs" id="setTabs" role="group" aria-label="Settings section">
+    <button type="button" data-set-tab="profile" class="active">Profile</button><button type="button" data-set-tab="admin"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Admin</button>
+  </div>
+  <div id="setProfile">
   <label class="fld" style="margin-bottom:12px">Name<input id="pName" type="text"></label>
   <label class="fld" style="margin-bottom:12px">Colour
     <div class="swatchpick" id="pColor"></div>
   </label>
   <label class="fld" style="margin-bottom:12px" id="pWeightLab">Bodyweight (kg)<input id="pWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 76"></label>
   <label class="fld" style="margin-bottom:6px" id="pGoalsLab">Goals<textarea id="pGoals" placeholder="e.g. squat 100kg, sub-25 min 5k, stay injury-free" style="min-height:56px"></textarea></label>
-  <div class="sess-pick" style="margin-bottom:6px">
-    <label class="fld">Calories a day<input id="pKcal" type="number" inputmode="numeric" step="10" placeholder="e.g. 2600"></label>
-    <label class="fld">Protein a day (g)<input id="pProtein" type="number" inputmode="numeric" step="5" placeholder="e.g. 160"></label>
-  </div>
   <div class="hint" style="margin-bottom:14px">For the selected person - switch person at the top to edit the other. Saved with your data so a coach (or Claude) can see what you're working toward.</div>
-  <label class="row" style="margin-bottom:14px;gap:8px;flex-wrap:nowrap;align-items:flex-start">
-    <input type="checkbox" id="pProg">
-    <span class="hint" style="margin:0"><b>Progression targets</b> - show the weight and reps to aim for in the set boxes, worked out from the last sessions. Each exercise has its own switch under the wrench.</span>
-  </label>
-  <div class="sec-title" style="margin:4px 0 8px">Improve the app</div>
+  <div class="sec-title" style="margin:4px 0 8px">What you use</div>
+  <div class="sw-list" id="featRows">
+    <div class="sw" data-feat="progression"></div>
+    <div class="sw" data-feat="food"></div>
+    <div class="sw-sub" data-sub="food">
+      <div class="sess-pick">
+        <label class="fld">Calories a day<input id="pKcal" type="number" inputmode="numeric" step="10" placeholder="e.g. 2600"></label>
+        <label class="fld">Protein a day (g)<input id="pProtein" type="number" inputmode="numeric" step="5" placeholder="e.g. 160"></label>
+      </div>
+    </div>
+    <div class="sw" data-feat="body"></div>
+    <div class="sw" data-feat="garmin"></div>
+    <div class="sw-sub" data-sub="garmin">
+      <div class="row"><button class="btn btn-ghost grow" id="coachBriefBtn">Coach brief</button></div>
+      <div class="hint">Copies a Markdown summary of the selected person to paste into Claude.</div>
+    </div>
+  </div>
+  <div class="sec-title" style="margin:14px 0 8px">Improve the app</div>
   <label class="fld" style="margin-bottom:6px">Spotted a bug or have an idea? Jot it here<textarea id="sugText" placeholder="e.g. add a rest timer between sets; History date is hard to read" style="min-height:52px"></textarea></label>
   <div class="row" style="margin-bottom:6px"><button class="btn btn-ghost grow" id="sugSend">+ Add suggestion</button></div>
   <div id="sugList" style="margin-bottom:14px"></div>
+  </div>
+  <div id="setAdmin" hidden>
   <div class="sec-title" style="margin:4px 0 8px">Backup &amp; data</div>
   <div class="row" style="margin-bottom:6px">
     <button class="btn btn-ghost grow" id="exportBtn">Export</button>
     <button class="btn btn-ghost grow" id="importBtn">Import / merge</button>
-    <button class="btn btn-ghost grow" id="coachBriefBtn">Coach brief</button>
   </div>
-  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates. Coach brief copies a Markdown summary of the selected person to paste into Claude.</div>
+  <div class="hint" style="margin-bottom:14px">Export saves a file with everything on this device - use it as a backup, or to move data to another device (gear &rarr; Admin &rarr; Export there, then Import here). Import merges by ID, so nothing duplicates.</div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
   <!-- Design v3: status first. The repo / path / token fields fold away once
        sync is set up (renderSettings opens the fold when it isn't). -->
@@ -104,14 +118,19 @@
     <summary class="sec-title" style="margin:0">What's not set up yet</summary>
     <div id="notSetupList"></div>
   </details>
-  <div class="row" style="justify-content:space-between;align-items:center">
-    <div class="row" style="gap:6px">
-      <button class="btn-danger mini" id="resetProgram">Clear program</button>
-      <button class="btn-danger mini" id="deleteAccount">Delete this account</button>
-    </div>
+  <div class="sec-title" style="margin:4px 0 8px">Accounts on this device</div>
+  <div id="accountList" style="margin-bottom:8px"></div>
+  <div class="row" style="margin-bottom:6px"><button class="btn-danger mini" id="deleteAccount">Delete this account</button></div>
+  <div class="hint" style="margin-bottom:14px">Deletes the account shown at the top. Its logged history stays saved under its name, so adding an account with the exact same name later reconnects it.</div>
+  <div class="sec-title" style="margin:4px 0 8px">Program</div>
+  <div id="programOwners" class="hint" style="margin:0 0 8px"></div>
+  <div class="row" style="margin-bottom:6px"><button class="btn-danger mini" id="resetProgram">Clear program</button></div>
+  <div class="hint" style="margin-bottom:14px">Clearing the program empties it on every synced device and can't be undone, so it takes a backup first. Your logged history is never deleted.</div>
+  </div>
+  <div class="row" style="justify-content:flex-end;margin-top:14px">
     <button class="btn btn-primary" id="settingsClose2">Done</button>
   </div>
-  <div class="hint" style="margin-top:10px">Changes save automatically when you close. Clearing the program empties it on every synced device and can't be undone, so it takes a backup first; your logged history is never deleted.</div>
+  <div class="hint" style="margin-top:10px">Changes save automatically when you close.</div>
 </div></dialog>
 
 <!-- Result of gear → Update now. A dialog rather than a toast: updating reloads

@@ -1383,7 +1383,9 @@ const ICONS={
   check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/>',
   back:'<path d="m15 6-6 6 6 6"/>',
-  chevron:'<path d="m9 6 6 6-6 6"/>'
+  chevron:'<path d="m9 6 6 6-6 6"/>',
+  info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
+  lock:'<rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
 };
 // The gold PR badge (design v3), in place of the old medal emoji.
 const PR_BADGE='<span class="pr-badge">PR</span>';
@@ -3975,6 +3977,56 @@ document.getElementById("exSave").onclick=()=>{
 };
 
 const setDlg=document.getElementById("settingsDlg");
+// The Profile switches, in the order the dialog lists them: key, name, and the line behind its (i).
+const FEATURE_ROWS=[
+  ["progression","Progression targets","Shows the weight and reps to aim for in each set, worked out from your last sessions. Each exercise can be switched off under its wrench."],
+  ["food","Food and calories","Shows the Food pane and today's food on Home, with your calorie and protein targets. Meals come from the Home Hub."],
+  ["body","Tape and body measures","Shows bodyweight, weigh-ins, scale import and the four-weekly tape measurements. Your goals stay either way."],
+  ["garmin","Garmin and coach","Shows watch data (heart rate, sleep, 5k estimate, run import) and the coach's notes, targets and questions. Turn off if you don't use a watch or a coach."]];
+const featBox=key=>document.getElementById("pFeat-"+key);
+document.querySelectorAll("#featRows [data-feat]").forEach(el=>{
+  const r=FEATURE_ROWS.find(x=>x[0]===el.dataset.feat);
+  el.innerHTML='<div class="sw-head"><label class="sw-name" for="pFeat-'+r[0]+'">'+r[1]+'</label>'
+    + '<button type="button" class="info-btn" data-info aria-expanded="false" aria-label="About '+r[1]+'">'+ico("info")+'</button>'
+    + '<input type="checkbox" class="sw-box" id="pFeat-'+r[0]+'"></div>'
+    + '<div class="hint sw-info" hidden>'+esc(r[2])+'</div>';
+  el.querySelector("[data-info]").onclick=e=>{
+    const info=el.querySelector(".sw-info");
+    info.hidden=!info.hidden;
+    e.currentTarget.setAttribute("aria-expanded", String(!info.hidden));
+  };
+  featBox(r[0]).onchange=showFeatureSubs;
+});
+// The fields that belong to a switch (targets under Food, the brief under Garmin) show while it is on.
+function showFeatureSubs(){
+  document.querySelectorAll("#featRows [data-sub]").forEach(el=>{ el.hidden=!featBox(el.dataset.sub).checked; });
+}
+function setSettingsTab(tab){
+  document.querySelectorAll("#setTabs [data-set-tab]").forEach(b=>b.classList.toggle("active", b.dataset.setTab===tab));
+  document.getElementById("setProfile").hidden=tab!=="profile";
+  document.getElementById("setAdmin").hidden=tab!=="admin";
+}
+document.querySelectorAll("#setTabs [data-set-tab]").forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.setTab));
+// Who is on this device and what each has switched off. Read only: the switches are per person, set on their Profile.
+function renderAccountList(){
+  const named=state.people.filter(Boolean);
+  document.getElementById("accountList").innerHTML = named.length ? named.map(n=>{
+    const off=FEATURE_ROWS.filter(r=>!featOn(n,r[0])).map(r=>r[1]);
+    return '<div class="log-row" style="padding:5px 0;border-bottom:1px solid var(--line);gap:8px"><div>'
+      + '<span class="pill" data-sw="'+personSwatch(n)+'">'+esc(n)+'</span> '
+      + '<span class="ex-meta">'+(off.length?'Off: '+esc(off.join(", ")):'Everything on')+'</span></div>'
+      + (n===state.people[state.activePerson]?'<span class="ex-meta">shown now</span>':'')+'</div>';
+  }).join("") : '<div class="hint" style="margin:0">No accounts yet.</div>';
+}
+// The sessions that belong to one person, as the program holds them. Read only.
+function renderProgramOwners(){
+  const by={};
+  state.program.order.forEach(k=>{ const s=state.program.sessions[k]; if(s && s.person) (by[s.person]||(by[s.person]=[])).push(s.name); });
+  const who=Object.keys(by);
+  document.getElementById("programOwners").innerHTML = who.length
+    ? 'Sessions offered to one person only:'+who.map(n=>'<br><b>'+esc(n)+'</b> - '+by[n].map(esc).join(", ")).join("")
+    : 'Every session is offered to everyone.';
+}
 document.getElementById("settingsBtn").onclick=()=>{
   // Settings are person-specific: edit the selected person; switch person to edit the other.
   const i=state.activePerson;
@@ -3988,7 +4040,10 @@ document.getElementById("settingsBtn").onclick=()=>{
   const nt=foodTarget(state.people[i]);
   document.getElementById("pKcal").value=nt.kcal||"";
   document.getElementById("pProtein").value=nt.protein||"";
-  document.getElementById("pProg").checked=progPersonOn(state.people[i]);
+  FEATURE_ROWS.forEach(r=>{ featBox(r[0]).checked=featOn(state.people[i], r[0]); });
+  document.querySelectorAll("#featRows .sw-info").forEach(el=>el.hidden=true);
+  document.querySelectorAll("#featRows [data-info]").forEach(b=>b.setAttribute("aria-expanded","false"));
+  showFeatureSubs();
   document.getElementById("pWeightLab").childNodes[0].nodeValue=possessive(state.people[i])+" bodyweight (kg)";
   document.getElementById("pGoalsLab").childNodes[0].nodeValue=possessive(state.people[i])+" goals";
   const sc=loadSync();
@@ -4001,7 +4056,10 @@ document.getElementById("settingsBtn").onclick=()=>{
   document.getElementById("sugText").value="";
   renderSuggestions();
   renderNotSetupList();
+  renderAccountList();
+  renderProgramOwners();
   showAppVersion();
+  setSettingsTab("profile");
   setDlg.showModal();
   // Only once the dialog is actually on screen - autoGrow reads scrollHeight,
   // which is 0 while it's still hidden.
@@ -4123,8 +4181,7 @@ function saveSettingsPerson(){
   const kcalT=num("pKcal"), proteinT=num("pProtein"), oldT=foodTarget(state.people[i]);
   if(state.people[i] && (kcalT!==(oldT.kcal||null) || proteinT!==(oldT.protein||null)))
     state.nutritionTargets[state.people[i]]={kcal:kcalT, protein:proteinT, updatedAt:Date.now()};
-  const progChecked=document.getElementById("pProg").checked;
-  if(state.people[i] && progChecked!==progPersonOn(state.people[i])) progSet(state.people[i], null, progChecked);
+  if(state.people[i]) FEATURE_ROWS.forEach(r=>{ if(featBox(r[0]).checked!==featOn(state.people[i], r[0])) featSet(state.people[i], r[0], featBox(r[0]).checked); });
   // Only record a bodyweight when the number was actually edited. This used to run on
   // every settings close, so merely opening Settings on a new day stamped that day with
   // the unchanged weight and the trend chart gained a flat point daily. Weigh-ins should
