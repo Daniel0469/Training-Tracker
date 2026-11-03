@@ -32,6 +32,10 @@ def base_source(rev, rel, tmp):
     out = os.path.join(tmp, "base_" + rel.replace("/", "_"))
     with open(out, "wb") as f:
         f.write(text)
+    if rel.startswith("mcp-coach"):      # the server imports progression.py from its own folder
+        with open(os.path.join(tmp, "progression.py"), "wb") as f:
+            f.write(subprocess.run(["git", "show", f"{rev}:mcp-coach/progression.py"], cwd=ROOT,
+                                   capture_output=True, check=True).stdout)
     return out
 
 

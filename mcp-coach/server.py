@@ -129,23 +129,25 @@ def _github_read_with_sha():
 def _github_write(data, sha, url, token, message):
     return _gh_put(url, token, data, message, sha)
 
-def _github_update(mutate, message, attempts=3):
+def _github_update(mutate, message, attempts=3, read=None, write=None, conflicts=(409, 412)):
     """Read -> mutate -> write the shared store, retrying if another writer got in
     first. data.json has several writers (both phones' sync, this coach, the Garmin
     job); each sends the file's sha, so a race 409s instead of silently losing the
     other side's data - but without a retry that just surfaced as an error. `mutate`
     edits the data in place and returns a result; returning None aborts (no write).
-    `message` is the commit message, or a callable taking the result."""
+    `message` is the commit message, or a callable taking the result. `read` and `write`
+    swap in another file (see _text_io); `conflicts` are the codes that mean "re-read"."""
+    read, write = read or _github_read_with_sha, write or _github_write
     for attempt in range(attempts):
-        data, sha, url, token = _github_read_with_sha()
+        data, sha, url, token = read()
         result = mutate(data)
         if result is None:
             return None
         try:
-            _github_write(data, sha, url, token, message(result) if callable(message) else message)
+            write(data, sha, url, token, message(result) if callable(message) else message)
         except urllib.error.HTTPError as e:
             # 409/412 = someone else wrote between our read and write: re-read and reapply.
-            if e.code not in (409, 412):
+            if e.code not in conflicts:
                 raise
             if attempt == attempts - 1:
                 raise RuntimeError(
@@ -155,10 +157,10 @@ def _github_update(mutate, message, attempts=3):
             continue
         return result
 
-def _write(mutate, failed, commit, message):
+def _write(mutate, failed, commit, message, **io):
     """_github_update, then the reply a write tool returns: the mutate's result with ok and
     `message` (text, or a callable taking the result), or ok False with what `mutate` put in `failed`."""
-    result = _github_update(mutate, commit)
+    result = _github_update(mutate, commit, **io)
     if result is None:
         return {"ok": False, **failed}
     result["ok"] = True
@@ -1574,6 +1576,366 @@ def get_progression(data, person):
                                if r["status"] in ("hold", "unsure") and r.get("step") is None]
     return out
 
+# ---------------------------------------------------------------- coach memory
+# Per person, the coach keeps two files next to the coaching log, in the same private repo:
+#   coach/<name>/profile.md    current truth, replaced as a whole
+#   coach/<name>/decisions.md  append-only, with an index of active and due decisions on top
+# and the open questions in data.json (coachQuestions[person]) so the app can show and answer them.
+# The method is docs/methods/coaching-behaviour-method.md.
+def _coach_path(person, name):
+    log = _log_cfg()[2]
+    return (log.rsplit("/", 1)[0] + "/" if "/" in log else "") + f"coach/{person}/{name}"
+
+def _text_read_with_sha(path):
+    """A file's text as ({"text", "exists"}, sha, url, token). A missing file is a first write."""
+    repo, token, _ = _github_cfg()
+    url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    try:
+        j = _gh_request(url, token)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return {"text": "", "exists": False}, None, url, token
+        raise
+    return {"text": base64.b64decode(j["content"]).decode("utf-8"), "exists": True}, j["sha"], url, token
+
+def _text_write(box, sha, url, token, message):
+    body = {"message": message, "content": base64.b64encode(box["text"].encode("utf-8")).decode("ascii")}
+    if sha:
+        body["sha"] = sha
+    return _gh_request(url, token, body)
+
+def _text_io(path):
+    """The read, write and conflict codes that make _github_update work on a text file. 422 is
+    what GitHub answers when two writers both try to create the same file."""
+    return {"read": lambda: _text_read_with_sha(path), "write": _text_write, "conflicts": (409, 412, 422)}
+
+def _person_named(data, person):
+    """The person's exact name from data.json (case-insensitive match), or None."""
+    return next((p for p in data.get("people") or []
+                 if p and str(p).strip().lower() == str(person).strip().lower() and "/" not in p and ".." not in p), None)
+
+def _unknown_person(data, person):
+    return {"error": f"No person named {person!r}.", "people": [p for p in data.get("people") or [] if p]}
+
+def _line(value):
+    return re.sub(r"\s+", " ", str(value if value is not None else "")).strip()
+
+def _valid_date(text):
+    try:
+        datetime.date.fromisoformat(str(text))
+        return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(text)))
+    except ValueError:
+        return False
+
+def _in_days(days):
+    return (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+
+def _numbered_id(prefix, taken):
+    n = 1
+    while f"{prefix}-{n:02d}" in taken:
+        n += 1
+    return f"{prefix}-{n:02d}"
+
+MAX_PROFILE_CHARS = 60000
+
+def get_coach_profile(data, person):
+    name = _person_named(data, person)
+    if not name:
+        return _unknown_person(data, person)
+    box = _text_read_with_sha(_coach_path(name, "profile.md"))[0]
+    return {"person": name, "exists": box["exists"], "text": box["text"]}
+
+def set_coach_profile(person, text):
+    """Replace coach/<person>/profile.md with `text`."""
+    data = load_data()
+    name = _person_named(data, person)
+    if not name:
+        return {"ok": False, **_unknown_person(data, person)}
+    text = str(text or "").replace("\r\n", "\n").strip() + "\n"
+    if len(text) < 20 or len(text) > MAX_PROFILE_CHARS:
+        return {"ok": False, "error": f"The profile must be between 20 and {MAX_PROFILE_CHARS} characters."}
+    def mutate(box):
+        replaced = box["text"] if box["exists"] else None
+        box["text"], box["exists"] = text, True
+        return {"person": name, "path": _coach_path(name, "profile.md"), "chars": len(text), "replaced": replaced is not None}
+    return _write(mutate, {}, f"Coach profile: {name}",
+                  "Saved. It replaced the whole file, so read it back (coach_profile) to check it.",
+                  **_text_io(_coach_path(name, "profile.md")))
+
+# Decisions: one "### <id>" block per decision, "- field: value" lines, then dated review lines.
+DECISION_STATUSES = ("proposed", "approved", "applied", "declined", "superseded", "reviewed")
+ACTIVE_DECISION_STATUSES = ("proposed", "approved", "applied")
+DECISION_VALUES = {
+    "agreement": ("agreed", "agreed_with_changes", "pushed_back", "declined", "no_response"),
+    "implementation": ("not_due", "completed", "partly_completed", "not_completed", "unknown"),
+    "satisfaction": ("liked", "disliked", "mixed", "neutral", "not_asked"),
+    "outcome": ("pending", "helpful", "unhelpful", "mixed", "uncertain", "not_yet_evaluable"),
+    "status": DECISION_STATUSES,
+}
+DECISION_FIELDS = ("date", "status", "scope", "authority", "rule", "before", "after", "reason", "expected", "watch",
+                   "exposure_needed", "review_due", "agreement", "implementation", "satisfaction", "response_quote",
+                   "outcome", "next_action", "supersedes", "superseded_by", "linked_questions", "profile_update")
+ENTRIES_HEADING = "## Entries"
+
+def _decision_block(decision_id, fields, reviews, extra=()):
+    lines = [f"### {decision_id}"]
+    ordered = [k for k in DECISION_FIELDS if k in fields] + [k for k in fields if k not in DECISION_FIELDS]
+    lines += [f"- {k}: {fields[k]}" for k in ordered if fields[k] != ""]
+    lines += list(extra)
+    if reviews:
+        lines += ["- reviews:"] + [f"  - {r}" for r in reviews]
+    return "\n".join(lines) + "\n"
+
+def _parse_decision_block(block):
+    """(id, fields, reviews, extra) - extra keeps any line that is not a field, so a hand edit survives."""
+    lines = block.rstrip().split("\n")
+    fields, reviews, extra, in_reviews = {}, [], [], False
+    for line in lines[1:]:
+        if line.startswith("- reviews:"):
+            in_reviews = True
+        elif in_reviews and line.startswith("  - "):
+            reviews.append(line[4:])
+        elif re.match(r"- [a-z_]+:", line):
+            key, _, value = line[2:].partition(":")
+            fields[key], in_reviews = value.strip(), False
+        elif line.strip():
+            extra.append(line)
+    return lines[0][4:].strip(), fields, reviews, extra
+
+def _split_decisions(text):
+    head, sep, body = text.partition(ENTRIES_HEADING + "\n")
+    if text.strip() and not sep:
+        return None
+    return [b for b in re.split(r"(?m)^(?=### )", body) if b.strip()]
+
+def _decision_index(blocks):
+    today = _today()
+    active, due = [], []
+    for decision_id, f, _, _ in map(_parse_decision_block, blocks):
+        if f.get("status") in ACTIVE_DECISION_STATUSES:
+            when = f.get("review_due") or ""
+            row = f"- {decision_id} | {f.get('status')} | {f.get('scope', '')} | " + (f"review due {when}" if when else "no review date")
+            active.append((when or "9999", row))
+            if when and when <= today:
+                due.append((when, row))
+    rows = lambda items: [r for _, r in sorted(items)] or ["- none"]
+    return {"active": rows(active), "due": rows(due), "today": today}
+
+def _decisions_text(person, blocks):
+    index = _decision_index(blocks)
+    return "\n".join([
+        f"# Decisions: {person}", "",
+        "Append-only. New decisions go at the end. A review adds dated lines and sets the response fields.",
+        "The index is rebuilt on every write. Method: docs/methods/coaching-behaviour-method.md.", "",
+        "## Index", "", f"Active (proposed, approved, applied). Today is {index['today']}.", "",
+        *index["active"], "", "Due for review (review date is today or earlier):", "", *index["due"], "",
+        ENTRIES_HEADING, "", "\n".join(b.rstrip() + "\n" for b in blocks)])
+
+def _bad_decision_value(fields):
+    for key, allowed in DECISION_VALUES.items():
+        if key in fields and fields[key] not in allowed:
+            return f"{key} must be one of {', '.join(allowed)}."
+    for key in ("review_due",):
+        if fields.get(key) and not _valid_date(fields[key]):
+            return f"{key} must be a date like 2026-11-16."
+    return None
+
+def get_coach_decisions(data, person):
+    name = _person_named(data, person)
+    if not name:
+        return _unknown_person(data, person)
+    box = _text_read_with_sha(_coach_path(name, "decisions.md"))[0]
+    blocks = _split_decisions(box["text"]) or []
+    return {"person": name, "exists": box["exists"], "index": _decision_index(blocks), "text": box["text"]}
+
+def add_decision(person, scope, before, after, reason, expected, review_due, authority="", status="applied",
+                 rule="", watch="", exposure_needed="", agreement="no_response", implementation="not_due",
+                 satisfaction="not_asked", response_quote="", supersedes="", linked_questions=None,
+                 profile_update="", decision_id=""):
+    """Append one decision to coach/<person>/decisions.md and rebuild the index."""
+    data = load_data()
+    name = _person_named(data, person)
+    if not name:
+        return {"ok": False, **_unknown_person(data, person)}
+    fields = {"date": _today(), "status": status, "scope": scope, "authority": authority, "rule": rule,
+              "before": before, "after": after, "reason": reason, "expected": expected, "watch": watch,
+              "exposure_needed": exposure_needed, "review_due": review_due, "agreement": agreement,
+              "implementation": implementation, "satisfaction": satisfaction, "response_quote": response_quote,
+              "outcome": "pending", "supersedes": supersedes,
+              "linked_questions": ", ".join(linked_questions or []), "profile_update": profile_update}
+    fields = {k: _line(v) for k, v in fields.items()}
+    missing = [k for k in ("scope", "before", "after", "reason", "expected", "review_due") if not fields[k]]
+    error = f"Needs a value for: {', '.join(missing)}." if missing else _bad_decision_value(fields)
+    if not error and decision_id and not re.fullmatch(r"D-[A-Za-z0-9-]+", decision_id):
+        error = "decision_id looks like D-20261102-01."
+    if error:
+        return {"ok": False, "error": error}
+    failed = {}
+    def mutate(box):
+        blocks = _split_decisions(box["text"])
+        if blocks is None:
+            failed["error"] = "decisions.md does not follow the entry format. Fix it by hand before adding to it."
+            return None
+        parsed = [_parse_decision_block(b) for b in blocks]
+        taken = {p[0] for p in parsed}
+        new_id = decision_id or _numbered_id("D-" + _today().replace("-", ""), taken)
+        if new_id in taken:
+            failed["error"] = f"{new_id} already exists. Decisions are append-only: use review_coach_decision."
+            return None
+        if fields["supersedes"]:
+            old = next((i for i, p in enumerate(parsed) if p[0] == fields["supersedes"]), None)
+            if old is None:
+                failed["error"] = f"supersedes {fields['supersedes']} is not in the log."
+                return None
+            did, f, reviews, extra = parsed[old]
+            blocks[old] = _decision_block(did, dict(f, status="superseded", superseded_by=new_id), reviews, extra)
+        blocks.append(_decision_block(new_id, fields, []))
+        box["text"] = _decisions_text(name, blocks)
+        return {"person": name, "decision_id": new_id, "index": _decision_index(blocks)}
+    return _write(mutate, failed, f"Coach decision: {name}", "Saved to decisions.md. Read it back to check the index.",
+                  **_text_io(_coach_path(name, "decisions.md")))
+
+def review_decision(person, decision_id, implementation=None, agreement=None, satisfaction=None,
+                    response_quote=None, status=None, outcome=None, observed="", next_action=None,
+                    next_review=None, uncertainty="", profile_update=None):
+    """Set the response and review fields on an existing decision, add a dated review line and
+    rebuild the index. The change, reason and expected result are never touched."""
+    data = load_data()
+    name = _person_named(data, person)
+    if not name:
+        return {"ok": False, **_unknown_person(data, person)}
+    given = {"implementation": implementation, "agreement": agreement, "satisfaction": satisfaction,
+             "response_quote": response_quote, "status": status, "outcome": outcome,
+             "next_action": next_action, "review_due": next_review, "profile_update": profile_update}
+    given = {k: _line(v) for k, v in given.items() if v is not None}
+    if not given and not _line(observed):
+        return {"ok": False, "error": "Nothing to change. Pass at least one field or `observed`."}
+    error = _bad_decision_value(given)
+    if error:
+        return {"ok": False, "error": error}
+    failed = {}
+    def mutate(box):
+        blocks = _split_decisions(box["text"]) or []
+        at = next((i for i, b in enumerate(blocks) if _parse_decision_block(b)[0] == decision_id), None)
+        if at is None:
+            failed["error"] = f"No decision {decision_id!r} in decisions.md."
+            return None
+        did, fields, reviews, extra = _parse_decision_block(blocks[at])
+        fields = dict(fields)
+        fields.update(given)
+        if "outcome" in given and "status" not in given and "review_due" not in given and fields.get("status") in ACTIVE_DECISION_STATUSES:
+            fields["status"] = "reviewed"
+        line = [_today()] + [f"{k.replace('_', ' ')} {v}" for k, v in given.items() if k != "profile_update"]
+        for label, text in (("observed", observed), ("uncertainty", uncertainty)):
+            if _line(text):
+                line.append(f"{label}: {_line(text)}")
+        blocks[at] = _decision_block(did, fields, reviews + [" | ".join(line)], extra)
+        box["text"] = _decisions_text(name, blocks)
+        return {"person": name, "decision_id": did, "status": fields.get("status"), "index": _decision_index(blocks)}
+    return _write(mutate, failed, f"Coach decision review: {name}", "Saved to decisions.md. Read it back to check the index.",
+                  **_text_io(_coach_path(name, "decisions.md")))
+
+# Questions: data.json coachQuestions[person] = [{id, question, why, priority, decision, askedAt,
+# nextFollowUp, reminders, answer, answeredAt, status, updatedAt, closedReason?}]. `updatedAt` is ms
+# since the epoch, the same stamp the app writes, because the app merges each question by id and the
+# newest stamp wins.
+QUESTION_PRIORITIES = ("safety", "blocking", "routine", "optional")
+MAX_ROUTINE_QUESTIONS = 3
+
+def _now_ms():
+    return int(time.time() * 1000)
+
+def _normal(text):
+    return re.sub(r"\W+", " ", str(text)).strip().lower()
+
+def get_coach_questions(data, person, status="open"):
+    name = _person_named(data, person)
+    if not name:
+        return _unknown_person(data, person)
+    if status not in ("open", "answered", "closed", "all"):
+        return {"ok": False, "error": "status must be open, answered, closed or all."}
+    today = _today()
+    rows = [dict(q, due=q.get("status") == "open" and bool(q.get("nextFollowUp")) and q["nextFollowUp"] <= today)
+            for q in (data.get("coachQuestions") or {}).get(name) or []
+            if isinstance(q, dict) and status in ("all", q.get("status"))]
+    return {"person": name, "status": status, "questions": rows}
+
+def _question_edit(person, question_id, change, commit, message, statuses=("open", "answered")):
+    """Apply `change(q, failed)` to one open or answered question of the person, stamping updatedAt."""
+    failed = {}
+    def mutate(data):
+        name = _person_named(data, person)
+        if not name:
+            failed.update(_unknown_person(data, person))
+            return None
+        q = next((x for x in (data.get("coachQuestions") or {}).get(name) or []
+                  if isinstance(x, dict) and x.get("id") == question_id), None)
+        if q is None:
+            failed["error"] = f"{name} has no question {question_id!r}."
+            return None
+        if q.get("status") not in statuses:
+            failed["error"] = f"{question_id} is {q.get('status')}, so this does not apply."
+            return None
+        change(q, failed)
+        if failed:
+            return None
+        q["updatedAt"] = _now_ms()
+        return {"person": name, "question": dict(q)}
+    return _write(mutate, failed, commit.format(person=person), message)
+
+def add_question(person, question, why, priority="routine", decision="", next_follow_up="", question_id=""):
+    question, why = _line(question), _line(why)
+    if not question or not why:
+        return {"ok": False, "error": "A question needs its text and why the answer matters."}
+    if priority not in QUESTION_PRIORITIES:
+        return {"ok": False, "error": f"priority must be one of {', '.join(QUESTION_PRIORITIES)}."}
+    if next_follow_up and not _valid_date(next_follow_up):
+        return {"ok": False, "error": "next_follow_up must be a date like 2026-11-09."}
+    failed = {}
+    def mutate(data):
+        name = _person_named(data, person)
+        if not name:
+            failed.update(_unknown_person(data, person))
+            return None
+        mine = (data.get("coachQuestions") or {}).get(name) or []
+        mine = [q for q in mine if isinstance(q, dict)]
+        same = next((q for q in mine if q.get("status") != "closed" and _normal(q.get("question")) == _normal(question)), None)
+        if same:
+            failed["error"] = f"Already asked as {same['id']} ({same['status']}). Remind or close it instead."
+            return None
+        new_id = question_id or _numbered_id("Q-" + _today().replace("-", ""), {q.get("id") for q in mine})
+        if any(q.get("id") == new_id for q in mine):
+            failed["error"] = f"{new_id} already exists."
+            return None
+        rec = {"id": new_id, "question": question, "why": why, "priority": priority, "decision": _line(decision),
+               "askedAt": _today(), "nextFollowUp": next_follow_up or _in_days(7), "reminders": 0, "answer": "",
+               "answeredAt": "", "status": "open", "updatedAt": _now_ms()}
+        data.setdefault("coachQuestions", {}).setdefault(name, []).append(rec)
+        routine = [q for q in mine + [rec] if q.get("status") == "open" and q.get("priority") in ("routine", "optional")]
+        out = {"person": name, "question": rec}
+        if len(routine) > MAX_ROUTINE_QUESTIONS:
+            out["warning"] = f"{len(routine)} routine or optional questions are open. Ask at most {MAX_ROUTINE_QUESTIONS} in one review."
+        return out
+    return _write(mutate, failed, f"Coach question for {person}", "Saved. It shows on their Home tab after Sync now.")
+
+def remind_question(person, question_id, next_follow_up=""):
+    if next_follow_up and not _valid_date(next_follow_up):
+        return {"ok": False, "error": "next_follow_up must be a date like 2026-11-09."}
+    def change(q, failed):
+        q["reminders"] = int(q.get("reminders") or 0) + 1
+        q["nextFollowUp"] = next_follow_up or _in_days(7)
+    return _question_edit(person, question_id, change, "Coach question reminder: {person}",
+                          "Saved. The reminder count went up by one.", statuses=("open",))
+
+def close_question(person, question_id, reason):
+    reason = _line(reason)
+    if not reason:
+        return {"ok": False, "error": "Say why it is closed: answered and acted on, declined, duplicate, superseded or no longer relevant."}
+    def change(q, failed):
+        q["status"], q["closedReason"] = "closed", reason
+    return _question_edit(person, question_id, change, "Coach question closed: {person}",
+                          "Saved. It no longer shows in the app.")
+
 # ---------------------------------------------------------------- MCP wiring
 def _register(mcp):
     @mcp.tool()
@@ -2171,6 +2533,101 @@ def _register(mcp):
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
                                        five_k or None, next_cardio or None,
                                        session_swap or None, lowest_rung or None, targets or None), indent=2)
+
+    @mcp.tool()
+    def coach_profile(person: str) -> str:
+        """The coach's memory file for `person`: coach/<person>/profile.md, their current truth
+        (goals, authority, dated and sourced safety notes, active program, preferences, response
+        patterns, checkpoint). Read it, and the decisions index, before advising anyone. Method:
+        docs/methods/coaching-behaviour-method.md."""
+        return json.dumps(get_coach_profile(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def write_coach_profile(person: str, text: str) -> str:
+        """Replace coach/<person>/profile.md with `text` (Markdown). It is a WHOLE-FILE write, so
+        read coach_profile first and carry forward everything still true, especially safety notes,
+        approvals and the checkpoint. Every fact carries its date and origin (athlete report,
+        training log, clinician instruction, coach hypothesis). Read it back afterwards."""
+        return json.dumps(set_coach_profile(person, text), indent=2)
+
+    @mcp.tool()
+    def coach_decisions(person: str) -> str:
+        """coach/<person>/decisions.md: the append-only decision log, with `index` listing the
+        active decisions and those due for review. Read it before deciding anything, review what
+        is due, and link a replacement to the decision it supersedes."""
+        return json.dumps(get_coach_decisions(load_data(), person), indent=2)
+
+    @mcp.tool()
+    def add_coach_decision(person: str, scope: str, before: str, after: str, reason: str, expected: str,
+                           review_due: str, authority: str = "", status: str = "applied", rule: str = "",
+                           watch: str = "", exposure_needed: str = "", agreement: str = "no_response",
+                           implementation: str = "not_due", satisfaction: str = "not_asked",
+                           response_quote: str = "", supersedes: str = "",
+                           linked_questions: list[str] | None = None, profile_update: str = "",
+                           decision_id: str = "") -> str:
+        """Append one decision to coach/<person>/decisions.md and rebuild its index. `before` and
+        `after` are the exact old and new prescription. `reason` separates what was observed from
+        what is thought to explain it. `expected` is an observable result with a time horizon, and
+        `watch` the downside to look for. `review_due` is a date (2026-11-16) and `exposure_needed`
+        what a fair review needs. `rule` cites the method rule, for example P4. `status` is one of
+        proposed, approved, applied, declined, superseded, reviewed. Agreement, implementation and
+        satisfaction are kept apart: agreement agreed, agreed_with_changes, pushed_back, declined,
+        no_response. Implementation not_due, completed, partly_completed, not_completed, unknown.
+        Satisfaction liked, disliked, mixed, neutral, not_asked. Silence is no_response, never
+        agreed. `supersedes` is the id of an older decision, which is then marked superseded.
+        `decision_id` is optional (D-YYYYMMDD-NN is generated). Never invent a response."""
+        return json.dumps(add_decision(person, scope, before, after, reason, expected, review_due, authority,
+                                       status, rule, watch, exposure_needed, agreement, implementation,
+                                       satisfaction, response_quote, supersedes, linked_questions,
+                                       profile_update, decision_id), indent=2)
+
+    @mcp.tool()
+    def review_coach_decision(person: str, decision_id: str, implementation: str | None = None,
+                              agreement: str | None = None, satisfaction: str | None = None,
+                              response_quote: str | None = None, status: str | None = None,
+                              outcome: str | None = None, observed: str = "", next_action: str | None = None,
+                              next_review: str | None = None, uncertainty: str = "",
+                              profile_update: str | None = None) -> str:
+        """Record the response and the review on an existing decision, add a dated review line and
+        rebuild the index. The change, reason and expected result are never edited. Pass only what
+        you know: `outcome` is helpful, unhelpful, mixed, uncertain, not_yet_evaluable or pending
+        (use not_yet_evaluable when the change was not tried). `next_action` starts with keep, revise,
+        revert, stop or defer. Setting an outcome marks an active decision reviewed, unless you pass
+        `next_review` (a date), which keeps it active and moves its review date."""
+        return json.dumps(review_decision(person, decision_id, implementation, agreement, satisfaction,
+                                          response_quote, status, outcome, observed, next_action,
+                                          next_review, uncertainty, profile_update), indent=2)
+
+    @mcp.tool()
+    def coach_questions(person: str, status: str = "open") -> str:
+        """The questions put to `person` (status open, answered, closed or all). An `answered` one has
+        their `answer` and `answeredAt` and is waiting for you to act on it and then close it. `due`
+        is true on an open one whose nextFollowUp has passed. Read these before asking anything, so
+        nothing is asked twice."""
+        return json.dumps(get_coach_questions(load_data(), person, status), indent=2)
+
+    @mcp.tool()
+    def add_coach_question(person: str, question: str, why: str, priority: str = "routine",
+                           decision: str = "", next_follow_up: str = "", question_id: str = "") -> str:
+        """Ask `person` a question. It shows on their Home tab with its `why`, and they answer there.
+        Ask only what could change a decision, clear up safety or respect a preference. `priority`
+        is safety, blocking, routine or optional. `decision` links a decision id. `next_follow_up`
+        is a date and defaults to a week. No more than three routine questions per review. A
+        question already open is refused. Whoever reads the answer is you, on the next review."""
+        return json.dumps(add_question(person, question, why, priority, decision, next_follow_up, question_id), indent=2)
+
+    @mcp.tool()
+    def remind_coach_question(person: str, question_id: str, next_follow_up: str = "") -> str:
+        """Count one reminder on an open question and move its follow-up date (default a week).
+        For a non-essential question, remind once, then close it after two reviews."""
+        return json.dumps(remind_question(person, question_id, next_follow_up), indent=2)
+
+    @mcp.tool()
+    def close_coach_question(person: str, question_id: str, reason: str) -> str:
+        """Close a question so it leaves the app: answered and acted on, declined, duplicate,
+        superseded or no longer relevant. `reason` is required. An unresolved safety question stays
+        open."""
+        return json.dumps(close_question(person, question_id, reason), indent=2)
 
 def _selftest(path):
     with open(path, encoding="utf-8") as fh:
