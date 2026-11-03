@@ -31,17 +31,19 @@ const FUNCTIONS = ["isLoadCol", "isLifting", "isTimed", "isRunning", "workRows",
   "colIndex", "loadTypeOf", "loadPctOf", "programExerciseByName", "clearCaches", "bwFor", "bodyweightOn",
   "setLoad", "logVolume", "newLogIndex", "indexLog", "logIndex", "prevBestLookup", "entryPr", "findPrs",
   "prChanges", "applyPrChanges", "recheckPrs", "isSetRow", "setIndexList", "editedEntry", "applyLogEdit",
-  "commitLogEdit", "editToast"];
-const CONSTS = ["clone", "byDateThenId", "sameJson", "trimRow", "numSort", "shortDate"];
+  "commitLogEdit", "editToast", "loadUndo", "saveUndo", "logById", "snapLog", "undoSteps", "newestUndo", "pushUndo",
+  "popUndo", "restoreSnap", "undoDrifted", "undoStep"];
+const CONSTS = ["clone", "byDateThenId", "sameJson", "trimRow", "numSort", "shortDate", "UNDO_KEY"];
 
 // The app's own functions, bound to `state` and to the given stand-ins for the page.
 function makeApi(src, state, env) {
-  const body = "let progExIndex=null, bwIndex={}, personIndex={}, progIndex={};\n"
+  const mem = {}, store = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
+  const body = "let progExIndex=null, bwIndex={}, personIndex={}, progIndex={};\nconst KEY=\"test\", localStorage=env.localStorage||store;\n"
     + "function save(){ clearCaches(); env.saved=(env.saved||0)+1; }\nfunction syncNow(){ env.synced=(env.synced||0)+1; }\n"
     + CONSTS.map(n => grabConst(src, n)).join("\n") + "\n"
     + FUNCTIONS.map(n => grab(src, n)).join("\n")
     + "\nreturn { " + FUNCTIONS.concat(CONSTS).join(", ") + " };";
-  return new Function("state", "env", body)(state, env || {});
+  return new Function("state", "env", "store", body)(state, env || {}, store);
 }
 
 // ---- fixtures ----
@@ -292,6 +294,95 @@ add("editToast: says which sessions gained or lost a PR", (A, t) => {
   t.eq(api.editToast([c("2026-11-02", "Bench press", null, 60), c("2026-11-09", "Bench press", 65, null)]), "Saved - PR now on 2 Nov Bench press, removed from 9 Nov Bench press");
   t.eq(api.editToast([c("2026-11-09", "Squat", 65, null)]), "Saved - PR removed from 9 Nov Squat");
   t.eq(api.editToast([1, 2, 3, 4, 5].map(n => c("2026-11-0" + n, "Row", 1, null))), "Saved - PR removed from 1 Nov Row, 2 Nov Row, 3 Nov Row and 2 more");
+});
+
+// ---- undo ----
+const step = (id, at, extra) => Object.assign({ kind: "edit", at, names: [], logs: [{ id, before: { feedback: "a" }, after: { feedback: "b" } }] }, extra || {});
+const edit70 = { entries: [{ rows: [["70", "8"]], warmup: [], done: [] }] };
+
+add("undo: steps come back newest first, and a person keeps only their last five", (A, t) => {
+  const state = mkState([mkLog(1, "2026-11-01", "Daniel", []), mkLog(2, "2026-11-01", "Cerys", [])]), api = A(state);
+  for (let i = 1; i <= 7; i++) api.pushUndo("Daniel", step(1, Date.now() + i));
+  api.pushUndo("Cerys", step(2, Date.now()));
+  t.eq(api.undoSteps("Daniel").length, 5);
+  t.eq(api.newestUndo("Daniel").at > api.undoSteps("Daniel")[0].at, true);
+  t.eq(api.undoSteps("Cerys").length, 1);
+  api.popUndo("Daniel");
+  t.eq(api.undoSteps("Daniel").length, 4);
+  t.eq(api.newestUndo("Nobody"), null);
+});
+add("undo: steps older than 14 days and steps for a deleted session are dropped", (A, t) => {
+  const state = mkState([mkLog(1, "2026-11-01", "Daniel", []), mkLog(2, "2026-11-02", "Daniel", [])]), api = A(state);
+  api.pushUndo("Daniel", step(1, Date.now() - 15 * 24 * 3600 * 1000));
+  api.pushUndo("Daniel", step(1, Date.now() - 13 * 24 * 3600 * 1000));
+  api.pushUndo("Daniel", step(2, Date.now()));
+  t.eq(api.undoSteps("Daniel").length, 2);
+  state.logs.splice(1, 1);
+  t.eq(api.undoSteps("Daniel").map(s => s.logs[0].id), [1]);
+});
+add("undo: a broken or missing store never stops an edit", (A, t) => {
+  const broken = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+  const state = mkState(benchLogs()), api = A(state, { localStorage: broken });
+  t.eq(api.commitLogEdit(state.logs[0], edit70).length, 2);
+  t.eq(api.newestUndo("Daniel"), null);
+});
+add("undo: undoing an edit restores the sets, the records on the later sessions and the edit stamps", (A, t) => {
+  const state = mkState(benchLogs()), api = A(state), before = JSON.stringify(state.logs);
+  state.logs[0].garmin = { rows_from: "reps" };
+  const snapped = JSON.stringify(state.logs);
+  api.commitLogEdit(state.logs[0], edit70);
+  t.eq(state.logs.map(l => l.entries[0].pr), [undefined, undefined, undefined]);
+  t.eq(api.newestUndo("Daniel").logs.map(x => x.id), [1, 2, 3]);
+  const s = api.undoStep("Daniel", 4242);
+  t.eq(s.kind, "edit");
+  t.eq(state.logs.map(l => l.entries[0].pr), [undefined, 62.5, 65]);
+  t.eq(state.logs[0].entries[0].rows, [["60", "8"]]);
+  t.eq([state.logs[0].editedAt, state.logs[0].garmin.rows_from], [null, "reps"]);
+  t.eq(state.logs.map(l => l.updatedAt).slice(0, 3), [4242, 4242, 4242]);
+  t.eq(api.newestUndo("Daniel"), null);
+});
+add("undo: undoing a run edit puts the watch's stamp back", (A, t) => {
+  const state = single(run([[5, "30:00", "6:00"]])), api = A(state);
+  api.commitLogEdit(state.logs[0], { entries: [{ rows: [["4", "30:00", "7:30"]], warmup: [], done: [] }] });
+  t.eq(state.logs[0].garmin.rows_from, "edited in app");
+  api.undoStep("Daniel", 9);
+  t.eq([state.logs[0].garmin.rows_from, state.logs[0].entries[0].rows], ["reps", [["5", "30:00", "6:00"]]]);
+});
+add("undo: a session that was never edited does not gain an editedAt key", (A, t) => {
+  const state = mkState(benchLogs()), api = A(state);
+  api.commitLogEdit(state.logs[0], edit70);
+  api.undoStep("Daniel", 4);
+  t.eq(["editedAt" in state.logs[1], "editedAt" in state.logs[2], state.logs[0].editedAt], [false, false, null]);
+});
+add("undo: a step for another person is left alone", (A, t) => {
+  const state = mkState(benchLogs().concat([mkLog(5, "2026-11-01", "Cerys", [lift("Bench press", [[30, 8]])])])), api = A(state);
+  api.commitLogEdit(state.logs[3], { entries: [{ rows: [["35", "8"]], warmup: [], done: [] }] });
+  api.commitLogEdit(state.logs[0], edit70);
+  api.undoStep("Daniel", 7);
+  t.eq(api.newestUndo("Cerys").logs[0].id, 5);
+  t.eq(state.logs[3].entries[0].rows, [["35", "8"]]);
+});
+add("undo: it notices when a session has changed since the edit", (A, t) => {
+  const state = mkState(benchLogs()), api = A(state);
+  api.commitLogEdit(state.logs[0], edit70);
+  const s = api.newestUndo("Daniel");
+  t.eq(api.undoDrifted(s), false);
+  state.logs[1].entries[0].rows = [["99", "1"]];
+  t.eq(api.undoDrifted(s), true);
+});
+add("undo: a note step puts the note back and leaves the sets and volume alone", (A, t) => {
+  const state = single(lift("Bench press", [[60, 8]])), api = A(state), log = state.logs[0];
+  log.feedback = "new"; log.volume = 12345;
+  api.pushUndo("Daniel", { kind: "note", at: Date.now(), names: [], logs: [{ id: 10, before: { feedback: "old" }, after: { feedback: "new" } }] });
+  t.eq(api.undoDrifted(api.newestUndo("Daniel")), false);
+  api.undoStep("Daniel", 8);
+  t.eq([log.feedback, log.volume, log.entries[0].rows, log.updatedAt], ["old", 12345, [["60", "8"]], 8]);
+});
+add("undo: the steps hold copies, so later changes to the session do not leak into them", (A, t) => {
+  const state = mkState(benchLogs()), api = A(state);
+  api.commitLogEdit(state.logs[0], edit70);
+  state.logs[0].entries[0].rows[0][0] = "1";
+  t.eq(api.newestUndo("Daniel").logs[0].after.entries[0].rows, [["70", "8"]]);
 });
 
 // ---- runners ----

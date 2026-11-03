@@ -522,6 +522,7 @@
   #editLogDlg .rm-cell{width:40px;text-align:center}
   #editLogDlg tr.wset td.rm-cell{opacity:1}
   #editLogDlg .diff.diff-sm button{height:32px}
+  [data-undoslot]:empty{display:none}
 
   /* ---- History (design v3) ---- */
   .wk-vol{margin:2px 0 12px}

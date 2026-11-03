@@ -2247,13 +2247,18 @@ function applyLogEdit(log, edit, now){
   log.editedAt=now; log.updatedAt=now;
   return {changed:true, names:Array.from(names)};
 }
-// Applies an edit, rechecks the records it can move, saves and syncs. Returns the PR flags that moved,
-// or null when the edit changed nothing.
+// Applies an edit, rechecks the records it can move, records an undo step, saves and syncs. Returns
+// the PR flags that moved, or null when the edit changed nothing.
 function commitLogEdit(log, edit){
-  const now=Date.now(), res=applyLogEdit(log, edit, now);
+  const now=Date.now(), before=snapLog(log), res=applyLogEdit(log, edit, now);
   if(!res.changed) return null;
   const flips=prChanges(log.person, res.names, log);
+  const touched=[log];
+  flips.forEach(c=>{ if(touched.indexOf(c.log)<0) touched.push(c.log); });
+  const befores=touched.map(l=>l===log ? before : snapLog(l));
   applyPrChanges(flips, now);
+  pushUndo(log.person, {kind:"edit", at:now, names:res.names,
+    logs:touched.map((l, i)=>({id:l.id, before:befores[i], after:snapLog(l)}))});
   save();
   syncNow(true); // quiet, and a no-op when sync is not set up - the same push the note editor makes
   return flips.filter(c=>(c.was===null)!==(c.now===null));
@@ -2374,6 +2379,94 @@ function saveEditDialog(){
   justSavedId=log.id; // the card stays open
   renderView();
   toast(editToast(flips), 5000);
+}
+
+// ---- Undo for edited sessions and notes ----
+// The last few edits of each person, kept on this device only. They live in their own localStorage key,
+// outside the export and the sync, like the form drafts: an undo list is this phone's own history.
+// A step holds, for every log it touched (the edited session and any other whose PR flag flipped), a
+// copy of what the edit changed before and after. Undo restores the "before" side as a new edit.
+const UNDO_KEY=KEY+"_undo", UNDO_MAX=5, UNDO_TTL_MS=14*24*60*60*1000;
+function loadUndo(){
+  try{ const u=JSON.parse(localStorage.getItem(UNDO_KEY)); return u && typeof u==="object" ? u : {}; }catch(e){ return {}; }
+}
+function saveUndo(all){ try{ localStorage.setItem(UNDO_KEY, JSON.stringify(all)); }catch(e){} }
+function logById(id){ return state.logs.find(l=>String(l.id)===String(id)); }
+// What an edit can change on a log. A note step keeps the feedback alone.
+function snapLog(l){
+  const g=l.garmin||{};
+  return clone({entries:l.entries||[], feedback:l.feedback||"", difficulty:l.difficulty==null ? null : l.difficulty,
+    rowsFrom:g.rows_from==null ? null : g.rows_from, editedAt:l.editedAt==null ? null : l.editedAt});
+}
+// A person's steps, oldest first, without those older than UNDO_TTL_MS or whose session is deleted.
+function undoSteps(person){
+  const all=loadUndo(), now=Date.now(), had=all[person]||[];
+  const keep=had.filter(s=>now-s.at<UNDO_TTL_MS && logById(s.logs[0].id));
+  if(keep.length!==had.length){ if(keep.length) all[person]=keep; else delete all[person]; saveUndo(all); }
+  return keep;
+}
+function newestUndo(person){ return undoSteps(person).pop()||null; }
+function pushUndo(person, step){
+  const all=loadUndo();
+  all[person]=undoSteps(person).concat([step]).slice(-UNDO_MAX);
+  saveUndo(all);
+}
+function popUndo(person){
+  const all=loadUndo();
+  (all[person]||[]).pop();
+  if(all[person] && !all[person].length) delete all[person];
+  saveUndo(all);
+}
+// Puts the parts of a snapshot back. editedAt goes back to null rather than being deleted, so a sync
+// cannot bring the old value back from the other copy (mergeRecord adopts a key we do not hold).
+function restoreSnap(l, s, now){
+  if(s.entries){ l.entries=clone(s.entries); l.volume=logVolume(l); }
+  if("feedback" in s) l.feedback=s.feedback;
+  if("difficulty" in s) l.difficulty=s.difficulty;
+  if("rowsFrom" in s && l.garmin){ if(s.rowsFrom===null) delete l.garmin.rows_from; else l.garmin.rows_from=s.rowsFrom; }
+  if("editedAt" in s && (s.editedAt!==null || "editedAt" in l)) l.editedAt=s.editedAt;
+  l.updatedAt=now;
+}
+// Whether any session of the step has moved on from the state the edit left it in.
+function undoDrifted(step){
+  return step.logs.some(function(x){
+    const l=logById(x.id), now=l && snapLog(l);
+    return l && Object.keys(x.after).some(k=>!sameJson(now[k], x.after[k]));
+  });
+}
+// Undoes the person's newest step as a fresh edit: restores each session, rechecks the records of the
+// exercises the step changed, and drops the step. Returns the step, or null when there is none.
+function undoStep(person, now){
+  const step=newestUndo(person);
+  if(!step) return null;
+  const logs=step.logs.map(x=>({x:x, l:logById(x.id)})).filter(o=>o.l);
+  logs.forEach(o=>restoreSnap(o.l, o.x.before, now));
+  applyPrChanges(prChanges(person, step.names||[], logs[0].l), now);
+  popUndo(person);
+  return step;
+}
+function undoLastEdit(person){
+  const step=newestUndo(person);
+  if(!step) return;
+  if(undoDrifted(step) && !confirm("This session has changed since that edit, for example by a sync. Undo anyway?")) return;
+  undoStep(person, Date.now());
+  save();
+  syncNow(true);
+  justSavedId=step.logs[0].id;
+  renderView();
+  toast(step.kind==="note" ? "Note put back" : "Edit undone");
+}
+// The Undo button sits on the card of each person's newest step only, so steps come off last first.
+function paintUndoSlots(){
+  const newest={};
+  document.querySelectorAll("[data-undoslot]").forEach(slot=>{
+    const log=logById(slot.dataset.undoslot);
+    if(!log) return;
+    if(!(log.person in newest)) newest[log.person]=newestUndo(log.person);
+    const step=newest[log.person], mine=step && String(step.logs[0].id)===String(log.id);
+    slot.innerHTML=mine ? '<button class="mini" data-undo="'+log.id+'">'+(step.kind==="note" ? "Undo note" : "Undo edit")+'</button>' : "";
+    if(mine) slot.firstChild.onclick=()=>undoLastEdit(log.person);
+  });
 }
 
 // Whose sessions the History list shows. Kept across re-renders (a person switch,
@@ -2653,20 +2746,23 @@ function histNoteHtml(l){
     + '<div class="notes-wrap" data-fbwrap="'+l.id+'" hidden>'
       + '<textarea class="notes" data-fbta="'+l.id+'" rows="2" placeholder="e.g. Right knee tight on squats. Felt strong today.">'+esc(fb)+'</textarea></div>'
     + '<div class="row" style="justify-content:flex-end;margin-top:7px">'
+      + '<span data-undoslot="'+l.id+'"></span>'
       + '<button class="mini" data-editsets="'+l.id+'">Edit sets</button>'
       + '<button class="mini" data-fbedit="'+l.id+'">'+(fb?"Edit note":"Add a note")+'</button></div>';
 }
 function wireHistNotes(){
-  const logById=id=>state.logs.filter(l=>String(l.id)===String(id))[0];
   const commit=ta=>{
     const log=logById(ta.dataset.fbta); if(!log) return false;
     const v=ta.value.trim();
     if(v===(log.feedback||"")) return false;
+    const was=log.feedback||"";
     // Store a cleared note as "" rather than deleting the key: mergeRecord treats a
     // key we hold as our deliberate value, so "I removed this note" has to be
     // representable or the next pull puts the old one back.
     log.feedback=v;
     log.updatedAt=Date.now();
+    pushUndo(log.person, {kind:"note", at:log.updatedAt, names:[], logs:[{id:log.id, before:{feedback:was}, after:{feedback:v}}]});
+    paintUndoSlots();
     save();
     // Push immediately instead of waiting for whatever happens to trigger the next
     // sync. A note added after the session is saved is the part the coach most needs,
@@ -2732,6 +2828,7 @@ function drawHist(who){
   justSavedId=null;
   wireHistNotes();
   document.querySelectorAll("[data-editsets]").forEach(b=>b.onclick=()=>openEditLog(b.dataset.editsets));
+  paintUndoSlots();
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
     const d=document.getElementById("d"+b.dataset.toggle);
     const open=d.classList.toggle("open");
