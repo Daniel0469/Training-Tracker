@@ -248,9 +248,18 @@ def latest_log_id(data, person, name):
     return logged[-1][0].get("id") if logged else None
 
 
+def coach_on(data, person):
+    """False when the person switched Garmin and coach off in the app (features[person].garmin.on).
+    Absent means on."""
+    switch = (((data.get("features") or {}).get(person) or {}).get("garmin"))
+    return not (isinstance(switch, dict) and switch.get("on") is False)
+
+
 def coach_target(data, person, name):
     """The coach's target for `name` while it still applies: the person's latest log of it
-    is the one it was written against."""
+    is the one it was written against. None while the person has the coach switched off."""
+    if not coach_on(data, person):
+        return None
     t = ((((data.get("coaching") or {}).get(person) or {}).get("targets")) or {}).get(name)
     return t if isinstance(t, dict) and t.get("asOfLog") == latest_log_id(data, person, name) else None
 

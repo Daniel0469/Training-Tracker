@@ -33,6 +33,11 @@ The coach's memory, per person (method: `docs/methods/coaching-behaviour-method.
   `TT_GITHUB_PATH`), and every tool checks the name against the people in `data.json`. The token
   needs Contents: read and write on the store repo, as for the other writes.
 
+A person who turned **Garmin and coach** off in the app (`features[name].garmin.on` is false) gets
+nothing written for them: `write_coaching`, `add_coach_question` and `remind_coach_question` refuse,
+`write_run` changes the session but skips its note, and `people` and `progression` show the switch
+(`coach_on`, `coach_off`).
+
 Three of the writes are worth knowing the shape of before using them:
 - `write_coaching` is **per person** - Daniel and Cerys can get different notes on the same
   session, and usually should. Its `targets` set the weight for one exercise's next session and

@@ -20,6 +20,7 @@ SERVERS = {"coach": "mcp-coach/server.py", "garmin": "mcp-garmin/server.py"}
 
 # ---------------------------------------------------------------- loading
 def load_module(path, name):
+    sys.modules.pop("progression", None)      # each server imports the progression.py beside it
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

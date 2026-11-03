@@ -170,6 +170,12 @@ def _write(mutate, failed, commit, message, **io):
 def _today():
     return datetime.date.today().isoformat()
 
+def _coach_off(person):
+    """The refusal for a write that would put coach notes, targets or questions in front of a
+    person who turned Garmin and coach off in the app."""
+    return (f"{person} has Garmin and coach switched off in the app, so the coach writes no notes, targets or "
+            "questions for them. They turn it back on under Settings > Profile.")
+
 def _merge_lowest_rung(data, person, entry, lowest_rung):
     """Merge `lowest_rung` into entry["lowestRung"], per skill, so re-assessing one skill
     leaves the other alone. None/empty clears a skill (its rung got fixed and the next
@@ -217,6 +223,9 @@ def set_coaching(person, overall="", by_exercise=None, by_session=None, five_k=N
     def mutate(data):
         for key in ("warn", "error", "targets"):
             pending.pop(key, None)        # mutate reruns on a conflict; its warnings must not stack
+        if not progression.coach_on(data, person):
+            pending["error"] = _coach_off(person)
+            return None
         coaching = data.get("coaching") or {}
         entry = coaching.get(person) or {}
         if overall:
@@ -798,11 +807,14 @@ def set_run(person, exercises=None, why="", name=None, day=None,
         # week's prescription is on the card they read while they train, and lands
         # in the coaching history next to every other note.
         note = str(why or "").strip()
-        if note:
+        out = {"person": person, "session": s.get("name"), "changed": changed,
+               "previous": previous, "exercises": s.get("exercises")}
+        if note and progression.coach_on(data, person):
             pending["rec"] = _note_on_session(data, person, s.get("name"), note)
+        elif note:
+            out["note_skipped"] = _coach_off(person)
 
-        return {"person": person, "session": s.get("name"), "changed": changed,
-                "previous": previous, "exercises": s.get("exercises")}
+        return out
 
     pending = {}
     result = _write(mutate, failed, lambda r: f"Run session for {r['person']}: {r['session']}",
@@ -984,6 +996,7 @@ def list_people(data):
             "goals": goals[i] if i < len(goals) else "",
             "latest_bodyweight_kg": bws[-1]["kg"] if bws else None,
             "sessions_logged": len(_person_logs(data, name)),
+            "coach_on": progression.coach_on(data, name),
         })
     return out
 
@@ -1572,6 +1585,8 @@ def get_progression(data, person):
     if person not in (data.get("people") or []):
         return {"error": f"No person named {person!r}.", "people": data.get("people") or []}
     out = progression.report(data, person)
+    if not progression.coach_on(data, person):
+        out["coach_off"] = _coach_off(person)
     out["steps_to_confirm"] = [r["exercise"] for r in out["exercises"]
                                if r["status"] in ("hold", "unsure") and r.get("step") is None]
     return out
@@ -1860,13 +1875,17 @@ def get_coach_questions(data, person, status="open"):
             if isinstance(q, dict) and status in ("all", q.get("status"))]
     return {"person": name, "status": status, "questions": rows}
 
-def _question_edit(person, question_id, change, commit, message, statuses=("open", "answered")):
-    """Apply `change(q, failed)` to one open or answered question of the person, stamping updatedAt."""
+def _question_edit(person, question_id, change, commit, message, statuses=("open", "answered"), asks=False):
+    """Apply `change(q, failed)` to one open or answered question of the person, stamping updatedAt.
+    `asks` is for a change that puts the question in front of them again, which the switch refuses."""
     failed = {}
     def mutate(data):
         name = _person_named(data, person)
         if not name:
             failed.update(_unknown_person(data, person))
+            return None
+        if asks and not progression.coach_on(data, name):
+            failed["error"] = _coach_off(name)
             return None
         q = next((x for x in (data.get("coachQuestions") or {}).get(name) or []
                   if isinstance(x, dict) and x.get("id") == question_id), None)
@@ -1897,6 +1916,9 @@ def add_question(person, question, why, priority="routine", decision="", next_fo
         if not name:
             failed.update(_unknown_person(data, person))
             return None
+        if not progression.coach_on(data, name):
+            failed["error"] = _coach_off(name)
+            return None
         mine = (data.get("coachQuestions") or {}).get(name) or []
         mine = [q for q in mine if isinstance(q, dict)]
         same = next((q for q in mine if q.get("status") != "closed" and _normal(q.get("question")) == _normal(question)), None)
@@ -1925,7 +1947,7 @@ def remind_question(person, question_id, next_follow_up=""):
         q["reminders"] = int(q.get("reminders") or 0) + 1
         q["nextFollowUp"] = next_follow_up or _in_days(7)
     return _question_edit(person, question_id, change, "Coach question reminder: {person}",
-                          "Saved. The reminder count went up by one.", statuses=("open",))
+                          "Saved. The reminder count went up by one.", statuses=("open",), asks=True)
 
 def close_question(person, question_id, reason):
     reason = _line(reason)
@@ -1940,7 +1962,9 @@ def close_question(person, question_id, reason):
 def _register(mcp):
     @mcp.tool()
     def people() -> str:
-        """List both people with their goals, latest bodyweight and session count."""
+        """List both people with their goals, latest bodyweight and session count, and `coach_on`:
+        false when they turned Garmin and coach off in the app, in which case write nothing for
+        them (notes, targets, questions) - the write tools refuse."""
         return json.dumps(list_people(load_data()), indent=2)
 
     @mcp.tool()
@@ -2448,7 +2472,9 @@ def _register(mcp):
         A stall is your call: the rule only flags it. Check sleep and food before a deload.
         `steps_to_confirm` lists exercises that apply but have no known step. Write one with
         write_machine_step when you are sure, and list the rest for the owner to confirm.
-        A target that differs from `target` goes in write_coaching(targets=...) with a why."""
+        A target that differs from `target` goes in write_coaching(targets=...) with a why.
+        `coach_off` is present when the person turned Garmin and coach off in the app: write no
+        target for them, and `coach` stays empty."""
         return json.dumps(get_progression(load_data(), person), indent=2)
 
     @mcp.tool()
@@ -2529,7 +2555,8 @@ def _register(mcp):
         the rule's `target` needs no why. Any other kg is refused without one. It applies until
         the person logs that exercise again, then the rule takes over, so write it the
         week you want it. `reps` is optional.
-        All merge into existing coaching. They see it after tapping Sync now."""
+        All merge into existing coaching. They see it after tapping Sync now.
+        Refused for a person who turned Garmin and coach off in the app (see people())."""
         return json.dumps(set_coaching(person, overall, by_exercise or {}, by_session or {},
                                        five_k or None, next_cardio or None,
                                        session_swap or None, lowest_rung or None, targets or None), indent=2)
@@ -2613,7 +2640,8 @@ def _register(mcp):
         Ask only what could change a decision, clear up safety or respect a preference. `priority`
         is safety, blocking, routine or optional. `decision` links a decision id. `next_follow_up`
         is a date and defaults to a week. No more than three routine questions per review. A
-        question already open is refused. Whoever reads the answer is you, on the next review."""
+        question already open is refused, and so is any question for a person who turned Garmin
+        and coach off in the app. Whoever reads the answer is you, on the next review."""
         return json.dumps(add_question(person, question, why, priority, decision, next_follow_up, question_id), indent=2)
 
     @mcp.tool()

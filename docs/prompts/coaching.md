@@ -9,7 +9,8 @@ added 17 Aug 2026 - `session_notes` / `write_session_notes`; and `write_coaching
 added 13 Oct 2026; and `progression`, `write_machine_step` and `write_coaching`'s `targets`,
 added 2 Nov 2026; and the memory tools `coach_profile`, `write_coach_profile`, `coach_decisions`,
 `add_coach_decision`, `review_coach_decision`, `coach_questions`, `add_coach_question`,
-`remind_coach_question` and `close_coach_question`, added 3 Nov 2026), then start a new chat and
+`remind_coach_question` and `close_coach_question`, added 3 Nov 2026; and the refusal for a person who
+turned Garmin and coach off, also 3 Nov 2026), then start a new chat and
 paste the prompt below. A server started before a
 change still runs the old code, so if `write_coaching` reports success but the Flex tag doesn't
 appear after a sync, restart Claude Code and write it again.
@@ -44,6 +45,9 @@ automatically, because it reads this file each time.
 > **Memory comes first, every review** (method: `docs/methods/coaching-behaviour-method.md`, read it
 > too). Each person has a profile file, a decision log and a list of questions, and you read all of
 > them before advice. Follow this order:
+> 0. Call `people` and read `coach_on`. A person with it false turned Garmin and coach off in the app:
+>    write no notes, targets or questions for them (the write tools refuse), and say in your read that
+>    you skipped them. Their weekly run is still yours, without the `why` note.
 > 1. Read `coach_profile(person)`, `coach_decisions(person)` (its `index` lists the active decisions
 >    and those due) and `coach_questions(person, status="all")`. Check the date and origin of what
 >    you rely on, and the checkpoint of what was last processed.
@@ -270,6 +274,13 @@ automatically, because it reads this file each time.
   one person's loads, preferences or pain history in the other's files, and never write a question
   that names the other person. The Friday run may write the files and questions unattended. It
   asks no more than three routine questions per run.
+- **The Garmin and coach switch** (3 Nov 2026). Each person turns it on or off under Settings >
+  Profile (`features[name].garmin.on` in the store, absent means on), and it hides every coach card,
+  note, target and question and the watch data on their phone. `people` shows it as `coach_on`. For a
+  person with it off, `write_coaching`, `add_coach_question` and `remind_coach_question` refuse,
+  `progression(person)` carries `coach_off` and no coach target, and `write_run` still changes the
+  session but skips the `why` note. `close_coach_question` still works, to clear an old question.
+  Say in the summary that you skipped them, so nobody wonders why their cards stopped.
 - **Limiters are theirs, coaching is yours.** `limiters(person)` is what Daniel and Cerys said is
   holding a session back; only ever write one with `write_limiter` when **they tell you**, never
   from your own inference - that's what your coaching notes are for. As recorded on 11 Aug 2026:
