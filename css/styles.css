@@ -511,6 +511,18 @@
   #exForm table.sets td{padding-top:2px;padding-bottom:2px}
   #exForm .medal{top:-4px;right:0}
 
+  /* ---- Edit sets dialog ---- */
+  #editLogDlg{max-width:560px}
+  #editLogDlg .dlg-body{max-height:88vh;overflow:auto}
+  .ed-ex{background:var(--card-2);border-radius:14px;padding:10px 12px;margin-bottom:10px}
+  .ed-name{font-weight:700;margin-bottom:4px}
+  .ed-discard{background:var(--card-2);border:1px solid var(--bad);border-radius:14px;padding:10px 12px;margin-top:12px}
+  #editLogDlg table.sets{border-spacing:0 3px}
+  #editLogDlg table.sets input{min-height:34px;padding:4px 7px;font-size:14px}
+  #editLogDlg .rm-cell{width:40px;text-align:center}
+  #editLogDlg tr.wset td.rm-cell{opacity:1}
+  #editLogDlg .diff.diff-sm button{height:32px}
+
   /* ---- History (design v3) ---- */
   .wk-vol{margin:2px 0 12px}
   .wk-vol b{font-size:26px;font-weight:700;letter-spacing:-.02em}

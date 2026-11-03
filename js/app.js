@@ -270,9 +270,9 @@ formDrafts = restoredDrafts.drafts;
 sessionTimers = restoredDrafts.timers;
 formExtras = restoredDrafts.extras;
 
-function toast(msg){
+function toast(msg, ms){
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
-  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1800);
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),ms||1800);
 }
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const possessive = n => /s$/i.test(n) ? n+"'" : n+"'s";
@@ -1423,10 +1423,12 @@ function toggleFold(wrap, btn, onOpen, onClose){
   btn.setAttribute("aria-expanded", opening?"true":"false");
   return opening;
 }
-function wireSingleSelect(box){
+// With `clearable`, tapping the selected button again clears the choice.
+function wireSingleSelect(box, clearable){
   box.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    const clear=clearable && b.classList.contains("sel");
     box.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
-    b.classList.add("sel");
+    if(!clear) b.classList.add("sel");
   });
 }
 // Column header / placeholder text in the set table, where every pixel of a 375px
@@ -1699,14 +1701,16 @@ function colInputMode(col){
   if(/rep|hr|bpm|cal|min|sec|watt|rpm|cadence|count|step|round|metre|length/i.test(c)) return "numeric";
   return "";
 }
+// The input attributes of one column of a set row: its keyboard, and read-only for a run's pace.
+function colInputAttr(ex, ci){
+  const im=colInputMode(ex.cols[ci]);
+  return (im ? ' inputmode="'+im+'"' : "") + (isRunning(ex) && ci===colIndex(ex,/pace/i) ? ' readonly' : "");
+}
 function setRowHtml(n,ex,prevCell){
-  const paceIdx = isRunning(ex) ? colIndex(ex,/pace/i) : -1;
   const pt = progTarget(state.people[state.activePerson], ex);
   let cells="";
   ex.cols.forEach((c,ci)=>{
-    const im=colInputMode(c);
-    let attr = im ? ' inputmode="'+im+'"' : "";
-    if(ci===paceIdx) attr += ' readonly';
+    let attr = colInputAttr(ex, ci);
     const sw = isTimed(ex) && ci===1 ? '<button type="button" class="mini sw" data-sw title="Stopwatch">'+ico("timer")+'</button>' : '';
     const target = pt ? (ci===0 ? pt.kg : ci===1 ? pt.repsPh : "") : "";
     if(target) attr += ' data-tph="'+esc(target)+'" data-lbl="'+esc(colLabel(c))+'"';
@@ -2002,28 +2006,29 @@ function wireExCard(card, ex){
   }
 }
 
+// Whether a row of trimmed values is a set worth keeping: it holds something, and a loaded
+// exercise whose second column is empty is not a set. The weight
+// mirroring fills the rows below the one being typed, so stopping at one set
+// left "60kg and no reps" rows behind - saved, because they had data in them,
+// and counted as sets by the weekly muscle card. Volume and PRs were always
+// safe (both need reps), the set COUNT was not.
+//
+// Narrow on purpose. It fires only when the first column is a load, which is
+// every lift and every station exercise and NOTHING else: a run is
+// Distance/Time, so the blank row Garmin fills later is untouched, and so are
+// the cm flexibility tests, the Min/Notes walk and the Rounds/Notes mobility
+// work. It also only looks at the SECOND column, so a set logged with reps and
+// no weight - which is how the hack squat is logged - still saves.
+function isSetRow(cols, vals){
+  return vals.some(v=>v!=="") && !(isLoadCol((cols||[""])[0]) && !String(vals[1]||"").trim());
+}
 // The entry logged on one exercise card, or null when nothing was entered.
 function readEntryFromCard(card, ex){
   const name=ex.name || card.dataset.name;
   const rows=[], warmup=[], done=[];
-  // A loaded exercise whose second column is empty is not a set. The weight
-  // mirroring fills the rows below the one being typed, so stopping at one set
-  // left "60kg and no reps" rows behind - saved, because they had data in them,
-  // and counted as sets by the weekly muscle card. Volume and PRs were always
-  // safe (both need reps), the set COUNT was not.
-  //
-  // Narrow on purpose. It fires only when the first column is a load, which is
-  // every lift and every station exercise and NOTHING else: a run is
-  // Distance/Time, so the blank row Garmin fills later is untouched, and so are
-  // the cm flexibility tests, the Min/Notes walk and the Rounds/Notes mobility
-  // work. It also only looks at the SECOND column, so a set logged with reps and
-  // no weight - which is how the hack squat is logged - still saves.
-  const loaded=isLoadCol((ex.cols||[""])[0]);
   card.querySelectorAll("tbody tr").forEach(tr=>{
-    const vals=[]; let has=false;
-    tr.querySelectorAll('[data-c]').forEach(inp=>{ const v=inp.value.trim(); vals.push(v); if(v!=="") has=true; });
-    if(has && loaded && !String(vals[1]||"").trim()) return;
-    if(has){
+    const vals=Array.from(tr.querySelectorAll('[data-c]')).map(inp=>inp.value.trim());
+    if(isSetRow(ex.cols, vals)){
       if(tr.classList.contains("wset")) warmup.push(rows.length);
       // Indices into the SAVED rows, not the drawn ones - a row left empty is
       // dropped above, so the two lists drift apart without this.
@@ -2173,6 +2178,202 @@ function saveSession(){
   switchTab("history", true); // draft just cleared above - don't re-capture it
   showSaveSummary(volume, prs, entries, promotable, promoteKey);
   autoSync(); // push this session to the shared store automatically (if sync is set up)
+}
+
+// ---- Editing saved sessions ----
+// "Edit sets" in an open History card opens editLogDlg: the sets, warm-up marks, RPE, session
+// difficulty and note of one saved session. The dialog is modal, so the person toggle is out of
+// reach while it is open, and everything it holds belongs to the one log it was opened on (editLogId).
+// applyLogEdit writes the result back and changes nothing else about the log.
+let editLogId=null, editLogAt=0; // the log in the dialog, and its updatedAt when the dialog opened
+let editLogStart=""; // the dialog's content as opened, to tell whether anything was changed
+const sameJson=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const trimRow=r=>(r||[]).map(v=>String(v==null?"":v).trim());
+const numSort=(a,b)=>a-b;
+// Stores a list of row numbers on an entry, or drops the key when the list is empty.
+function setIndexList(en, key, list){ if(list.length) en[key]=list; else delete en[key]; }
+// A copy of one entry with its sets replaced by the edit: {rows, warmup, done, rpe}, the warm-up and
+// done lists counting the rows as given. Rows that hold no set are dropped the way a save drops them and
+// the lists renumbered. An entry whose rows and marks are as they were keeps its saved rows untouched.
+// Every other key stays as it was.
+function editedEntry(en, ed){
+  const out=clone(en), raw=(ed.rows||[]).map(trimRow), warm=ed.warmup||[], done=ed.done||[];
+  const same=sameJson(raw, (en.rows||[]).map(trimRow))
+    && sameJson(warm.slice().sort(numSort), (en.warmup||[]).slice().sort(numSort))
+    && sameJson(done.slice().sort(numSort), (en.done||[]).slice().sort(numSort));
+  if(!same){
+    const rows=[], warmup=[], ticked=[];
+    raw.forEach(function(vals, i){
+      if(!isSetRow(en.cols, vals)) return;
+      if(warm.indexOf(i)>=0) warmup.push(rows.length);
+      if(done.indexOf(i)>=0) ticked.push(rows.length);
+      rows.push(vals);
+    });
+    out.rows=rows; setIndexList(out, "warmup", warmup); setIndexList(out, "done", ticked);
+  }
+  if(ed.rpe!==undefined && String(ed.rpe==null?"":ed.rpe)!==String(en.rpe==null?"":en.rpe)){
+    if(ed.rpe==null || ed.rpe==="") delete out.rpe; else out.rpe=String(ed.rpe);
+  }
+  return out;
+}
+// Writes an edit into a saved log: edit = {entries:[{rows, warmup, done, rpe}, ...] by position in
+// log.entries, feedback, difficulty}, any part left out staying as it is. Only those keys change, plus
+// volume, editedAt and updatedAt (both `now`). An exercise left with no sets is dropped, except a run,
+// which stays for the watch to fill. The id, date and session never change. Returns {changed, names},
+// names being the exercises whose sets or warm-up marks changed, for the PR recheck.
+function applyLogEdit(log, edit, now){
+  const old=log.entries||[], kept=[], names=new Set();
+  let runRowsEdited=false;
+  old.forEach(function(en, i){
+    const ed=(edit.entries||[])[i];
+    if(!ed){ kept.push(en); return; }
+    const ne=editedEntry(en, ed);
+    if(!ne.rows.length && !isRunning(ne) && (en.rows||[]).length){ names.add(en.name); return; }
+    if(!sameJson(ne.rows, en.rows) || !sameJson(ne.warmup||[], en.warmup||[])) names.add(en.name);
+    if(isRunning(ne) && !sameJson(ne.rows, en.rows)) runRowsEdited=true;
+    kept.push(ne);
+  });
+  const feedback=edit.feedback===undefined ? (log.feedback||"") : String(edit.feedback).trim();
+  const difficulty=edit.difficulty===undefined ? (log.difficulty==null ? null : log.difficulty) : edit.difficulty;
+  const same=sameJson(kept, old) && feedback===(log.feedback||"") && difficulty===(log.difficulty==null ? null : log.difficulty);
+  if(same) return {changed:false, names:[]};
+  log.entries=kept;
+  if(feedback!==(log.feedback||"")) log.feedback=feedback;
+  if(difficulty!==(log.difficulty==null ? null : log.difficulty)) log.difficulty=difficulty;
+  // Rows the sync wrote from the watch are replaced when it finds better ones; rows someone edited are not.
+  const g=log.garmin;
+  if(runRowsEdited && g && /^(reps|laps)/.test(String(g.rows_from||""))) g.rows_from="edited in app";
+  log.volume=logVolume(log);
+  log.editedAt=now; log.updatedAt=now;
+  return {changed:true, names:Array.from(names)};
+}
+// Applies an edit, rechecks the records it can move, saves and syncs. Returns the PR flags that moved,
+// or null when the edit changed nothing.
+function commitLogEdit(log, edit){
+  const now=Date.now(), res=applyLogEdit(log, edit, now);
+  if(!res.changed) return null;
+  const flips=prChanges(log.person, res.names, log);
+  applyPrChanges(flips, now);
+  save();
+  syncNow(true); // quiet, and a no-op when sync is not set up - the same push the note editor makes
+  return flips.filter(c=>(c.was===null)!==(c.now===null));
+}
+const shortDate=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric", month:"short"});
+// "Saved - PR now on 2 Nov Bench press, removed from 9 Nov Bench press": what an edit did to the records.
+function editToast(flips){
+  const list=function(cs){
+    const names=cs.slice(0,3).map(c=>shortDate(c.log.date)+" "+c.name);
+    return names.join(", ")+(cs.length>3 ? " and "+(cs.length-3)+" more" : "");
+  };
+  const gained=flips.filter(c=>c.now!==null), lost=flips.filter(c=>c.now===null);
+  const parts=[];
+  if(gained.length) parts.push("PR now on "+list(gained));
+  if(lost.length) parts.push((gained.length ? "" : "PR ")+"removed from "+list(lost));
+  return "Saved"+(parts.length ? " - "+parts.join(", ") : "");
+}
+function editRowHtml(en, vals, n, warm, done){
+  const cells=en.cols.map(function(c, ci){
+    const v=vals[ci];
+    return '<td><input data-c="'+ci+'"'+colInputAttr(en, ci)+' value="'+esc(v==null ? "" : v)+'" placeholder="'+esc(colLabel(c))+'"></td>';
+  }).join("");
+  return '<tr'+(warm ? ' class="wset"' : '')+' data-done="'+(done ? 1 : 0)+'">'
+    + '<td class="setno" data-setno title="Tap to mark as a warm-up set">'+(warm ? 'W' : n)+'</td>'+cells
+    + '<td class="rm-cell"><button type="button" class="mini ico" data-erm title="Remove this set" aria-label="Remove this set">&#10005;</button></td></tr>';
+}
+function editExHtml(en, ei){
+  const wu=en.warmup||[], dn=en.done||[];
+  const rows=(en.rows||[]).map((r, ri)=>editRowHtml(en, r, ri+1, wu.indexOf(ri)>=0, dn.indexOf(ri)>=0)).join("");
+  return '<div class="ed-ex" data-eex="'+ei+'" data-hasdone="'+(Array.isArray(en.done) ? 1 : 0)+'">'
+    + '<div class="ed-name">'+esc(en.name)+(en.pr ? ' '+PR_BADGE : '')+'</div>'
+    + '<div class="sets-wrap"><table class="sets"><thead><tr><th class="setno-h">Set</th>'
+    + en.cols.map(c=>'<th>'+esc(colLabel(c))+'</th>').join("")+'<th class="rm-cell"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    + (ratesRpe(en) || en.rpe!=null ? '<div class="rpe"><div class="rpe-lbl">RPE</div><div class="diff diff-sm" data-exrpe>'+diffButtonsHtml(true)+'</div></div>' : '')
+    + '<div class="row" style="justify-content:flex-end;margin-top:6px"><button type="button" class="mini" data-eadd>+ set</button></div></div>';
+}
+// Selects the button of a 1-10 picker that matches `value`, if there is one.
+function selectPicked(box, value){
+  box.querySelectorAll("button").forEach(b=>b.classList.toggle("sel", value!=null && b.dataset.d===String(value)));
+}
+function renumberEditRows(tbody){
+  Array.from(tbody.rows).forEach((tr, i)=>{
+    tr.querySelector("[data-setno]").textContent=tr.classList.contains("wset") ? "W" : i+1;
+  });
+}
+function wireEditRow(tr, en){
+  const tbody=tr.parentNode;
+  tr.querySelector("[data-erm]").onclick=()=>{ tr.remove(); renumberEditRows(tbody); };
+  tr.querySelector("[data-setno]").onclick=()=>{ tr.classList.toggle("wset"); renumberEditRows(tbody); };
+  if(isRunning(en)) tr.querySelectorAll("[data-c]").forEach(inp=>inp.addEventListener("input", ()=>updatePace(tr, en)));
+}
+function addEditRow(card, en){
+  const tbody=card.querySelector("tbody");
+  // A lift starts at the weight above it, the way the log form mirrors the first weight down.
+  const above=isLifting(en) ? Array.from(tbody.querySelectorAll('tr:not(.wset) [data-c="0"]')).map(i=>i.value).filter(Boolean).pop() : "";
+  const vals=en.cols.map((c, ci)=>ci===0 ? (above||"") : "");
+  tbody.insertAdjacentHTML("beforeend", editRowHtml(en, vals, tbody.rows.length+1, false, card.dataset.hasdone==="1"));
+  wireEditRow(tbody.rows[tbody.rows.length-1], en);
+}
+function openEditLog(id){
+  const log=state.logs.find(l=>String(l.id)===String(id));
+  if(!log) return;
+  editLogId=log.id; editLogAt=+log.updatedAt||0;
+  document.getElementById("editLogTitle").textContent=log.sessionName;
+  document.getElementById("editLogSub").innerHTML=esc(shortDate(log.date))+' &middot; <span class="pill" data-sw="'+personSwatch(log.person)+'">'+esc(log.person)+'</span>';
+  const body=document.getElementById("editLogBody");
+  body.innerHTML=(log.entries||[]).map(editExHtml).join("") || '<div class="hint">This session has no sets saved.</div>';
+  body.querySelectorAll("[data-eex]").forEach(card=>{
+    const en=log.entries[+card.dataset.eex];
+    Array.from(card.querySelector("tbody").rows).forEach(tr=>wireEditRow(tr, en));
+    card.querySelector("[data-eadd]").onclick=()=>addEditRow(card, en);
+    const rpe=card.querySelector("[data-exrpe]");
+    if(rpe){ selectPicked(rpe, en.rpe); wireSingleSelect(rpe, true); }
+  });
+  const diff=document.getElementById("editLogDiff");
+  diff.innerHTML=diffButtonsHtml(true);
+  selectPicked(diff, log.difficulty); wireSingleSelect(diff, true);
+  document.getElementById("editLogFb").value=log.feedback||"";
+  showDiscardAsk(false);
+  editLogStart=JSON.stringify(readEditDialog());
+  document.getElementById("editLogDlg").showModal();
+}
+function showDiscardAsk(show){
+  const ask=document.getElementById("editLogDiscard");
+  ask.hidden=!show;
+  if(show) ask.scrollIntoView({block:"nearest"});
+}
+// Cancel and Esc close the dialog at once when nothing was changed, and ask first when something was.
+function closeEditLog(){
+  if(JSON.stringify(readEditDialog())===editLogStart) document.getElementById("editLogDlg").close();
+  else showDiscardAsk(true);
+}
+// The dialog's content as an edit for applyLogEdit.
+function readEditDialog(){
+  const entries=[];
+  document.querySelectorAll("#editLogBody [data-eex]").forEach(card=>{
+    const rows=[], warmup=[], done=[];
+    Array.from(card.querySelector("tbody").rows).forEach((tr, i)=>{
+      rows.push(Array.from(tr.querySelectorAll("[data-c]")).map(inp=>inp.value));
+      if(tr.classList.contains("wset")) warmup.push(i);
+      if(tr.dataset.done==="1") done.push(i);
+    });
+    const ed={rows, warmup, done}, rpe=card.querySelector("[data-exrpe]");
+    if(rpe){ const sel=rpe.querySelector("button.sel"); ed.rpe=sel ? sel.dataset.d : ""; }
+    entries[+card.dataset.eex]=ed;
+  });
+  const sel=document.querySelector("#editLogDiff button.sel");
+  return {entries, feedback:document.getElementById("editLogFb").value, difficulty:sel ? +sel.dataset.d : null};
+}
+function saveEditDialog(){
+  const dlg=document.getElementById("editLogDlg"), log=state.logs.find(l=>String(l.id)===String(editLogId));
+  if(!log){ dlg.close(); toast("That session is gone"); return; }
+  // A sync that landed while the dialog was open (the watch filling in a run, say) moved the log on.
+  if((+log.updatedAt||0)!==editLogAt && !confirm("This session was updated by a sync while you were editing. Save your changes over it?")) return;
+  const flips=commitLogEdit(log, readEditDialog());
+  dlg.close();
+  if(!flips){ toast("No changes"); return; }
+  justSavedId=log.id; // the card stays open
+  renderView();
+  toast(editToast(flips), 5000);
 }
 
 // Whose sessions the History list shows. Kept across re-renders (a person switch,
@@ -2452,6 +2653,7 @@ function histNoteHtml(l){
     + '<div class="notes-wrap" data-fbwrap="'+l.id+'" hidden>'
       + '<textarea class="notes" data-fbta="'+l.id+'" rows="2" placeholder="e.g. Right knee tight on squats. Felt strong today.">'+esc(fb)+'</textarea></div>'
     + '<div class="row" style="justify-content:flex-end;margin-top:7px">'
+      + '<button class="mini" data-editsets="'+l.id+'">Edit sets</button>'
       + '<button class="mini" data-fbedit="'+l.id+'">'+(fb?"Edit note":"Add a note")+'</button></div>';
 }
 function wireHistNotes(){
@@ -2529,6 +2731,7 @@ function drawHist(who){
   }).join("");
   justSavedId=null;
   wireHistNotes();
+  document.querySelectorAll("[data-editsets]").forEach(b=>b.onclick=()=>openEditLog(b.dataset.editsets));
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
     const d=document.getElementById("d"+b.dataset.toggle);
     const open=d.classList.toggle("open");
@@ -4966,6 +5169,11 @@ const sessionDlg=document.getElementById("sessionDlg");
 // "Later" just closes it - the change stays pending in the Program tab, and
 // pcVisit stops it reopening until the session is opened again.
 document.getElementById("pcDlgLater").onclick=()=>document.getElementById("pcDlg").close();
+document.getElementById("editLogCancel").onclick=closeEditLog;
+document.getElementById("editLogDlg").addEventListener("cancel", e=>{ e.preventDefault(); closeEditLog(); });
+document.getElementById("editLogKeep").onclick=()=>showDiscardAsk(false);
+document.getElementById("editLogDiscardYes").onclick=()=>document.getElementById("editLogDlg").close();
+document.getElementById("editLogSave").onclick=saveEditDialog;
 document.getElementById("sessCancel").onclick=()=>sessionDlg.close();
 document.getElementById("sessSave").onclick=()=>{
   const name=(document.getElementById("sessName").value||"").trim();
