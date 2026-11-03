@@ -1,0 +1,50 @@
+<!-- Local review harness for family storage: loads the prototype state copy into localStorage
+     (python scratchpad/proto_programs.py writes it), opens the app in a frame, then plays one scene.
+     ?person=0|1|2 &theme=light|dark &scene=admin-empty|admin-connected|first-signin-progress|draft-chip
+       admin-empty             Admin > Family storage on a phone that is not connected
+       admin-connected         the same section once connected and synced
+       first-signin-progress   the first sign-in part way through the upload
+       draft-chip              the Session tab with the "Updated on another phone - load?" bar
+     Nothing here reaches a network: the scenes set the engine's own variables and draw. Never touches the shared store. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+const person = +(q.get("person") || 0), theme = q.get("theme") || "light", scene = q.get("scene") || "admin-empty";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const s = await fetch("/scratchpad/proto-programs-state.json", {cache: "no-store"}).then(r => r.json());
+  s.theme = theme;
+  s.activePerson = person;
+  localStorage.clear();
+  localStorage.setItem("flLiveTracker_v1", JSON.stringify(s));
+  const f = document.getElementById("f");
+  f.src = "/index.html";
+  await new Promise(r => f.onload = r);
+  await wait(500);
+  const w = f.contentWindow, d = f.contentDocument;
+  d.querySelectorAll("dialog[open]").forEach(x => x.close());
+  const show = async () => {
+    d.getElementById("settingsBtn").click();
+    w.eval('setSettingsTab("admin"); adminUnlocked=true; renderAdminGate()');
+    await wait(300);
+    d.getElementById("fsDot").scrollIntoView({block: "start"});
+  };
+  if (scene === "admin-empty") await show();
+  if (scene === "admin-connected") {
+    await show();
+    w.eval('sb.mode="supabase"; sb.url="https://example.supabase.co"; sb.email="family@example.test"; renderFamilyStorage(); setFsStatus("Synced 14:32:10 - 2 sent, 5 received")');
+  }
+  if (scene === "first-signin-progress") {
+    await show();
+    w.eval('sbLines=["Reading this phone: 232 records from 2 accounts.","Uploading 200 of 232..."]; sbRenderProgress(); setFsStatus("Uploading...")');
+    d.getElementById("fsDot").scrollIntoView({block: "start"});
+  }
+  if (scene === "draft-chip") {
+    w.switchTab("log");
+    await wait(300);
+    w.eval('sb.mode="supabase"; sbChips[draftKey()]={person:state.people[state.activePerson], session_key:curSession, updated_at:Date.now(), body:{draft:{entries:[]}}}; sbShowChip()');
+  }
+})();
+</script>
