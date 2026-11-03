@@ -43,7 +43,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, coachQuestions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -92,6 +92,9 @@ function fillStateDefaults(s){
   // Progression switches, each person's own: person -> {on:{value, updatedAt},
   // ex:{exercise NAME:{off, updatedAt}}}. Absent means on.
   if(!s.progression || typeof s.progression!=="object") s.progression={};
+  // Which parts of the app each person uses: person -> {food|body|garmin:{on, updatedAt}}.
+  // Absent means on. Hiding is all a switch does - nothing it hides is deleted.
+  if(!s.features || typeof s.features!=="object") s.features={};
   // Questions the coach asks each person: person -> [{id, question, why, priority, decision,
   // askedAt, nextFollowUp, reminders, answer, answeredAt, status, updatedAt}]. The coach adds
   // and closes them (mcp-coach), the person answers on Home. See mergeCoachQuestions.
@@ -972,6 +975,21 @@ function progSet(person, name, value){
   const p=state.progression[person]||(state.progression[person]={});
   if(name===null) p.on={value:value, updatedAt:Date.now()};
   else (p.ex||(p.ex={}))[name]={off:!value, updatedAt:Date.now()};
+  save(); autoSync();
+}
+// The other switches (Settings > Profile): which parts of the app each person sees. Absent means
+// on, and progression keeps its own switch above.
+const FEATURES=["food","body","garmin"];
+function featOn(person, key){
+  if(key==="progression") return progPersonOn(person);
+  const e=(((state.features||{})[person])||{})[key];
+  return !(e && e.on===false);
+}
+function featSet(person, key, value){
+  if(!person) return;
+  if(key==="progression") return progSet(person, null, value);
+  if(!state.features) state.features={};
+  (state.features[person]||(state.features[person]={}))[key]={on:value, updatedAt:Date.now()};
   save(); autoSync();
 }
 // What the Log form shows for one exercise: the weight and reps to aim for (the coach's when one
@@ -4172,7 +4190,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -4306,6 +4324,19 @@ function mergeProgression(data, tally){
       Object.keys(theirs.ex||{}).forEach(function(n){
         var tv=theirs.ex[n], mv=(mine.ex||{})[n];
         if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ (mine.ex||(mine.ex={}))[n]=tv; tally.updated++; }
+      });
+    });
+  }
+}
+function mergeFeatures(data, tally){
+  // Feature switches: set on the phones, per person, so the newer edit of each switch wins.
+  if(data.features && typeof data.features==="object"){
+    if(!state.features) state.features={};
+    Object.keys(data.features).forEach(function(pn){
+      var theirs=data.features[pn]||{}, mine=state.features[pn]||(state.features[pn]={});
+      Object.keys(theirs).forEach(function(k){
+        var tv=theirs[k], mv=mine[k];
+        if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[k]=tv; tally.updated++; }
       });
     });
   }
@@ -4458,6 +4489,7 @@ function mergeInData(data, adoptConfig, fromSync){
   overwritePerPerson("racePredictions", data.racePredictions);
   mergeMachineSettings(data, tally);
   mergeProgression(data, tally);
+  mergeFeatures(data, tally);
   mergeCoachQuestions(data, tally);
   mergeMeasurements(data, tally);
   mergeNutritionTargets(data, tally);
@@ -4600,7 +4632,7 @@ function peopleInPayload(d){
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
   (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","coachQuestions","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -4621,7 +4653,7 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","coachQuestions","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
