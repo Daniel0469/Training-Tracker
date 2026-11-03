@@ -34,16 +34,17 @@ let timerInterval = null;
 function load(){
   try{
     const s = JSON.parse(localStorage.getItem(KEY));
-    if(s && s.program && s.program.sessions){
+    if(s && ((s.program && s.program.sessions) || (s.programs && typeof s.programs==="object"))){
       fillStateDefaults(s);
+      migratePrograms(s);
       migrateMachineNotes(s);
       seedBodyweights(s);
       migrateWarmupPct(s);
-      return s;
+      return withProgramShim(s);
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, program:{order:[], sessions:{}}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
+  return withProgramShim({ people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, programs:{}, programIds:{}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] });
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -67,6 +68,10 @@ function fillStateDefaults(s){
   // tab. The app applies them itself - that is the point of them. See
   // applyProgramChange.
   if(!Array.isArray(s.programChanges)) s.programChanges=[];
+  // The programs: id -> {id, members, version, updatedAt, order, sessions, ...}, and which one each
+  // person trains: person -> {id, updatedAt}. See migratePrograms and progOf.
+  if(!s.programs || typeof s.programs!=="object") s.programs={};
+  if(!s.programIds || typeof s.programIds!=="object") s.programIds={};
   // Ids of sessions deleted here, so a sync can't bring them back. See tombstoneLog.
   if(!Array.isArray(s.deletedLogs)) s.deletedLogs=[];
   // Same for weigh-ins, keyed person+date. See tombstoneBodyweight.
@@ -107,8 +112,8 @@ function migrateMachineNotes(s){
   // copying this phone's local prose first would push it straight back up.
   var hasSync=false;
   try{ var sc=JSON.parse(localStorage.getItem(SYNC_KEY)||"{}"); hasSync=!!(sc.repo&&sc.token); }catch(e){}
-  if(!hasSync) Object.keys(s.program.sessions).forEach(function(k){
-    (s.program.sessions[k].exercises||[]).forEach(function(ex){
+  if(!hasSync) eachProgramSession(s, function(sess){
+    (sess.exercises||[]).forEach(function(ex){
       if(ex.notes) (s.people||[]).forEach(function(pn){
         if(!pn) return;
         var by=s.machineSettings[pn]||(s.machineSettings[pn]={});
@@ -139,8 +144,8 @@ function migrateWarmupPct(s){
              "light x8":"50%x8",
              "empty x10, then ~60% x5":"empty x10, then 60%x5",
              "10x10, then 14x5":"50%x10, then 75%x5" };
-    Object.keys(s.program.sessions).forEach(function(k){
-      (s.program.sessions[k].exercises||[]).forEach(function(ex){
+    eachProgramSession(s, function(sess){
+      (sess.exercises||[]).forEach(function(ex){
         var repl=WU[(ex.warmup||"").trim()];
         if(repl) ex.warmup=repl;
       });
@@ -149,15 +154,77 @@ function migrateWarmupPct(s){
   }
 }
 function save(){ clearCaches(); localStorage.setItem(KEY, JSON.stringify(state)); }
-// Both people train the same plan, so the program is shared - but a plain sync
-// only ever pushed it, never pulled one down, which left each phone with its own
-// drifting copy and the store holding whichever synced last. Every program edit
-// now stamps `updatedAt` and pushes straight away; a sync adopts the store's
-// copy only when it is genuinely newer (see mergeInData), so an edit made on one
-// phone is never replaced by an older one from the other. Devices with no sync
+// ---- Programs ----------------------------------------------------------
+// state.programs[id] = {id, name?, members:[person names], version, updatedAt, updatedBy, order,
+// sessions}, and state.programIds[person] = {id, updatedAt} says which one a person trains.
+// Daniel and Cerys share one; anyone else gets their own. progOf(person) is the only way to
+// reach a person's program - with no argument it is the active person's.
+// Every program edit bumps `version` and stamps `updatedAt` and pushes straight away; a sync
+// adopts the store's copy of a program only when it is newer (see mergePrograms), so an edit
+// made on one phone is never replaced by an older one from the other. Devices with no sync
 // configured are untouched by all of this - autoSync no-ops without a repo+token.
-function saveProgram(){
-  if(state.program) state.program.updatedAt=new Date().toISOString();
+function programSlug(members){ return "p-"+(members.map(slugify).join("-")||"main"); }
+function eachProgramSession(s, fn){
+  Object.keys(s.programs||{}).forEach(function(id){
+    var ss=s.programs[id].sessions||{};
+    Object.keys(ss).forEach(function(k){ fn(ss[k], k, s.programs[id]); });
+  });
+}
+// An old single program, wrapped as a program shared by `members`. The id comes from the
+// members, so every phone that wraps the same old program makes the same one.
+function wrapProgram(old, members){
+  return Object.assign({}, clone(old), {id:programSlug(members), members:members.slice(), version:+old.version||1});
+}
+function migratePrograms(s){
+  var named=(s.people||[]).filter(Boolean);
+  if(s.program && s.program.sessions && !Object.keys(s.programs).length){
+    var w=wrapProgram(s.program, named);
+    s.programs[w.id]=w;
+  }
+  delete s.program;
+  named.forEach(function(pn){
+    if(s.programIds[pn] && s.programs[s.programIds[pn].id]) return;
+    var ids=Object.keys(s.programs).filter(function(id){ return s.programs[id].members.indexOf(pn)>=0; });
+    if(ids.length) s.programIds[pn]={id:ids[0], updatedAt:0};
+  });
+}
+// state.program reads as the active person's program until every caller names its person.
+function withProgramShim(s){
+  Object.defineProperty(s, "program", {get:function(){ return progOf(); }, enumerable:false, configurable:true});
+  return s;
+}
+// A program made on this phone gets a random tail, so two phones starting fresh never share an id.
+function uniqueProgramId(base){
+  var id;
+  do id=base+"-"+Math.random().toString(36).slice(2,6); while(state.programs[id]);
+  return id;
+}
+function progOf(person){
+  if(person===undefined) person=state.people[state.activePerson];
+  var ref=state.programIds[person];
+  if(ref && state.programs[ref.id]) return state.programs[ref.id];
+  return !person || state.people.indexOf(person)>=0 ? claimProgram(person) : NO_PROGRAM;
+}
+// What a name with no account here (old logs of a removed account) reads: no sessions, never saved.
+const NO_PROGRAM=Object.freeze({id:"", members:Object.freeze([]), version:0, order:Object.freeze([]), sessions:Object.freeze({})});
+// A person with no program yet: the one that lists them, else one nobody has claimed, else a
+// new empty one. No person at all (a blank install) reads whichever program comes first.
+function claimProgram(person){
+  var all=Object.keys(state.programs).map(function(id){ return state.programs[id]; });
+  var p = person ? all.filter(function(x){ return x.members.indexOf(person)>=0; })[0] : all[0];
+  if(!p && person) p=all.filter(function(x){ return !x.members.length; })[0];
+  if(!p){
+    var members=person ? [person] : [], id=uniqueProgramId(programSlug(members));
+    p=state.programs[id]={id:id, members:members, version:1, updatedAt:"", order:[], sessions:{}};
+  } else if(person && p.members.indexOf(person)<0) p.members.push(person);
+  if(person) state.programIds[person]={id:p.id, updatedAt:0};
+  return p;
+}
+function saveProgram(prog){
+  prog=prog||progOf();
+  prog.version=(+prog.version||0)+1;
+  prog.updatedAt=new Date().toISOString();
+  prog.updatedBy=state.people[state.activePerson]||"";
   save();
   autoSync();
 }
@@ -4653,8 +4720,9 @@ document.getElementById("resetProgram").onclick=()=>{
   if((prompt("Backup saved. To confirm, type RESET below.")||"").trim().toUpperCase()!=="RESET"){
     toast("Cancelled - program unchanged"); return;
   }
-  state.program={order:[], sessions:{}};
-  curSession=state.program.order[0];
+  const prog=progOf();
+  prog.order=[]; prog.sessions={};
+  curSession=undefined;
   // renderView() sends you to Program when there are no sessions, which is the
   // only tab that works from here (and where + Add session lives).
   saveProgram(); setDlg.close(); renderView(); toast("Program cleared");
@@ -4675,7 +4743,7 @@ function exportPayload(){
     suggestions:state.suggestions,
     programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
-    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, adminPin:state.adminPin, coachQuestions:state.coachQuestions, program:state.program, logs:state.logs,
+    limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, adminPin:state.adminPin, coachQuestions:state.coachQuestions, programs:state.programs, programIds:state.programIds, program:progOf(state.people.find(Boolean)||""), logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
 }
 // Logs union by id in mergeInData, so a plain delete only lasts until the other
@@ -4918,6 +4986,7 @@ function mergeProgramChanges(data, tally){
       if(c.appliedAt) cur.appliedAt=c.appliedAt;
       if(c.declinedAt) cur.declinedAt=c.declinedAt;
       if(c.withdrawnAt) cur.withdrawnAt=c.withdrawnAt;
+      if(c.clashes) cur.clashes=c.clashes;
       if(c.by) cur.by=c.by;
     });
 }
@@ -4936,29 +5005,50 @@ function mergeMeals(data, tally){
     tally.added+=n.added; tally.updated+=n.updated;
   }
 }
+// The programs in a payload as {programs, programIds}. A payload from before programs existed
+// has one `program`, which belongs to the people it names.
+function incomingPrograms(data){
+  if(data.programs && typeof data.programs==="object") return {programs:data.programs, programIds:data.programIds||{}};
+  if(!data.program || !data.program.sessions) return null;
+  const members=(data.people||[]).filter(Boolean), w=wrapProgram(data.program, members), ids={}, programs={};
+  members.forEach(function(pn){ ids[pn]={id:w.id, updatedAt:0}; });
+  programs[w.id]=w;
+  return {programs:programs, programIds:ids};
+}
+// Never swap a plan out from under a workout in progress: the log form indexes exercises by
+// position, so a different list would rearrange sets already typed. It adopts on the next
+// sync once the session is saved.
+function draftOnProgram(id){
+  captureDraft();
+  return Object.keys(formDrafts).some(function(dk){ return formDrafts[dk] && (state.programIds[dk.split("|")[0]]||{}).id===id; });
+}
+// Programs merge per id, newest `updatedAt` wins (saveProgram stamps every edit). Only a cloud
+// sync adopts a newer program automatically, and a manual import has its own "adopt" tick box.
+// A program nobody here holds yet is added; one nobody has stamped changes nothing.
+function mergePrograms(data, adoptConfig, fromSync, tally){
+  const inc=incomingPrograms(data);
+  if(!inc || !(adoptConfig || fromSync)) return;
+  Object.keys(inc.programs).forEach(function(id){
+    const theirs=inc.programs[id], mine=state.programs[id];
+    if(!theirs || !theirs.sessions) return;
+    const newer = !mine || adoptConfig || (theirs.updatedAt||"")>(mine.updatedAt||"");
+    if(!newer || (mine && !adoptConfig && draftOnProgram(id))) return;
+    state.programs[id]=clone(theirs);
+    tally.updated++;
+  });
+  Object.keys(inc.programIds).forEach(function(pn){
+    const tv=inc.programIds[pn], mv=state.programIds[pn];
+    if(!tv || !state.programs[tv.id]) return;
+    if(!mv || !state.programs[mv.id] || (+tv.updatedAt||0)>(+mv.updatedAt||0)){ state.programIds[pn]=tv; tally.updated++; }
+  });
+}
 function mergeConfig(data, adoptConfig, fromSync, tally){
-  // Program: shared between both people, so take the store's copy when it is
-  // newer than this device's (saveProgram stamps every edit). A phone that has
-  // never stamped its own takes the incoming one; if neither side carries a
-  // stamp nothing changes, which is exactly how this behaved before.
-  if(fromSync && !adoptConfig && data.program && data.program.sessions){
-    const mine=(state.program&&state.program.updatedAt)||"";
-    const theirs=data.program.updatedAt||"";
-    // Never swap the plan out from under a workout in progress: the log form
-    // indexes exercises by position, so a different list would rearrange sets
-    // already typed. It adopts on the next sync once the session is saved.
-    const busy = activeTab==="log" && !!formDrafts[draftKey()];
-    if(theirs && theirs>mine && !busy){
-      state.program=clone(data.program);
-      tally.updated++;
-    }
-  }
+  mergePrograms(data, adoptConfig, fromSync, tally);
   if(adoptConfig){
-    if(data.program&&data.program.sessions) state.program=clone(data.program);
     if(Array.isArray(data.people)&&data.people.length) state.people=data.people.slice(0,2);
     if(Array.isArray(data.weights)) state.weights=data.weights.slice(0,2);
     if(Array.isArray(data.goals)) state.goals=data.goals.slice(0,2);
-    curSession=sessionForDate(curDate)||state.program.order[0];
+    curSession=sessionForDate(curDate)||progOf().order[0];
   } else if(Array.isArray(data.goals)){
     data.goals.forEach(function(g,i){ if(g && !((state.goals[i]||"").trim())) state.goals[i]=g; });
   }
@@ -5126,7 +5216,7 @@ function peopleInPayload(d){
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
   (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","programIds"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -5147,7 +5237,11 @@ function remapPeople(d, map){
     if(!Array.isArray(out[k])) return;
     out[k]=out[k].filter(r=>r && !gone(r.person)).map(r=>{ if(r.person) r.person=to(r.person); return r; });
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets"].forEach(k=>{
+  Object.keys(out.programs||{}).forEach(id=>{
+    const pr=out.programs[id];
+    pr.members=(pr.members||[]).filter(n=>!gone(n)).map(to);
+  });
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","programIds"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
