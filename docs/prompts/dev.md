@@ -38,8 +38,8 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   (`scratchpad/proto_term.py` is the pattern) and show screenshots - both people, both themes -
   before anything is committed. Pushing auto-deploys to both phones.
 - **Bump `VERSION` in `sw.js`** on any change to a cached shell file (`CACHE_NAME` is
-  `"tt-" + VERSION`, and Settings shows it). A fix is a third number (1.0.1), a new feature is the
-  second (1.1). The service worker is cache-first; without a bump, installed users keep the old files.
+  `"tt-" + VERSION`, and Settings shows it). Versions have three numbers: a fix bumps the last (2.0.1), a
+  new feature the middle (2.1.0). The service worker is cache-first; without a bump, installed users keep the old files.
 - **Keep the Guide, the README and these prompts current** when a feature or a decision changes.
 - **A coach-owned job can be impossible, not just undone.** Before assigning work to the coaching
   chat, check the tool can actually do it - `docs/coach-tooling-brief.md` lists what cannot be
@@ -68,6 +68,17 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
   exercise has no `notes` any more, and the coach MCP cannot write settings. An install without
   sync migrates old `notes` on load; synced phones got them from `scratchpad/apply_machine_settings.py`.
+- **Family storage** (built 3 Nov 2026 as version 2.0.0, on branch `p4-app`, not pushed): a phone can switch from GitHub sync to
+  the family's Supabase project in gear -> Admin -> Family storage. The connection (project address, publishable key, family
+  email) is typed per phone and kept in localStorage `flLiveTracker_v1_sb`, never in the repo. The password is never kept. The
+  first sign-in is automatic: every account on the phone is uploaded (rows keyed `kind`+`key`, merged newest-wins by the table,
+  so two phones with the same accounts never duplicate), read back and compared, and only a match switches `sb.mode` to
+  "supabase". Nothing local is deleted. The engine is the Family storage block in `js/app.js`. `save()` is unchanged. `toRecords`
+  must give the same rows as `mcp-coach/tt_records.py`. Rows are sent when changed (hash map `sb.h`), pulled by `server_at`
+  cursor, and realtime goes through the same merge. Member program saves use `save_program(id, body, base_version)` and a
+  `conflict` shows the "Changed since you opened it" card. The log form draft is a `drafts` row per person+session with a 10 s
+  typing guard and a 12 h limit. `scratchpad/review/sync-cases.js` and `sync-parity.js` run under VS Code's Code.exe with
+  `ELECTRON_RUN_AS_NODE=1`. The server side is in `docs/supabase-setup.md` and `docs/supabase-schema.sql`.
 - **Programs are per person** (3 Nov 2026, built on branch `p4-app`, not pushed): `state.programs[id] = {id, name?, members, version,
   updatedAt, updatedBy, order, sessions}` and `state.programIds[person] = {id, updatedAt}`. Daniel and Cerys share one program
   (`p-daniel-cerys`), anyone else gets their own. Read a program with `progOf(person)` (no argument is the active person) -

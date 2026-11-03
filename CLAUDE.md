@@ -21,7 +21,7 @@ feature proposals/specs.
 - **Bump `VERSION` in `sw.js` on ANY change to a cached shell file** (`index.html`,
   `css/styles.css`, `js/app.js`, icons, manifest). The service worker is cache-first, so without a
   bump, installed users keep the old files. `CACHE_NAME` is `"tt-" + VERSION`, and Settings shows
-  the version. A fix is a third number (1.0.1), a new feature is the second (1.1).
+  the version. Versions have three numbers: a fix bumps the last (2.0.1), a new feature the middle (2.1.0).
 - **Keep the Guide, README and the starter prompts current.** When you add or change a user-facing
   feature - or when anything is decided that a future chat would act on - update the prompt that
   owns it in `docs/prompts/` (`dev.md`, `coaching.md`, `running.md`). Daniel asked for this
@@ -60,7 +60,8 @@ feature proposals/specs.
   (`--bg/--card/--card-2/--input-bg/--ink/--muted/--line/--brand/--brand-soft/--musc-*`); don't
   hardcode light hex values, and remember SVG `fill` presentation attributes don't accept `var()`
   (use a CSS class or inline `style.fill`).
-- **localStorage is the only store** (key `flLiveTracker_v1`). Data is keyed by person NAME, so
+- **localStorage always holds the working copy** (key `flLiveTracker_v1`); a phone switched to family storage also
+  syncs it with Supabase (see Where things are). Data is keyed by person NAME, so
   renames orphan history - acceptable, matches existing behaviour. Export/import merges by id
   (logs) and person+date (bodyweights); keep new data idempotent to merge.
 - **Commit per feature**, each verified in the browser, then **push** - `origin/main` is
@@ -96,6 +97,14 @@ feature proposals/specs.
   in-memory `formDrafts` and `sessionTimers`.
 - Save + summary: `saveSession`, `showSaveSummary` (volume comparison + `#muscleSvg` heatmap via
   `classifyMuscles` / `muscleColor`).
+- Family storage (Supabase, version 2.0.0): the block in `js/app.js` between `==== Family storage (Supabase) ====` and
+  `==== end Family storage ====`. `toRecords` / `fromRecords` map the state to rows of the `records` table and must stay equal to
+  `mcp-coach/tt_records.py` (`scratchpad/review/sync-parity.js` checks it). `sb` holds the per-device connection and `sb.mode`
+  ("github" default, or "supabase"). The first sign-in uploads everything, reads it back and only then switches (`sbMigrate`).
+  After that `autoSync()` calls `sbSyncSoon()`: `sbOutbox` diffs the rows against the hashes in `sb.h`, `sbFlush` sends them
+  (programs through the `save_program` function), `sbPull` fetches rows with `server_at` after `sb.cursor`, and realtime feeds the
+  same `sbApplyRows` -> `mergeInData`. The log form draft travels as a `drafts` row per person+session (`sbDraftsSaved`).
+  `scratchpad/review/sync-cases.js` runs the engine against a JS fake of Supabase.
 - Importers: `importBodyweightCsv` (scale CSV), `importRunIntoCard` + `parseTcx`/`parseGpx` (runs).
 
 ## Roadmap (not yet built - see `docs/hub-and-coaching.md` when it exists)

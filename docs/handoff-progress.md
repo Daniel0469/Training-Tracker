@@ -35,6 +35,10 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Reviewed by Daniel and shipped as version 1.3 (3 Nov).
 
 ## Phase 4: Family setup
+- [x] Per-person programs built (3 Nov, branch `p4-app`).
+- [x] Supabase sync engine built as version 2.0.0 (3 Nov, branch `p4-app`): Admin Family storage section, automatic first
+      sign-in with read-back check, background sync with realtime, shared drafts, `save_program` with a clash warning.
+- [ ] Reviewed by Daniel (review stage `scratchpad/review/sync-stage.html`, cases `scratchpad/review/sync-cases.js`).
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.
 - [ ] Blocked on Daniel: create the free Supabase project.
 

@@ -20,6 +20,9 @@ GitHub Pages.
 - `docs/CAPABILITIES.md` - **plain-English list of everything the app can do, and its limitations.**
 - `docs/CHATS.md` - **how to start a new chat**, and which of the three starter prompts to use.
 - `docs/github-sync-setup.md` - one-time setup for the free GitHub cloud sync / backup.
+- Family storage (version 2.0.0): a phone can use the family's Supabase project instead of GitHub sync. Set it up in gear ->
+  Admin -> Family storage. The app loads supabase-js from jsDelivr (pinned, with an integrity hash) only once a connection is
+  entered. Server setup is `docs/supabase-setup.md`.
 - `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
   `progression.py` is the double progression rule (the same rule runs in `js/app.js`), read through the
@@ -102,7 +105,7 @@ Push to GitHub and enable Pages on the repo (serve from the root of the default 
   rendering, save/import/export all interact tightly); splitting further didn't seem to earn
   its keep yet. Worth revisiting if the file grows a lot more.
 - **Bump `VERSION` in `sw.js` on every deploy that touches `index.html`, `css/styles.css`,
-  or `js/app.js`** (1.0.1 for a fix, 1.1 for a new feature). The service worker is cache-first,
+  or `js/app.js`** (2.0.1 for a fix, 2.1.0 for a new feature). The service worker is cache-first,
   so without a version bump, installed users keep getting the old cached files indefinitely - the
   old cache only gets purged when a new cache name shows up in `install`/`activate`. Settings
   shows the version. (Hit this myself while testing: edited

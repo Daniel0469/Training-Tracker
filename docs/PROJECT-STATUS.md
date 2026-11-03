@@ -1162,6 +1162,11 @@ The findings, and two of them correct things this file previously said:
 week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the questions worth answering while it is.
 
 ### Features built (high level)
+- **Family storage (version 2.0.0, built 3 Nov 2026, Daniel to review):** each phone can switch from GitHub sync to the family's
+  Supabase project. First sign-in uploads every account on the phone, reads it back, compares, and only then switches. After
+  that changes are sent and pulled automatically (records by `server_at` cursor, realtime), the half-typed log form is shared
+  between phones, and member program saves are checked against a version. Disconnect returns to GitHub sync. Details in
+  `docs/prompts/dev.md`.
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
   **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**

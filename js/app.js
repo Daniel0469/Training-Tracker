@@ -4812,10 +4812,10 @@ document.getElementById("pGoals").addEventListener("input", function(){ autoGrow
 function renderNotSetupList(){
   const el=document.getElementById("notSetupList"); if(!el) return;
   const sync=loadSync();
-  const syncOk=!!(sync.repo && sync.token);
+  const syncOk=sbOn() || !!(sync.repo && sync.token);
   el.innerHTML =
       '<p style="margin:0 0 8px">'+(syncOk
-        ?'<b>Cloud sync</b> - configured on this device.'
+        ?'<b>Cloud sync</b> - '+(sbOn() ? 'family storage is connected' : 'configured')+' on this device.'
         :'<b>Cloud sync</b> - not set up on this device. Needs a private GitHub repo + access token (above).')+'</p>'
     + '<p style="margin:0 0 8px"><b>Garmin auto-import</b> - not set up. Needs its own MCP server, a Garmin login, and a scheduled sync job on a laptop running Claude Code (see mcp-garmin/README.md).</p>'
     + '<p style="margin:0 0 8px"><b>AI coaching</b> - not set up. Needs the coaching MCP server, plus someone running a coaching chat for you (see docs/prompts/coaching.md).</p>'
@@ -6422,6 +6422,14 @@ function renderHelp(){
      +p('<b>Admin</b> holds export and import, cloud sync, the accounts on this device with what each has switched off, the sessions that belong to one person only (read only), <b>Clear program</b>, <b>Delete this account</b> and the PIN. Settings always opens on Profile.')
      +p('<b>The family PIN</b> keeps Admin away from slips and small hands. The first time anyone opens Admin it asks you to <b>set a PIN</b>: 4 to 6 digits, typed twice. After that Admin asks for it each time you open Settings, and stays open until you close Settings. <b>Change the PIN</b> is at the bottom of Admin and asks for the old one first. The PIN is shared by everyone and syncs to every phone: the newest change wins, and a phone that syncs for the first time takes the PIN already in the store. It is a light lock, not strong security.')
      +p('<b>Forgotten PIN.</b> Open <b>data.json</b> in the data repo on GitHub and set <b>"adminPin": {"updatedAt": 1793700000000}</b> with no hash. Use the current time in milliseconds (13 digits) instead of that number, so it is newer than the PIN it replaces. The next sync on each phone clears the old PIN and Admin asks for a new one.'));
+  h+=card('10 &middot; Family storage',
+      p('<b>Family storage</b> is the shared place the whole family saves to, instead of GitHub. Open the gear, then <b>Admin</b>, then <b>Family storage</b>, and type the project address, the key, the family email and the password you were given. Tap <b>Connect</b>. The password is not kept on the phone.')
+     +p('<b>What happens on the first sign-in.</b> The app copies everything on this phone up, for every account on it, and shows how far it has got. Then it reads it all back and checks it matches. Only when it does, this phone switches over. If anything differs, the phone stays on GitHub and the screen lists what differed, so you can tap Connect again. <b>Nothing on the phone is ever deleted.</b> If another phone already holds the same accounts, the two merge by the newest edit and nothing is doubled.')
+     +p('<b>After that it is automatic.</b> A save is stored on the phone first, then sent a moment later, when the phone is back online, when you return to the app and every 30 seconds. Only what changed is fetched, so opening the app is quick. The line in Admin says when it last synced. <b>Sync now</b> is there for a manual go.')
+     +p('<b>The session you are typing</b> is shared too. Start a session on one phone and the other phone shows it within seconds. If you have typed in that form in the last 10 seconds, the other phone does not replace it: a small <b>Updated on another phone - load?</b> bar appears and you choose. Each person keeps their own form, so two people on one phone never mix. Saving the session clears it everywhere, and a form older than 12 hours is ignored.')
+     +p('<b>Offline.</b> Everything still works with no signal. Edits wait on the phone and go as soon as it is back online. The Admin line says <b>Offline</b> meanwhile.')
+     +p('<b>Programs.</b> When you save your program, the app checks nobody saved it first. If they did, a <b>Changed since you opened it</b> card offers <b>Reload</b> (take their version) or <b>Keep mine</b> (save yours on top).')
+     +p('<b>Signed out.</b> If the phone is asked to sign in again, the Admin line says so and <b>Sign in again</b> appears. <b>Disconnect</b> returns this phone to GitHub sync. It keeps the project address and key, so connecting again only needs the password.'));
   h+=card('Quick tips',
       p('&bull; Beat the <b>Last</b> numbers - even one extra rep counts.')
      +p('&bull; Tick sets as you go to catch PRs live and auto-fill reps.')
