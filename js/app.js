@@ -445,6 +445,12 @@ function sessionForDate(dstr){
     if(sk && ownsSession(sk, me)) return sk;
   }
   if(keys.length<2) return keys[0];
+  // A lift and its cardio on the same day: the first one in program order not yet logged today.
+  var cardio=keys.filter(function(k){ return isCardioSession(progOf().sessions[k]); });
+  if(cardio.length && cardio.length<keys.length){
+    var done=state.logs.filter(function(l){ return l.person===me && l.date===dstr; }).map(function(l){ return l.sessionKey; });
+    return keys.filter(function(k){ return done.indexOf(k)<0; })[0] || keys[0];
+  }
   // More than one session on this weekday - the two cardio sessions share
   // Wednesday. Which one is it today?
   //   1. the coach's assignment, if it's still live (see nextCardioCard)

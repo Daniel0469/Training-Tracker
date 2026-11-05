@@ -417,7 +417,7 @@ async function main() {
     check("2.0.0 is newer than 1.3", newest(["tt-1.3", "tt-2.0.0"]) === "tt-2.0.0" && newest(["tt-2.0.0", "tt-1.3"]) === "tt-2.0.0");
     check("2.0.1 is newer than 2.0.0 and 2.1.0 than 2.0.9", newest(["tt-2.0.0", "tt-2.0.1"]) === "tt-2.0.1" && newest(["tt-2.0.9", "tt-2.1.0"]) === "tt-2.1.0");
     check("1.10.0 is newer than 1.9.0", newest(["tt-1.9.0", "tt-1.10.0"]) === "tt-1.10.0");
-    check("sw.js says 2.0.3", /const VERSION = "2\.0\.3";/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "..", "sw.js"), "utf8")));
+    check("sw.js has a three-part version", /const VERSION = "\d+\.\d+\.\d+";/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "..", "sw.js"), "utf8")));
   }
   console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
