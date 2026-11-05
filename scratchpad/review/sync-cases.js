@@ -86,13 +86,14 @@ function makePhone(server, state, opts) {
     + "const draftKey=()=>state.people[state.activePerson]+'|'+curSession;\n"
     + "function captureDraft(){} function save(){ env.counts.saves++; } function renderPeople(){} function renderEdit(){ env.counts.edits = (env.counts.edits || 0) + 1; } function renderView(){ env.counts.renders++; }\n"
     + "function toast(m){ env.counts.toasts.push(m); } function autoSync(){} const ico=()=>'';\n"
+    + "const FAMILY_PROJECT=env.project||{url:'', key:''};\n"
     + "let setupPending=null, adminUnlocked=false; const hasPin=()=>false; function renderAdminGate(){} function setSettingsTab(t){ env.counts.tab=t; } function showUpdateResult(t, b){ env.counts.dialogs.push([t, b]); }\n"
     + CONSTS.map(grabConst).join("\n") + "\n" + fns + "\n" + block
     + "\nfsField('fsPass').value=env.password||'';\n"
     + "return { get sb(){ return sb; }, get sbLines(){ return sbLines; }, get state(){ return state; }, get setupPending(){ return setupPending; }, formDrafts, sessionTimers, formExtras,\n"
     + "  ev: code => eval(code) };";
   const FakeDate = class extends Date { static now() { return env.clock.t; } };
-  const env = { counts, password: opts.password, clock: { t: opts.t || Date.now() }, timers, store };
+  const env = { counts, password: opts.password, project: opts.project, clock: { t: opts.t || Date.now() }, timers, store };
   const localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
   const api = new Function(...names, body)(state, env, dom.document, win, nav, localStorage, timers.setTimeout, timers.clearTimeout, timers.setInterval, timers.clearInterval, FakeDate, opts.location || { origin: "https://fam.example", pathname: "/Training-Tracker/", search: "", hash: "" }, { replaceState: (a, b, url) => counts.replaced.push(url) });
   const fire = t => { (listeners[t] || []).forEach(fn => fn()); return settle(); };
@@ -416,7 +417,7 @@ async function main() {
     check("2.0.0 is newer than 1.3", newest(["tt-1.3", "tt-2.0.0"]) === "tt-2.0.0" && newest(["tt-2.0.0", "tt-1.3"]) === "tt-2.0.0");
     check("2.0.1 is newer than 2.0.0 and 2.1.0 than 2.0.9", newest(["tt-2.0.0", "tt-2.0.1"]) === "tt-2.0.1" && newest(["tt-2.0.9", "tt-2.1.0"]) === "tt-2.1.0");
     check("1.10.0 is newer than 1.9.0", newest(["tt-1.9.0", "tt-1.10.0"]) === "tt-1.10.0");
-    check("sw.js says 2.0.2", /const VERSION = "2\.0\.2";/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "..", "sw.js"), "utf8")));
+    check("sw.js says 2.0.3", /const VERSION = "2\.0\.3";/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "..", "sw.js"), "utf8")));
   }
   console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);

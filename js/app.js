@@ -6005,10 +6005,13 @@ function sbLoadLib(){
 function sbEnsureClient(){
   return sbClient ? Promise.resolve(sbClient) : sbLoadLib().then(lib=>sbClient=lib.createClient(sb.url, sb.key, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:false}}));
 }
+// The project address and key saved on this phone win over the defaults in js/family.js.
+function sbProject(){ return {url:sb.url||FAMILY_PROJECT.url, key:sb.key||FAMILY_PROJECT.key}; }
 function fsField(id){ return document.getElementById(id); }
 function renderFamilyStorage(){
   if(!fsField("fsUrl")) return;
-  fsField("fsUrl").value=sb.url; fsField("fsKey").value=sb.key; fsField("fsEmail").value=sb.email; fsField("fsPass").value="";
+  const project=sbProject();
+  fsField("fsUrl").value=project.url; fsField("fsKey").value=project.key; fsField("fsEmail").value=sb.email; fsField("fsPass").value="";
   fsField("fsDisconnect").hidden=!(sbOn() || sb.url);
   fsField("fsConnect").hidden=sbOn() && !sbSignInNeeded;
   fsField("fsConnect").textContent=sbOn() ? "Sign in again" : "Connect";
@@ -6019,9 +6022,14 @@ function renderFamilyStorage(){
   else if(!/^(Synced|Syncing|Sync failed|Offline)/.test(fsField("fsStatus").textContent)) setFsStatus("Connected as "+sb.email);
 }
 // Signs in with the family email and password. The password goes straight to supabase-js.
-function sbFormProblem(url, key, email, pass){
+function sbProjectProblem(url, key){
   if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) return "Project URL must look like https://<name>.supabase.co, with no path after .co.";
   if(!key || /\s/.test(key)) return "Publishable key is empty or has a space in it. Paste the whole key.";
+  return "";
+}
+function sbFormProblem(url, key, email, pass){
+  const project=sbProjectProblem(url, key);
+  if(project) return project;
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Family email must look like name@example.com.";
   if(!pass) return "Password is empty. Type the family password.";
   return "";
