@@ -172,14 +172,96 @@ $$;
 revoke execute on function public.save_program(text, jsonb, int) from public, anon;
 grant execute on function public.save_program(text, jsonb, int) to authenticated, service_role;
 
+-- pairing: a short-lived row that lets a new family phone connect from a typed code. A connected phone
+-- encrypts the family email and password with the code and inserts the row, so neither the code nor the
+-- plain values ever reach the server. Nobody can select from this table. A new phone takes its row only
+-- through tt_pair_claim(), and the sending phone removes its row through tt_pair_cancel().
+create table if not exists public.pairing (
+  code_hash   text        primary key,
+  salt        text,
+  iv          text,
+  ciphertext  text,
+  created_at  timestamptz default now(),
+  expires_at  timestamptz not null,
+  attempts    int         default 0
+);
+
+-- pair_attempts: one row that counts every claim in the current minute, so the limit covers all callers together.
+create table if not exists public.pair_attempts (
+  id            int         primary key default 1 check (id = 1),
+  window_start  timestamptz not null default now(),
+  n             int         not null default 0
+);
+insert into public.pair_attempts (id) values (1) on conflict do nothing;
+
+alter table public.pairing       enable row level security;
+alter table public.pair_attempts enable row level security;
+
+drop policy if exists family_insert on public.pairing;
+create policy family_insert on public.pairing
+  for insert to authenticated with check (public.is_family());
+
+drop policy if exists no_client_access on public.pair_attempts;
+create policy no_client_access on public.pair_attempts
+  for all to anon, authenticated using (false) with check (false);
+
+revoke all on public.pairing, public.pair_attempts from anon, authenticated;
+grant insert on public.pairing to authenticated;
+grant all on public.pairing, public.pair_attempts to service_role;
+
+-- tt_pair_claim(code_hash): the new phone calls this with the publishable key, before it has signed in. It clears
+-- expired rows, allows 10 claims a minute in total, and for an exact unexpired match returns the encrypted values
+-- and deletes the row in the same call. The result is {"status": "ok", "salt", "iv", "ciphertext"},
+-- {"status": "none"} for no match, or {"status": "slow"} past the limit.
+create or replace function public.tt_pair_claim(p_code_hash text) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  tries int;
+  claimed public.pairing;
+begin
+  delete from public.pairing where expires_at <= now();
+  update public.pair_attempts set window_start = now(), n = 0
+    where id = 1 and window_start <= now() - interval '1 minute';
+  update public.pair_attempts set n = n + 1 where id = 1 returning n into tries;
+  if tries > 10 then
+    return jsonb_build_object('status', 'slow');
+  end if;
+  delete from public.pairing where code_hash = p_code_hash and expires_at > now() returning * into claimed;
+  if not found then
+    return jsonb_build_object('status', 'none');
+  end if;
+  return jsonb_build_object('status', 'ok', 'salt', claimed.salt, 'iv', claimed.iv, 'ciphertext', claimed.ciphertext);
+end;
+$$;
+
+revoke execute on function public.tt_pair_claim(text) from public;
+grant execute on function public.tt_pair_claim(text) to anon, authenticated, service_role;
+
+-- tt_pair_cancel(code_hash): the sending phone removes its own row early. A family member only.
+create or replace function public.tt_pair_cancel(p_code_hash text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if not public.is_family() then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  delete from public.pairing where code_hash = p_code_hash;
+end;
+$$;
+
+revoke execute on function public.tt_pair_cancel(text) from public, anon;
+grant execute on function public.tt_pair_cancel(text) to authenticated, service_role;
+
 -- tt_keepalive(): the Home Hub calls this once a day with the publishable key. It touches
--- heartbeat so the free project stays active and soft-deletes drafts untouched for 24 hours.
+-- heartbeat so the free project stays active, soft-deletes drafts untouched for 24 hours and clears expired pairing rows.
 create or replace function public.tt_keepalive() returns void
 language sql security definer set search_path = ''
 as $$
   update public.heartbeat set touched_at = now() where id = 1;
   update public.drafts set deleted_at = (extract(epoch from now()) * 1000)::bigint
     where deleted_at is null and updated_at < ((extract(epoch from now()) - 86400) * 1000)::bigint;
+  delete from public.pairing where expires_at <= now();
 $$;
 
 revoke execute on function public.tt_keepalive() from public;
