@@ -5971,18 +5971,23 @@ function sbWithin(promise, message){
   let timer;
   return Promise.race([promise, new Promise((res, rej)=>{ timer=setTimeout(()=>rej(new Error(message)), SB_TIMEOUT_MS); })]).finally(()=>clearTimeout(timer));
 }
+// A library script is fetched only when a feature needs it. `ready` returns the library once the script has defined it.
+function loadLib(url, sri, ready, failMsg, startMsg){
+  return new Promise(function(res, rej){
+    const s=document.createElement("script");
+    const fail=msg=>{ clearTimeout(timer); if(s.parentNode) s.parentNode.removeChild(s); rej(new Error(msg)); };
+    const timer=setTimeout(()=>fail(failMsg), SB_TIMEOUT_MS);
+    s.src=url; s.integrity=sri; s.crossOrigin="anonymous";
+    s.onload=()=>{ clearTimeout(timer); ready() ? res(ready()) : fail(startMsg); };
+    s.onerror=()=>fail(failMsg);
+    document.head.appendChild(s);
+  });
+}
 // supabase-js is fetched only once a connection exists, never for a phone on GitHub storage.
 function sbLoadLib(){
   if(window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
-  return sbLibPromise || (sbLibPromise=new Promise(function(res, rej){
-    const s=document.createElement("script");
-    const fail=msg=>{ clearTimeout(timer); sbLibPromise=null; if(s.parentNode) s.parentNode.removeChild(s); rej(new Error(msg)); };
-    const timer=setTimeout(()=>fail(SB_LIB_ERROR), SB_TIMEOUT_MS);
-    s.src=SB_LIB_URL; s.integrity=SB_LIB_SRI; s.crossOrigin="anonymous";
-    s.onload=()=>{ clearTimeout(timer); window.supabase && window.supabase.createClient ? res(window.supabase) : fail("Could not start the storage library"); };
-    s.onerror=()=>fail(SB_LIB_ERROR);
-    document.head.appendChild(s);
-  }));
+  return sbLibPromise || (sbLibPromise=loadLib(SB_LIB_URL, SB_LIB_SRI, ()=>window.supabase && window.supabase.createClient && window.supabase, SB_LIB_ERROR, "Could not start the storage library")
+    .catch(e=>{ sbLibPromise=null; throw e; }));
 }
 function sbEnsureClient(){
   return sbClient ? Promise.resolve(sbClient) : sbLoadLib().then(lib=>sbClient=lib.createClient(sb.url, sb.key, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:false}}));
