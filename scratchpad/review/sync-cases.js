@@ -17,8 +17,8 @@ const FUNCTIONS = ["slugify", "programSlug", "wrapProgram", "paintStatus", "auto
   "mergeBodyweight", "bwTombstone", "bwIsDeleted", "tombstoneBodyweight", "mergeMachineSettings", "mergeProgression", "mergeFeatures",
   "mergeAdminPin", "mergeCoachQuestions", "mergeMeasurements", "mergeNutritionTargets", "mergeSuggestions", "sugRank", "mergeDecisions",
   "saveDrafts", "mergeProgramChanges", "mergeMeals", "mealIsDeleted", "mealTombstone", "tombstoneMeal", "mergeConfig", "mergePrograms",
-  "incomingPrograms", "draftOnProgram", "syncWeightFromBw", "latestBw"];
-const CONSTS = ["KEY", "SYNC_KEY", "DRAFT_KEY", "DRAFT_TTL_MS", "clone", "esc"];
+  "incomingPrograms", "draftOnProgram", "syncWeightFromBw", "latestBw", "b64encode", "b64decode", "openFamilyStorage", "setupOpen", "setupReceive", "setupResume"];
+const CONSTS = ["KEY", "SYNC_KEY", "DRAFT_KEY", "DRAFT_TTL_MS", "clone", "esc", "SETUP_PREFIX"];
 
 // The page globals the block touches, as small fakes.
 function fakeDom() {
@@ -73,12 +73,12 @@ function log(id, person, date, extra) { return Object.assign({ id, person, date,
 // One phone: its own copy of the engine around `state`, talking to `server`.
 function makePhone(server, state, opts) {
   opts = opts || {};
-  const dom = fakeDom(), listeners = {}, timers = fakeTimers(), store = {}, counts = { saves: 0, renders: 0, toasts: [] };
+  const dom = fakeDom(), listeners = {}, timers = fakeTimers(), store = {}, counts = { saves: 0, renders: 0, toasts: [], dialogs: [], opened: 0, tab: "", replaced: [] };
   const token = opts.token || {}, lib = { createClient: () => server.client(token) };
   const win = { supabase: opts.noLib ? undefined : lib, addEventListener: (t, fn) => (listeners[t] = listeners[t] || []).push(fn) };
   dom.document.addEventListener = win.addEventListener;
   const nav = { onLine: true };
-  const names = ["state", "env", "document", "window", "navigator", "localStorage", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"];
+  const names = ["state", "env", "document", "window", "navigator", "localStorage", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "location", "history"];
   const fns = FUNCTIONS.map(grab).join("\n");
   const block = familyBlock().replace("const SB_PAGE=1000", "const SB_PAGE=" + (opts.page || 1000));
   const body = "let progExIndex={}, bwIndex={}, personIndex={}, progIndex={};\n"
@@ -86,14 +86,15 @@ function makePhone(server, state, opts) {
     + "const draftKey=()=>state.people[state.activePerson]+'|'+curSession;\n"
     + "function captureDraft(){} function save(){ env.counts.saves++; } function renderPeople(){} function renderEdit(){ env.counts.edits = (env.counts.edits || 0) + 1; } function renderView(){ env.counts.renders++; }\n"
     + "function toast(m){ env.counts.toasts.push(m); } function autoSync(){} const ico=()=>'';\n"
+    + "let setupPending=null, adminUnlocked=false; const hasPin=()=>false; function renderAdminGate(){} function setSettingsTab(t){ env.counts.tab=t; } function showUpdateResult(t, b){ env.counts.dialogs.push([t, b]); }\n"
     + CONSTS.map(grabConst).join("\n") + "\n" + fns + "\n" + block
     + "\nfsField('fsPass').value=env.password||'';\n"
-    + "return { get sb(){ return sb; }, get sbLines(){ return sbLines; }, get state(){ return state; }, formDrafts, sessionTimers, formExtras,\n"
+    + "return { get sb(){ return sb; }, get sbLines(){ return sbLines; }, get state(){ return state; }, get setupPending(){ return setupPending; }, formDrafts, sessionTimers, formExtras,\n"
     + "  ev: code => eval(code) };";
   const FakeDate = class extends Date { static now() { return env.clock.t; } };
   const env = { counts, password: opts.password, clock: { t: opts.t || Date.now() }, timers, store };
   const localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-  const api = new Function(...names, body)(state, env, dom.document, win, nav, localStorage, timers.setTimeout, timers.clearTimeout, timers.setInterval, timers.clearInterval, FakeDate);
+  const api = new Function(...names, body)(state, env, dom.document, win, nav, localStorage, timers.setTimeout, timers.clearTimeout, timers.setInterval, timers.clearInterval, FakeDate, opts.location || { origin: "https://fam.example", pathname: "/Training-Tracker/", search: "", hash: "" }, { replaceState: (a, b, url) => counts.replaced.push(url) });
   const fire = t => { (listeners[t] || []).forEach(fn => fn()); return settle(); };
   const advance = ms => timers.advance(ms, settle);
   return Object.assign(api, { dom, timers, store, counts, env, nav, win, settle, fire, advance });
@@ -420,4 +421,5 @@ async function main() {
   console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
 }
-main().catch(e => { console.log("CRASH", e && e.stack || e); process.exit(1); });
+if (require.main === module) main().catch(e => { console.log("CRASH", e && e.stack || e); process.exit(1); });
+module.exports = { makePhone, makeState, connect, log, programFor };
