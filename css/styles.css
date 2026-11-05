@@ -219,6 +219,8 @@
   .mini{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;
     border:1px solid var(--line-2);background:var(--input-bg);border-radius:10px;padding:5px 10px;
     cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
+  /* display:inline-flex above beats the browser's [hidden] rule - same trap as .row. */
+  .mini[hidden]{display:none}
   .mini:hover{border-color:var(--brand);color:var(--brand)}
   /* Icon-only buttons (↑ ↓ ×) - square, so the cluster reads as one control
      rather than three different widths. */
