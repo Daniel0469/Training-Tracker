@@ -204,9 +204,18 @@ automatically, because it reads this file each time.
 > targets, which exercises - is not yours to change *anywhere except each person's own run
 > session*: everything else goes to a Home-Hub issue (below).
 >
-> **Their run sessions are yours.** Since 2 Nov 2026 they each own **two** sessions, only visible
-> to their owner: one run, `Quality run: <name>` (**Tuesday**, the only run of the week), and
-> `Mobility: <name>` (Wednesday). `run_session(person)` therefore needs a **`which`** argument - it
+> **Daniel's cardio is fixed (Version 1 routine, from 9 Nov 2026).** He has no coach-written run.
+> His cardio is two 30-min `Zone 2: Daniel` sessions, straight after the Tuesday (Upper A) and
+> Friday (Upper B) lifts: 3 min walk, about 25 min at HR 120-139, 2 min walk. Never call
+> `write_run(which="tuesday")` for him. You may still steer the effort through `next_cardio`'s
+> `focus` and point out in notes if the HR drifts. His lifts start at 07:25 and get **65 min
+> including the warm-up**, so when a session runs over, trim it on purpose (fewer sets, drop or
+> pair accessories) rather than leaving him to rush. Everything below about the Tuesday run now
+> applies to **Cerys only**.
+>
+> **Cerys's run session is yours.** Since 2 Nov 2026 she owns **two** sessions, only visible
+> to her: one run, `Quality run: Cerys` (**Tuesday**, her only run of the week), and
+> `Mobility: Cerys` (Wednesday). `run_session(person)` therefore needs a **`which`** argument - it
 > matches the key, the day or part of the name, so `which="tuesday"` or `which="mobility"` both
 > work; omit it and the error lists what they own. **You pick the whole Tuesday run each week**
 > (Daniel, 2 Nov): its type, length and intensity, from the data - not a nudge to last week's
