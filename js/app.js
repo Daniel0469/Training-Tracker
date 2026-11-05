@@ -1213,6 +1213,22 @@ function catchUpDate(){
 }
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") catchUpDate(); });
 window.addEventListener("pageshow", catchUpDate);
+// iPhone standalone can leave the page shifted after the keyboard closes, so the fixed bars (tabs,
+// sets done, rest) float mid-screen. A one pixel scroll and back makes it lay the bars out again.
+let reanchorTimer=null, reanchoredAt=0;
+function reanchorBars(){
+  if(Date.now()-reanchoredAt<600) return;
+  clearTimeout(reanchorTimer);
+  reanchorTimer=setTimeout(function(){
+    const el=document.activeElement;
+    if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    const x=window.scrollX, y=window.scrollY;
+    reanchoredAt=Date.now();
+    window.scrollTo(x, y>0 ? y-1 : 1); window.scrollTo(x, y);
+  }, 150);
+}
+if(window.visualViewport){ window.visualViewport.addEventListener("resize", reanchorBars); window.visualViewport.addEventListener("scroll", reanchorBars); }
+document.addEventListener("focusout", reanchorBars);
 // Read the live log form into formDrafts under the current person+session,
 // or drop the draft if nothing has been entered. Call before any action that
 // re-renders the form (person/session/date change, tab switch).
