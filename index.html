@@ -106,6 +106,10 @@
   <div id="fsProgress" class="hint" hidden></div>
   <div class="row" style="margin-bottom:8px"><button class="btn btn-ghost grow" id="fsShowSetup" hidden>Show setup code</button></div>
   <details class="sync-cfg" id="fsCfg"><summary>Connection</summary>
+  <div class="row" style="margin-bottom:8px;align-items:flex-end">
+    <label class="fld grow">Paste a setup code<input id="fsSetupPaste" type="password" autocomplete="off" placeholder="The link or the code"></label>
+    <button class="btn btn-ghost" id="fsSetupUse">Use code</button>
+  </div>
   <label class="fld" style="margin-bottom:8px">Project URL<input id="fsUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="off"></label>
   <label class="fld" style="margin-bottom:8px">Publishable key<input id="fsKey" type="text" autocomplete="off"></label>
   <div class="row" style="margin-bottom:8px">

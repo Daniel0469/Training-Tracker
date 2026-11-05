@@ -2,7 +2,16 @@
 const KEY = "flLiveTracker_v1";
 const SYNC_KEY = "flLiveTracker_sync_v1";
 
+// A setup code arrives after the # of a link. It is taken off the address before anything else runs,
+// so it is never left in the address bar or the history, and is held in memory only.
 const SETUP_PREFIX = "tt-setup=";
+function takeSetupHash(){
+  const hash = location.hash.slice(1);
+  if(hash.indexOf(SETUP_PREFIX) !== 0) return "";
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+  return hash;
+}
+const SETUP_HASH = takeSetupHash();
 
 // There is deliberately no default program baked into the app. A fresh install
 // starts blank (see load()) and the Program tab is built from scratch or from a
@@ -774,7 +783,8 @@ function renderCreateAccount(slotIndex){
     + '<h2 class="ca-title">'+(isSecond?"Add a second account":"Welcome")+'</h2>'
     + '<div class="hint" style="margin:0 0 18px">'+(isSecond
         ?"Optional - this device can be shared by up to two people."
-        :"Give your tracker a name and a colour to get started. Nothing is sent anywhere; it's saved on this device.")+'</div>'
+        :"Give your tracker a name and a colour to get started. Nothing is sent anywhere; it's saved on this device."
+        +(setupPending?" A family setup code is ready: once your account exists, this phone connects to the family storage.":""))+'</div>'
     + '<label class="fld" style="margin-bottom:14px;text-align:left">Name<input id="caName" type="text" placeholder="e.g. Alex" autocomplete="off"></label>'
     + '<label class="fld" style="margin-bottom:20px;text-align:left">Colour<div class="swatchpick" id="caColor"></div></label>'
     + '<button class="btn btn-primary" id="caCreate" style="width:100%">Create account</button>'
@@ -801,6 +811,7 @@ function renderCreateAccount(slotIndex){
     state.activePerson=slotIndex;
     save(); reveal(); renderPeople(); renderView();
     toast("Welcome, "+nm+"!");
+    setupResume();
   };
   if(isSecond){
     document.getElementById("caSkip").onclick=()=>{ reveal(); renderPeople(); renderView(); };
@@ -6015,10 +6026,10 @@ function sbFormProblem(url, key, email, pass){
   if(!pass) return "Password is empty. Type the family password.";
   return "";
 }
-function sbConnect(){
+function sbConnect(given){
   const btn=fsField("fsConnect"), label=btn.textContent;
   sb.url=fsField("fsUrl").value.trim().replace(/\/+$/, ""); sb.key=fsField("fsKey").value.trim(); sb.email=fsField("fsEmail").value.trim();
-  const pass=fsField("fsPass").value, problem=sbFormProblem(sb.url, sb.key, sb.email, pass);
+  const pass=given==null ? fsField("fsPass").value : given, problem=sbFormProblem(sb.url, sb.key, sb.email, pass);
   if(problem){ setFsStatus(problem); return Promise.resolve(); }
   btn.disabled=true; btn.textContent="Signing in...";
   sbSave(); setFsStatus("Signing in...");
@@ -6132,6 +6143,20 @@ function setupCopy(){
   navigator.clipboard && navigator.clipboard.writeText
     ? navigator.clipboard.writeText(fsField("setupText").value).then(()=>toast("Setup code copied"), ()=>toast("Could not copy"))
     : toast("Copying is not supported in this browser");
+}
+// Fills the connection fields from a setup code and signs in with the password it holds, which goes nowhere else.
+function setupApply(got){
+  if(sbOn() && (got.url!==sb.url || got.email!==sb.email)) return setFsStatus("Setup code not used. This phone is already connected to another family storage. Disconnect it first."), Promise.resolve();
+  fsField("fsUrl").value=got.url; fsField("fsKey").value=got.key; fsField("fsEmail").value=got.email;
+  return sbConnect(got.password);
+}
+// The box on the Connect form: the full link or just the code.
+function setupUse(text){
+  fsField("fsSetupPaste").value="";
+  if(!String(text).trim()){ setFsStatus("Setup code not used. Paste the link or the code first."); return Promise.resolve(); }
+  let got;
+  try{ got=setupDecode(text); }catch(e){ setFsStatus("Setup code not used. "+e.message); return Promise.resolve(); }
+  return setupApply(got);
 }
 // ---- First sign-in: copy everything on this phone up, read it back, then switch ----
 const SB_BATCH=200, SB_PAGE=1000;
@@ -6490,10 +6515,11 @@ async function sbPullDrafts(){
   if(rows.length){ sb.dcursor=maxTs(rows, sb.dcursor); sbSave(); }
 }
 // ==== end Family storage ====
-fsField("fsConnect").onclick=sbConnect;
+fsField("fsConnect").onclick=()=>sbConnect();
 fsField("fsDisconnect").onclick=sbDisconnect;
 fsField("fsSyncBtn").onclick=()=>sbSyncNow(false);
 fsField("fsShowSetup").onclick=setupAsk;
+fsField("fsSetupUse").onclick=()=>setupUse(fsField("fsSetupPaste").value);
 fsField("setupGo").onclick=setupGo;
 fsField("setupPass").onkeydown=e=>{ if(e.key==="Enter") setupGo(); };
 fsField("setupClose").onclick=()=>fsField("setupDlg").close();
@@ -6502,6 +6528,30 @@ fsField("setupCopy").onclick=setupCopy;
 fsField("setupText").onfocus=function(){ this.select(); };
 fsField("setupDlg").addEventListener("close", ()=>setupHide(""));
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") setupHide(""); });
+
+// A setup code that came in the address: the Family storage form is filled and Connect runs with the password held in
+// memory only. A phone with no account yet keeps it until the first account exists.
+let setupPending=null;
+function openFamilyStorage(){
+  document.getElementById("settingsBtn").onclick();
+  setSettingsTab("admin");
+  fsField("fsCfg").open=true;
+}
+function setupOpen(got){
+  const noPin=!hasPin();
+  openFamilyStorage();
+  return setupApply(got).then(()=>{ if(!adminUnlocked && noPin && hasPin()) renderAdminGate(); });
+}
+function setupReceive(raw){
+  let got;
+  try{ got=setupDecode(raw); }catch(e){ showUpdateResult("Setup code not used", e.message); return Promise.resolve(); }
+  if(!state.people[0]){ setupPending=got; return Promise.resolve(); }
+  return setupOpen(got);
+}
+function setupResume(){
+  const got=setupPending; setupPending=null;
+  return got ? setupOpen(got) : Promise.resolve();
+}
 
 function renderHelp(){
   // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
@@ -7491,6 +7541,7 @@ initTheme();
 renderPeople();
 renderView();
 if(sbOn()) sbStart(); else autoSync(); // on open: pull the latest (partner's logs, coach notes) automatically
+if(SETUP_HASH) setupReceive(SETUP_HASH);
 
 // Ask the browser to protect this site's storage from automatic eviction under
 // storage pressure - relevant for anyone not using cloud sync, since local data
