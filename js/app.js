@@ -5749,7 +5749,7 @@ function ghPutFile(cfg, payloadStr, sha){
 function paintStatus(textId, dotId, msg){
   const el=document.getElementById(textId); if(el) el.textContent=msg;
   const dot=document.getElementById(dotId); if(!dot) return;
-  dot.dataset.s = /fail|^(Could not|Project URL|Publishable key|Family email|Password|Setup code)/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
+  dot.dataset.s = /fail|^(Could not|Project URL|Publishable key|Family email|Password|Setup code|Pairing code)/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
     : /^(Synced|Configured|Saved\. Ready|Connected)/.test(msg) ? "ok" : "off";
 }
 function setSyncStatus(msg){ paintStatus("ghStatus", "ghDot", msg); }
@@ -6252,6 +6252,40 @@ function setupUse(text){
   try{ got=setupDecode(text); }catch(e){ setFsStatus("Setup code not used. "+e.message); return Promise.resolve(); }
   return setupApply(got);
 }
+// The box on the Connect form for a short code made on a connected phone. The project address and key come from the
+// fields (filled from js/family.js unless this phone has its own). The code decrypts the family email and password, and
+// they connect exactly as a scanned setup code does.
+function pairProblem(e){
+  const msg=String((e && e.message) || e);
+  return pairMissing(e) ? "The family storage is not set up for pairing yet. Run supabase-schema.sql in Supabase again (docs/supabase-setup.md)."
+    : /failed to fetch|network/i.test(msg) ? SB_REACH_ERROR : msg;
+}
+function pairUse(text){
+  fsField("fsPair").value="";
+  const code=pairNormalise(text), url=fsField("fsUrl").value.trim().replace(/\/+$/, ""), key=fsField("fsKey").value.trim();
+  const problem=!code ? "Type the code first." : !pairValid(code) ? "It has 6 letters and numbers, like K7P-4QX. Check the code on the other phone."
+    : sbProjectProblem(url, key) || (sbOn() && url!==sb.url ? "This phone is already connected to another family storage. Disconnect it first." : "");
+  if(problem){ setFsStatus("Pairing code not used. "+problem); return Promise.resolve(); }
+  const btn=fsField("fsPairUse");
+  btn.disabled=true; setFsStatus("Checking the pairing code...");
+  sb.url=url; sb.key=key;
+  return Promise.all([pairHash(code), sbEnsureClient()])
+    .then(([hash, c])=>sbWithin(c.rpc("tt_pair_claim", {p_code_hash:hash}), SB_REACH_ERROR))
+    .then(res=>{
+      if(res.error) throw res.error;
+      const claimed=res.data || {};
+      if(claimed.status==="slow") throw new Error("Too many tries just now. Wait a minute, then try again.");
+      if(claimed.status!=="ok") throw new Error("That pairing code is wrong or has run out. Check the code on the other phone, or make a new one there.");
+      return pairOpen(code, claimed);
+    })
+    .then(got=>{
+      const bad=sbFormProblem(url, key, got.email, got.password);
+      if(bad) throw new Error("The pairing code is not complete. "+bad);
+      return setupApply({url, key, email:got.email, password:got.password});
+    })
+    .catch(e=>setFsStatus("Pairing code not used. "+pairProblem(e)))
+    .then(()=>{ btn.disabled=false; });
+}
 // ---- First sign-in: copy everything on this phone up, read it back, then switch ----
 const SB_BATCH=200, SB_PAGE=1000;
 let sbLines=[], sbFirstPull=false;
@@ -6614,6 +6648,8 @@ fsField("fsDisconnect").onclick=sbDisconnect;
 fsField("fsSyncBtn").onclick=()=>sbSyncNow(false);
 fsField("fsShowSetup").onclick=setupAsk;
 fsField("fsSetupUse").onclick=()=>setupUse(fsField("fsSetupPaste").value);
+fsField("fsPairUse").onclick=()=>pairUse(fsField("fsPair").value);
+fsField("fsPair").onkeydown=e=>{ if(e.key==="Enter") pairUse(fsField("fsPair").value); };
 fsField("setupGo").onclick=setupGo;
 fsField("setupPass").onkeydown=e=>{ if(e.key==="Enter") setupGo(); };
 fsField("setupClose").onclick=()=>fsField("setupDlg").close();
