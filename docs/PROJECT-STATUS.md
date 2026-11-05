@@ -1171,6 +1171,10 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
 - **Setup code (version 2.0.2, built 5 Nov 2026, Daniel to review):** a connected phone shows a QR code and a text link for
   60 seconds after the family password is typed. Another phone scans or pastes it, and Family storage fills in and connects. The
   password is held in memory only. Details in `docs/prompts/dev.md`.
+- **Pairing code (version 2.0.3, built 5 Nov 2026, Daniel to review):** Show setup code also shows a short code like K7P-4QX for 10
+  minutes. A new phone types it under Connection to connect, no scan needed. The family email and password are stored encrypted by the
+  code, never in plain text. Needs `docs/supabase-schema.sql` run again, and `js/family.js` filled in with the project address and
+  publishable key. Details in `docs/prompts/dev.md`.
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
   **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**

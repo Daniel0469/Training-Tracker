@@ -108,6 +108,10 @@ feature proposals/specs.
 - Setup code (version 2.0.2): `setupCode` / `setupLink` / `setupDecode` and the Show setup code dialog sit in the same block. `takeSetupHash`
   at the top of `js/app.js` removes a `#tt-setup=` fragment before anything else runs, and `setupReceive` connects with the password held in
   memory only. Never store, log or export a code or its password. `scratchpad/review/setup-cases.js` covers it.
+- Pairing code (version 2.0.3): the `PAIR_*` constants and `pairNew` / `pairSeal` / `pairOpen` / `pairPublish` / `pairUse` in the same block.
+  The phone showing the setup code also stores `{email, password}` encrypted with a 6-character code (PBKDF2 into AES-GCM) in the `pairing`
+  table, and the new phone claims it once through the `tt_pair_claim` function. `js/family.js` holds the project address and key the fields
+  start from (`sbProject`). Never store, log or export the code or the password. `scratchpad/review/pair-cases.js` covers it.
 - Importers: `importBodyweightCsv` (scale CSV), `importRunIntoCard` + `parseTcx`/`parseGpx` (runs).
 
 ## Roadmap (not yet built - see `docs/hub-and-coaching.md` when it exists)

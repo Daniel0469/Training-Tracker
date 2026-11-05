@@ -91,6 +91,19 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   code is used. The app reads the module grid from the library and draws the canvas itself, so the library never renders an
   image. Never log, store, export or screenshot a code. Cases: `scratchpad/review/setup-cases.js`. Review stage:
   `scratchpad/review/setup-stage.html`.
+- **Pairing code** (built 5 Nov 2026 as version 2.0.3, on branch `pair-code`, not pushed): `js/family.js` holds
+  `FAMILY_PROJECT = {url, key}` (project address and publishable key only, typed by Daniel, empty in the repo). `sbProject()` fills the
+  Family storage fields from it and values saved on the phone win. Show setup code also makes a 6-character code from
+  `PAIR_ALPHABET` (no 0, O, 1, I, L) with `crypto.getRandomValues`, shown as `K7P-4QX`. `pairSeal` encrypts `{email, password}` with
+  AES-GCM under a key from PBKDF2 (SHA-256, 250000 rounds, random 16-byte salt) and `pairPublish` inserts `{code_hash, salt, iv,
+  ciphertext, expires_at}` into `public.pairing` (10 minutes, hash is SHA-256 of `tt-pair-v1:` plus the code). The dialog shows a
+  countdown and Cancel code, which calls `tt_pair_cancel`. Cancel, Hide, a closed dialog, the app going to the background and the
+  expiry all run `pairStop`. On the new phone, Connection -> Type a pairing code runs `pairUse`: it calls `tt_pair_claim` with the
+  publishable key (no sign-in), which returns the encrypted values once and deletes the row, 10 tries a minute in total. `pairOpen`
+  decrypts them and `setupApply` connects as a scanned code does. Nobody can select from `pairing`. The schema is in
+  `docs/supabase-schema.sql` (re-running the whole file is safe) and `docs/supabase-setup.md`. The family email and password are never
+  in the repo. Never log, store, export or screenshot a code. Cases: `scratchpad/review/pair-cases.js` and
+  `scratchpad/test_pairing.py`. Review stage: `scratchpad/review/pair-stage.html`.
 - **Programs are per person** (3 Nov 2026, built on branch `p4-app`, not pushed): `state.programs[id] = {id, name?, members, version,
   updatedAt, updatedBy, order, sessions}` and `state.programIds[person] = {id, updatedAt}`. Daniel and Cerys share one program
   (`p-daniel-cerys`), anyone else gets their own. Read a program with `progOf(person)` (no argument is the active person) -

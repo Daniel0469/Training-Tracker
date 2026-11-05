@@ -53,9 +53,17 @@ tables and run the move again from the family exports and the GitHub `data.json`
     phone. It does nothing without the sign-in. Use the two phones for a day or two.
 11. Then the family phones, one at a time, the same way. Faster: on a connected phone open Admin, then Family
     storage, tap Show setup code and type the family password. Scan the code with the new phone in person, or
-    paste the link into Paste a setup code and tap Use code. The code holds the family password, so never
-    screenshot it or send it in a message. If it leaks, change the family password in Supabase (Authentication,
-    then Users) and show a new code on each phone.
+    paste the link into Paste a setup code and tap Use code, or type the short code (like K7P-4QX) into
+    Type a pairing code and tap Pair. The codes hold the family password, so never screenshot them or send them
+    in a message. If one leaks, change the family password in Supabase (Authentication, then Users) and
+    show a new code on each phone.
+12. Version 2.0.3 added the pairing table and its functions. If the project was set up earlier, open the SQL
+    Editor, paste the whole of `docs/supabase-schema.sql` and run it again. It is safe to run again and
+    changes nothing that already exists. Without this step the short code shows a message that it is not
+    ready, and the QR code still works.
+13. To save typing the project address and key on each new phone, open `js/family.js` and type the project URL
+    and the publishable key between the quotes of `FAMILY_PROJECT`. Both are safe to commit, but the family
+    email and password never go in that file. A phone's own saved values win over the file.
 
 ## Part 2 - Moving the data over
 

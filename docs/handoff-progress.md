@@ -42,6 +42,10 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Setup code built as version 2.0.2 (5 Nov, branch `setup-code`): Show setup code on a connected phone, scan or paste on the
       new phone.
 - [ ] Setup code reviewed by Daniel (review stage `scratchpad/review/setup-stage.html`, cases `scratchpad/review/setup-cases.js`).
+- [x] Pairing code built as version 2.0.3 (5 Nov, branch `pair-code`): a short code under Show setup code, typed on the new phone.
+- [ ] Blocked on Daniel: re-run the whole `docs/supabase-schema.sql` in the Supabase SQL Editor (safe to run again), then type the project
+      address and publishable key into `js/family.js`.
+- [ ] Pairing code reviewed by Daniel (review stage `scratchpad/review/pair-stage.html`, cases `scratchpad/review/pair-cases.js`).
 - [ ] Try a real scan: the QR code from a connected phone to a second phone, including the Home Screen app case.
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.
 - [ ] Blocked on Daniel: create the free Supabase project.

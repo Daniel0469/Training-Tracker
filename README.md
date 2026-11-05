@@ -27,6 +27,10 @@ GitHub Pages.
   a text link for 60 seconds. The new phone scans or pastes it and connects. The details sit after the `#` of the link, so they
   never reach GitHub Pages, and nothing is stored. The QR library (qrcodejs 1.0.0, from cdnjs, pinned with an integrity hash) loads
   only when Show setup code is used.
+- Pairing code (version 2.0.3): Show setup code also shows a short code such as K7P-4QX for 10 minutes. The phone stores the family email
+  and password encrypted with the code (PBKDF2 and AES-GCM in the browser) in the `pairing` table. On the new phone, Admin -> Family storage
+  -> Connection -> Type a pairing code claims the row once through the `tt_pair_claim` function and connects. `js/family.js` holds the
+  project address and publishable key, so a new phone's fields start filled in. Server setup is `docs/supabase-setup.md`.
 - `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
   `progression.py` is the double progression rule (the same rule runs in `js/app.js`), read through the
