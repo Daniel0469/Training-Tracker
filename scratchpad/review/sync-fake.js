@@ -1,8 +1,9 @@
 "use strict";
 // A JS stand-in for the Supabase side of the sync engine, for sync-cases.js: an in-memory server holding
 // the records and drafts tables, and a client with the small part of the supabase-js v2 interface the
-// app uses (from().select/upsert, rpc, auth, channel). The merge rules are a line for line copy of
-// records_merge(), drafts_merge() and save_program() in docs/supabase-schema.sql.
+// app uses (from().select/upsert/insert, rpc, auth, channel). The merge rules are a line for line copy of
+// records_merge(), drafts_merge() and save_program() in docs/supabase-schema.sql, and the pairing rules
+// of tt_pair_claim() and tt_pair_cancel().
 
 // Postgres prints a timestamp without its trailing zeros, so the times here do too.
 function stamp(n) {
@@ -22,6 +23,10 @@ class FakeServer {
     this.offline = false;
     this.calls = [];
     this.failUpserts = 0;
+    this.pairing = new Map();   // code_hash -> {code_hash, salt, iv, ciphertext, expires_at, attempts}
+    this.pairWindow = { start: 0, n: 0 };
+    this.pairClock = () => Date.now();   // tests point this at the phones' clock
+    this.pairTables = true;     // false: the schema has not been run again, so the pairing table and functions are missing
     this.dropOnUpsert = null;   // (row) => row or null: makes the server lose or change a row it was sent
   }
   now() { return stamp(++this.tick); }
@@ -68,6 +73,17 @@ class FakeServer {
     this.emit("records", old ? "UPDATE" : "INSERT", next, null);
     return "ok";
   }
+  // tt_pair_claim(): clears expired rows, allows 10 claims a minute in total, and hands over and deletes a matching row.
+  pairClaim(hash) {
+    const now = this.pairClock();
+    this.pairing.forEach((row, k) => { if (Date.parse(row.expires_at) <= now) this.pairing.delete(k); });
+    if (this.pairWindow.start <= now - 60000) this.pairWindow = { start: now, n: 0 };
+    if (++this.pairWindow.n > 10) return { status: "slow" };
+    const row = this.pairing.get(hash);
+    if (!row) return { status: "none" };
+    this.pairing.delete(hash);
+    return { status: "ok", salt: row.salt, iv: row.iv, ciphertext: row.ciphertext };
+  }
   emit(table, eventType, row, from) {
     this.listeners.forEach(l => { if (l.table === table) setTimeout(() => l.cb({ eventType, new: JSON.parse(JSON.stringify(row)) }), 0); });
   }
@@ -79,6 +95,7 @@ class FakeServer {
 class Query {
   constructor(client, table) { this.c = client; this.table = table; this.filters = []; this.orders = []; this.max = Infinity; this.op = "select"; }
   select() { this.op = "select"; return this; }
+  insert(rows) { this.op = "insert"; this.rows = Array.isArray(rows) ? rows : [rows]; return this; }
   upsert(rows, opts) { this.op = "upsert"; this.rows = Array.isArray(rows) ? rows : [rows]; this.opts = opts || {}; return this; }
   order(col, o) { this.orders.push([col, !(o && o.ascending === false)]); return this; }
   gt(col, v) { this.filters.push(["gt", col, v]); return this; }
@@ -91,6 +108,15 @@ class Query {
     if (s.offline) return { data: null, error: { message: "Failed to fetch" } };
     s.calls.push({ table: this.table, op: this.op, n: this.rows ? this.rows.length : 0, filters: this.filters });
     if (!s.signedIn.has(this.c.token)) return { data: null, error: { message: "permission denied" } };
+    if (this.table === "pairing") {
+      if (!s.pairTables) return { data: null, error: { code: "42P01", message: "relation public.pairing does not exist" } };
+      if (this.op !== "insert") return { data: null, error: { message: "permission denied for table pairing" } };
+      for (const r of this.rows) {
+        if (s.pairing.has(r.code_hash)) return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+        s.pairing.set(r.code_hash, JSON.parse(JSON.stringify(Object.assign({ attempts: 0 }, r))));
+      }
+      return { data: null, error: null };
+    }
     if (this.op === "upsert") {
       if (s.failUpserts > 0) { s.failUpserts--; return { data: null, error: { message: "upsert failed" } }; }
       const cols = new Set(this.rows.map(r => Object.keys(r).sort().join()));
@@ -136,6 +162,13 @@ class FakeClient {
     const s = this.server;
     if (s.offline) return { data: null, error: { message: "Failed to fetch" } };
     s.calls.push({ table: "rpc:" + name, op: "rpc", n: 1, filters: [] });
+    if (name === "tt_pair_claim" || name === "tt_pair_cancel") {
+      if (!s.pairTables) return { data: null, error: { code: "PGRST202", message: "Could not find the function public." + name + " in the schema cache" } };
+      if (name === "tt_pair_claim") return { data: s.pairClaim(args.p_code_hash), error: null };
+      if (!s.signedIn.has(this.token)) return { data: null, error: { code: "42501", message: "permission denied for function tt_pair_cancel" } };
+      s.pairing.delete(args.p_code_hash);
+      return { data: null, error: null };
+    }
     if (name === "save_program") return { data: s.saveProgram(args.id, args.body, args.base_version), error: null };
     return { data: null, error: { message: "no such function" } };
   }

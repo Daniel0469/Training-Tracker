@@ -10,6 +10,11 @@ Prefer: resolution=merge-duplicates. Writes go through merge_trigger(), a line f
 records_merge() in docs/supabase-schema.sql, so the newest-wins merge is exercised here too.
 It refuses a call whose apikey or Bearer token is not the secret, and a bulk insert whose rows do
 not all have the same columns, as PostgREST does.
+
+It also answers POST /rest/v1/rpc/tt_pair_claim (the new phone's call, made with the publishable key
+or the secret key), /rpc/tt_pair_cancel and /rpc/tt_keepalive over the `pairing` rows, with the
+rules of those functions in docs/supabase-schema.sql: 10 claims a minute in total, a match is handed
+over and deleted, expired rows are cleared. Tests set `fake.now_ms` to move the clock.
 """
 import io, json, urllib.error, urllib.parse
 
@@ -58,10 +63,16 @@ def split_quoted(text):
     return out
 
 
+PAIR_LIMIT, PAIR_WINDOW_MS = 10, 60000
+
+
 class FakePostgrest:
-    def __init__(self, base, secret):
-        self.base, self.secret = base.rstrip("/"), secret
+    def __init__(self, base, secret, publishable=None):
+        self.base, self.secret, self.publishable = base.rstrip("/"), secret, publishable
         self.rows = {}
+        self.pairing = {}         # code_hash -> {code_hash, salt, iv, ciphertext, expires_at (ms), attempts}
+        self.pair_window = {"start": 0, "n": 0}
+        self.now_ms = 1793000000000
         self.counter = 0
         self.log = []
         self.fail_posts = []      # [(code, kinds)]: the next POST touching one of kinds fails with code
@@ -83,6 +94,39 @@ class FakePostgrest:
         key = (row["kind"], row["key"])
         self.rows[key] = merge_trigger(self.rows.get(key), row, self._tick())
 
+    def pair_insert(self, row):
+        """What a signed-in family phone's insert into pairing does."""
+        if row["code_hash"] in self.pairing:
+            raise ValueError("duplicate code_hash")
+        self.pairing[row["code_hash"]] = {"attempts": 0, **row}
+
+    def clear_expired_pairing(self):
+        self.pairing = {k: v for k, v in self.pairing.items() if v["expires_at"] > self.now_ms}
+
+    def pair_claim(self, code_hash):
+        """tt_pair_claim() from the schema."""
+        self.clear_expired_pairing()
+        if self.pair_window["start"] <= self.now_ms - PAIR_WINDOW_MS:
+            self.pair_window = {"start": self.now_ms, "n": 0}
+        self.pair_window["n"] += 1
+        if self.pair_window["n"] > PAIR_LIMIT:
+            return {"status": "slow"}
+        row = self.pairing.pop(code_hash, None)
+        if row is None:
+            return {"status": "none"}
+        return {"status": "ok", "salt": row["salt"], "iv": row["iv"], "ciphertext": row["ciphertext"]}
+
+    def _rpc(self, name, body, fail):
+        if name == "tt_pair_claim":
+            return self.pair_claim((body or {}).get("p_code_hash"))
+        if name == "tt_pair_cancel":
+            self.pairing.pop((body or {}).get("p_code_hash"), None)
+            return None
+        if name == "tt_keepalive":
+            self.clear_expired_pairing()
+            return None
+        fail(404, "unknown function")
+
     def urlopen(self, req, timeout=None):
         url, method = req.full_url, req.get_method()
         headers = {k.lower(): v for k, v in req.header_items()}
@@ -93,9 +137,15 @@ class FakePostgrest:
             raise urllib.error.HTTPError(url, code, msg, {}, io.BytesIO(json.dumps({"message": msg}).encode()))
         if not url.startswith(self.base + "/rest/v1/"):
             fail(404, "unknown host or path")
+        parts = urllib.parse.urlsplit(url)
+        if parts.path.startswith("/rest/v1/rpc/"):
+            keys = {self.secret, self.publishable} - {None}
+            if method != "POST" or headers.get("apikey") not in keys:
+                fail(401, "Invalid API key")
+            out = self._rpc(parts.path.rsplit("/", 1)[1], body, fail)
+            return io.BytesIO(b"" if out is None else json.dumps(out).encode())
         if headers.get("apikey") != self.secret or headers.get("authorization") != f"Bearer {self.secret}":
             fail(401, "Invalid API key")
-        parts = urllib.parse.urlsplit(url)
         if parts.path != "/rest/v1/records":
             fail(404, "unknown table")
         query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
