@@ -1,8 +1,9 @@
 "use strict";
-const VERSION = "2.0.1";
+const VERSION = "2.0.2";
 const CACHE_NAME = "tt-" + VERSION;
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const SUPABASE_JS_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";
+const QR_JS_URL = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -21,10 +22,11 @@ self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache =>
       cache.addAll(APP_SHELL)
-        // Chart.js and supabase-js are cross-origin: cache them best-effort so a blocked CDN
+        // Chart.js, supabase-js and the QR library are cross-origin: cache them best-effort so a blocked CDN
         // can't abort the whole install and cost us local offline support.
         .then(() => cache.add(CHART_JS_URL).catch(() => {}))
         .then(() => cache.add(SUPABASE_JS_URL).catch(() => {}))
+        .then(() => cache.add(QR_JS_URL).catch(() => {}))
     ).then(() => self.skipWaiting())
   );
 });
@@ -41,7 +43,7 @@ self.addEventListener("activate", event => {
 // VERSION bump). Anything else - future sync/API calls included - goes
 // straight to the network untouched.
 function isShellRequest(request){
-  if (request.url === CHART_JS_URL || request.url === SUPABASE_JS_URL) return true;
+  if (request.url === CHART_JS_URL || request.url === SUPABASE_JS_URL || request.url === QR_JS_URL) return true;
   const url = new URL(request.url);
   return url.origin === self.location.origin;
 }

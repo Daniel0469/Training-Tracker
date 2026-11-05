@@ -104,6 +104,7 @@
   <div class="sync-status"><i class="sync-dot" id="fsDot"></i><span class="hint" id="fsStatus" style="margin:0">Not connected.</span>
     <button class="btn btn-primary" id="fsSyncBtn" hidden>Sync now</button></div>
   <div id="fsProgress" class="hint" hidden></div>
+  <div class="row" style="margin-bottom:8px"><button class="btn btn-ghost grow" id="fsShowSetup" hidden>Show setup code</button></div>
   <details class="sync-cfg" id="fsCfg"><summary>Connection</summary>
   <label class="fld" style="margin-bottom:8px">Project URL<input id="fsUrl" type="url" placeholder="https://your-project.supabase.co" autocomplete="off"></label>
   <label class="fld" style="margin-bottom:8px">Publishable key<input id="fsKey" type="text" autocomplete="off"></label>
@@ -117,7 +118,7 @@
   </div>
   <div class="sync-status" id="fsConnectNote" hidden><i class="sync-dot" id="fsConnectDot"></i><span class="hint" id="fsConnectMsg" role="status" aria-live="polite" style="margin:0"></span></div>
   </details>
-  <div class="hint" style="margin-bottom:14px">The family's shared storage. The first time you connect, everything on this phone, for every account on it, is copied up and checked, and only then does this phone switch over. Nothing on the phone is deleted. The password is not kept on the phone. Disconnect goes back to GitHub sync.</div>
+  <div class="hint" style="margin-bottom:14px">The family's shared storage. The first time you connect, everything on this phone, for every account on it, is copied up and checked, and only then does this phone switch over. Nothing on the phone is deleted. The password is not kept on the phone. Disconnect goes back to GitHub sync. To add another family phone, press <b>Show setup code</b> on a connected phone.</div>
   <div class="sec-title" style="margin:4px 0 8px">Cloud sync (GitHub) - optional, free</div>
   <!-- Design v3: status first. The repo / path / token fields fold away once
        sync is set up (renderSettings opens the fold when it isn't). -->
@@ -333,6 +334,29 @@
     <button class="btn btn-ghost" id="sessCancel">Cancel</button>
     <button class="btn btn-primary" id="sessSave">Add session</button>
   </div>
+</div></dialog>
+
+<dialog id="setupDlg"><div class="dlg-body" style="max-height:88vh;overflow:auto">
+  <h3>Setup code for a family phone</h3>
+  <div id="setupAsk">
+    <div class="hint" style="margin:0 0 10px">Type the family password. It goes into the code so the other phone can sign in. Nothing is saved on this phone.</div>
+    <label class="fld" style="margin-bottom:9px">Family password<input id="setupPass" type="password" autocomplete="off"></label>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn btn-ghost" id="setupClose">Close</button>
+      <button class="btn btn-primary" id="setupGo">Show code</button>
+    </div>
+  </div>
+  <div id="setupShow" hidden>
+    <div class="qr-box"><canvas id="setupQr" width="0" height="0" aria-label="Setup code"></canvas></div>
+    <div class="hint" id="setupCount" role="timer" style="text-align:center;margin:8px 0"></div>
+    <div class="hint" style="margin:0 0 8px">Scan it with the other phone, in person. Do not screenshot it or send it in a message.</div>
+    <label class="fld" style="margin-bottom:9px">Code as text<textarea id="setupText" class="setup-text" readonly rows="4"></textarea></label>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn btn-ghost" id="setupCopy">Copy</button>
+      <button class="btn btn-primary" id="setupHideBtn">Hide</button>
+    </div>
+  </div>
+  <div class="hint" id="setupMsg" role="status" aria-live="polite" style="margin:10px 0 0" hidden></div>
 </div></dialog>
 
 <dialog id="copyDlg"><div class="dlg-body">

@@ -677,6 +677,10 @@
   .sw-sub{padding:10px 0 6px 12px;border-bottom:1px solid var(--line)}
   .sw-sub .hint{margin-top:6px}
   .pin-err{color:var(--bad);margin:0 0 8px;font-weight:700}
+  /* The code is always black on white with a white border, in both themes, or phones cannot read it. */
+  .qr-box{background:#fff;border-radius:12px;padding:0;overflow:hidden;line-height:0;text-align:center}
+  .qr-box canvas{display:block;margin:0 auto;max-width:100%;height:auto;image-rendering:pixelated}
+  .setup-text{font-family:var(--mono);font-size:12px;word-break:break-all;resize:none}
   #adminGate .sec-title svg.ico{width:15px;height:15px;vertical-align:-3px;margin-right:6px}
   .sync-cfg summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
   .guide-sec{padding:0}

@@ -2,6 +2,8 @@
 const KEY = "flLiveTracker_v1";
 const SYNC_KEY = "flLiveTracker_sync_v1";
 
+const SETUP_PREFIX = "tt-setup=";
+
 // There is deliberately no default program baked into the app. A fresh install
 // starts blank (see load()) and the Program tab is built from scratch or from a
 // shared session; the real plan lives in the synced store, not in
@@ -5736,7 +5738,7 @@ function ghPutFile(cfg, payloadStr, sha){
 function paintStatus(textId, dotId, msg){
   const el=document.getElementById(textId); if(el) el.textContent=msg;
   const dot=document.getElementById(dotId); if(!dot) return;
-  dot.dataset.s = /fail|^(Could not|Project URL|Publishable key|Family email|Password)/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
+  dot.dataset.s = /fail|^(Could not|Project URL|Publishable key|Family email|Password|Setup code)/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
     : /^(Synced|Configured|Saved\. Ready|Connected)/.test(msg) ? "ok" : "off";
 }
 function setSyncStatus(msg){ paintStatus("ghStatus", "ghDot", msg); }
@@ -6000,6 +6002,7 @@ function renderFamilyStorage(){
   fsField("fsConnect").hidden=sbOn() && !sbSignInNeeded;
   fsField("fsConnect").textContent=sbOn() ? "Sign in again" : "Connect";
   fsField("fsSyncBtn").hidden=!sbOn();
+  fsField("fsShowSetup").hidden=!sbOn();
   fsField("fsCfg").open=!sbOn() || sbSignInNeeded;
   if(!sbOn()) setFsStatus(sb.url ? "Not connected. Press Connect." : "Not connected.");
   else if(!/^(Synced|Syncing|Sync failed|Offline)/.test(fsField("fsStatus").textContent)) setFsStatus("Connected as "+sb.email);
@@ -6043,6 +6046,92 @@ function sbDisconnect(){
   const out=was ? was.auth.signOut().catch(()=>{}) : Promise.resolve();
   renderFamilyStorage(); setFsStatus("Disconnected. This phone uses GitHub sync again.");
   return out;
+}
+// ---- Setup code: connects another family phone by scan or paste ----
+// The code is a link to this app with the connection details after a #, which stays on the phones and never
+// reaches the web server. The family password is typed each time the code is shown and is never kept.
+const SETUP_VERSION=1, SETUP_SHOW_MS=60000, SETUP_QUIET=4, SETUP_PIXELS=300;
+const QR_LIB_URL="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+const QR_LIB_SRI="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==";
+const QR_LIB_ERROR="Could not load the QR library - use the text code instead";
+let qrLibPromise=null, setupTimer=null, setupGen=0, setupBusy=false;
+function setupCode(pass){
+  return b64encode(JSON.stringify({v:SETUP_VERSION, url:sb.url, key:sb.key, email:sb.email, password:pass})).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function setupLink(pass){ return location.origin+location.pathname+"#"+SETUP_PREFIX+setupCode(pass); }
+function setupDecode(text){
+  const raw=String(text), at=raw.indexOf(SETUP_PREFIX), code=(at<0 ? raw : raw.slice(at+SETUP_PREFIX.length)).trim().split(/[\s#]/)[0];
+  let d=null;
+  try{ d=JSON.parse(b64decode(code.replace(/-/g, "+").replace(/_/g, "/"))); }catch(e){}
+  if(!d || typeof d!=="object" || typeof d.v!=="number") throw new Error("This is not a setup code. Scan or paste the whole code again.");
+  if(d.v>SETUP_VERSION) throw new Error("This setup code is from a newer version of the app. Tap Update now in Settings, then try again.");
+  if(d.v<SETUP_VERSION) throw new Error("This setup code is from an older version of the app. Make a new one on the connected phone.");
+  const bad=sbFormProblem(d.url, d.key, d.email, d.password);
+  if(bad) throw new Error("The setup code is not complete. "+bad);
+  return {url:d.url, key:d.key, email:d.email, password:d.password};
+}
+function qrLoadLib(){
+  if(window.QRCode) return Promise.resolve(window.QRCode);
+  return qrLibPromise || (qrLibPromise=loadLib(QR_LIB_URL, QR_LIB_SRI, ()=>window.QRCode, QR_LIB_ERROR, QR_LIB_ERROR).catch(e=>{ qrLibPromise=null; throw e; }));
+}
+// The module grid from the pinned library, with its own drawing swapped out so it never renders the code to an image.
+function setupGrid(text){
+  const qr=new window.QRCode(document.createElement("div"), {width:1, height:1, correctLevel:window.QRCode.CorrectLevel.M});
+  let grid=null;
+  qr._oDrawing={draw:model=>{ grid=model; }};
+  qr.makeCode(text);
+  return grid;
+}
+function setupDraw(text){
+  const grid=setupGrid(text), n=grid.getModuleCount(), cell=Math.max(3, Math.floor(SETUP_PIXELS/(n+2*SETUP_QUIET))), size=(n+2*SETUP_QUIET)*cell;
+  const canvas=fsField("setupQr"), ctx=canvas.getContext("2d");
+  canvas.width=canvas.height=size;
+  ctx.fillStyle="#fff"; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle="#000";
+  for(let r=0; r<n; r++) for(let c=0; c<n; c++) if(grid.isDark(r, c)) ctx.fillRect((c+SETUP_QUIET)*cell, (r+SETUP_QUIET)*cell, cell, cell);
+}
+function setupMsg(msg, bad){ const el=fsField("setupMsg"); el.textContent=msg||""; el.className=bad ? "hint pin-err" : "hint"; el.hidden=!msg; }
+// Back to the password step with the code, the picture and the password all cleared.
+function setupHide(msg){
+  setupGen++; clearInterval(setupTimer); setupTimer=null;
+  fsField("setupText").value=""; fsField("setupPass").value=""; fsField("setupQr").width=0;
+  fsField("setupShow").hidden=true; fsField("setupAsk").hidden=false;
+  setupMsg(msg);
+}
+function setupAsk(){
+  setupHide("");
+  fsField("setupDlg").showModal();
+  fsField("setupPass").focus();
+}
+function setupShow(link){
+  const gen=++setupGen, ends=Date.now()+SETUP_SHOW_MS;
+  fsField("setupText").value=link; fsField("setupAsk").hidden=true; fsField("setupShow").hidden=false; setupMsg("");
+  const tick=()=>{
+    const left=Math.ceil((ends-Date.now())/1000);
+    if(left<=0) setupHide("The code was hidden after "+SETUP_SHOW_MS/1000+" seconds.");
+    else fsField("setupCount").textContent="Hides in "+left+" seconds";
+  };
+  tick(); clearInterval(setupTimer); setupTimer=setInterval(tick, 1000);
+  return qrLoadLib().then(()=>{ if(gen===setupGen) setupDraw(link); }).catch(e=>{ if(gen===setupGen) setupMsg(e.message, true); });
+}
+function setupGo(){
+  const pass=fsField("setupPass").value;
+  if(!pass) return setupMsg("Type the family password.", true);
+  if(setupBusy) return Promise.resolve();
+  setupBusy=true; setupMsg("Checking the password...");
+  return sbEnsureClient()
+    .then(c=>sbWithin(c.auth.signInWithPassword({email:sb.email, password:pass}), SB_REACH_ERROR))
+    .then(r=>{ if(r.error) throw r.error; return setupShow(setupLink(pass)); })
+    .catch(e=>{
+      const msg=String((e && e.message) || e);
+      setupMsg(/invalid login/i.test(msg) ? "That is not the family password." : /^Could not/.test(msg) ? msg : /failed to fetch|network/i.test(msg) ? SB_REACH_ERROR : "Could not check the password ("+msg+")", true);
+    })
+    .then(()=>{ setupBusy=false; fsField("setupPass").value=""; });
+}
+function setupCopy(){
+  navigator.clipboard && navigator.clipboard.writeText
+    ? navigator.clipboard.writeText(fsField("setupText").value).then(()=>toast("Setup code copied"), ()=>toast("Could not copy"))
+    : toast("Copying is not supported in this browser");
 }
 // ---- First sign-in: copy everything on this phone up, read it back, then switch ----
 const SB_BATCH=200, SB_PAGE=1000;
@@ -6404,6 +6493,15 @@ async function sbPullDrafts(){
 fsField("fsConnect").onclick=sbConnect;
 fsField("fsDisconnect").onclick=sbDisconnect;
 fsField("fsSyncBtn").onclick=()=>sbSyncNow(false);
+fsField("fsShowSetup").onclick=setupAsk;
+fsField("setupGo").onclick=setupGo;
+fsField("setupPass").onkeydown=e=>{ if(e.key==="Enter") setupGo(); };
+fsField("setupClose").onclick=()=>fsField("setupDlg").close();
+fsField("setupHideBtn").onclick=()=>setupHide("");
+fsField("setupCopy").onclick=setupCopy;
+fsField("setupText").onfocus=function(){ this.select(); };
+fsField("setupDlg").addEventListener("close", ()=>setupHide(""));
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") setupHide(""); });
 
 function renderHelp(){
   // Design v3: each section is a fold-out panel, all closed, so the Guide opens as
