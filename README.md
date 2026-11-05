@@ -23,6 +23,10 @@ GitHub Pages.
 - Family storage (version 2.0.0): a phone can use the family's Supabase project instead of GitHub sync. Set it up in gear ->
   Admin -> Family storage. The app loads supabase-js from jsDelivr (pinned, with an integrity hash) only once a connection is
   entered. Server setup is `docs/supabase-setup.md`.
+- Setup code (version 2.0.2): Admin -> Family storage -> Show setup code asks for the family password and shows a QR code and
+  a text link for 60 seconds. The new phone scans or pastes it and connects. The details sit after the `#` of the link, so they
+  never reach GitHub Pages, and nothing is stored. The QR library (qrcodejs 1.0.0, from cdnjs, pinned with an integrity hash) loads
+  only when Show setup code is used.
 - `docs/handoff-progress.md` - resume checklist for the current handoff plan: what's built, what's next, what's blocked.
 - `mcp-coach/` - a local MCP server so Claude can coach from your data (reads + writes the GitHub store).
   `progression.py` is the double progression rule (the same rule runs in `js/app.js`), read through the

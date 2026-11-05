@@ -39,6 +39,10 @@ around it. Items marked 🤔 or 💡 in the plan need Daniel's go-ahead before t
 - [x] Supabase sync engine built as version 2.0.0 (3 Nov, branch `p4-app`): Admin Family storage section, automatic first
       sign-in with read-back check, background sync with realtime, shared drafts, `save_program` with a clash warning.
 - [ ] Reviewed by Daniel (review stage `scratchpad/review/sync-stage.html`, cases `scratchpad/review/sync-cases.js`).
+- [x] Setup code built as version 2.0.2 (5 Nov, branch `setup-code`): Show setup code on a connected phone, scan or paste on the
+      new phone.
+- [ ] Setup code reviewed by Daniel (review stage `scratchpad/review/setup-stage.html`, cases `scratchpad/review/setup-cases.js`).
+- [ ] Try a real scan: the QR code from a connected phone to a second phone, including the Home Screen app case.
 - [ ] Blocked on Daniel: export the data from Mum's, Dad's and Brother's phones.
 - [ ] Blocked on Daniel: create the free Supabase project.
 

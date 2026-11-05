@@ -79,6 +79,18 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   `conflict` shows the "Changed since you opened it" card. The log form draft is a `drafts` row per person+session with a 10 s
   typing guard and a 12 h limit. `scratchpad/review/sync-cases.js` and `sync-parity.js` run under VS Code's Code.exe with
   `ELECTRON_RUN_AS_NODE=1`. The server side is in `docs/supabase-setup.md` and `docs/supabase-schema.sql`.
+- **Setup code** (built 5 Nov 2026 as version 2.0.2, on branch `setup-code`, not pushed): on a connected phone, Admin -> Family
+  storage -> Show setup code asks for the family password (typed each time, never stored), checks it with a sign-in, and shows a
+  QR code and a text link for 60 seconds (countdown, Hide, Copy; hidden when the dialog closes or the app goes to the
+  background). The link is the app's own address plus `#tt-setup=` and base64url of `{v:1, url, key, email, password}`. At the
+  top of `js/app.js`, `takeSetupHash` removes the fragment with `history.replaceState` before anything else runs.
+  `setupReceive` fills Family storage and calls `sbConnect(password)` with the password held in memory only (a phone with no
+  account yet keeps it in `setupPending` until the first account exists). Admin -> Family storage -> Paste a setup code takes the
+  full link or the bare code. A bad or old code shows a clear message. The QR library is qrcodejs 1.0.0 from cdnjs
+  (`QR_LIB_URL` and `QR_LIB_SRI` in `js/app.js`, also cached best-effort in `sw.js`), loaded by `loadLib` only when Show setup
+  code is used. The app reads the module grid from the library and draws the canvas itself, so the library never renders an
+  image. Never log, store, export or screenshot a code. Cases: `scratchpad/review/setup-cases.js`. Review stage:
+  `scratchpad/review/setup-stage.html`.
 - **Programs are per person** (3 Nov 2026, built on branch `p4-app`, not pushed): `state.programs[id] = {id, name?, members, version,
   updatedAt, updatedBy, order, sessions}` and `state.programIds[person] = {id, updatedAt}`. Daniel and Cerys share one program
   (`p-daniel-cerys`), anyone else gets their own. Read a program with `progOf(person)` (no argument is the active person) -

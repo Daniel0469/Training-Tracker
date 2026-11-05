@@ -51,7 +51,11 @@ tables and run the move again from the family exports and the GitHub `data.json`
     key and the family email and password. The first sign-in uploads that phone's own data, and the
     local copy stays until the upload reads back the same. The publishable key is safe to type on a
     phone. It does nothing without the sign-in. Use the two phones for a day or two.
-11. Then the family phones, one at a time, the same way.
+11. Then the family phones, one at a time, the same way. Faster: on a connected phone open Admin, then Family
+    storage, tap Show setup code and type the family password. Scan the code with the new phone in person, or
+    paste the link into Paste a setup code and tap Use code. The code holds the family password, so never
+    screenshot it or send it in a message. If it leaks, change the family password in Supabase (Authentication,
+    then Users) and show a new code on each phone.
 
 ## Part 2 - Moving the data over
 

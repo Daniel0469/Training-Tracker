@@ -1168,6 +1168,9 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   that changes are sent and pulled automatically (records by `server_at` cursor, realtime), the half-typed log form is shared
   between phones, and member program saves are checked against a version. Disconnect returns to GitHub sync. Details in
   `docs/prompts/dev.md`.
+- **Setup code (version 2.0.2, built 5 Nov 2026, Daniel to review):** a connected phone shows a QR code and a text link for
+  60 seconds after the family password is typed. Another phone scans or pastes it, and Family storage fills in and connects. The
+  password is held in memory only. Details in `docs/prompts/dev.md`.
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
   **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**

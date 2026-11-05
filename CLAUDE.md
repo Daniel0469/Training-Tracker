@@ -105,6 +105,9 @@ feature proposals/specs.
   (programs through the `save_program` function), `sbPull` fetches rows with `server_at` after `sb.cursor`, and realtime feeds the
   same `sbApplyRows` -> `mergeInData`. The log form draft travels as a `drafts` row per person+session (`sbDraftsSaved`).
   `scratchpad/review/sync-cases.js` runs the engine against a JS fake of Supabase.
+- Setup code (version 2.0.2): `setupCode` / `setupLink` / `setupDecode` and the Show setup code dialog sit in the same block. `takeSetupHash`
+  at the top of `js/app.js` removes a `#tt-setup=` fragment before anything else runs, and `setupReceive` connects with the password held in
+  memory only. Never store, log or export a code or its password. `scratchpad/review/setup-cases.js` covers it.
 - Importers: `importBodyweightCsv` (scale CSV), `importRunIntoCard` + `parseTcx`/`parseGpx` (runs).
 
 ## Roadmap (not yet built - see `docs/hub-and-coaching.md` when it exists)
