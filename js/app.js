@@ -5690,7 +5690,7 @@ function ghPutFile(cfg, payloadStr, sha){
 function paintStatus(textId, dotId, msg){
   const el=document.getElementById(textId); if(el) el.textContent=msg;
   const dot=document.getElementById(dotId); if(!dot) return;
-  dot.dataset.s = /fail/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
+  dot.dataset.s = /fail|^(Could not|Project URL|Publishable key|Family email|Password)/i.test(msg) ? "bad" : /^(Syncing|Signing in|Uploading|Checking)/.test(msg) ? "busy"
     : /^(Synced|Configured|Saved\. Ready|Connected)/.test(msg) ? "ok" : "off";
 }
 function setSyncStatus(msg){ paintStatus("ghStatus", "ghDot", msg); }
@@ -5910,15 +5910,31 @@ let sb=sbRead();
 let sbClient=null, sbLibPromise=null;
 function sbSave(){ try{ localStorage.setItem(SB_KEY, JSON.stringify(sb)); }catch(e){} }
 function sbOn(){ return sb.mode==="supabase"; }
-function setFsStatus(msg){ paintStatus("fsStatus", "fsDot", msg); }
+// The status shows at the top of Family storage and again under the Connect button, which is what the
+// person is looking at while the connection fields are open.
+function setFsStatus(msg){
+  paintStatus("fsStatus", "fsDot", msg); paintStatus("fsConnectMsg", "fsConnectDot", msg);
+  const note=fsField("fsConnectNote"), dot=fsField("fsConnectDot"); if(!note) return;
+  note.hidden=!msg || !dot || dot.dataset.s==="off";
+  if(!note.hidden && note.scrollIntoView) note.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+const SB_TIMEOUT_MS=15000;
+const SB_LIB_ERROR="Could not reach the storage library - check the connection and try again";
+const SB_REACH_ERROR="Could not reach the family storage - check the connection and try again";
+function sbWithin(promise, message){
+  let timer;
+  return Promise.race([promise, new Promise((res, rej)=>{ timer=setTimeout(()=>rej(new Error(message)), SB_TIMEOUT_MS); })]).finally(()=>clearTimeout(timer));
+}
 // supabase-js is fetched only once a connection exists, never for a phone on GitHub storage.
 function sbLoadLib(){
   if(window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
   return sbLibPromise || (sbLibPromise=new Promise(function(res, rej){
     const s=document.createElement("script");
+    const fail=msg=>{ clearTimeout(timer); sbLibPromise=null; if(s.parentNode) s.parentNode.removeChild(s); rej(new Error(msg)); };
+    const timer=setTimeout(()=>fail(SB_LIB_ERROR), SB_TIMEOUT_MS);
     s.src=SB_LIB_URL; s.integrity=SB_LIB_SRI; s.crossOrigin="anonymous";
-    s.onload=()=>window.supabase && window.supabase.createClient ? res(window.supabase) : rej(new Error("the storage library did not start"));
-    s.onerror=()=>{ sbLibPromise=null; rej(new Error("could not load the storage library")); };
+    s.onload=()=>{ clearTimeout(timer); window.supabase && window.supabase.createClient ? res(window.supabase) : fail("Could not start the storage library"); };
+    s.onerror=()=>fail(SB_LIB_ERROR);
     document.head.appendChild(s);
   }));
 }
@@ -5938,20 +5954,34 @@ function renderFamilyStorage(){
   else if(!/^(Synced|Syncing|Sync failed|Offline)/.test(fsField("fsStatus").textContent)) setFsStatus("Connected as "+sb.email);
 }
 // Signs in with the family email and password. The password goes straight to supabase-js.
+function sbFormProblem(url, key, email, pass){
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) return "Project URL must look like https://<name>.supabase.co, with no path after .co.";
+  if(!key || /\s/.test(key)) return "Publishable key is empty or has a space in it. Paste the whole key.";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Family email must look like name@example.com.";
+  if(!pass) return "Password is empty. Type the family password.";
+  return "";
+}
 function sbConnect(){
+  const btn=fsField("fsConnect"), label=btn.textContent;
   sb.url=fsField("fsUrl").value.trim().replace(/\/+$/, ""); sb.key=fsField("fsKey").value.trim(); sb.email=fsField("fsEmail").value.trim();
-  const pass=fsField("fsPass").value;
-  if(!/^https:\/\/[^\s/]+$/.test(sb.url) || !sb.key || !sb.email || !pass){ setFsStatus("Fill in the address, key, email and password."); return Promise.resolve(); }
+  const pass=fsField("fsPass").value, problem=sbFormProblem(sb.url, sb.key, sb.email, pass);
+  if(problem){ setFsStatus(problem); return Promise.resolve(); }
+  btn.disabled=true; btn.textContent="Signing in...";
   sbSave(); setFsStatus("Signing in...");
   return sbEnsureClient()
-    .then(c=>c.auth.signInWithPassword({email:sb.email, password:pass}))
+    .then(c=>sbWithin(c.auth.signInWithPassword({email:sb.email, password:pass}), SB_REACH_ERROR))
     .then(function(r){
       fsField("fsPass").value="";
       if(r.error) throw r.error;
       sbSignInNeeded=false;
       return sbOn() ? sbStart() : sbMigrate().then(ok=>ok && sbStart());
     })
-    .catch(function(e){ fsField("fsPass").value=""; setFsStatus("Sign-in failed ("+String((e && e.message) || e)+")"); });
+    .catch(function(e){
+      const msg=String((e && e.message) || e);
+      fsField("fsPass").value="";
+      setFsStatus(/^Could not/.test(msg) ? msg : /failed to fetch|network/i.test(msg) ? SB_REACH_ERROR : "Sign-in failed ("+msg+")");
+    })
+    .then(function(){ btn.disabled=false; btn.textContent=label; });
 }
 // Back to GitHub sync. The project address and key stay, so Connect only needs the password again.
 function sbDisconnect(){
@@ -6448,7 +6478,7 @@ function renderHelp(){
      +p('<b>The family PIN</b> keeps Admin away from slips and small hands. The first time anyone opens Admin it asks you to <b>set a PIN</b>: 4 to 6 digits, typed twice. After that Admin asks for it each time you open Settings, and stays open until you close Settings. <b>Change the PIN</b> is at the bottom of Admin and asks for the old one first. The PIN is shared by everyone and syncs to every phone: the newest change wins, and a phone that syncs for the first time takes the PIN already in the store. It is a light lock, not strong security.')
      +p('<b>Forgotten PIN.</b> Open <b>data.json</b> in the data repo on GitHub and set <b>"adminPin": {"updatedAt": 1793700000000}</b> with no hash. Use the current time in milliseconds (13 digits) instead of that number, so it is newer than the PIN it replaces. The next sync on each phone clears the old PIN and Admin asks for a new one.'));
   h+=card('10 &middot; Family storage',
-      p('<b>Family storage</b> is the shared place the whole family saves to, instead of GitHub. Open the gear, then <b>Admin</b>, then <b>Family storage</b>, and type the project address, the key, the family email and the password you were given. Tap <b>Connect</b>. The password is not kept on the phone.')
+      p('<b>Family storage</b> is the shared place the whole family saves to, instead of GitHub. Open the gear, then <b>Admin</b>, then <b>Family storage</b>, and type the project address, the key, the family email and the password you were given. Tap <b>Connect</b>: the button says <i>Signing in...</i> and a line right under it says what happened, in red when something is wrong (for example which field is not right, or that the storage could not be reached). The password is not kept on the phone.')
      +p('<b>What happens on the first sign-in.</b> The app copies everything on this phone up, for every account on it, and shows how far it has got. Then it reads it all back and checks it matches. Only when it does, this phone switches over. If anything differs, the phone stays on GitHub and the screen lists what differed, so you can tap Connect again. <b>Nothing on the phone is ever deleted.</b> If another phone already holds the same accounts, the two merge by the newest edit and nothing is doubled.')
      +p('<b>After that it is automatic.</b> A save is stored on the phone first, then sent a moment later, when the phone is back online, when you return to the app and every 30 seconds. Only what changed is fetched, so opening the app is quick. The line in Admin says when it last synced. <b>Sync now</b> is there for a manual go.')
      +p('<b>The session you are typing</b> is shared too. Start a session on one phone and the other phone shows it within seconds. If you have typed in that form in the last 10 seconds, the other phone does not replace it: a small <b>Updated on another phone - load?</b> bar appears and you choose. Each person keeps their own form, so two people on one phone never mix. Saving the session clears it everywhere, and a form older than 12 hours is ignored.')

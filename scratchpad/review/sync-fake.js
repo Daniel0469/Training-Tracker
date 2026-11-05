@@ -120,6 +120,7 @@ class FakeClient {
     server.signedIn = server.signedIn || new Set();
     this.auth = {
       signInWithPassword: async ({ password }) => {
+        if (server.hangSignIn) return new Promise(() => {});
         if (server.offline) return { data: null, error: { message: "Failed to fetch" } };
         if (password !== server.password) return { data: null, error: { message: "Invalid login credentials" } };
         server.signedIn.add(this.token);

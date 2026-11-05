@@ -75,7 +75,7 @@ function makePhone(server, state, opts) {
   opts = opts || {};
   const dom = fakeDom(), listeners = {}, timers = fakeTimers(), store = {}, counts = { saves: 0, renders: 0, toasts: [] };
   const token = opts.token || {}, lib = { createClient: () => server.client(token) };
-  const win = { supabase: lib, addEventListener: (t, fn) => (listeners[t] = listeners[t] || []).push(fn) };
+  const win = { supabase: opts.noLib ? undefined : lib, addEventListener: (t, fn) => (listeners[t] = listeners[t] || []).push(fn) };
   dom.document.addEventListener = win.addEventListener;
   const nav = { onLine: true };
   const names = ["state", "env", "document", "window", "navigator", "localStorage", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"];
@@ -100,7 +100,7 @@ function makePhone(server, state, opts) {
 }
 
 async function connect(phone, pass) {
-  phone.dom.els.fsUrl = { value: "https://x.example" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
+  phone.dom.els.fsUrl = { value: "https://x.supabase.co" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
   phone.dom.els.fsPass.value = pass || "family-pass";
   await phone.ev("sbConnect()"); await phone.settle();
   return phone.sb.mode === "supabase";
@@ -126,7 +126,7 @@ async function main() {
     const before = JSON.stringify(state);
     const phone = makePhone(server, state, { password: "family-pass" });
     check("a new phone is on github", phone.sb.mode === "github");
-    phone.dom.els.fsUrl = { value: "https://x.example", id: "fsUrl" }; phone.dom.els.fsKey = { value: "pk", id: "fsKey" }; phone.dom.els.fsEmail = { value: "fam@x.example", id: "fsEmail" };
+    phone.dom.els.fsUrl = { value: "https://x.supabase.co", id: "fsUrl" }; phone.dom.els.fsKey = { value: "pk", id: "fsKey" }; phone.dom.els.fsEmail = { value: "fam@x.example", id: "fsEmail" };
     await phone.ev("sbConnect()"); await phone.settle();
     check("first sign-in switches to supabase", phone.sb.mode === "supabase", phone.dom.els.fsStatus.textContent);
     check("every row reached the server", keys(server.records).length === 7, keys(server.records));
@@ -149,7 +149,7 @@ async function main() {
       logs: [log(1793000000001, "Alex", "2026-10-30", { feedback: "newer note", updatedAt: 1793000900000 }), log(1793000000003, "Alex", "2026-11-02")],
       bodyweights: [{ person: "Alex", date: "2026-11-01", kg: 79.5, updatedAt: 1793600000900 }] }, prog(2, "2026-10-20T10:00:00.000Z"))), { password: "family-pass" });
     for (const [phone, n] of [[one, "one"], [two, "two"]]) {
-      phone.dom.els.fsUrl = { value: "https://x.example" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
+      phone.dom.els.fsUrl = { value: "https://x.supabase.co" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
       await phone.ev("sbConnect()"); await phone.settle();
       check("phone " + n + " switched", phone.sb.mode === "supabase", phone.dom.els.fsStatus.textContent);
     }
@@ -167,7 +167,7 @@ async function main() {
     const server = new FakeServer(), state = makeState(["Alex"], { logs: [log(1793000000001, "Alex", "2026-10-30"), log(1793000000002, "Alex", "2026-10-31")] });
     server.dropOnUpsert = r => (r.kind === "log" ? null : r);
     const phone = makePhone(server, state, { password: "family-pass" });
-    phone.dom.els.fsUrl = { value: "https://x.example" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
+    phone.dom.els.fsUrl = { value: "https://x.supabase.co" }; phone.dom.els.fsKey = { value: "pk" }; phone.dom.els.fsEmail = { value: "fam@x.example" };
     await phone.ev("sbConnect()"); await phone.settle();
     check("a mismatch stays on github", phone.sb.mode === "github");
     check("the mismatch is named", phone.sbLines.some(l => /log 1793000000001 is missing/.test(l)) && /Check failed: 2 differ/.test(phone.dom.els.fsStatus.textContent), phone.sbLines);
@@ -177,14 +177,64 @@ async function main() {
     await phone.ev("sbConnect()"); await phone.settle();
     check("connecting again once the server is right switches", phone.sb.mode === "supabase");
     const failing = makePhone(server, makeState(["Alex"], { logs: [log(1793000000005, "Alex", "2026-10-31")] }), { password: "family-pass" });
-    failing.dom.els.fsUrl = { value: "https://x.example" }; failing.dom.els.fsKey = { value: "pk" }; failing.dom.els.fsEmail = { value: "fam@x.example" };
+    failing.dom.els.fsUrl = { value: "https://x.supabase.co" }; failing.dom.els.fsKey = { value: "pk" }; failing.dom.els.fsEmail = { value: "fam@x.example" };
     server.failUpserts = 1;
     await failing.ev("sbConnect()"); await failing.settle();
     check("a failed upload stays on github", failing.sb.mode === "github" && /Upload failed/.test(failing.dom.els.fsStatus.textContent), failing.dom.els.fsStatus.textContent);
     const wrong = makePhone(server, makeState(["Alex"]), { password: "nope" });
-    wrong.dom.els.fsUrl = { value: "https://x.example" }; wrong.dom.els.fsKey = { value: "pk" }; wrong.dom.els.fsEmail = { value: "fam@x.example" };
+    wrong.dom.els.fsUrl = { value: "https://x.supabase.co" }; wrong.dom.els.fsKey = { value: "pk" }; wrong.dom.els.fsEmail = { value: "fam@x.example" };
     await wrong.ev("sbConnect()"); await wrong.settle();
     check("a wrong password stays on github", wrong.sb.mode === "github" && /Sign-in failed/.test(wrong.dom.els.fsStatus.textContent));
+
+    const mkForm = (opts, over) => {
+      const p = makePhone(server, makeState(["Alex"]), Object.assign({ password: "family-pass" }, opts));
+      Object.assign(p.dom.els, { fsUrl: { value: "https://x.supabase.co" }, fsKey: { value: "pk" }, fsEmail: { value: "fam@x.example" }, fsConnect: { textContent: "Connect", disabled: false } }, over);
+      return p;
+    };
+    const signedBefore = server.signedIn.size, badUrl = mkForm({}, { fsUrl: { value: "https://x.supabase.co/rest/v1" } });
+    await badUrl.ev("sbConnect()"); await badUrl.settle();
+    const urlMsg = badUrl.dom.els.fsStatus.textContent;
+    check("a bad address names the Project URL field and sends nothing", badUrl.sb.mode === "github" && server.signedIn.size === signedBefore && /^Project URL must look like https:\/\/<name>\.supabase\.co/.test(urlMsg), urlMsg);
+    check("the same message shows under Connect, marked bad", badUrl.dom.els.fsConnectMsg.textContent === urlMsg && badUrl.dom.els.fsConnectNote.hidden === false && badUrl.dom.els.fsConnectDot.dataset.s === "bad");
+    check("the button is usable after a bad address", badUrl.dom.els.fsConnect.disabled !== true);
+    for (const [field, value, name] of [["fsKey", "has space", "Publishable key"], ["fsEmail", "not-an-email", "Family email"]]) {
+      const p = mkForm({}, { [field]: { value } });
+      await p.ev("sbConnect()"); await p.settle();
+      check(name + " is named when wrong", p.sb.mode === "github" && p.dom.els.fsStatus.textContent.indexOf(name) === 0, p.dom.els.fsStatus.textContent);
+    }
+    const noPass = mkForm({ password: "" });
+    await noPass.ev("sbConnect()"); await noPass.settle();
+    check("Password is named when empty", noPass.sb.mode === "github" && noPass.dom.els.fsStatus.textContent.indexOf("Password") === 0, noPass.dom.els.fsStatus.textContent);
+
+    const noLib = mkForm({ noLib: true });
+    const libRun = noLib.ev("sbConnect()");
+    await noLib.settle();
+    check("while the library loads the button says so", noLib.dom.els.fsConnect.disabled === true && noLib.dom.els.fsConnect.textContent === "Signing in..." && /^Signing in/.test(noLib.dom.els.fsConnectMsg.textContent));
+    await noLib.advance(14000);
+    check("nothing is reported before the 15 s are up", noLib.dom.els.fsConnect.disabled === true);
+    await noLib.advance(2000); await libRun; await noLib.settle();
+    check("a library that never loads times out with a clear error", noLib.sb.mode === "github" && noLib.dom.els.fsStatus.textContent === "Could not reach the storage library - check the connection and try again" && noLib.dom.els.fsConnect.disabled === false && noLib.dom.els.fsConnect.textContent === "Connect", noLib.dom.els.fsStatus.textContent);
+
+    const hang = mkForm({});
+    server.hangSignIn = true;
+    const hangRun = hang.ev("sbConnect()");
+    await hang.settle(); await hang.advance(16000); await hangRun; await hang.settle();
+    server.hangSignIn = false;
+    check("a sign-in that never answers times out with a clear error", hang.sb.mode === "github" && hang.dom.els.fsStatus.textContent === "Could not reach the family storage - check the connection and try again" && hang.dom.els.fsConnect.disabled === false, hang.dom.els.fsStatus.textContent);
+
+    // The service worker must answer a request the network never does, or the storage library script hangs the Connect button.
+    {
+      let handler, answered; const pending = [];
+      const swSource = require("fs").readFileSync(require("path").join(__dirname, "..", "..", "sw.js"), "utf8");
+      require("vm").runInNewContext(swSource, {
+        self: { addEventListener: (t, fn) => { if (t === "fetch") handler = fn; }, location: { origin: "https://app.example" } },
+        caches: { match: async () => undefined, open: async () => ({ put() {} }) },
+        fetch: () => new Promise(() => {}), setTimeout: fn => pending.push(fn), clearTimeout() {}, Response: { error: () => "ERROR" }, URL, Promise,
+      });
+      handler({ request: { method: "GET", url: "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js", mode: "cors" }, respondWith: p => { answered = p; } });
+      await settle(); pending.forEach(fn => fn());
+      check("a library request the network never answers still settles in the service worker", (await answered) === "ERROR" && pending.length === 1, pending.length);
+    }
   }
 
   // ---- ongoing sync: offline edits queue and flush, pulls fetch only newer rows, realtime ----
