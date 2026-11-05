@@ -6074,6 +6074,85 @@ const QR_LIB_URL="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.m
 const QR_LIB_SRI="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==";
 const QR_LIB_ERROR="Could not load the QR library - use the text code instead";
 let qrLibPromise=null, setupTimer=null, setupGen=0, setupBusy=false;
+// ---- Pairing code: a short code typed on the new phone instead of a scan ----
+// The connected phone encrypts the family email and password with the code (PBKDF2 into AES-GCM) and stores only that
+// for 10 minutes. The new phone sends a hash of the code, receives the encrypted row once, and decrypts it itself.
+const PAIR_ALPHABET="23456789ABCDEFGHJKMNPQRSTUVWXYZ", PAIR_LENGTH=6, PAIR_ITERATIONS=250000, PAIR_TTL_MS=600000, PAIR_PREFIX="tt-pair-v1:";
+let pairLive=null, pairTimer=null, pairGen=0;
+const pairText=s=>new TextEncoder().encode(s);
+const pairBase64=bytes=>btoa(String.fromCharCode.apply(null, bytes));
+const pairBytes=text=>Uint8Array.from(atob(text), c=>c.charCodeAt(0));
+const pairRandom=n=>crypto.getRandomValues(new Uint8Array(n));
+// Bytes past the last whole multiple of the alphabet are skipped, so every character is equally likely.
+function pairNew(){
+  const limit=256-256%PAIR_ALPHABET.length;
+  let code="";
+  while(code.length<PAIR_LENGTH) pairRandom(PAIR_LENGTH).forEach(b=>{ if(code.length<PAIR_LENGTH && b<limit) code+=PAIR_ALPHABET[b%PAIR_ALPHABET.length]; });
+  return code;
+}
+const pairShown=code=>code.slice(0, 3)+"-"+code.slice(3);
+const pairNormalise=text=>String(text).toUpperCase().replace(/[\s-]/g, "");
+const pairValid=code=>code.length===PAIR_LENGTH && code.split("").every(c=>PAIR_ALPHABET.indexOf(c)>=0);
+function pairHash(code){
+  return crypto.subtle.digest("SHA-256", pairText(PAIR_PREFIX+code)).then(buf=>Array.from(new Uint8Array(buf), b=>b.toString(16).padStart(2, "0")).join(""));
+}
+function pairKey(code, salt){
+  return crypto.subtle.importKey("raw", pairText(code), "PBKDF2", false, ["deriveKey"])
+    .then(base=>crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:PAIR_ITERATIONS, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt", "decrypt"]));
+}
+function pairSeal(code, email, password){
+  const salt=pairRandom(16), iv=pairRandom(12);
+  return pairKey(code, salt)
+    .then(key=>crypto.subtle.encrypt({name:"AES-GCM", iv}, key, pairText(JSON.stringify({email, password}))))
+    .then(sealed=>pairHash(code).then(code_hash=>({code_hash, salt:pairBase64(salt), iv:pairBase64(iv), ciphertext:pairBase64(new Uint8Array(sealed))})));
+}
+function pairOpen(code, row){
+  return pairKey(code, pairBytes(row.salt))
+    .then(key=>crypto.subtle.decrypt({name:"AES-GCM", iv:pairBytes(row.iv)}, key, pairBytes(row.ciphertext)))
+    .then(plain=>JSON.parse(new TextDecoder().decode(plain)))
+    .catch(()=>{ throw new Error("The pairing code could not be read. Make a new one on the connected phone."); });
+}
+// The schema has not been run again, so the pairing table or its functions are missing.
+function pairMissing(e){ return /does not exist|schema cache|could not find/i.test(String((e && e.message) || e)) || /^(42P01|PGRST20[25])$/.test((e && e.code) || ""); }
+function pairMsg(msg, bad){ const el=fsField("pairMsg"); el.textContent=msg||""; el.className=bad ? "hint pin-err" : "hint"; el.hidden=!msg; }
+function pairStop(){
+  pairGen++; clearInterval(pairTimer); pairTimer=null;
+  const live=pairLive; pairLive=null;
+  fsField("pairCode").textContent=""; fsField("setupPairPart").hidden=true; pairMsg("");
+  if(live && sbClient) sbClient.rpc("tt_pair_cancel", {p_code_hash:live.hash}).then(()=>{}, ()=>{});
+}
+// The short code ended: the whole dialog closes up when the QR code is already gone.
+function pairEnd(msg){
+  const qrGone=fsField("setupQrPart").hidden;
+  pairStop();
+  if(qrGone) setupHide(msg); else pairMsg(msg);
+}
+function pairTick(){
+  const left=Math.ceil((pairLive.ends-Date.now())/1000);
+  if(left<=0) pairEnd("The pairing code expired.");
+  else fsField("pairCount").textContent="Expires in "+Math.floor(left/60)+":"+String(left%60).padStart(2, "0");
+}
+// Stores the encrypted pairing row and shows the code. The QR code keeps working when this fails.
+function pairPublish(pass){
+  const code=pairNew(), gen=++pairGen;
+  return pairSeal(code, sb.email, pass)
+    .then(row=>sbEnsureClient().then(c=>{
+      const ends=Date.now()+PAIR_TTL_MS;
+      return sbWithin(c.from("pairing").insert(Object.assign(row, {expires_at:new Date(ends).toISOString()})), SB_REACH_ERROR).then(res=>{
+        if(res.error) throw res.error;
+        if(gen!==pairGen) return c.rpc("tt_pair_cancel", {p_code_hash:row.code_hash});
+        pairLive={hash:row.code_hash, ends};
+        fsField("pairCode").textContent=pairShown(code); fsField("setupPairPart").hidden=false;
+        pairTick(); pairTimer=setInterval(pairTick, 1000);
+      });
+    }))
+    .catch(e=>{
+      if(gen!==pairGen) return;
+      const msg=String((e && e.message) || e);
+      pairMsg(pairMissing(e) ? "The short code is not ready. Run supabase-schema.sql in Supabase again (docs/supabase-setup.md). The QR code still works."
+        : /^Could not/.test(msg) ? msg+". The QR code still works." : "Could not make a short code ("+msg+"). The QR code still works.", true);
+    });
+}
 function setupCode(pass){
   return b64encode(JSON.stringify({v:SETUP_VERSION, url:sb.url, key:sb.key, email:sb.email, password:pass})).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -6110,11 +6189,18 @@ function setupDraw(text){
   for(let r=0; r<n; r++) for(let c=0; c<n; c++) if(grid.isDark(r, c)) ctx.fillRect((c+SETUP_QUIET)*cell, (r+SETUP_QUIET)*cell, cell, cell);
 }
 function setupMsg(msg, bad){ const el=fsField("setupMsg"); el.textContent=msg||""; el.className=bad ? "hint pin-err" : "hint"; el.hidden=!msg; }
-// Back to the password step with the code, the picture and the password all cleared.
+// Back to the password step with the codes, the picture and the password all cleared.
 function setupHide(msg){
-  setupGen++; clearInterval(setupTimer); setupTimer=null;
+  setupGen++; clearInterval(setupTimer); setupTimer=null; pairStop();
   fsField("setupText").value=""; fsField("setupPass").value=""; fsField("setupQr").width=0;
   fsField("setupShow").hidden=true; fsField("setupAsk").hidden=false;
+  setupMsg(msg);
+}
+// The QR code and its text go after 60 seconds. A short code that is still showing stays until it expires.
+function setupQrEnd(msg){
+  if(!pairLive) return setupHide(msg);
+  setupGen++; clearInterval(setupTimer); setupTimer=null;
+  fsField("setupText").value=""; fsField("setupQr").width=0; fsField("setupQrPart").hidden=true;
   setupMsg(msg);
 }
 function setupAsk(){
@@ -6124,10 +6210,10 @@ function setupAsk(){
 }
 function setupShow(link){
   const gen=++setupGen, ends=Date.now()+SETUP_SHOW_MS;
-  fsField("setupText").value=link; fsField("setupAsk").hidden=true; fsField("setupShow").hidden=false; setupMsg("");
+  fsField("setupText").value=link; fsField("setupAsk").hidden=true; fsField("setupShow").hidden=false; fsField("setupQrPart").hidden=false; setupMsg("");
   const tick=()=>{
     const left=Math.ceil((ends-Date.now())/1000);
-    if(left<=0) setupHide("The code was hidden after "+SETUP_SHOW_MS/1000+" seconds.");
+    if(left<=0) setupQrEnd("The QR code was hidden after "+SETUP_SHOW_MS/1000+" seconds.");
     else fsField("setupCount").textContent="Hides in "+left+" seconds";
   };
   tick(); clearInterval(setupTimer); setupTimer=setInterval(tick, 1000);
@@ -6140,7 +6226,7 @@ function setupGo(){
   setupBusy=true; setupMsg("Checking the password...");
   return sbEnsureClient()
     .then(c=>sbWithin(c.auth.signInWithPassword({email:sb.email, password:pass}), SB_REACH_ERROR))
-    .then(r=>{ if(r.error) throw r.error; return setupShow(setupLink(pass)); })
+    .then(r=>{ if(r.error) throw r.error; return Promise.all([setupShow(setupLink(pass)), pairPublish(pass)]); })
     .catch(e=>{
       const msg=String((e && e.message) || e);
       setupMsg(/invalid login/i.test(msg) ? "That is not the family password." : /^Could not/.test(msg) ? msg : /failed to fetch|network/i.test(msg) ? SB_REACH_ERROR : "Could not check the password ("+msg+")", true);
@@ -6532,6 +6618,7 @@ fsField("setupGo").onclick=setupGo;
 fsField("setupPass").onkeydown=e=>{ if(e.key==="Enter") setupGo(); };
 fsField("setupClose").onclick=()=>fsField("setupDlg").close();
 fsField("setupHideBtn").onclick=()=>setupHide("");
+fsField("pairCancel").onclick=()=>pairEnd("The pairing code was cancelled.");
 fsField("setupCopy").onclick=setupCopy;
 fsField("setupText").onfocus=function(){ this.select(); };
 fsField("setupDlg").addEventListener("close", ()=>setupHide(""));

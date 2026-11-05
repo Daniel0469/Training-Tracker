@@ -33,6 +33,7 @@ function setupDom(phone) {
   });
   els.setupPass = { value: "", focus() {} };
   els.setupShow = { hidden: true }; els.setupAsk = { hidden: false };
+  els.setupQrPart = { hidden: false }; els.setupPairPart = { hidden: true };
   return ctx;
 }
 function fakeQrLib(win) {
@@ -197,8 +198,10 @@ async function main() {
     await seconds(phone, 30);
     check("the countdown runs down", /^Hides in 30 seconds/.test(phone.dom.els.setupCount.textContent), phone.dom.els.setupCount.textContent);
     await seconds(phone, 30);
-    check("after 60 seconds the code, picture and password are gone", phone.dom.els.setupShow.hidden === true && phone.dom.els.setupAsk.hidden === false && phone.dom.els.setupText.value === "" && phone.dom.els.setupQr.width === 0 && phone.dom.els.setupPass.value === "" && /hidden after 60 seconds/.test(phone.dom.els.setupMsg.textContent));
-    check("the countdown timer is stopped", !phone.ev("setupTimer"));
+    check("after 60 seconds the QR code, picture and text are gone and the short code is still showing", phone.dom.els.setupQrPart.hidden === true && phone.dom.els.setupShow.hidden === false && phone.dom.els.setupText.value === "" && phone.dom.els.setupQr.width === 0 && phone.dom.els.setupPass.value === "" && /hidden after 60 seconds/.test(phone.dom.els.setupMsg.textContent) && phone.dom.els.setupPairPart.hidden === false);
+    check("the QR countdown timer is stopped", !phone.ev("setupTimer"));
+    phone.env.clock.t += 540000; await phone.advance(1000);
+    check("when the short code expires the dialog goes back to the password step", phone.dom.els.setupShow.hidden === true && phone.dom.els.setupAsk.hidden === false && /pairing code expired/.test(phone.dom.els.setupMsg.textContent) && phone.dom.els.pairCode.textContent === "");
 
     phone.dom.els.setupPass.value = PASS;
     await phone.ev("setupGo()"); await phone.settle();

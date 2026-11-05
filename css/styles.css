@@ -681,6 +681,7 @@
   .qr-box{background:#fff;border-radius:12px;padding:0;overflow:hidden;line-height:0;text-align:center}
   .qr-box canvas{display:block;margin:0 auto;max-width:100%;height:auto;image-rendering:pixelated}
   .setup-text{font-family:var(--mono);font-size:12px;word-break:break-all;resize:none}
+  .pair-code{font-family:var(--mono);font-size:34px;font-weight:800;letter-spacing:.14em;text-align:center;color:var(--ink);background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:14px 8px;user-select:all}
   #adminGate .sec-title svg.ico{width:15px;height:15px;vertical-align:-3px;margin-right:6px}
   .sync-cfg summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
   .guide-sec{padding:0}

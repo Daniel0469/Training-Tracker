@@ -351,14 +351,23 @@
     </div>
   </div>
   <div id="setupShow" hidden>
-    <div class="qr-box"><canvas id="setupQr" width="0" height="0" aria-label="Setup code"></canvas></div>
-    <div class="hint" id="setupCount" role="timer" style="text-align:center;margin:8px 0"></div>
-    <div class="hint" style="margin:0 0 8px">Scan it with the other phone, in person. Do not screenshot it or send it in a message.</div>
-    <label class="fld" style="margin-bottom:9px">Code as text<textarea id="setupText" class="setup-text" readonly rows="4"></textarea></label>
-    <div class="row" style="justify-content:flex-end">
-      <button class="btn btn-ghost" id="setupCopy">Copy</button>
-      <button class="btn btn-primary" id="setupHideBtn">Hide</button>
+    <div id="setupPairPart" hidden>
+      <div class="sec-title" style="margin-bottom:6px">Type a short code</div>
+      <div class="hint" style="margin:0 0 8px">On the other phone open Admin, Family storage, and use <b>Type a pairing code</b>, in person.</div>
+      <div class="pair-code" id="pairCode" aria-label="Pairing code"></div>
+      <div class="hint" id="pairCount" role="timer" style="text-align:center;margin:8px 0"></div>
+      <div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn btn-ghost" id="pairCancel">Cancel code</button></div>
     </div>
+    <div class="hint" id="pairMsg" role="status" aria-live="polite" style="margin:0 0 12px" hidden></div>
+    <div id="setupQrPart">
+      <div class="sec-title" style="margin-bottom:8px">Scan the QR code</div>
+      <div class="qr-box"><canvas id="setupQr" width="0" height="0" aria-label="Setup code"></canvas></div>
+      <div class="hint" id="setupCount" role="timer" style="text-align:center;margin:8px 0"></div>
+      <div class="hint" style="margin:0 0 8px">Scan it with the other phone, in person. Do not screenshot it or send it in a message.</div>
+      <label class="fld" style="margin-bottom:9px">Code as text<textarea id="setupText" class="setup-text" readonly rows="4"></textarea></label>
+      <div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn btn-ghost" id="setupCopy">Copy</button></div>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="btn btn-primary" id="setupHideBtn">Hide</button></div>
   </div>
   <div class="hint" id="setupMsg" role="status" aria-live="polite" style="margin:10px 0 0" hidden></div>
 </div></dialog>
