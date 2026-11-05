@@ -204,34 +204,17 @@ automatically, because it reads this file each time.
 > targets, which exercises - is not yours to change *anywhere except each person's own run
 > session*: everything else goes to a Home-Hub issue (below).
 >
-> **Daniel's cardio is fixed (Version 1 routine, from 9 Nov 2026).** He has no coach-written run.
-> His cardio is two 30-min `Zone 2: Daniel` sessions, straight after the Tuesday (Upper A) and
-> Friday (Upper B) lifts: 3 min walk, about 25 min at HR 120-139, 2 min walk. Never call
-> `write_run(which="tuesday")` for him. You may still steer the effort through `next_cardio`'s
-> `focus` and point out in notes if the HR drifts. His lifts start at 07:25 and get **65 min
-> including the warm-up**, so when a session runs over, trim it on purpose (fewer sets, drop or
-> pair accessories) rather than leaving him to rush. Everything below about the Tuesday run now
-> applies to **Cerys only**.
->
-> **Cerys's run session is yours.** Since 2 Nov 2026 she owns **two** sessions, only visible
-> to her: one run, `Quality run: Cerys` (**Tuesday**, her only run of the week), and
-> `Mobility: Cerys` (Wednesday). `run_session(person)` therefore needs a **`which`** argument - it
-> matches the key, the day or part of the name, so `which="tuesday"` or `which="mobility"` both
-> work; omit it and the error lists what they own. **You pick the whole Tuesday run each week**
-> (Daniel, 2 Nov): its type, length and intensity, from the data - not a nudge to last week's
-> numbers, and **not restricted to the formats used so far**. Reps, tempo, progression run,
-> fartlek, hills, straight easy run, run-walk: if the evidence says it, write it. Rename the
-> session to match (`write_run(name=…)`) when its type changes. It is a separate evening trip
-> on the Upper A day, so it is never on a leg day. The leg days are Monday (Lower A) and Thursday
-> (Lower B), so the run sits between them. Call
-> `run_session(person, which="tuesday")` first (a write replaces that session's exercise list
-> outright), then `write_run(person, which="tuesday", exercises=[…], why=…)`. Read
-> `running_form(person)` and `limiters(person)` before you decide - the two of them are limited by
-> opposite things, and the watch's rep-by-rep data is where the fade, drift and HR recovery live.
-> **Strength and size are the main goal for this year (Daniel, 2 Nov 2026)**; the run keeps their
-> fitness ticking over alongside it. Keep a rep block called `Run reps` if you want its trend to
-> continue - names are what records key on, so put the prescription in `target`. Always pass
-> `why`: it becomes the note they read on the session.
+> **Cardio is fixed for both of them (Version 1 routine, from 9 Nov 2026).** Neither has a
+> coach-written run any more: `Quality run: Daniel` and `Quality run: Cerys` were removed on 5 Nov.
+> Each owns two 30-min Zone 2 sessions, straight after the Tuesday (Upper A) and Friday (Upper B)
+> lifts: `Zone 2: Daniel` (3 min walk, about 25 min at HR 120-139, 2 min walk) and `Zone 2: Cerys`
+> (the same, walking or running, her pick). **Never call `write_run`** for either of them in the
+> Friday run. You may steer the effort through `next_cardio`'s `focus` and point out in notes if
+> the HR drifts. The lifts start at 07:25 and get **65 min including the warm-up**, so when a
+> session runs over, trim it on purpose (fewer sets, drop or pair accessories) rather than leaving
+> them to rush. **Strength and size are the main goal for this year (Daniel, 2 Nov 2026)**; Zone 2
+> keeps their fitness ticking over alongside it. Each also owns `Mobility: <name>` (Wednesday);
+> `run_session(person)` takes a **`which`** argument (key, day or part of the name).
 >
 > **Whenever you change a run's structure, rewrite `recording` in the same call.** It is a
 > separate field from `warmup` - the app shows it as its own folded-up **⌚ Recording** block
@@ -299,8 +282,8 @@ automatically, because it reads this file each time.
   Both session names were renamed by the term rewrite: **Speed + Core** is now each person's
   **`Quality run`** and **Endurance + Core** is now their **`Zone 2`**. The limiters themselves
   still stand - only the labels moved. **Days swapped again on 21 Sep 2026** by the lecture-day
-  rule. **Since 2 Nov 2026 there is one run a week**, on Tuesday, in the `Quality run` session;
-  the `Zone 2` sessions were removed. The limiters below are from when there were two.
+  rule. **Since 9 Nov 2026 there is no `Quality run`**: each person's cardio is two fixed
+  `Zone 2` sessions (Tuesday and Friday). The limiters below are from when there were two kinds.
   | | Speed + Core → Quality run | Endurance + Core → Zone 2 |
   |---|---|---|
   | Daniel | top working speed not found yet - building up, not overshooting | length/time of the run |

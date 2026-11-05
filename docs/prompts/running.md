@@ -38,11 +38,11 @@ own credentials and token store, so calling the wrong one silently reads the wro
 
 ## Rules this chat gets wrong if it isn't told
 
-- **One run a week each, on Tuesday, and you pick all of it (Daniel, 2 Nov 2026).** Type, length
-  and intensity are your call each week. It is a Tuesday evening trip on the Upper A day, with leg
-  days on Monday and Thursday either side. They also own a Wednesday mobility session, so `which`
-  is still required: `which="tuesday"`. A write replaces only the session you name. Rename the
-  session when its type changes.
+- **No coach-written run any more (Version 1 routine, from 9 Nov 2026).** Each person's cardio is
+  two fixed 30-min Zone 2 sessions, `Zone 2: <name>`, straight after the Tuesday and Friday lifts
+  (Daniel runs, Cerys walks or runs, her pick), at HR 120-139. Only change one with `write_run`
+  when they ask for it in this chat; `which="tuesday"` or `which="friday"` picks which. They also
+  own a Wednesday mobility session.
 - **Strength and size are the main goal this year (Daniel, 2 Nov 2026).** The run keeps fitness
   ticking over. Don't let it cost Monday's or Thursday's leg session.
 - **Every `write_run` opens with a recording guide for that exact session** - when to start the
