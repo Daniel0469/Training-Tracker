@@ -4494,8 +4494,7 @@ function openExDlg(sessionKey,ei,todayOnly){
   const editing = ei!=null;
   const ex = editing? editProg().sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
-  document.getElementById("exNameList").innerHTML =
-    exerciseLibrary().map(n=>'<option value="'+esc(n)+'"></option>').join("");
+  exLibrary=exerciseLibrary(); hideExSuggest();
   document.getElementById("exDlgTitle").textContent =
     todayOnly ? "Add an exercise for today" : (editing?"Edit exercise":"Add exercise");
   const todayHint=document.getElementById("exTodayHint");
@@ -4545,7 +4544,38 @@ document.getElementById("exMuscles").onclick=e=>{
   exMusclesTouched = true;
   b.classList.toggle("sel");
 };
-document.getElementById("exName").oninput=()=>{
+// Name suggestions under the box: filter as you type, tap (or arrow keys and Enter) to fill. The
+// native datalist is unreliable in an iPhone home-screen app.
+let exLibrary=[], exSugIdx=-1;
+const exNameEl=document.getElementById("exName"), exSuggestEl=document.getElementById("exSuggest");
+function exSuggestions(text){
+  const q=text.trim().toLowerCase(), starts=[], inside=[];
+  if(!q) return [];
+  exLibrary.forEach(n=>{ const at=n.toLowerCase().indexOf(q); if(at===0) starts.push(n); else if(at>0) inside.push(n); });
+  return starts.concat(inside).filter(n=>n.toLowerCase()!==q).slice(0, 6);
+}
+function hideExSuggest(){ exSugIdx=-1; exSuggestEl.hidden=true; exSuggestEl.innerHTML=""; }
+function paintExSuggest(){
+  const list=exSuggestions(exNameEl.value);
+  exSugIdx=-1; exSuggestEl.hidden=!list.length;
+  exSuggestEl.innerHTML=list.map(n=>'<button type="button" role="option" data-n="'+esc(n)+'">'+esc(n)+'</button>').join("");
+}
+function pickExSuggest(name){ exNameEl.value=name; hideExSuggest(); exNameEl.dispatchEvent(new Event("input")); exNameEl.focus(); }
+exNameEl.addEventListener("input", paintExSuggest);
+exNameEl.addEventListener("blur", ()=>setTimeout(hideExSuggest, 150));
+exNameEl.addEventListener("keydown", e=>{
+  const opts=exSuggestEl.querySelectorAll("button");
+  if(exSuggestEl.hidden || !opts.length) return;
+  if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); hideExSuggest(); return; }
+  if(e.key==="Enter" && exSugIdx>=0){ e.preventDefault(); pickExSuggest(opts[exSugIdx].dataset.n); return; }
+  if(e.key!=="ArrowDown" && e.key!=="ArrowUp") return;
+  e.preventDefault();
+  exSugIdx = e.key==="ArrowDown" ? (exSugIdx+1<opts.length ? exSugIdx+1 : -1) : (exSugIdx>-1 ? exSugIdx-1 : opts.length-1);
+  opts.forEach((b,i)=>b.classList.toggle("sel", i===exSugIdx));
+});
+exSuggestEl.onmousedown=e=>e.preventDefault();
+exSuggestEl.onclick=e=>{ const b=e.target.closest("button"); if(b) pickExSuggest(b.dataset.n); };
+exNameEl.oninput=()=>{
   if(exMusclesTouched) return;
   renderMuscleTags(document.getElementById("exMuscles"),
     classifyMuscles(document.getElementById("exName").value));

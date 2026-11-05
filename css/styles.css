@@ -359,6 +359,12 @@
   .chart-box{position:relative;height:300px}
   dialog{border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 40px rgba(20,30,55,.25);padding:0;max-width:440px;width:92%}
   dialog::backdrop{background:rgba(20,30,55,.35)}
+  /* The exercise name suggestions under the name box (a datalist is unreliable on iPhone). */
+  .ex-suggest{display:flex;flex-direction:column;margin:-4px 0 9px;border:1px solid var(--line-2);border-radius:11px;background:var(--card-2);overflow:hidden}
+  .ex-suggest[hidden]{display:none}
+  .ex-suggest button{border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-align:left;padding:10px 12px;min-height:44px;cursor:pointer}
+  .ex-suggest button:last-child{border-bottom:0}
+  .ex-suggest button.sel,.ex-suggest button:hover{background:var(--brand-soft);color:var(--brand)}
   .dlg-body{padding:20px}
   .dlg-body h3{margin-bottom:12px}
   .grow{flex:1}
