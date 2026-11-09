@@ -1536,6 +1536,16 @@ const ICONS={
   back:'<path d="m15 6-6 6 6 6"/>',
   chevron:'<path d="m9 6 6 6-6 6"/>',
   info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
+  down:'<path d="m6 9 6 6 6-6"/>',
+  up:'<path d="m6 15 6-6 6 6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  starf:'<path fill="currentColor" d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/>',
+  send:'<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/>',
+  more:'<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
+  grip:'<circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
+  note:'<path d="M6 3.5h9l4 4V20.5H6z"/><path d="M9 11h7M9 15h7"/>',
   lock:'<rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
 };
 // The gold PR badge (design v3), in place of the old medal emoji.
@@ -3415,43 +3425,24 @@ function sendSessionCopy(sessionKey, person){
   renderEdit();
   toast("Copy of "+s.name+" sent to "+person+" for approval");
 }
-// The editor's top cards: who is accepting what, which program is open, and what Send does.
+// The editor's top cards: a program that changed since it was opened, and what is waiting to be accepted.
 function programClashHtml(by){
   return '<div class="card coach-card pe-clash"><div class="sec-title">'+ico("chat")+'Changed since you opened it</div>'
     + '<div class="hint" style="margin:0 0 8px">'+esc(by||"Someone")+' changed this program since you opened it.</div>'
     + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="peReload">Reload</button><button class="mini" id="peKeep">Keep mine</button></div></div>';
 }
 function editHeaderHtml(t){
-  const ids=Object.keys(state.programs).filter(id=>state.programs[id].members.length || id===t.live.id);
   let html=programEditBannerHtml();
   if(t.direct && sbClashes[t.live.id]) html+=programClashHtml(sbClashes[t.live.id].updatedBy);
-  if(ids.length>1){
-    html+='<div class="card prog-pick"><label class="fld">Editing<select id="progPick">'
-      + ids.map(id=>'<option value="'+esc(id)+'"'+(id===t.live.id?' selected':'')+'>'+esc(programLabel(state.programs[id]))+(state.programs[id].members.indexOf(t.me)>=0?' (yours)':'')+'</option>').join("")
-      + '</select></label>'
-      + (t.direct ? '' : '<div class="hint">Not yours, so your edits are sent to '+esc(t.live.members.join(" and "))+' to accept. Nothing changes until they do.</div>')
-      + '</div>';
-  }
-  if(!t.direct){
-    const w=t.work, moved=w.baseVersion!==t.live.version && w.ack!==t.live.version;
-    const n=Object.keys(diffPrograms(w.base, t.prog).proposed.sessions).length;
-    if(moved) html+=programClashHtml(t.live.updatedBy);
-    html+='<div class="card pe-send"><div class="flex-between"><div>'+(n ? '<b>'+n+' session'+(n===1?'':'s')+'</b> changed' : 'No changes yet')+'</div>'
-      + '<div class="row" style="gap:6px"><button class="mini" id="peDiscard"'+(n?'':' disabled')+'>Discard</button>'
-      + '<button class="mini pc-approve" id="peSend"'+(n&&!moved?'':' disabled')+'>Send</button></div></div></div>';
-  }
+  else if(!t.direct && t.work.baseVersion!==t.live.version && t.work.ack!==t.live.version) html+=programClashHtml(t.live.updatedBy);
   return html+sentEditsHtml();
 }
 function wireEditHeader(t){
-  const pick=document.getElementById("progPick");
-  if(pick) pick.onchange=()=>{ editSel[t.me]=pick.value; progSel=""; groupMode=false; selectedExRefs.clear(); renderEdit(); };
   wireProgramEditButtons();
   const on=(id, fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
   if(t.direct){ on("peReload", ()=>sbClashReload(t.live.id)); on("peKeep", ()=>sbClashKeep(t.live.id)); return; }
   on("peReload", ()=>{ delete editWork[t.key]; renderEdit(); });
   on("peKeep", ()=>{ t.work.ack=t.live.version; renderEdit(); });
-  on("peDiscard", ()=>{ delete editWork[t.key]; renderEdit(); toast("Discarded"); });
-  on("peSend", sendProgramEdit);
 }
 
 function progressPanes(){
@@ -4259,31 +4250,27 @@ function drawFoodChart(person, days, today, target){
 // survives the re-renders triggered by ticking each checkbox; cleared once a
 // group is actually made, or implicitly stale (harmless) if you leave the tab.
 let selectedExRefs=new Set();
-// Design v3: Program shows one session at a time, picked from a row of chips.
-// progSel is the chosen session key - in memory, so it survives the tab's own
-// re-renders and a trip elsewhere, and opens on today's session next launch.
 // groupMode is the superset picker: the tick-boxes only appear while it's on.
-let progSel="", groupMode=false;
-// Session notes start closed (design v3: with one session on
-// screen an open notes panel pushed the exercises off it). Which one you opened
-// is remembered so a re-render while you type doesn't shut it on you.
+let groupMode=false;
+// Session notes start closed. Which one you opened is remembered so a re-render
+// while you type doesn't shut it on you.
 let notesOpenKey="";
-// One exercise in the Program tab (design v3): name, mono target, then up /
-// down / Edit. Remove lives in the Edit dialog; the tick-box only shows in
-// superset-picking mode. A pending coach change is decided in the card at the
-// top of the session - the row just carries a tag saying which one it touches.
-function exRowHtml(k, ei, ex){
-  const ref=k+':'+ei;
-  const waiting=changesForSession((editProg().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
-  return '<div class="prog-row">'
-    + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
-    + '<div class="row-grow"><div class="ex-name">'+esc(ex.name)+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</div>'
-    + '<div class="ex-meta"><span class="num">'+esc(ex.target)+'</span>'+(ex.warmup?' · warm-up: '+esc(ex.warmup):"")+(msGet(state.people[state.activePerson], ex.name)?' · settings saved':"")+'</div></div>'
-    + '<div class="row actions">'
-    + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
-    + '<button class="mini ico" data-downex="'+ref+'" title="Move down" aria-label="Move down">&darr;</button>'
-    + '<button class="mini" data-editex="'+ref+'">Edit</button>'
-    + '</div></div>';
+// ---- Program tab: a week table, a page per day and a page per session ---------------------
+// Where each person is in the tab is kept per person (pgUi), because both of them use it from
+// one phone and swap between sets: switching person re-renders from that person's own place.
+const pgUi={};
+function pgU(){
+  const me=state.people[state.activePerson];
+  return pgUi[me]||(pgUi[me]={route:"week", key:"", day:"", from:"week"});
+}
+const pgShort=d=>d.slice(0,3);
+const pgToday=()=>DAY_NAMES[(new Date(localDateStr()+"T12:00:00").getDay()+6)%7];
+const pgPlural=(n,w)=>n+" "+w+(n===1?"":"s");
+const pgOnDay=(prog,d)=>orderedKeys(prog).filter(k=>daysOf(prog.sessions[k]).indexOf(d)>=0);
+// Changes waiting on one session: the coach's, on your own program.
+function pgWaiting(t, k){
+  const s=t.prog.sessions[k];
+  return t.direct && t.live===progOf(t.me) ? changesForSession(s.name).length : 0;
 }
 // Per-session warm-up/mobility and cool-down notes, edited in the Program tab
 // and read on the Log tab (see renderLog). Free text on purpose - it's "3 min
@@ -4322,64 +4309,195 @@ function sessNotesHtml(k, s){
       + '<textarea class="notes" data-sessnote="cooldownNote" data-sesskey="'+esc(k)+'" rows="2" placeholder="e.g. 5 min easy bike, hamstring + hip flexor stretches">'+esc(cd)+'</textarea></label>'
     + '</div>';
 }
-function renderEdit(){
-  const t=editTarget(), keys=orderedKeys(t.prog), ownLive=t.direct && t.live===progOf(t.me);
-  if(keys.indexOf(progSel)<0) progSel = keys.indexOf(curSession)>=0 ? curSession : (keys[0]||"");
-  let html=editHeaderHtml(t);
-  if(!keys.length){
-    html+='<div class="card empty">No sessions yet.<br>Tap <b>+ Add session</b> below to create your first workout day.</div>';
-  } else {
-    // The week as a swipeable row of chips; a dot marks one with a coach change
-    // waiting, since its card is only on screen once it's picked.
-    html+='<div class="chips" id="progChips">'+keys.map(k=>{
-        const ss=t.prog.sessions[k], pend=ownLive ? changesForSession(ss.name).length : 0;
-        return '<button type="button" class="chip'+(k===progSel?' active':'')+'" data-sesspick="'+esc(k)+'">'
-          + '<b>'+esc(ss.name)+'</b><span>'+esc(dayText(ss))+(ss.person?' · '+esc(ss.person):'')+'</span>'
-          + (pend?'<i class="chip-dot" title="'+pend+' coach change'+(pend===1?'':'s')+' waiting"></i>':'')+'</button>';
-      }).join("")+'</div>';
-    const k=progSel, s=editProg().sessions[k];
-    const n=s.exercises.length;
-    const pend=ownLive ? changesForSession(s.name) : [];
-    const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
-    if(pend.length){
-      html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach suggests · '+pend.length+' waiting</div>'
-        + pend.map(changeCardHtml).join("")+'</div>';
-    }
-    html+='<div class="card prog-sess">'
-      + '<div class="prog-name">'+esc(s.name)+'</div>'
-      + '<div class="today-day">'+esc(dayText(s))+' &middot; '+n+' exercise'+(n===1?"":"s")+(s.person?' &middot; '+esc(s.person)+' only':"")+'</div>'
-      + '<div class="prog-actions">'
-      + (groupMode
-          ? '<button class="mini pc-approve" data-group="'+k+'"'+(selCount<2?' disabled':'')+'>Group ('+selCount+')</button>'
-            + '<button class="mini" id="groupCancel">Cancel</button><span class="hint" style="margin:0">Tick two or more</span>'
-          : '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
-            + '<button class="mini" id="groupStart">'+ico("swap")+'Group as superset</button>'
-            + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
-            + '<button class="mini" data-shareex="'+k+'">Share</button>'
-            + (copyTargets(t.live).length ? '<button class="mini" data-copyex="'+k+'">Copy to...</button>' : ''))
-      + '</div>'
-      + sessNotesHtml(k, s);
-    exerciseBlocks(s.exercises).forEach(block=>{
-      const rows=block.eis.map(ei=>exRowHtml(k,ei,s.exercises[ei])).join("");
-      html += block.type==="group"
-        ? '<div class="superset"><div class="superset-label">'+ico("swap")+'Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
-        : rows;
-    });
-    html+='</div>';
-  }
-  html+='<button type="button" class="add-row" id="addSessionBtn"><span><b>'+ico("plus")+'Add session</b></span></button>'
-    + '<button type="button" class="add-row" id="importSessionBtn"><span><b>Import shared session</b></span>'
-    + '<span class="hint" style="margin:0">Paste a workout someone shared from their Program tab.</span></button>';
-  document.getElementById("view").innerHTML=html;
-  syncTabButtons(); // the count just changed if we got here from apply/decline
-  document.querySelectorAll("[data-sesspick]").forEach(b=>b.onclick=()=>{
-    if(progSel===b.dataset.sesspick) return;
-    progSel=b.dataset.sesspick; groupMode=false; selectedExRefs.clear();
-    renderEdit();
+// ---- bottom sheets ----------------------------------------------------------------------------
+// One dialog holds every Program sheet: PGS[kind](sh) returns its html, PGC[kind] its class. Its
+// buttons carry data-pga (click), data-pgi (input) and data-pgc (change), routed to PGA / PGI / PGC.
+const PGS={}, PGC={}, PGA={}, PGI={}, PGH={};
+const pgSheetEl=document.getElementById("pgSheet");
+let pgSh=null;
+function pgHead(title, extra){
+  return '<div class="pgsheet-h"><h3>'+esc(title)+'</h3>'+(extra||"")+'<button class="pgb ic txt" data-pga="close" aria-label="Close">'+ico("x")+'</button></div>';
+}
+function pgPaint(first){
+  const b=pgSheetEl.querySelector(".pgsheet-b"), top=b?b.scrollTop:0;
+  pgSheetEl.className="pgsheet "+(PGC[pgSh.kind]||"");
+  pgSheetEl.innerHTML=PGS[pgSh.kind](pgSh);
+  const nb=pgSheetEl.querySelector(".pgsheet-b"); if(nb && !first) nb.scrollTop=top;
+}
+function pgOpen(kind, data){
+  pgSh=Object.assign({kind:kind}, data||{});
+  pgPaint(true);
+  if(!pgSheetEl.open) pgSheetEl.showModal();
+}
+function pgClose(){ if(pgSheetEl.open) pgSheetEl.close(); }
+pgSheetEl.addEventListener("close", ()=>{ pgSh=null; pgSheetEl.innerHTML=""; });
+pgSheetEl.addEventListener("click", e=>{
+  if(e.target===pgSheetEl){ pgClose(); return; }
+  const b=e.target.closest("[data-pga]");
+  if(b && !b.disabled && PGA[b.dataset.pga]) PGA[b.dataset.pga](b, e);
+});
+pgSheetEl.addEventListener("input", e=>{ const b=e.target.closest("[data-pgi]"); if(b && PGI[b.dataset.pgi]) PGI[b.dataset.pgi](b, e); });
+pgSheetEl.addEventListener("change", e=>{ const b=e.target.closest("[data-pgc]"); if(b && PGH[b.dataset.pgc]) PGH[b.dataset.pgc](b, e); });
+PGA.close=pgClose;
+// The page's own buttons, routed the same way.
+document.getElementById("view").addEventListener("click", e=>{
+  const b=e.target.closest("[data-pga]");
+  if(b && !b.disabled && PGA[b.dataset.pga]) PGA[b.dataset.pga](b, e);
+});
+function pgGo(route, o){
+  Object.assign(pgU(), {route:route}, o||{});
+  renderEdit(); window.scrollTo(0, 0);
+}
+
+// ---- pages ------------------------------------------------------------------------------------
+function pgNotMine(t){
+  const who=t.live.members.join(" and ");
+  return t.direct ? "" : '<div class="pgnot">Not your program. Edits are sent to '+esc(who)+' to accept. Nothing changes until '+(t.live.members.length>1 ? "they do" : esc(who)+" does")+'.</div>';
+}
+function pgProgramIds(t){
+  return Object.keys(state.programs).filter(id=>state.programs[id].members.length || id===t.live.id);
+}
+function pgTopHtml(t){
+  return '<div class="pgprow">'+(pgProgramIds(t).length>1
+    ? '<button class="pgb pgpick" data-pga="picker"><span class="pgell">'+esc(programLabel(t.live))+'</span>'+ico("down")+'</button>'
+    : '<div class="pgpick pgsolo pgell">'+esc(programLabel(t.live))+'</div>')+'</div>';
+}
+function pgStripHtml(t, sel){
+  const today=pgToday();
+  return '<div class="pgstrip">'+DAY_NAMES.map(d=>{
+    const L=pgOnDay(t.prog, d);
+    return '<button class="pgds'+(L.length?'':' rest')+(d===today?' today':'')+(d===sel?' on':'')+'" data-pga="day" data-d="'+d+'" aria-label="'+d+(L.length?', '+pgPlural(L.length,"session"):', rest day')+'"><span>'+pgShort(d)+'</span><span class="dots">'
+      + L.map(k=>'<b'+(pgWaiting(t,k)?' class="w"':'')+'></b>').join("")+'</span></button>';
+  }).join("")+'</div>';
+}
+// The badges a session carries: auto-picked on this day, its other days, whose it is, changes waiting.
+function pgTags(t, k, d, L){
+  const s=t.prog.sessions[k], other=daysOf(s).filter(x=>x!==d), w=pgWaiting(t, k);
+  return (d && L.length>1 && (s.autoPick||{})[d] ? '<span class="pgtag" aria-label="Auto-picked">'+ico("starf")+'</span>' : '')
+    + (other.length ? '<span class="pgtag mute">+'+other.map(pgShort).join(",")+'</span>' : '')
+    + (s.person && s.name.indexOf(s.person)<0 ? '<span class="pgtag mute">'+esc(s.person)+'</span>' : '')
+    + (w ? '<span class="pgtag" aria-label="'+pgPlural(w,"change")+' waiting">'+ico("chat")+w+'</span>' : '');
+}
+function pgSessBtn(t, k, d, L){
+  const s=t.prog.sessions[k];
+  return '<button class="pgsb" data-pga="open" data-k="'+esc(k)+'" data-d="'+d+'"><span class="pgell">'+esc(s.name)+'</span>'+pgTags(t, k, d, L)
+    + '<span class="pgsub">'+s.exercises.length+'</span></button>';
+}
+function pgStagedHtml(t){
+  if(t.direct) return "";
+  const n=Object.keys(diffPrograms(t.work.base, t.prog).proposed.sessions).length;
+  if(!n) return "";
+  const moved=t.work.baseVersion!==t.live.version && t.work.ack!==t.live.version;
+  return '<div class="pgstaged"><span class="pgsub">'+pgPlural(n,"session")+' changed</span><div class="pgbtnrow"><button class="pgb" data-pga="discard">Discard</button>'
+    + '<button class="pgb pri" data-pga="send"'+(moved?' disabled':'')+'>'+ico("send")+'Send to '+esc(t.live.members.join(" and "))+'</button></div></div>';
+}
+const pgStickyHtml=t=>{ const h=pgStagedHtml(t); return h ? '<div class="pgsticky">'+h+'</div>' : ""; };
+function pgEndButtons(){
+  return '<div class="pgbtn2"><button class="pgb" data-pga="addsess">'+ico("plus")+'Add session</button>'
+    + '<button class="pgb" data-pga="importsess">'+ico("upload")+'Import shared</button></div>';
+}
+function pgWeekHtml(t){
+  const prog=t.prog, today=pgToday(), keys=orderedKeys(prog), opt=keys.filter(k=>!daysOf(prog.sessions[k]).length);
+  let html=pgTopHtml(t)+pgNotMine(t);
+  if(!keys.length) return html+'<div class="card empty">No sessions yet.<br>Tap <b>Add session</b> below to create your first workout day.</div>'+pgEndButtons()+pgStickyHtml(t);
+  html+=pgStripHtml(t, "")+'<div class="card pgwk">'+DAY_NAMES.map(d=>{
+    const L=pgOnDay(prog, d);
+    return '<div class="pgwrow"><button class="pgdl'+(d===today?' today':'')+'" data-pga="day" data-d="'+d+'" aria-label="'+d+', all sessions">'+pgShort(d)+'</button><div>'
+      + (L.length ? L.map(k=>pgSessBtn(t, k, d, L)).join("") : '<div class="pgrest">Rest</div>')+'</div></div>';
+  }).join("")
+    + (opt.length ? '<div class="pgopt">Optional</div><div class="pgwrow nolead"><div class="pgdl"></div><div>'+opt.map(k=>pgSessBtn(t, k, "", [])).join("")+'</div></div>' : '')
+    + '</div>';
+  return html+pgEndButtons()+pgStickyHtml(t);
+}
+function pgDayHtml(t, u){
+  const prog=t.prog, d=u.day, L=pgOnDay(prog, d);
+  return '<div class="pghead"><button class="pgback" data-pga="week">'+ico("back")+'Week</button></div><h2 class="pgh">'+d+'</h2>'
+    + '<div class="pgsub" style="margin:4px 0 12px">'+(L.length ? pgPlural(L.length,"session") : "Rest day")+'</div>'+pgNotMine(t)
+    + L.map(k=>{
+      const s=prog.sessions[k], names=s.exercises.slice(0,3).map(x=>x.name);
+      return '<button class="pgsc" data-pga="open" data-from="day" data-k="'+esc(k)+'" data-d="'+d+'"><span class="pgxn"><b class="pgell" style="display:block">'+esc(s.name)+'</b>'
+        + '<span class="t" style="display:block">'+pgPlural(s.exercises.length,"exercise")+(names.length?': '+esc(names.join(", ")):'')+'</span></span>'+pgTags(t, k, d, L)+'<span class="pggo">'+ico("chevron")+'</span></button>';
+    }).join("")+pgStickyHtml(t);
+}
+// One exercise row: name, mono target, warm-up line, and a tap opens its editor.
+function pgExRowHtml(k, ei, ex){
+  const ref=k+':'+ei;
+  const waiting=changesForSession((editProg().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
+  return '<div class="pgxw" data-i="'+ei+'"><div class="pgcr">'
+    + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
+    + '<button class="pgm" data-editex="'+ref+'"><span class="pgxn"><b>'+esc(ex.name||"Unnamed exercise")+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</b><span class="t">'+esc(ex.target)+'</span>'
+    + (ex.warmup?'<span class="w">Warm-up: '+esc(ex.warmup)+'</span>':'')+(msGet(state.people[state.activePerson], ex.name)?'<span class="w">Settings saved</span>':'')+'</span></button>'
+    + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
+    + '<button class="mini ico" data-downex="'+ref+'" title="Move down" aria-label="Move down">&darr;</button></div></div>';
+}
+function pgNoteRow(label, text){
+  return text ? '<div class="pgnrow"><span class="pgxn"><b>'+label+'</b><span class="t">'+esc(text.split("\n").filter(Boolean).join(", "))+'</span></span></div>' : "";
+}
+function pgSessionHtml(t, u){
+  const k=u.key, s=t.prog.sessions[k], n=s.exercises.length, pend=pgWaiting(t, k) ? changesForSession(s.name) : [];
+  const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
+  let html='<div class="pghead"><button class="pgback" data-pga="back">'+ico("back")+(u.from==="day" && u.day ? u.day : "Week")+'</button></div>'
+    + '<h2 class="pgh">'+esc(s.name)+'</h2><div class="pgsub" style="margin:4px 0 12px">'+esc(dayText(s))+', '+pgPlural(n,"exercise")+(s.person?', '+esc(s.person)+' only':'')+'</div>'+pgNotMine(t);
+  if(pend.length) html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach suggests &middot; '+pend.length+' waiting</div>'+pend.map(changeCardHtml).join("")+'</div>';
+  html+='<div class="card pgx prog-sess" id="pgxl"><div class="prog-actions">'
+    + (groupMode
+        ? '<button class="mini pc-approve" data-group="'+k+'"'+(selCount<2?' disabled':'')+'>Group ('+selCount+')</button>'
+          + '<button class="mini" id="groupCancel">Cancel</button><span class="hint" style="margin:0">Tick two or more</span>'
+        : '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
+          + '<button class="mini" id="groupStart">'+ico("swap")+'Group as superset</button>'
+          + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
+          + '<button class="mini" data-shareex="'+k+'">Share</button>'
+          + (copyTargets(t.live).length ? '<button class="mini" data-copyex="'+k+'">Copy to...</button>' : ''))
+    + '</div>'+sessNotesHtml(k, s)+pgNoteRow("Warm-up", s.warmupNote||"");
+  exerciseBlocks(s.exercises).forEach(block=>{
+    const rows=block.eis.map(ei=>pgExRowHtml(k, ei, s.exercises[ei])).join("");
+    html+=block.type==="group"
+      ? '<div class="pgss"><div class="pgss-l">'+ico("swap")+'Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
+      : rows;
   });
-  // Keep the chosen chip in view without scrolling the page itself.
-  const chips=document.getElementById("progChips"), act=chips&&chips.querySelector(".chip.active");
-  if(act) chips.scrollLeft=Math.max(0, act.offsetLeft-chips.offsetLeft-16);
+  if(!n) html+='<div class="pgempty">No exercises yet.</div>';
+  return html+pgNoteRow("Cool-down", s.cooldownNote||"")+'</div>'+pgStickyHtml(t);
+}
+
+// ---- page and picker actions ------------------------------------------------------------------
+PGA.day=b=>pgGo("day", {day:b.dataset.d, key:""});
+PGA.open=b=>pgGo("session", {key:b.dataset.k, day:b.dataset.d||"", from:b.dataset.from||"week"});
+PGA.week=()=>pgGo("week", {key:"", day:""});
+PGA.back=()=>{ const u=pgU(); if(u.from==="day" && u.day) pgGo("day", {key:""}); else PGA.week(); };
+PGA.discard=()=>{ const t=editTarget(); if(t.direct) return; delete editWork[t.key]; renderEdit(); toast("Discarded"); };
+PGA.send=sendProgramEdit;
+PGA.addsess=()=>{
+  document.getElementById("sessName").value="";
+  document.getElementById("sessDay").value="Monday";
+  sessionDlg.showModal();
+};
+PGA.importsess=()=>importSessionDlg.showModal();
+PGA.picker=()=>pgOpen("picker", {val:editTarget().live.id});
+PGH.pickr=b=>{ pgSh.val=b.value; };
+PGA.pickgo=()=>{
+  const me=state.people[state.activePerson];
+  editSel[me]=pgSh.val; delete pgUi[me]; groupMode=false; selectedExRefs.clear();
+  pgClose(); renderEdit(); window.scrollTo(0, 0);
+};
+PGS.picker=sh=>{
+  const t=editTarget();
+  return pgHead("Program")+'<div class="pgsheet-b">'+pgProgramIds(t).map(id=>{
+    const p=state.programs[id], mine=p.members.indexOf(t.me)>=0, n=Object.keys(p.sessions).length;
+    return '<label class="pgradio"><input type="radio" name="pgp" value="'+esc(id)+'"'+(id===sh.val?' checked':'')+' data-pgc="pickr"><span class="t">'+esc(programLabel(p))
+      + '<small>'+(mine ? 'Yours, '+pgPlural(n,"session")+', edits save straight away' : 'Not yours, your edits are sent to '+esc(p.members.join(" and "))+' to accept')+'</small></span></label>';
+  }).join("")+'</div><div class="pgsheet-f"><button class="pgb pri" data-pga="pickgo">Open</button></div>';
+};
+
+function renderEdit(){
+  const t=editTarget(), u=pgU();
+  if(u.route==="session" && !t.prog.sessions[u.key]) u.route=u.day ? "day" : "week";
+  if(u.route==="day" && !u.day) u.route="week";
+  document.getElementById("view").innerHTML=editHeaderHtml(t)
+    + (u.route==="session" ? pgSessionHtml(t, u) : u.route==="day" ? pgDayHtml(t, u) : pgWeekHtml(t));
+  syncTabButtons(); // the count just changed if we got here from apply/decline
+  wireEditHeader(t);
+  wireChangeButtons();
+  if(u.route!=="session") return;
   const gs=document.getElementById("groupStart"); if(gs) gs.onclick=()=>{ groupMode=true; renderEdit(); };
   const gc=document.getElementById("groupCancel"); if(gc) gc.onclick=()=>{ groupMode=false; selectedExRefs.clear(); renderEdit(); };
   document.querySelectorAll("[data-addex]").forEach(b=>b.onclick=()=>openExDlg(b.dataset.addex,null));
@@ -4388,7 +4506,6 @@ function renderEdit(){
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
   document.querySelectorAll("[data-copyex]").forEach(b=>b.onclick=()=>openCopyDlg(b.dataset.copyex));
-  wireEditHeader(t);
   document.querySelectorAll("[data-selex]").forEach(cb=>cb.onchange=()=>{
     if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
     renderEdit();
@@ -4398,7 +4515,7 @@ function renderEdit(){
     if(!wrap) return;
     notesOpenKey = toggleFold(wrap, b, ()=>wrap.querySelectorAll("textarea").forEach(autoGrow)) ? b.dataset.sessnotes : "";
   });
-  // Saved on blur rather than per keystroke, same as the exercise 🔧 settings.
+  // Saved on blur rather than per keystroke, same as the exercise settings.
   document.querySelectorAll("[data-sessnote]").forEach(ta=>{
     autoGrow(ta);
     ta.addEventListener("input", ()=>autoGrow(ta));
@@ -4420,18 +4537,11 @@ function renderEdit(){
         : field==="setupNote" ? "Treadmill program saved"
         : field==="garminNote" ? "Watch workout saved" : "Cool-down note saved");
   }));
-  wireChangeButtons();
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>{ groupMode=false; groupSelected(b.dataset.group); });
   document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.ungroup.split(":");
     ungroupExercises(a[0], a.slice(1).join(":"));
   });
-  document.getElementById("importSessionBtn").onclick=()=>importSessionDlg.showModal();
-  document.getElementById("addSessionBtn").onclick=()=>{
-    document.getElementById("sessName").value="";
-    document.getElementById("sessDay").value="Monday";
-    sessionDlg.showModal();
-  };
 }
 // A "group" of one exercise isn't a group - clear a groupId once only one
 // member of it is left (e.g. after deleting the exercise that was its pair).
