@@ -1178,6 +1178,11 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
 - **Held program fix (version 2.0.5, 9 Nov 2026):** a newer shared program that a phone held back because a workout was open is
   fetched again on every pull until it is adopted. The phone no longer treats the stored version as seen until it holds that program,
   so a save made before then is a conflict and cannot write an old program over the newer one.
+- **Program tab redesign (version 2.1.0, 9 Nov 2026):** the Program tab is a week table (Monday to Sunday plus Optional) with a page
+  per day and a page per session, a program box, and one Changes waiting list for coach changes (Approve) and other people's edits
+  (Accept). Exercises edit in a bottom sheet with steppers, a progression step and a superset switch. Sessions gain `days` (a list of
+  weekday names, with `day` kept as the first) and `autoPick` (`{weekday: true}`), and exercises gain an optional `step` (kg).
+  Details in `docs/prompts/dev.md`.
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
   **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**

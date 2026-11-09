@@ -214,7 +214,7 @@ automatically, because it reads this file each time.
 > session runs over, trim it on purpose (fewer sets, drop or pair accessories) rather than leaving
 > them to rush. **Strength and size are the main goal for this year (Daniel, 2 Nov 2026)**; Zone 2
 > keeps their fitness ticking over alongside it. Each also owns `Mobility: <name>` (Wednesday);
-> `run_session(person)` takes a **`which`** argument (key, day or part of the name).
+> `run_session(person)` takes a **`which`** argument (key, day or part of the name). A session can be on several days and any of them matches; `write_run` and `create_session` take `day` as one weekday or several separated by commas.
 >
 > **Whenever you change a run's structure, rewrite `recording` in the same call.** It is a
 > separate field from `warmup` - the app shows it as its own folded-up **⌚ Recording** block

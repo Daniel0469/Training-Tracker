@@ -117,6 +117,16 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   on Home or Program (`applyEdit`): a session is applied only if it is unchanged since `base`, the rest are listed in `clashes`.
   Cases: `scratchpad/review/programs-cases.js`. Review stage: `scratchpad/review/programs-stage.html`
   (`python scratchpad/proto_programs.py` builds its data).
+- **Program tab pages and session days** (9 Nov 2026, version 2.1.0): the tab is `renderEdit` with three pages kept per person in
+  `pgUi[person]` (week table, a day, a session) and bottom sheets in the `#pgSheet` dialog (`PGS` / `PGA` registries, `pg*` helpers);
+  the exercise editor is the `#exDlg` dialog styled as a sheet and shared with the Session tab's add-for-today. A session has
+  `days: [weekday names]` and `day` (the first of them, or "Optional" - older code, the coach server and the Home Hub read `day`),
+  and `autoPick: {weekday: true}`. Read them with `daysOf(s)` / `dayText(s)` and write them with `setSessionDays(s, days)`, never
+  by setting `day` alone. `sessionForDate` order: coach swap, a single session, the weekday's auto-pick, lift before cardio,
+  alternation. An exercise has an optional `step` (kg), which `stepCore` uses before a Step line in the setup note and before the
+  learned or heuristic step (same in `mcp-coach/progression.py`). The coach server reads and writes `days` (`day` accepts several
+  weekdays separated by commas). Cases: `scratchpad/review/days-cases.js`, `scratchpad/test_session_days.py`, the shared
+  `mcp-coach/progression_cases.json`. Review stage: `scratchpad/review/program-stage.html`.
 - **Coach questions are per person** (3 Nov 2026): `state.coachQuestions[person] = [{id, question, why,
   priority, decision, askedAt, nextFollowUp, reminders, answer, answeredAt, status, updatedAt}]`, shown on
   Home for the active person only and merged per question id, newest `updatedAt` (ms) wins
