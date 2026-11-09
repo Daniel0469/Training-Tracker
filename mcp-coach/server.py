@@ -419,6 +419,48 @@ def _find_session(data, session):
 
 NOTE_FIELDS = ("garminNote", "setupNote", "recordingNote", "warmupNote", "cooldownNote")
 
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def _days_of(s):
+    """A session's weekdays: its `days` list, else its single `day`, in week order. An Optional
+    session has none. Mirrors daysOf in js/app.js."""
+    listed = s.get("days") if isinstance(s.get("days"), list) else [s.get("day")]
+    wanted = {str(d or "").strip().lower() for d in listed}
+    return [d for d in WEEKDAYS if d.lower() in wanted]
+
+
+def _day_text(s):
+    return ", ".join(_days_of(s)) or "Optional"
+
+
+def _parse_days(text):
+    """"Tuesday, Friday" -> ["Tuesday", "Friday"]; "Optional" or empty -> []. Raises ValueError
+    on a word that is neither."""
+    days = []
+    for word in str(text or "").split(","):
+        word = word.strip()
+        if not word or word.lower() == "optional":
+            continue
+        match = [d for d in WEEKDAYS if d.lower() == word.lower()]
+        if not match:
+            raise ValueError(f"{word!r} is not a weekday. Use Monday to Sunday, several separated "
+                             "by commas, or Optional.")
+        days.append(match[0])
+    return [d for d in WEEKDAYS if d in days]
+
+
+def _set_days(s, days):
+    """Write a session's weekdays. `day` stays the first of them (or "Optional"), which is what
+    older code reads, and an auto-pick on a day it no longer has is dropped."""
+    s["days"] = list(days)
+    s["day"] = days[0] if days else "Optional"
+    pick = {d: v for d, v in (s.get("autoPick") or {}).items() if d in days}
+    if pick:
+        s["autoPick"] = pick
+    else:
+        s.pop("autoPick", None)
+
 def _notes_of(s, fields=NOTE_FIELDS):
     return {f: s.get(f, "") for f in fields}
 
@@ -436,6 +478,7 @@ def get_session_notes(data, session=""):
     keys = [key] if key else list(sessions.keys())
     return [{"session": (sessions.get(k) or {}).get("name"),
              "day": (sessions.get(k) or {}).get("day"),
+             "days": _days_of(sessions.get(k) or {}),
              **_notes_of(sessions.get(k) or {}, NOTE_FIELDS)}
             for k in keys]
 
@@ -602,8 +645,14 @@ def add_session(name, day="Optional", exercises=None, person="", warmup="", cool
             failed["error"] = str(err)
             return None
 
+        try:
+            days = _parse_days(day)
+        except ValueError as err:
+            failed["error"] = str(err)
+            return None
         key = _session_key(wanted, sessions)
-        s = {"name": wanted, "day": str(day or "Optional").strip(), "exercises": cleaned}
+        s = {"name": wanted, "exercises": cleaned}
+        _set_days(s, days)
         for field, text in zip(NOTE_FIELDS, (garmin, setup, recording, warmup, cooldown)):
             if str(text or "").strip():
                 s[field] = str(text).strip()
@@ -647,10 +696,10 @@ def _find_run_session(data, person, which=None):
     if want:
         picked = [(k, s) for k, s in hits
                   if k.lower() == want
-                  or str(s.get("day") or "").lower() == want
+                  or want in [d.lower() for d in _days_of(s)]
                   or want in str(s.get("name") or "").lower()]
         if not picked:
-            owned = [f"{s.get('name')} ({s.get('day')}, key={k})" for k, s in hits]
+            owned = [f"{s.get('name')} ({_day_text(s)}, key={k})" for k, s in hits]
             return None, (f"No session of {person}'s matches which={which!r}. "
                           f"They own: {owned}.")
         if len(picked) > 1:
@@ -659,7 +708,7 @@ def _find_run_session(data, person, which=None):
         return picked[0][0], picked[0][1]
 
     if len(hits) > 1:
-        owned = [f"{s.get('name')} ({s.get('day')}, key={k})" for k, s in hits]
+        owned = [f"{s.get('name')} ({_day_text(s)}, key={k})" for k, s in hits]
         return None, (f"{person} owns more than one run session ({owned}) - pass `which` to say "
                       "which one you mean. It matches the key, the day, or part of the name, so "
                       "which=\"tuesday\" or which=\"quality\" both work. A write replaces only "
@@ -719,7 +768,7 @@ def get_run(data, person, which=None):
     key, s = _find_run_session(data, person, which)
     if key is None:
         return {"error": s}
-    return {"person": person, "session": s.get("name"), "day": s.get("day"),
+    return {"person": person, "session": s.get("name"), "day": s.get("day"), "days": _days_of(s),
             **_notes_of(s), "exercises": s.get("exercises") or []}
 
 
@@ -740,8 +789,7 @@ def get_program_session(data, name=""):
     if want:
         for k, s in sessions.items():
             s = s or {}
-            if want in (k.lower(), str(s.get("name") or "").lower(),
-                        str(s.get("day") or "").lower()):
+            if want in [k.lower(), str(s.get("name") or "").lower()] + [d.lower() for d in _days_of(s)]:
                 key = k
                 break
         if key is None:                       # fall back to a distinctive fragment
@@ -754,11 +802,11 @@ def get_program_session(data, name=""):
                         "matches": [sessions[k].get("name") for k in hits]}
     if key is None:
         return {"error": "Name a session. Match on its name, key or day.",
-                "sessions": [{"name": (s or {}).get("name"), "day": (s or {}).get("day"),
+                "sessions": [{"name": (s or {}).get("name"), "day": (s or {}).get("day"), "days": _days_of(s or {}),
                               "person": (s or {}).get("person") or "both"}
                              for s in sessions.values()]}
     s = sessions[key] or {}
-    return {"session": s.get("name"), "key": key, "day": s.get("day"),
+    return {"session": s.get("name"), "key": key, "day": s.get("day"), "days": _days_of(s),
             "person": s.get("person") or "both",
             "cardio": bool(s.get("cardio")),
             **_notes_of(s),
@@ -818,7 +866,7 @@ def set_run(person, exercises=None, why="", name=None, day=None,
             failed["error"] = str(err)
             return None
 
-        previous = {"name": s.get("name"), "day": s.get("day"), **_notes_of(s),
+        previous = {"name": s.get("name"), "day": s.get("day"), "days": _days_of(s), **_notes_of(s),
                     "exercises": json.loads(json.dumps(s.get("exercises") or []))}
         changed = []
         if cleaned is not None and cleaned != previous["exercises"]:
@@ -833,9 +881,15 @@ def set_run(person, exercises=None, why="", name=None, day=None,
                 return None
             s["name"] = wanted
             changed.append("name")
-        if day and str(day).strip() != s.get("day"):
-            s["day"] = str(day).strip()
-            changed.append("day")
+        if day:
+            try:
+                days = _parse_days(day)
+            except ValueError as err:
+                failed["error"] = str(err)
+                return None
+            if days != _days_of(s) or s.get("day") != (days[0] if days else "Optional"):
+                _set_days(s, days)
+                changed.append("day")
         for field, text in zip(NOTE_FIELDS, (garmin, setup, recording, warmup, cooldown)):
             if text is None:
                 continue
@@ -2290,8 +2344,8 @@ def _register(mcp):
 
         `name` must be unique and is how everything finds the session afterwards - logs are
         stored by session name, the next-cardio card matches by name, and every lookup
-        resolves by name. `day` is a weekday or "Optional" (which is right whenever it has
-        no fixed slot yet). `person` scopes it to one of them, the way each run session is;
+        resolves by name. `day` is a weekday, several weekdays separated by commas
+        ("Tuesday, Friday"), or "Optional" (which is right whenever it has no fixed slot yet). `person` scopes it to one of them, the way each run session is;
         leave it empty and both see it.
 
         `exercises` is the list, in order, each
@@ -2372,6 +2426,8 @@ def _register(mcp):
         `which` says WHICH of their run sessions to write, because they each own two - an
         easy run and a quality run, on different days. It matches the session key, its DAY, or
         any distinctive part of the name, case-insensitively ("tuesday", "easy", "quality").
+        A session can be on several days; any one of them matches. `day` sets them, as a
+        weekday or several separated by commas ("Tuesday, Friday").
         Prefer the day: it survives a rename, and renaming a run session is normal when its
         content changes shape. It is required whenever more than one session belongs to them,
         and the write replaces only that one.
