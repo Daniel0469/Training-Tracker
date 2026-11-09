@@ -1175,6 +1175,9 @@ week is being rebuilt anyway. `methods/week-method.md` Part 7 lists the question
   minutes. A new phone types it under Connection to connect, no scan needed. The family email and password are stored encrypted by the
   code, never in plain text. Needs `docs/supabase-schema.sql` run again, and `js/family.js` filled in with the project address and
   publishable key. Details in `docs/prompts/dev.md`.
+- **Held program fix (version 2.0.5, 9 Nov 2026):** a newer shared program that a phone held back because a workout was open is
+  fetched again on every pull until it is adopted. The phone no longer treats the stored version as seen until it holds that program,
+  so a save made before then is a conflict and cannot write an old program over the newer one.
 - **Log:** sessions by weekday, auto date→session (training day rolls over ~5am), per-set numeric
   keypad, first-weight autofill, done-tickbox with rep-range autofill, **live PR medal**, session
   **timer**, per-person **draft** (switch person mid-entry without losing data), **% warm-ups**
