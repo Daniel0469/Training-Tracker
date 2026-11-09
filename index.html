@@ -325,25 +325,6 @@
   </div>
 </div></dialog>
 
-<dialog id="sessionDlg"><div class="dlg-body">
-  <h3>Add session</h3>
-  <label class="fld" style="margin-bottom:9px">Name<input id="sessName" type="text" placeholder="e.g. Push day" autocomplete="off"></label>
-  <label class="fld" style="margin-bottom:14px">Day<select id="sessDay">
-    <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
-    <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
-    <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
-    <option value="Sunday">Sunday</option>
-    <option value="Optional">Optional - any day</option>
-  </select></label>
-  <div class="hint" style="margin:-6px 0 14px">An <b>Optional</b> session is never opened for you by
-    the calendar and sits at the bottom of the list - it's there for the days you fancy it, not part
-    of the week.</div>
-  <div class="row" style="justify-content:flex-end">
-    <button class="btn btn-ghost" id="sessCancel">Cancel</button>
-    <button class="btn btn-primary" id="sessSave">Add session</button>
-  </div>
-</div></dialog>
-
 <dialog id="setupDlg"><div class="dlg-body" style="max-height:88vh;overflow:auto">
   <h3>Setup code for a family phone</h3>
   <div id="setupAsk">
@@ -374,16 +355,6 @@
     <div class="row" style="justify-content:flex-end"><button class="btn btn-primary" id="setupHideBtn">Hide</button></div>
   </div>
   <div class="hint" id="setupMsg" role="status" aria-live="polite" style="margin:10px 0 0" hidden></div>
-</div></dialog>
-
-<dialog id="copyDlg"><div class="dlg-body">
-  <h3 id="copyTitle">Copy session to</h3>
-  <label class="fld" style="margin-bottom:9px">Person<select id="copyWho"></select></label>
-  <div class="hint" style="margin:0 0 14px">It is added to their program when they accept it. Your own program stays as it is.</div>
-  <div class="row" style="justify-content:flex-end">
-    <button class="btn btn-ghost" id="copyCancel">Cancel</button>
-    <button class="btn btn-primary" id="copySend">Send</button>
-  </div>
 </div></dialog>
 
 <dialog id="pgSheet" class="pgsheet"></dialog>

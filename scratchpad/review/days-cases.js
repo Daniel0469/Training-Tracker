@@ -81,6 +81,11 @@ t("orderedKeys: sorted by the first weekday, optional last", () => {
   const { api, state } = store({ opt: sess("Opt", { day: "Optional", days: [] }), thu: sess("T", { day: "Thursday", days: ["Thursday"] }), mon: sess("M", { day: "Monday", days: ["Monday", "Friday"] }), old: sess("O", { day: "Wednesday" }) });
   eq(api.orderedKeys(state.programs.p), ["mon", "old", "thu", "opt"]);
 });
+t("orderedKeys: an order key whose session was deleted is skipped", () => {
+  const { api, state } = store({ mon: sess("M", { day: "Monday", days: ["Monday"] }) });
+  state.programs.p.order.push("gone");
+  eq(api.orderedKeys(state.programs.p), ["mon"]);
+});
 t("sessionForDate: a session on several days opens on each of them", () => {
   const { api } = store({ a: sess("A", { day: "Monday", days: ["Monday", "Thursday"] }), b: sess("B", { day: "Tuesday", days: ["Tuesday"] }) });
   eq(api.sessionForDate(MON), "a");
