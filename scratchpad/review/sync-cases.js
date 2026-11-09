@@ -399,6 +399,7 @@ async function main() {
     b.ev("sbClashKeep(" + JSON.stringify(P) + ")"); await b.settle(); await b.advance(1600);
     check("Keep mine saves on top of the newer version", server.records.get("program|" + P).body.sessions.a.name === "Upper B1" && server.records.get("program|" + P).body.version === 6);
     // Reload takes the other phone's copy and drops the unsent edit
+    await a.advance(300);
     edit(a, "Upper A3", 7, "2026-11-02T14:00:00.000Z");
     b.nav.onLine = false;
     edit(b, "Upper B2", 7, "2026-11-02T15:00:00.000Z"); await b.ev("autoSync()"); await b.advance(1600);
@@ -407,6 +408,91 @@ async function main() {
     check("a second conflict is found", !!b.ev("sbClashes[" + JSON.stringify(P) + "]"));
     b.ev("sbClashReload(" + JSON.stringify(P) + ")"); await b.advance(30000);
     check("Reload takes the other phone's program and nothing more is sent", b.state.programs[P].sessions.a.name === "Upper A3" && !b.ev("sbClashes[" + JSON.stringify(P) + "]") && b.ev("sbOutbox().programs.length") === 0, b.state.programs[P].sessions.a.name);
+  }
+
+  // ---- a newer program held back by an open workout is not lost, and is never written over ----
+  {
+    const P = "p-held", NEW = "2026-11-02T16:06:56.407Z", OLD = "2026-11-02T12:53:39.716Z", T = 1793700000000;
+    const prog = (sets, version, updatedAt) => Object.assign(programFor(P, ["Daniel", "Cerys"], version, updatedAt), {
+      sessions: { a: { name: "Upper", day: "Monday", exercises: [{ name: "Row", sets, cols: ["Weight (kg)", "Reps"] }] }, b: { name: "Lower", day: "Tuesday", exercises: [] } } });
+    const sets = body => body.sessions.a.exercises[0].sets;
+    const stale = (server, version) => makePhone(server, makeState(["Daniel", "Cerys"], { programs: { [P]: prog(2, version, OLD) },
+      programIds: { Daniel: { id: P, updatedAt: 0 }, Cerys: { id: P, updatedAt: 0 } } }), { password: "family-pass", t: T });
+    const newer = (server, version) => server.put("program", P, { body: Object.assign(prog(3, version, NEW), { __replace: true }), updated_at: Date.parse(NEW) });
+    const stored = server => server.records.get("program|" + P).body;
+    const form = { entries: [{ rows: [["40", "8"]], done: [false], warm: [false], rpe: null }], difficulty: null, feedback: "" };
+    const edit = phone => { const pr = phone.state.programs[P]; pr.sessions.b.name = "Lower 2"; pr.version = (+pr.version || 0) + 1; pr.updatedAt = new Date(phone.env.clock.t).toISOString(); };
+    const clash = phone => !!phone.ev("sbClashes[" + JSON.stringify(P) + "]");
+
+    for (const edited of [false, true]) {
+      const server = new FakeServer(); newer(server, 12);
+      const phone = stale(server, 9);
+      phone.formDrafts["Cerys|a"] = form;
+      await connect(phone);
+      const tag = " (first sign-in, draft open" + (edited ? ", member edit" : "") + ")";
+      check("the held program is not adopted while the draft is open" + tag, sets(phone.state.programs[P]) === 2 && sets(stored(server)) === 3);
+      check("its server version is not recorded as seen" + tag, phone.sb.pv[P] === undefined && !!phone.sb.held[P], [phone.sb.pv[P], phone.sb.held]);
+      delete phone.formDrafts["Cerys|a"];
+      if (edited) {
+        edit(phone); await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("an edit before adoption is a conflict and the server keeps the newer program" + tag, sets(stored(server)) === 3 && stored(server).version === 12 && clash(phone), stored(server));
+      } else {
+        await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("the next sync adopts it" + tag, sets(phone.state.programs[P]) === 3 && phone.sb.pv[P] === 12 && !phone.sb.held[P], [phone.state.programs[P].version, phone.sb.pv[P], phone.sb.held]);
+        edit(phone); await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("an edit after adoption goes through" + tag, stored(server).sessions.b.name === "Lower 2" && stored(server).version === 13 && !clash(phone));
+      }
+    }
+
+    for (const edited of [false, true]) {
+      const server = new FakeServer(), phone = stale(server, 9);
+      await connect(phone);
+      phone.formDrafts["Cerys|a"] = form;
+      newer(server, phone.sb.pv[P] + 1);
+      await phone.advance(300); await phone.advance(30000);
+      const tag = " (connected phone, draft open" + (edited ? ", member edit" : "") + ")";
+      check("a row that arrives under an open draft is held and its version not recorded" + tag, sets(phone.state.programs[P]) === 2 && phone.sb.pv[P] === 9 && !!phone.sb.held[P], [phone.sb.pv[P], phone.sb.held]);
+      delete phone.formDrafts["Cerys|a"];
+      if (edited) {
+        edit(phone); await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("an edit before adoption is a conflict and the server keeps the newer program" + tag, sets(stored(server)) === 3 && clash(phone), stored(server));
+      } else {
+        await phone.advance(30000);
+        check("the next pull adopts it" + tag, sets(phone.state.programs[P]) === 3 && phone.sb.pv[P] === 10 && !phone.sb.held[P], [phone.state.programs[P].version, phone.sb.pv[P], phone.sb.held]);
+      }
+    }
+
+    for (const edited of [false, true]) {
+      const server = new FakeServer(), phone = stale(server, 6);
+      await connect(phone);
+      newer(server, 8); await phone.ev("sbSyncNow(true)"); await phone.settle();
+      phone.state.programs[P] = prog(2, 6, OLD); phone.sb.pv[P] = 8; phone.sb.held = {}; phone.sb.fixed = 0;
+      phone.sb.h["program|" + P] = phone.ev("rowHash(sbLocalRows().find(r => r.kind === 'program'))");
+      const tag = " (phone upgraded from 2.0.4" + (edited ? ", edit before the first sync" : "") + ")";
+      if (edited) { edit(phone); await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("the edit is a conflict and the server keeps the newer program" + tag, sets(stored(server)) === 3 && stored(server).version === 8 && clash(phone), stored(server)); }
+      else {
+        await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("the first sync adopts the server program" + tag, sets(phone.state.programs[P]) === 3 && phone.sb.pv[P] === 8 && !phone.sb.held[P], [phone.state.programs[P].version, phone.sb.pv[P], phone.sb.held]);
+        edit(phone); await phone.ev("sbSyncNow(true)"); await phone.settle();
+        check("a following edit builds on it" + tag, sets(stored(server)) === 3 && stored(server).sessions.b.name === "Lower 2" && stored(server).version === 9 && !clash(phone), stored(server));
+      }
+    }
+
+    {
+      const server = new FakeServer(), phone = stale(server, 9);
+      await connect(phone);
+      const draftRow = (extra) => Object.assign({ person: "Daniel", session_key: "a", body: { draft: form, extras: [], timer: null }, updated_at: T + 1000, deleted_at: null, device: "d-other", server_at: "2026-11-03T12:30:00.5+00:00" }, extra);
+      server.drafts.set("Daniel|a", draftRow());
+      await phone.advance(30000);
+      newer(server, 10);
+      await phone.advance(30000);
+      check("a draft relayed from the other phone holds the program back (relayed draft)", !!phone.formDrafts["Daniel|a"] && sets(phone.state.programs[P]) === 2 && !!phone.sb.held[P], phone.sb.held);
+      server.drafts.set("Daniel|a", draftRow({ updated_at: T + 2000, deleted_at: T + 2000, server_at: "2026-11-03T12:31:00.5+00:00" }));
+      await phone.advance(30000);
+      await phone.advance(30000);
+      check("it is adopted after that draft is deleted (relayed draft)", !phone.formDrafts["Daniel|a"] && sets(phone.state.programs[P]) === 3 && phone.sb.pv[P] === 10 && !phone.sb.held[P], [!!phone.formDrafts["Daniel|a"], phone.sb.pv[P], phone.sb.held]);
+    }
   }
 
   // ---- the running version is the newest cache, with three-part versions in order ----

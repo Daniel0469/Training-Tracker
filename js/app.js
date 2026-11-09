@@ -5349,8 +5349,8 @@ function incomingPrograms(data){
   return {programs:programs, programIds:ids};
 }
 // Never swap a plan out from under a workout in progress: the log form indexes exercises by
-// position, so a different list would rearrange sets already typed. It adopts on the next
-// sync once the session is saved.
+// position, so a different list would rearrange sets already typed. The row stays in sb.held and
+// is fetched again on every pull until the session is saved and the program is adopted.
 function draftOnProgram(id){
   captureDraft();
   return Object.keys(formDrafts).some(function(dk){ return formDrafts[dk] && (state.programIds[dk.split("|")[0]]||{}).id===id; });
@@ -5365,7 +5365,8 @@ function mergePrograms(data, adoptConfig, fromSync, tally){
     const theirs=inc.programs[id], mine=state.programs[id];
     if(!theirs || !theirs.sessions) return;
     const newer = !mine || adoptConfig || (theirs.updatedAt||"")>(mine.updatedAt||"");
-    if(!newer || (mine && !adoptConfig && draftOnProgram(id))) return;
+    if(!newer) return;
+    if(mine && !adoptConfig && draftOnProgram(id)){ (tally.held||(tally.held=[])).push(id); return; }
     state.programs[id]=clone(theirs);
     tally.updated++;
   });
@@ -5969,7 +5970,7 @@ function rowHash(row){
 const SB_KEY=KEY+"_sb";
 const SB_LIB_URL="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";
 const SB_LIB_SRI="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R";
-function sbBlank(){ return {url:"", key:"", email:"", mode:"github", cursor:null, dcursor:null, h:{}, d:{}, ps:{}, pv:{}, device:"d-"+Math.random().toString(36).slice(2, 8)}; }
+function sbBlank(){ return {url:"", key:"", email:"", mode:"github", cursor:null, dcursor:null, h:{}, d:{}, ps:{}, pv:{}, held:{}, fixed:false, device:"d-"+Math.random().toString(36).slice(2, 8)}; }
 function sbRead(){ try{ return Object.assign(sbBlank(), JSON.parse(localStorage.getItem(SB_KEY))||{}); }catch(e){ return sbBlank(); } }
 let sb=sbRead();
 let sbClient=null, sbLibPromise=null;
@@ -6311,11 +6312,21 @@ function sbPrev(){
 }
 function sbLocalRows(){ return toRecords(state, Date.now(), sbPrev()); }
 function sbMarkSent(r){ sb.h[rkey(r)]=rowHash(r); if(r.deleted_at!=null) sb.d[rkey(r)]=r.deleted_at; }
-// Remembers what the server holds for programs (their version) and people (their slot).
+// Remembers what the server holds for people (their slot).
 function sbNote(rows){
+  rows.forEach(r=>{ if(r.kind==="person" && Number.isInteger((r.body||{}).slot)) sb.ps[r.key]=r.body.slot; });
+}
+// A program body without its version, which is the server's to count.
+const sbProgramText=body=>recCanon(Object.assign({}, body, {version:undefined}));
+// Remembers the stored version of a program only once this phone holds that program, so the next save is
+// checked against what this phone has really seen. A program held back by an open workout is kept in
+// sb.held and fetched again on every pull.
+function sbNotePrograms(rows, held){
   rows.forEach(r=>{
-    if(r.kind==="program") sb.pv[r.key]=+(r.body||{}).version||0;
-    else if(r.kind==="person" && Number.isInteger((r.body||{}).slot)) sb.ps[r.key]=r.body.slot;
+    if(r.kind!=="program") return;
+    if(held.indexOf(r.key)>=0){ sb.held[r.key]=1; return; }
+    delete sb.held[r.key];
+    if(state.programs[r.key] && sbProgramText(state.programs[r.key])===sbProgramText(r.body)) sb.pv[r.key]=+(r.body||{}).version||0;
   });
 }
 async function sbUpload(rows, onProgress){
@@ -6369,9 +6380,10 @@ function sbPayload(rows){
 function sbApplyRows(rows){
   const fresh=rows.filter(r=>sb.h[rkey(r)]!==rowHash(r));
   sbNote(rows);
-  if(!fresh.length) return {added:0, updated:0};
+  if(!fresh.length){ sbNotePrograms(rows, []); return {added:0, updated:0}; }
   captureDraft();
   const payload=sbPayload(fresh), tally=mergeInData(payload, false, true);
+  sbNotePrograms(rows, tally.held||[]);
   overwritePerPerson("wellness", payload.wellness);
   fresh.forEach(r=>{ if(r.deleted_at!=null && REC_STUB_KINDS.indexOf(r.kind)>=0) sb.d[rkey(r)]=r.deleted_at; });
   const mine={};
@@ -6484,11 +6496,32 @@ async function sbMissingPrograms(rows){
   for(const id of need) extra.push.apply(extra, sbCheck(await sbClient.from("records").select("*").eq("kind", "program").eq("key", id)));
   return extra;
 }
+// Once per phone: a stored version recorded by an older build may be one this phone never adopted. Where the
+// local program is older than it (or no longer matches what was last sent), the version is forgotten and the
+// program is fetched again, so a save cannot pass for the newer stored one.
+function sbRepairPrograms(){
+  if(sb.fixed) return;
+  const rows={};
+  sbLocalRows().forEach(r=>{ if(r.kind==="program") rows[r.key]=r; });
+  Object.keys(sb.pv).forEach(id=>{
+    const mine=state.programs[id], row=rows[id], sent=sb.h["program|"+id];
+    if(mine && (+mine.version||0)>sb.pv[id]) return;
+    if(mine && (+mine.version||0)===sb.pv[id] && (!sent || !row || sent===rowHash(row))) return;
+    delete sb.pv[id]; sb.held[id]=1;
+  });
+  sb.fixed=true; sbSave();
+}
+// Programs a draft held back, fetched again until this phone adopts them.
+async function sbHeldPrograms(rows){
+  const have=new Set(rows.filter(r=>r.kind==="program").map(r=>r.key)), extra=[];
+  for(const id of Object.keys(sb.held)) if(!have.has(id)) extra.push.apply(extra, sbCheck(await sbClient.from("records").select("*").eq("kind", "program").eq("key", id)));
+  return extra;
+}
 // Only rows with a server_at after the cursor, never the whole store.
 async function sbPull(){
-  const rows=await sbFetchSince("records", sb.cursor, rkey);
-  if(!rows.length) return 0;
-  const tally=sbApplyRows(rows.concat(await sbMissingPrograms(rows)));
+  const rows=await sbFetchSince("records", sb.cursor, rkey), all=rows.concat(await sbMissingPrograms(rows), await sbHeldPrograms(rows));
+  if(!all.length) return 0;
+  const tally=sbApplyRows(all);
   sb.cursor=maxTs(rows, sb.cursor);
   sbSave();
   return tally.added+tally.updated;
@@ -6505,6 +6538,7 @@ async function sbCycle(quiet){
   try{
     await sbEnsureClient();
     if(!(await sbSessionOk())) return;
+    sbRepairPrograms();
     const sent=await sbFlush(), got=await sbPull();
     await sbPullDrafts();
     setFsStatus("Synced "+new Date().toLocaleTimeString()+" - "+sent+" sent, "+got+" received");
