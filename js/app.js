@@ -394,18 +394,33 @@ function exerciseBlocks(exercises){
   }
   return blocks;
 }
-// A session's `day` is a label plus these two lookups, nothing more. Anything
-// that isn't a weekday name - "Optional" - falls through to 99 below, so it
-// sorts to the bottom of the list, and can never match in sessionForDate, so
-// the calendar never opens it for you. That's what "optional" means here: it
-// exists in the program and you can pick it any day you fancy it, but it isn't
-// part of the week and nothing nags you about it.
+// A session's weekdays are `days`, a list of weekday names, and `day` is the first of them (or
+// "Optional" when it has none), which older code and the coach server still read. A session
+// with only `day` has just that weekday. Anything that isn't a weekday name - "Optional" - falls
+// through to 99 below, so it sorts to the bottom of the list, and can never match in
+// sessionForDate, so the calendar never opens it for you. That's what "optional" means here: it
+// exists in the program and you can pick it any day you fancy it, but it isn't part of the week
+// and nothing nags you about it. `autoPick` is {weekday: true} where the session is that day's
+// pick whenever several sessions share it.
 const DOW={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7};
+const DAY_NAMES=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+function daysOf(s){
+  const listed=Array.isArray(s.days) ? s.days : [s.day];
+  return DAY_NAMES.filter(function(d){ return listed.some(function(x){ return String(x||"").toLowerCase()===d.toLowerCase(); }); });
+}
+const dayText=s=>daysOf(s).join(", ")||"Optional";
+const isOptional=s=>String(s.day||"").toLowerCase()==="optional" || (Array.isArray(s.days) && !s.days.length);
+function setSessionDays(s, days){
+  s.days=DAY_NAMES.filter(function(d){ return days.indexOf(d)>=0; });
+  s.day=s.days[0]||"Optional";
+  Object.keys(s.autoPick||{}).forEach(function(d){ if(s.days.indexOf(d)<0) delete s.autoPick[d]; });
+  if(s.autoPick && !Object.keys(s.autoPick).length) delete s.autoPick;
+}
 function orderedKeys(prog){
   prog=prog||progOf();
   return prog.order.slice().sort(function(a,b){
-    var da=DOW[String(prog.sessions[a].day||"").toLowerCase()]||99;
-    var db=DOW[String(prog.sessions[b].day||"").toLowerCase()]||99;
+    var da=DOW[(daysOf(prog.sessions[a])[0]||"").toLowerCase()]||99;
+    var db=DOW[(daysOf(prog.sessions[b])[0]||"").toLowerCase()]||99;
     return da-db;
   });
 }
@@ -427,11 +442,10 @@ function myKeys(){
 
 function sessionForDate(dstr){
   var wd=new Date(dstr+"T12:00:00").getDay();
-  var names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
-  var target=names[wd];
+  var wanted=DAY_NAMES[(wd+6)%7], target=wanted.toLowerCase();
   var me=state.people[state.activePerson];
   var keys=progOf().order.filter(function(k){
-    return String(progOf().sessions[k].day||"").toLowerCase()===target && ownsSession(k, me);
+    return daysOf(progOf().sessions[k]).indexOf(wanted)>=0 && ownsSession(k, me);
   });
   // 0. A one-week swap from the coach, which beats everything below. Checked
   // Before the single-session shortcut on purpose: the session it names is
@@ -445,6 +459,9 @@ function sessionForDate(dstr){
     if(sk && ownsSession(sk, me)) return sk;
   }
   if(keys.length<2) return keys[0];
+  // A session marked as the pick for this weekday wins over the rules below.
+  var picked=keys.filter(function(k){ return (progOf().sessions[k].autoPick||{})[wanted]; })[0];
+  if(picked) return picked;
   // A lift and its cardio on the same day: the first one in program order not yet logged today.
   var cardio=keys.filter(function(k){ return isCardioSession(progOf().sessions[k]); });
   if(cardio.length && cardio.length<keys.length){
@@ -1572,8 +1589,8 @@ function colLabel(c){
 function followActivePerson(){
   const p = state.people[state.activePerson];
   if(!ownsSession(curSession, p)){
-    const day=(progOf().sessions[curSession]||{}).day;
-    const sameDay=myKeys().filter(k=>(progOf().sessions[k]||{}).day===day);
+    const days=daysOf(progOf().sessions[curSession]||{});
+    const sameDay=myKeys().filter(k=>daysOf(progOf().sessions[k]||{}).some(d=>days.indexOf(d)>=0));
     curSession = sameDay.find(k=>(progOf().sessions[k]||{}).person)
       || sameDay[0] || sessionForDate(curDate) || myKeys()[0] || curSession;
   }
@@ -1603,7 +1620,7 @@ function renderLog(){
 function logHeaderHtml(p, prev){
   const opts = myKeys().map(k=>{
     const s=progOf().sessions[k];
-    return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(s.day)+'</option>';
+    return '<option value="'+k+'" '+(k===curSession?'selected':'')+'>'+esc(s.name)+' · '+esc(dayText(s))+'</option>';
   }).join("");
   const prevNote = prev
     ? "Inputs start blank. The <b>Last</b> column on each exercise is the most recent time "+esc(p)+" did <i>that movement</i>, whichever session it was in - beat it."
@@ -2820,7 +2837,7 @@ function runSummary(l){
 // a read-out and not a target - the whole point of an optional session is that
 // there's nothing to beat.
 function lastTimeHtml(sess, prev){
-  if(!sess || String(sess.day||"").toLowerCase()!=="optional") return "";
+  if(!sess || !isOptional(sess)) return "";
   if(!prev){
     return '<div class="cardio-note">'+ico("calendar")+'<b>First time for '+esc(sess.name)+'.</b> Nothing to match - '
       + 'just do what you fancy and it\'ll be here for reference next time.</div>';
@@ -4317,7 +4334,7 @@ function renderEdit(){
     html+='<div class="chips" id="progChips">'+keys.map(k=>{
         const ss=t.prog.sessions[k], pend=ownLive ? changesForSession(ss.name).length : 0;
         return '<button type="button" class="chip'+(k===progSel?' active':'')+'" data-sesspick="'+esc(k)+'">'
-          + '<b>'+esc(ss.name)+'</b><span>'+esc(ss.day)+(ss.person?' · '+esc(ss.person):'')+'</span>'
+          + '<b>'+esc(ss.name)+'</b><span>'+esc(dayText(ss))+(ss.person?' · '+esc(ss.person):'')+'</span>'
           + (pend?'<i class="chip-dot" title="'+pend+' coach change'+(pend===1?'':'s')+' waiting"></i>':'')+'</button>';
       }).join("")+'</div>';
     const k=progSel, s=editProg().sessions[k];
@@ -4330,7 +4347,7 @@ function renderEdit(){
     }
     html+='<div class="card prog-sess">'
       + '<div class="prog-name">'+esc(s.name)+'</div>'
-      + '<div class="today-day">'+esc(s.day)+' &middot; '+n+' exercise'+(n===1?"":"s")+(s.person?' &middot; '+esc(s.person)+' only':"")+'</div>'
+      + '<div class="today-day">'+esc(dayText(s))+' &middot; '+n+' exercise'+(n===1?"":"s")+(s.person?' &middot; '+esc(s.person)+' only':"")+'</div>'
       + '<div class="prog-actions">'
       + (groupMode
           ? '<button class="mini pc-approve" data-group="'+k+'"'+(selCount<2?' disabled':'')+'>Group ('+selCount+')</button>'
@@ -5649,7 +5666,7 @@ function sessionShareCode(sessionKey){
   const s=editProg().sessions[sessionKey];
   // Warm-up/cool-down notes are part of the plan, not personal numbers, so they
   // travel with a shared session.
-  const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", exercises:clone(s.exercises)};
+  const payload={type:"tt-session", v:1, name:s.name, day:s.day||"", days:daysOf(s), exercises:clone(s.exercises)};
   if(s.garminNote) payload.garminNote=s.garminNote;
   if(s.setupNote) payload.setupNote=s.setupNote;
   if(s.recordingNote) payload.recordingNote=s.recordingNote;
@@ -5680,7 +5697,8 @@ document.getElementById("importSessionConfirm").onclick=()=>{
   if(!payload || payload.type!=="tt-session" || !Array.isArray(payload.exercises)){ toast("Not a valid shared session"); return; }
   let key=slugify(payload.name), n=2;
   while(editProg().sessions[key]){ key=slugify(payload.name)+"-"+n; n++; }
-  editProg().sessions[key]={name:payload.name||"Shared session", day:payload.day||"", exercises:payload.exercises};
+  editProg().sessions[key]={name:payload.name||"Shared session", exercises:payload.exercises};
+  setSessionDays(editProg().sessions[key], Array.isArray(payload.days) ? payload.days : [payload.day]);
   if(payload.garminNote) editProg().sessions[key].garminNote=String(payload.garminNote);
   if(payload.setupNote) editProg().sessions[key].setupNote=String(payload.setupNote);
   if(payload.recordingNote) editProg().sessions[key].recordingNote=String(payload.recordingNote);
@@ -5722,7 +5740,8 @@ document.getElementById("sessSave").onclick=()=>{
   const day=document.getElementById("sessDay").value;
   let key=slugify(name), n=2;
   while(editProg().sessions[key]){ key=slugify(name)+"-"+n; n++; }
-  editProg().sessions[key]={name, day, exercises:[]};
+  editProg().sessions[key]={name, exercises:[]};
+  setSessionDays(editProg().sessions[key], [day]);
   editProg().order.push(key);
   saveEdit(); sessionDlg.close(); renderEdit();
   toast("Added "+name);
@@ -6921,7 +6940,7 @@ function weeklyCoverage(person){
   const prog=progOf(person);
   orderedKeys(prog).forEach(k=>{
     const s=prog.sessions[k];
-    if(!s || !DOW[String(s.day||"").toLowerCase()]) return;
+    if(!s || !daysOf(s).length) return;
     if(!ownsSession(k, person)) return;
     (s.exercises||[]).forEach(ex=>{
       if(isMobilityWork(ex)) return;
@@ -7356,8 +7375,7 @@ function weekReviewCardHtml(person, now){
   const today=localDateStr(d), wk=weekMonday(dow===1 ? shiftDate(today,-3) : today);
   const logs=state.logs.filter(l=>l.person===person && weekMonday(l.date)===wk);
   const prog=progOf(person);
-  const planned=new Set(prog.order.filter(k=>DOW[String(prog.sessions[k].day||"").toLowerCase()] && ownsSession(k, person))
-    .map(k=>String(prog.sessions[k].day).toLowerCase())).size;
+  const planned=new Set([].concat(...prog.order.filter(k=>ownsSession(k, person)).map(k=>daysOf(prog.sessions[k])))).size;
   const days=new Set(logs.map(l=>l.date)).size;
   const vol=logs.reduce((t,l)=>t+logVolume(l),0);
   const prevVol=(weeklyVolumes(person).find(w=>w.week===shiftDate(wk,-7))||{}).volume||0;
@@ -7475,7 +7493,7 @@ function todayCardHtml(sess, pLogs){
   return '<div class="card today-card">'
     + '<div class="sec-title">'+(isToday?'Today’s session':'Selected session')+'</div>'
     + '<div class="today-name">'+esc(sess?sess.name:"-")+'</div>'
-    + (sess?'<div class="today-day">'+esc(sess.day)+'</div>':'')
+    + (sess?'<div class="today-day">'+esc(dayText(sess))+'</div>':'')
     + doneToday.map(l=>'<div class="today-done">'+ico("check")+esc(l.sessionName)+' logged today</div>').join("")
     + '<button class="btn btn-primary" id="homeLogBtn">Log it →</button>'
     + '</div>';
