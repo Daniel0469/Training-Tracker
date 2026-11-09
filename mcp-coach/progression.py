@@ -108,6 +108,9 @@ def step_for(ex, w, override, pool):
     the barbell or dumbbell rule by name, a ladder learned from `pool` (every working
     weight logged on this exercise name by either person), else unknown."""
     name = ex.get("name") or ""
+    own = _num(ex.get("step"))
+    if own and own > 0:
+        return {"step": own, "source": "line", "ladder": None}
     if override:
         return {"step": override, "source": "line", "ladder": None}
     if BARBELL.search(name) and not NOT_BARBELL.search(name):

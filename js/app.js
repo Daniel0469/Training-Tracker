@@ -969,11 +969,12 @@ function progLadder(weights){
   const whole=gaps.every(function(x){ const k=Math.floor(x/step+0.5); return k>=1 && Math.abs(x-k*step)<=tolerance; });
   return {ladder:ladder, step:step, confident:ladder.length>=3 && whole};
 }
-// The smallest increase to try from weight w, and where it came from: a step line (override),
-// the barbell or dumbbell rule by exercise name, a ladder learned from `pool` (every working
-// weight either person logged on this name), else unknown.
+// The smallest increase to try from weight w, and where it came from: the exercise's own step
+// (ex.step), a step line (override), the barbell or dumbbell rule by exercise name, a ladder
+// learned from `pool` (every working weight either person logged on this name), else unknown.
 function stepCore(ex, w, override, pool){
   const name=ex.name||"";
+  if(+ex.step>0) return {step:+ex.step, source:"line", ladder:null};
   if(override) return {step:override, source:"line", ladder:null};
   if(PROG_BARBELL.test(name) && !PROG_NOT_BARBELL.test(name)){
     const lower=(ex.muscles||[]).some(function(m){ return PROG_LOWER.indexOf(m)>=0; });
@@ -1075,7 +1076,7 @@ function progPool(name){
 }
 function progressionFor(person, ex){
   const entries=progEntries(person).get(ex.name)||[], results=progIndex[person].results, override=stepFor(ex.name);
-  const key=[ex.name, ex.target, ex.sets, ex.load||"", (ex.muscles||[]).join(","), override].join("|");
+  const key=[ex.name, ex.target, ex.sets, ex.load||"", (ex.muscles||[]).join(","), override, ex.step||""].join("|");
   if(!results.has(key)) results.set(key, progCore(entries.map(x=>x.entry), ex, {override:override, pool:progPool(ex.name)}));
   return results.get(key);
 }
@@ -4774,6 +4775,7 @@ function openExDlg(sessionKey,ei,todayOnly){
   document.getElementById("exRepMax").value=parts?parts.max:"";
   document.getElementById("exTargetExtra").value=parts?parts.extra:(isLifting(ex)?(ex.target||"").replace(/^-$/,""):"");
   document.getElementById("exRest").value=ex.restSec?fmtMmSs(ex.restSec):"";
+  document.getElementById("exStep").value=ex.step||"";
   document.getElementById("exCol0").value=ex.cols[0];
   document.getElementById("exCol1").value=ex.cols[1];
   document.getElementById("exCol2").value=ex.cols[2]||"";
@@ -4887,13 +4889,13 @@ document.getElementById("exUp").onclick=()=>moveOpenExercise(-1);
 document.getElementById("exDown").onclick=()=>moveOpenExercise(1);
 // The - and + beside a number: each box's range, step and the value a blank one starts from.
 const EX_STEPS={exSets:{min:1, max:12, step:1, start:3}, exRepMin:{min:1, max:100, step:1, start:8},
-  exRepMax:{min:1, max:100, step:1, start:12}, exRest:{min:0, max:600, step:15, start:120}};
+  exRepMax:{min:1, max:100, step:1, start:12}, exRest:{min:0, max:600, step:15, start:120}, exStep:{min:0, max:10, step:0.5, start:2.5}};
 exDlg.addEventListener("click", e=>{
   const b=e.target.closest("[data-exstep]"); if(!b) return;
   const id=b.dataset.exstep, d=EX_STEPS[id], el=document.getElementById(id);
   const cur=id==="exRest" ? parseRest(el.value) : parseFloat(el.value);
   const v=Math.min(d.max, Math.max(d.min, cur ? cur+d.step*(+b.dataset.d) : d.start));
-  el.value=id==="exRest" ? fmtMmSs(v) : v;
+  el.value=id==="exRest" ? fmtMmSs(v) : (v || "");
   const lo=document.getElementById("exRepMin"), hi=document.getElementById("exRepMax");
   if(id==="exRepMin" && +hi.value && +hi.value<v) hi.value=v;
   if(id==="exRepMax" && +lo.value && +lo.value>v) lo.value=v;
@@ -4931,7 +4933,7 @@ document.getElementById("exTimed").onchange=syncTimedFields;
 // Reps boxes for a lift (weight + reps columns), a free-text target for anything else.
 function syncTargetFields(){
   const lift=isLifting({cols:[document.getElementById("exCol0").value, document.getElementById("exCol1").value]});
-  ["exRepMinLab","exRepMaxLab","exExtraLab"].forEach(id=>{ document.getElementById(id).hidden=!lift; });
+  ["exRepMinLab","exRepMaxLab","exExtraLab","exStepLab"].forEach(id=>{ document.getElementById(id).hidden=!lift; });
   document.getElementById("exTargetLab").hidden=lift;
 }
 ["exCol0","exCol1"].forEach(id=>document.getElementById(id).addEventListener("input", syncTargetFields));
@@ -4954,6 +4956,8 @@ document.getElementById("exSave").onclick=()=>{
   } else ex.target=document.getElementById("exTarget").value.trim()||"-";
   const restSec=parseRest(document.getElementById("exRest").value);
   if(restSec) ex.restSec=restSec;
+  const step=parseFloat(document.getElementById("exStep").value);
+  if(step>0 && isLifting(ex)) ex.step=Math.min(10, step);
   if(document.getElementById("exGarmin").checked) ex.garminRun=true;
   if(document.getElementById("exTimed").checked){
     ex.timed={};
