@@ -3432,7 +3432,7 @@ function programClashHtml(by){
     + '<div class="row" style="gap:6px"><button class="mini pc-approve" id="peReload">Reload</button><button class="mini" id="peKeep">Keep mine</button></div></div>';
 }
 function editHeaderHtml(t){
-  let html=programEditBannerHtml();
+  let html="";
   if(t.direct && sbClashes[t.live.id]) html+=programClashHtml(sbClashes[t.live.id].updatedBy);
   else if(!t.direct && t.work.baseVersion!==t.live.version && t.work.ack!==t.live.version) html+=programClashHtml(t.live.updatedBy);
   return html+sentEditsHtml();
@@ -4258,10 +4258,11 @@ const pgShort=d=>d.slice(0,3);
 const pgToday=()=>DAY_NAMES[(new Date(localDateStr()+"T12:00:00").getDay()+6)%7];
 const pgPlural=(n,w)=>n+" "+w+(n===1?"":"s");
 const pgOnDay=(prog,d)=>orderedKeys(prog).filter(k=>daysOf(prog.sessions[k]).indexOf(d)>=0);
-// Changes waiting on one session: the coach's, on your own program.
+// Changes waiting on one session: the coach's on your own program, and edits others sent to it.
 function pgWaiting(t, k){
-  const s=t.prog.sessions[k];
-  return t.direct && t.live===progOf(t.me) ? changesForSession(s.name).length : 0;
+  if(!t.direct) return 0;
+  const coach=t.live===progOf(t.me) ? changesForSession(t.prog.sessions[k].name).length : 0;
+  return coach+editsForMe().filter(c=>c.kind==="person" && c.programId===t.live.id && c.proposed.sessions && k in c.proposed.sessions).length;
 }
 // .notes textareas are `overflow:hidden`, so anything past the visible rows was
 // invisible while typing it. Grow to fit instead. No-ops while hidden
@@ -4324,7 +4325,8 @@ function pgProgramIds(t){
 function pgTopHtml(t){
   return '<div class="pgprow">'+(pgProgramIds(t).length>1
     ? '<button class="pgb pgpick" data-pga="picker"><span class="pgell">'+esc(programLabel(t.live))+'</span>'+ico("down")+'</button>'
-    : '<div class="pgpick pgsolo pgell">'+esc(programLabel(t.live))+'</div>')+'</div>';
+    : '<div class="pgpick pgsolo pgell">'+esc(programLabel(t.live))+'</div>')
+    + (pgChangeItems().length ? '<button class="pgb on" data-pga="chg" aria-label="'+pgPlural(pgChangeItems().length,"change")+' waiting">'+ico("chat")+pgChangeItems().length+'</button>' : '')+'</div>';
 }
 function pgStripHtml(t, sel){
   const today=pgToday();
@@ -4410,11 +4412,15 @@ PGS.picker=sh=>{
 
 // One exercise row: a drag handle, then name, mono target and warm-up line; a tap opens its editor.
 function pgExRowHtml(k, ei, ex){
-  const waiting=changesForSession((editProg().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
+  const chips=changesForSession((editProg().sessions[k]||{}).name).filter(c=>c.exercise===ex.name && c.op!=="add").map(pgChipHtml).join("");
   return '<div class="pgxw" data-i="'+ei+'"><div class="pgcr">'
     + '<button type="button" class="pggrip" aria-label="Reorder '+esc(ex.name)+'. Drag, or use the up and down arrow keys.">'+ico("grip")+'</button>'
-    + '<button class="pgm" data-pga="ex" data-i="'+ei+'"><span class="pgxn"><b>'+esc(ex.name||"Unnamed exercise")+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</b><span class="t">'+esc(ex.target)+'</span>'
-    + (ex.warmup?'<span class="w">Warm-up: '+esc(ex.warmup)+'</span>':'')+(msGet(state.people[state.activePerson], ex.name)?'<span class="w">Settings saved</span>':'')+'</span><span class="pggo">'+ico("chevron")+'</span></button></div></div>';
+    + '<button class="pgm" data-pga="ex" data-i="'+ei+'"><span class="pgxn"><b>'+esc(ex.name||"Unnamed exercise")+'</b><span class="t">'+esc(ex.target)+'</span>'
+    + (ex.warmup?'<span class="w">Warm-up: '+esc(ex.warmup)+'</span>':'')+(msGet(state.people[state.activePerson], ex.name)?'<span class="w">Settings saved</span>':'')+'</span><span class="pggo">'+ico("chevron")+'</span></button></div>'+chips+'</div>';
+}
+// A coach change shown where it lands: under its exercise, in the exercise sheet, and at the foot of the list for an add.
+function pgChipHtml(c){
+  return '<button class="pginl'+(c.op==="remove"?' dng':'')+'" data-pga="chg"><span class="lbl">Coach suggests</span><b>'+esc(describeChange(c))+'</b></button>';
 }
 function pgNoteRow(label, text){
   return text ? '<button class="pgnrow" data-pga="notes" aria-label="Edit '+label.toLowerCase()+' notes"><span class="pgxn"><b>'+label+'</b><span class="t">'+esc(text.split("\n").filter(Boolean).join(", "))+'</span></span><span class="pggo">'+ico("chevron")+'</span></button>' : "";
@@ -4430,7 +4436,8 @@ function pgDaysBoxHtml(t, k){
     }).join("") : '<div class="hint" style="margin-top:8px">No day set, so it sits under Optional.</div>');
 }
 function pgSessionHtml(t, u){
-  const k=u.key, s=t.prog.sessions[k], n=s.exercises.length, pend=pgWaiting(t, k) ? changesForSession(s.name) : [];
+  const k=u.key, s=t.prog.sessions[k], n=s.exercises.length, waiting=pgWaiting(t, k);
+  const adds=t.direct && t.live===progOf(t.me) ? changesForSession(s.name).filter(c=>c.op==="add") : [];
   const autoOn=daysOf(s).filter(d=>pgOnDay(t.prog, d).length>1 && (s.autoPick||{})[d]);
   const list=exerciseBlocks(s.exercises).map(block=>{
     const rows=block.eis.map(ei=>pgExRowHtml(k, ei, s.exercises[ei])).join("");
@@ -4439,11 +4446,11 @@ function pgSessionHtml(t, u){
   return '<div class="pghead"><button class="pgback" data-pga="back">'+ico("back")+(u.from==="day" && u.day ? u.day : "Week")+'</button><span style="flex:1"></span>'
     + '<button class="pgb ic" data-pga="more" aria-label="Session menu: rename, share, delete">'+ico("more")+'</button></div>'
     + '<h2 class="pgh">'+esc(s.name)+'</h2><div class="pgsub" style="margin:4px 0 12px">'+esc(dayText(s))+', '+pgPlural(n,"exercise")+(s.person?', '+esc(s.person)+' only':'')+'</div>'+pgNotMine(t)
-    + (pend.length ? '<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach suggests &middot; '+pend.length+' waiting</div>'+pend.map(changeCardHtml).join("")+'</div>' : '')
+    + (waiting ? '<button class="pgwait" data-pga="chg">'+ico("chat")+'<span><b>'+pgPlural(waiting,"change")+' waiting</b><small>Review and apply</small></span></button>' : '')
     + '<div class="card pgdcard"><button class="pgdrow'+(u.daysOpen?' open':'')+'" data-pga="daystoggle" aria-expanded="'+!!u.daysOpen+'">'+ico("calendar")
     + '<span class="pgdt">Days<small>'+esc(dayText(s))+(autoOn.length?', auto-picked on '+autoOn.map(pgShort).join(", "):'')+'</small></span><span class="chv">'+ico("chevron")+'</span></button>'
     + (u.daysOpen ? '<div class="pgdbody">'+pgDaysBoxHtml(t, k)+'</div>' : '')+'</div>'
-    + '<div class="card pgx" id="pgxl">'+pgNoteRow("Warm-up", s.warmupNote||"")+list+(n?"":'<div class="pgempty">No exercises yet.</div>')+pgNoteRow("Cool-down", s.cooldownNote||"")+'</div>'
+    + '<div class="card pgx" id="pgxl">'+pgNoteRow("Warm-up", s.warmupNote||"")+list+(n?"":'<div class="pgempty">No exercises yet.</div>')+pgNoteRow("Cool-down", s.cooldownNote||"")+'</div>'+adds.map(c=>pgChipHtml(c).replace('class="pginl"','class="pginl add"')).join("")
     + '<div class="pgsticky">'+pgStagedHtml(t)+'<div class="pgbar"><button class="pgb" data-pga="exnew" aria-label="Add exercise">'+ico("plus")+'Exercise</button>'
     + '<button class="pgb" data-pga="notes">'+ico("note")+'Notes</button>'+(copyTargets(t.live).length ? '<button class="pgb" data-pga="copy">'+ico("copy")+'Copy</button>' : '')+'</div></div>';
 }
@@ -4587,6 +4594,47 @@ document.addEventListener("keydown", e=>{
   move(key+":"+arr.indexOf(held), e.key==="ArrowUp" ? -1 : 1);
   const ng=document.querySelector('.pgxw[data-i="'+arr.indexOf(held)+'"] .pggrip'); if(ng) ng.focus();
 });
+
+// ---- changes waiting: the coach's program changes and other people's edits, in one list --------
+// Each is ticked, then applied (coach: Approve, person: Accept) or declined together.
+function pgChangeItems(){
+  return pendingChanges().filter(c=>!c.kind).map(c=>({id:String(c.id), coach:true, c:c}))
+    .concat(editsForMe().map(c=>({id:String(c.id), coach:false, c:c})));
+}
+const pgTicks=()=>{ const u=pgU(); return u.ticks||(u.ticks={}); };
+PGA.chg=()=>{ if(exDlg.open) exDlg.close(); pgOpen("chg"); };
+PGH.tick=b=>{ pgTicks()[b.dataset.id]=b.checked; pgPaint(); };
+PGA.tickall=()=>{
+  const L=pgChangeItems(), ticks=pgTicks(), all=L.every(x=>ticks[x.id]);
+  L.forEach(x=>{ ticks[x.id]=!all; });
+  pgPaint();
+};
+function pgResolve(apply){
+  const ticks=pgTicks(), ticked=pgChangeItems().filter(x=>ticks[x.id]);
+  let done=0;
+  ticked.forEach(x=>{
+    (x.coach ? (apply ? applyProgramChange : declineProgramChange) : (apply ? acceptProgramEdit : declineProgramEdit))(x.c.id);
+    if(x.c.status!=="pending") done++;
+    delete ticks[x.id];
+  });
+  if(pgSh && pgSh.kind==="chg"){ if(pgChangeItems().length) pgPaint(); else pgClose(); }
+  toast((apply ? "Applied " : "Declined ")+pgPlural(done, "change"));
+}
+PGA.apply=()=>pgResolve(true);
+PGA.decline=()=>pgResolve(false);
+PGS.chg=()=>{
+  const L=pgChangeItems(), ticks=pgTicks(), n=L.filter(x=>ticks[x.id]).length;
+  const body=L.length ? L.map(x=>{
+    const c=x.c, danger=x.coach && c.op==="remove";
+    const what=x.coach ? '<span class="what">'+(["remove","add","move"].indexOf(c.op)<0 ? esc(c.exercise)+' &middot; ' : '')+esc(describeChange(c))+'</span>'+(c.why ? '<i>'+esc(c.why)+'</i>' : '')
+      : '<div class="what">'+changeSummaryHtml(c)+'</div>';
+    return '<label class="pgtk'+(danger?' dng':'')+'"><input type="checkbox" data-pgc="tick" data-id="'+esc(x.id)+'"'+(ticks[x.id]?' checked':'')+'><span class="tt"><b>'+esc(x.coach ? c.session : programLabel(state.programs[c.programId]))+'</b>, from '+esc(x.coach ? "Coach" : c.from)+'<br>'+what+'</span></label>';
+  }).join("") : '<div class="pgempty">Nothing is waiting.</div>';
+  return pgHead("Changes waiting", L.length ? '<button class="pgb txt" data-pga="tickall">'+(L.every(x=>ticks[x.id]) ? "Untick all" : "Tick all")+'</button>' : "")
+    + '<div class="pgsheet-b">'+body+'</div>'
+    + (L.length ? '<div class="pgsheet-f"><button class="pgb" data-pga="decline"'+(n?'':' disabled')+'>Decline '+n+'</button><button class="pgb pri" data-pga="apply"'+(n?'':' disabled')+'>'+ico("check")+'Apply '+n+' ticked</button></div>'
+      : '<div class="pgsheet-f"><button class="pgb pri" data-pga="close">Close</button></div>');
+};
 
 function renderEdit(){
   const t=editTarget(), u=pgU();
