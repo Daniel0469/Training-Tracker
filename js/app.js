@@ -4246,12 +4246,6 @@ function drawFoodChart(person, days, today, target){
   });
 }
 
-// "sessionKey:index" refs currently ticked for grouping - module-level so it
-// survives the re-renders triggered by ticking each checkbox; cleared once a
-// group is actually made, or implicitly stale (harmless) if you leave the tab.
-let selectedExRefs=new Set();
-// groupMode is the superset picker: the tick-boxes only appear while it's on.
-let groupMode=false;
 // Session notes start closed. Which one you opened is remembered so a re-render
 // while you type doesn't shut it on you.
 let notesOpenKey="";
@@ -4424,7 +4418,6 @@ function pgExRowHtml(k, ei, ex){
   const ref=k+':'+ei;
   const waiting=changesForSession((editProg().sessions[k]||{}).name).some(c=>c.exercise===ex.name);
   return '<div class="pgxw" data-i="'+ei+'"><div class="pgcr">'
-    + (groupMode?'<input type="checkbox" class="prog-sel" data-selex="'+ref+'" title="Select for grouping"'+(selectedExRefs.has(ref)?' checked':'')+'>':'')
     + '<button class="pgm" data-editex="'+ref+'"><span class="pgxn"><b>'+esc(ex.name||"Unnamed exercise")+(waiting?' <span class="sess-flag">change waiting</span>':'')+'</b><span class="t">'+esc(ex.target)+'</span>'
     + (ex.warmup?'<span class="w">Warm-up: '+esc(ex.warmup)+'</span>':'')+(msGet(state.people[state.activePerson], ex.name)?'<span class="w">Settings saved</span>':'')+'</span></button>'
     + '<button class="mini ico" data-upex="'+ref+'" title="Move up" aria-label="Move up">&uarr;</button>'
@@ -4435,24 +4428,19 @@ function pgNoteRow(label, text){
 }
 function pgSessionHtml(t, u){
   const k=u.key, s=t.prog.sessions[k], n=s.exercises.length, pend=pgWaiting(t, k) ? changesForSession(s.name) : [];
-  const selCount=s.exercises.filter((ex,ei)=>selectedExRefs.has(k+':'+ei)).length;
   let html='<div class="pghead"><button class="pgback" data-pga="back">'+ico("back")+(u.from==="day" && u.day ? u.day : "Week")+'</button></div>'
     + '<h2 class="pgh">'+esc(s.name)+'</h2><div class="pgsub" style="margin:4px 0 12px">'+esc(dayText(s))+', '+pgPlural(n,"exercise")+(s.person?', '+esc(s.person)+' only':'')+'</div>'+pgNotMine(t);
   if(pend.length) html+='<div class="card coach-card"><div class="sec-title">'+ico("chat")+'Coach suggests &middot; '+pend.length+' waiting</div>'+pend.map(changeCardHtml).join("")+'</div>';
   html+='<div class="card pgx prog-sess" id="pgxl"><div class="prog-actions">'
-    + (groupMode
-        ? '<button class="mini pc-approve" data-group="'+k+'"'+(selCount<2?' disabled':'')+'>Group ('+selCount+')</button>'
-          + '<button class="mini" id="groupCancel">Cancel</button><span class="hint" style="margin:0">Tick two or more</span>'
-        : '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
-          + '<button class="mini" id="groupStart">'+ico("swap")+'Group as superset</button>'
-          + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
-          + '<button class="mini" data-shareex="'+k+'">Share</button>'
-          + (copyTargets(t.live).length ? '<button class="mini" data-copyex="'+k+'">Copy to...</button>' : ''))
+    + '<button class="mini" data-addex="'+k+'">'+ico("plus")+'Exercise</button>'
+    + '<button class="mini" data-sessnotes="'+esc(k)+'" aria-expanded="'+(notesOpenKey===k?"true":"false")+'">Session notes</button>'
+    + '<button class="mini" data-shareex="'+k+'">Share</button>'
+    + (copyTargets(t.live).length ? '<button class="mini" data-copyex="'+k+'">Copy to...</button>' : '')
     + '</div>'+sessNotesHtml(k, s)+pgNoteRow("Warm-up", s.warmupNote||"");
   exerciseBlocks(s.exercises).forEach(block=>{
     const rows=block.eis.map(ei=>pgExRowHtml(k, ei, s.exercises[ei])).join("");
     html+=block.type==="group"
-      ? '<div class="pgss"><div class="pgss-l">'+ico("swap")+'Superset<button class="mini" data-ungroup="'+k+':'+block.groupId+'">Ungroup</button></div>'+rows+'</div>'
+      ? '<div class="pgss"><div class="pgss-l">'+ico("swap")+'Superset</div>'+rows+'</div>'
       : rows;
   });
   if(!n) html+='<div class="pgempty">No exercises yet.</div>';
@@ -4476,7 +4464,7 @@ PGA.picker=()=>pgOpen("picker", {val:editTarget().live.id});
 PGH.pickr=b=>{ pgSh.val=b.value; };
 PGA.pickgo=()=>{
   const me=state.people[state.activePerson];
-  editSel[me]=pgSh.val; delete pgUi[me]; groupMode=false; selectedExRefs.clear();
+  editSel[me]=pgSh.val; delete pgUi[me];
   pgClose(); renderEdit(); window.scrollTo(0, 0);
 };
 PGS.picker=sh=>{
@@ -4498,18 +4486,12 @@ function renderEdit(){
   wireEditHeader(t);
   wireChangeButtons();
   if(u.route!=="session") return;
-  const gs=document.getElementById("groupStart"); if(gs) gs.onclick=()=>{ groupMode=true; renderEdit(); };
-  const gc=document.getElementById("groupCancel"); if(gc) gc.onclick=()=>{ groupMode=false; selectedExRefs.clear(); renderEdit(); };
   document.querySelectorAll("[data-addex]").forEach(b=>b.onclick=()=>openExDlg(b.dataset.addex,null));
   document.querySelectorAll("[data-editex]").forEach(b=>b.onclick=()=>{ const a=b.dataset.editex.split(":"); openExDlg(a[0],+a[1]); });
   document.querySelectorAll("[data-upex]").forEach(b=>b.onclick=()=>move(b.dataset.upex,-1));
   document.querySelectorAll("[data-downex]").forEach(b=>b.onclick=()=>move(b.dataset.downex,1));
   document.querySelectorAll("[data-shareex]").forEach(b=>b.onclick=()=>shareSession(b.dataset.shareex));
   document.querySelectorAll("[data-copyex]").forEach(b=>b.onclick=()=>openCopyDlg(b.dataset.copyex));
-  document.querySelectorAll("[data-selex]").forEach(cb=>cb.onchange=()=>{
-    if(cb.checked) selectedExRefs.add(cb.dataset.selex); else selectedExRefs.delete(cb.dataset.selex);
-    renderEdit();
-  });
   document.querySelectorAll("[data-sessnotes]").forEach(b=>b.onclick=()=>{
     const wrap=document.querySelector('[data-sessnotes-wrap="'+b.dataset.sessnotes+'"]');
     if(!wrap) return;
@@ -4537,11 +4519,6 @@ function renderEdit(){
         : field==="setupNote" ? "Treadmill program saved"
         : field==="garminNote" ? "Watch workout saved" : "Cool-down note saved");
   }));
-  document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>{ groupMode=false; groupSelected(b.dataset.group); });
-  document.querySelectorAll("[data-ungroup]").forEach(b=>b.onclick=()=>{
-    const a=b.dataset.ungroup.split(":");
-    ungroupExercises(a[0], a.slice(1).join(":"));
-  });
 }
 // A "group" of one exercise isn't a group - clear a groupId once only one
 // member of it is left (e.g. after deleting the exercise that was its pair).
@@ -4551,25 +4528,22 @@ function cleanupSoloGroups(sessionKey){
   arr.forEach(ex=>{ if(ex.groupId) counts[ex.groupId]=(counts[ex.groupId]||0)+1; });
   arr.forEach(ex=>{ if(ex.groupId && counts[ex.groupId]<2) delete ex.groupId; });
 }
-function groupSelected(sessionKey){
-  const refs=Array.from(selectedExRefs)
-    .filter(r=>r.startsWith(sessionKey+":"))
-    .map(r=>+r.split(":")[1]).sort((a,b)=>a-b);
-  if(refs.length<2) return;
-  const arr=editProg().sessions[sessionKey].exercises;
-  const gid="grp-"+Date.now();
-  const selectedSet=new Set(refs);
-  const members=refs.map(i=>arr[i]);
-  members.forEach(ex=>{ ex.groupId=gid; });
-  const before=arr.slice(0, refs[0]);
-  const after=arr.filter((ex,i)=> i>refs[0] && !selectedSet.has(i));
-  editProg().sessions[sessionKey].exercises=before.concat(members, after);
-  selectedExRefs.clear();
-  saveEdit(); renderEdit(); toast("Grouped as superset");
-}
-function ungroupExercises(sessionKey, groupId){
-  editProg().sessions[sessionKey].exercises.forEach(ex=>{ if(ex.groupId===groupId) delete ex.groupId; });
-  saveEdit(); renderEdit(); toast("Ungrouped");
+// Whether exercise i is linked to the one after it, and linking or unlinking them. Members of a
+// superset are always adjacent, so joining merges the two neighbouring groups and leaving splits
+// the group after i off.
+function linkedToNext(arr, i){ return !!arr[i+1] && !!arr[i].groupId && arr[i].groupId===arr[i+1].groupId; }
+function setLinkedToNext(sessionKey, i, on){
+  const arr=editProg().sessions[sessionKey].exercises, a=arr[i], b=arr[i+1];
+  if(!b || on===linkedToNext(arr, i)) return;
+  if(on){
+    const gid=a.groupId||b.groupId||"grp-"+Date.now();
+    arr.forEach(x=>{ if(x.groupId && (x.groupId===a.groupId || x.groupId===b.groupId)) x.groupId=gid; });
+    a.groupId=gid; b.groupId=gid;
+  } else {
+    const old=a.groupId, gid=old+"-b";
+    for(let j=i+1; j<arr.length && arr[j].groupId===old; j++) arr[j].groupId=gid;
+  }
+  cleanupSoloGroups(sessionKey);
 }
 // Moves the contiguous block containing exercise `ref` (its whole superset
 // group if it's grouped, otherwise just itself) up/down past the adjacent
@@ -4641,14 +4615,24 @@ function openExDlg(sessionKey,ei,todayOnly){
   const ex = editing? editProg().sessions[sessionKey].exercises[ei]
     : {name:"",warmup:"",target:"3x8-12",cols:["Weight (kg)","Reps"],sets:3};
   exLibrary=exerciseLibrary(); hideExSuggest();
-  document.getElementById("exDlgTitle").textContent =
-    todayOnly ? "Add an exercise for today" : (editing?"Edit exercise":"Add exercise");
   const todayHint=document.getElementById("exTodayHint");
   if(todayHint) todayHint.hidden=!todayOnly;
-  document.getElementById("exSave").textContent = todayOnly ? "Add for today" : "Save exercise";
-  // Remove moved here from the Program row (design v3), so only an existing
-  // programmed exercise offers it.
-  document.getElementById("exRemove").hidden = !(editing && !todayOnly);
+  document.getElementById("exSave").textContent = todayOnly ? "Add for today" : "Save";
+  // Only an existing programmed exercise can be removed or moved; Cancel stands in for Remove otherwise.
+  const programmed=editing && !todayOnly, arr=programmed ? editProg().sessions[sessionKey].exercises : [];
+  exRemoveArmed=false; paintExRemove();
+  document.getElementById("exRemove").hidden=!programmed;
+  document.getElementById("exCancel").hidden=programmed;
+  ["exUp","exDown"].forEach(id=>{ document.getElementById(id).hidden=!programmed; });
+  document.getElementById("exUp").disabled=ei===0;
+  document.getElementById("exDown").disabled=ei===arr.length-1;
+  // A superset joins an exercise to the next one, so the last exercise and a new one have no switch.
+  document.getElementById("exSSRow").hidden=!(programmed && ei<arr.length-1);
+  setKnob(document.getElementById("exSS"), programmed && linkedToNext(arr, ei));
+  const who=state.people[state.activePerson];
+  document.getElementById("exProgRow").hidden=!programmed;
+  document.getElementById("exProgOn").checked=!programmed || progExOn(who, ex.name);
+  document.getElementById("exProgLab").textContent="Progression targets for "+who;
   document.getElementById("exName").value=ex.name;
   document.getElementById("exWarmup").value=ex.warmup||"";
   // The selected person's own machine settings, not a field of the shared program.
@@ -4743,14 +4727,48 @@ document.getElementById("exLoad").onchange=()=>{
   col0.value = load==="bw" ? "Added (kg)" : load==="assist" ? "Assist (kg)" : "Weight (kg)";
 };
 document.getElementById("exCancel").onclick=()=>exDlg.close();
+document.getElementById("exClose").onclick=()=>exDlg.close();
+function setKnob(btn, on){ btn.classList.toggle("on", !!on); btn.setAttribute("aria-pressed", String(!!on)); }
+document.getElementById("exSS").onclick=e=>setKnob(e.currentTarget, !e.currentTarget.classList.contains("on"));
+// Remove asks twice: the first tap arms the button, the second removes.
+let exRemoveArmed=false;
+function paintExRemove(){
+  const b=document.getElementById("exRemove");
+  b.classList.toggle("arm", exRemoveArmed);
+  b.textContent=exRemoveArmed ? "Tap again to remove" : "Remove";
+}
 document.getElementById("exRemove").onclick=()=>{
   const c=exDlgCtx; if(!c || c.ei==null || c.todayOnly) return;
-  if(!confirm("Remove this exercise from the program?")) return;
+  if(!exRemoveArmed){ exRemoveArmed=true; paintExRemove(); return; }
   editProg().sessions[c.sessionKey].exercises.splice(c.ei,1);
   cleanupSoloGroups(c.sessionKey);
-  selectedExRefs.clear();
   saveEdit(); exDlg.close(); renderEdit(); toast("Removed");
 };
+// Up and down move the exercise in the program straight away and keep the sheet on it.
+function moveOpenExercise(dir){
+  const c=exDlgCtx, arr=editProg().sessions[c.sessionKey].exercises, held=arr[c.ei];
+  move(c.sessionKey+":"+c.ei, dir);
+  c.ei=arr.indexOf(held);
+  document.getElementById("exUp").disabled=c.ei===0;
+  document.getElementById("exDown").disabled=c.ei===arr.length-1;
+  document.getElementById("exSSRow").hidden=c.ei>=arr.length-1;
+  setKnob(document.getElementById("exSS"), linkedToNext(arr, c.ei));
+}
+document.getElementById("exUp").onclick=()=>moveOpenExercise(-1);
+document.getElementById("exDown").onclick=()=>moveOpenExercise(1);
+// The - and + beside a number: each box's range, step and the value a blank one starts from.
+const EX_STEPS={exSets:{min:1, max:12, step:1, start:3}, exRepMin:{min:1, max:100, step:1, start:8},
+  exRepMax:{min:1, max:100, step:1, start:12}, exRest:{min:0, max:600, step:15, start:120}};
+exDlg.addEventListener("click", e=>{
+  const b=e.target.closest("[data-exstep]"); if(!b) return;
+  const id=b.dataset.exstep, d=EX_STEPS[id], el=document.getElementById(id);
+  const cur=id==="exRest" ? parseRest(el.value) : parseFloat(el.value);
+  const v=Math.min(d.max, Math.max(d.min, cur ? cur+d.step*(+b.dataset.d) : d.start));
+  el.value=id==="exRest" ? fmtMmSs(v) : v;
+  const lo=document.getElementById("exRepMin"), hi=document.getElementById("exRepMax");
+  if(id==="exRepMin" && +hi.value && +hi.value<v) hi.value=v;
+  if(id==="exRepMax" && +lo.value && +lo.value>v) lo.value=v;
+});
 document.getElementById("exPresetLift").onclick=()=>{
   document.getElementById("exCol0").value="Weight (kg)";
   document.getElementById("exCol1").value="Reps";
@@ -4862,6 +4880,9 @@ document.getElementById("exSave").onclick=()=>{
     arr[exDlgCtx.ei]=ex;
   } else arr.push(ex);
   cleanupSoloGroups(exDlgCtx.sessionKey);
+  if(exDlgCtx.ei!=null) setLinkedToNext(exDlgCtx.sessionKey, exDlgCtx.ei, document.getElementById("exSS").classList.contains("on"));
+  const progOn=document.getElementById("exProgOn").checked;
+  if(exDlgCtx.ei!=null && progOn!==progExOn(who, name)) progSet(who, name, progOn);
   saveEdit(); exDlg.close(); renderEdit(); toast("Saved");
 };
 

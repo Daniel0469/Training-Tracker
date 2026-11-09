@@ -388,70 +388,86 @@
 
 <dialog id="pgSheet" class="pgsheet"></dialog>
 
-<dialog id="exDlg"><div class="dlg-body">
-  <h3 id="exDlgTitle">Edit exercise</h3>
-  <div class="hint" id="exTodayHint" hidden style="margin:-6px 0 10px">Goes into <b>today's log only</b> - your program isn't changed. After you save the session you'll be offered the option to keep it.</div>
-  <label class="fld" style="margin-bottom:9px">Exercise name<input id="exName" type="text" autocomplete="off" aria-autocomplete="list" aria-controls="exSuggest"></label>
+<dialog id="exDlg" class="pgsheet">
+  <div class="pgsheet-h">
+    <input id="exName" class="pgname" type="text" placeholder="Exercise name" aria-label="Exercise name" autocomplete="off" aria-autocomplete="list" aria-controls="exSuggest">
+    <button type="button" class="pgb ic txt" id="exUp" aria-label="Move up">&uarr;</button>
+    <button type="button" class="pgb ic txt" id="exDown" aria-label="Move down">&darr;</button>
+    <button type="button" class="pgb ic txt" id="exClose" aria-label="Close">&times;</button>
+  </div>
   <div class="ex-suggest" id="exSuggest" role="listbox" hidden></div>
-  <label class="fld" style="margin-bottom:9px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 - or 40%x8, 60%x5"></label>
-  <label class="fld" style="margin-bottom:9px" id="exNotesLab">Machine settings (optional)<textarea id="exNotes" placeholder="e.g. Seat height 4, pin 3, back-pad setting 2" style="min-height:48px"></textarea></label>
-  <!-- Design v3 / 14 Oct: a lift's target is built from Sets + Reps (two boxes) +
-       an optional extra, so the target and the number of rows can't disagree.
-       Anything that isn't weight + reps keeps a free-text target. -->
-  <div class="ex-grid" style="margin-bottom:9px">
-    <label class="fld">Sets<input id="exSets" type="number" min="1" max="12" value="3" inputmode="numeric"></label>
-    <label class="fld" id="exRepMinLab">Reps<input id="exRepMin" type="number" min="1" max="100" inputmode="numeric" placeholder="8"></label>
-    <label class="fld" id="exRepMaxLab">to<input id="exRepMax" type="number" min="1" max="100" inputmode="numeric" placeholder="12"></label>
-    <label class="fld">Rest<input id="exRest" type="text" inputmode="numeric" placeholder="2:30"></label>
-  </div>
-  <label class="fld" id="exExtraLab" style="margin-bottom:9px">Extra (optional)<input id="exTargetExtra" type="text" placeholder="e.g. each leg, light"></label>
-  <label class="fld" id="exTargetLab" style="margin-bottom:9px">Target<input id="exTarget" type="text" placeholder="e.g. 4 rounds x 250 m"></label>
-  <div class="row" style="margin-bottom:6px">
-    <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
-    <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
-    <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="-"></label>
-  </div>
-  <div class="row" style="margin-bottom:12px;gap:6px">
-    <span class="hint" style="margin:0">Presets:</span>
-    <button type="button" class="mini" id="exPresetLift">Lifting</button>
-    <button type="button" class="mini" id="exPresetRun">Running</button>
-    <button type="button" class="mini" id="exPresetTimed">Timed</button>
-  </div>
-  <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
-    <input id="exTimed" type="checkbox" style="width:auto"> Recorded by time
-  </label>
-  <div id="exTimedBox" hidden style="margin-bottom:12px">
-    <div class="ex-grid" style="margin-bottom:8px">
-      <label class="fld">Hold target<input id="exHold" type="text" inputmode="numeric" placeholder="0:45"></label>
-      <label class="fld">Grace<input id="exGrace" type="text" inputmode="numeric" placeholder="0"></label>
+  <div class="pgsheet-b">
+    <div class="hint" id="exTodayHint" hidden style="margin:0 0 10px">Goes into <b>today's log only</b> - your program isn't changed. After you save the session you'll be offered the option to keep it.</div>
+    <!-- Design v3 / 14 Oct: a lift's target is built from Sets + Reps (two boxes) +
+         an optional extra, so the target and the number of rows can't disagree.
+         Anything that isn't weight + reps keeps a free-text target. -->
+    <div class="pgfgrid" style="margin-bottom:10px">
+      <label class="fld">Sets<div class="pgstp"><button type="button" class="pgb ic" data-exstep="exSets" data-d="-1" aria-label="Fewer sets">&minus;</button><input id="exSets" type="number" min="1" max="12" value="3" inputmode="numeric"><button type="button" class="pgb ic" data-exstep="exSets" data-d="1" aria-label="More sets">+</button></div></label>
+      <label class="fld">Rest<div class="pgstp"><button type="button" class="pgb ic" data-exstep="exRest" data-d="-1" aria-label="Less rest">&minus;</button><input id="exRest" type="text" inputmode="numeric" placeholder="2:30"><button type="button" class="pgb ic" data-exstep="exRest" data-d="1" aria-label="More rest">+</button></div></label>
+      <label class="fld" id="exRepMinLab">Reps from<div class="pgstp"><button type="button" class="pgb ic" data-exstep="exRepMin" data-d="-1" aria-label="Fewer reps">&minus;</button><input id="exRepMin" type="number" min="1" max="100" inputmode="numeric" placeholder="8"><button type="button" class="pgb ic" data-exstep="exRepMin" data-d="1" aria-label="More reps">+</button></div></label>
+      <label class="fld" id="exRepMaxLab">to<div class="pgstp"><button type="button" class="pgb ic" data-exstep="exRepMax" data-d="-1" aria-label="Fewer reps">&minus;</button><input id="exRepMax" type="number" min="1" max="100" inputmode="numeric" placeholder="12"><button type="button" class="pgb ic" data-exstep="exRepMax" data-d="1" aria-label="More reps">+</button></div></label>
     </div>
-    <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exCountDown" type="checkbox" style="width:auto"> Count down from the hold target</label>
-    <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exAutoFill" type="checkbox" style="width:auto"> Stopping fills in the time and ticks the set</label>
-    <div class="hint" style="margin:0">The grace is a lead-in before the hold starts. It shows as a negative count and isn't part of the time. Timed holds add nothing to volume. A PR is the longest hold at the same weight (no weight counts as 0).</div>
+    <label class="fld" id="exExtraLab" style="margin-bottom:10px">Extra (optional)<input id="exTargetExtra" type="text" placeholder="e.g. each leg, light"></label>
+    <label class="fld" id="exTargetLab" style="margin-bottom:10px">Target<input id="exTarget" type="text" placeholder="e.g. 4 rounds x 250 m"></label>
+    <label class="fld" style="margin-bottom:10px">Warm-up note (optional)<input id="exWarmup" type="text" placeholder="e.g. 70x10, then 110x5 - or 40%x8, 60%x5"></label>
+    <label class="fld" style="margin-bottom:8px" id="exNotesLab">Machine settings (optional)<textarea id="exNotes" placeholder="e.g. Seat height 4, pin 3, back-pad setting 2" style="min-height:48px"></textarea></label>
+    <div class="pgsw" id="exSSRow"><span class="t">Superset with the next exercise</span><button type="button" class="pgknob" id="exSS" aria-pressed="false" aria-label="Superset with the next exercise"></button></div>
+    <details class="pgmore" id="exMore">
+      <summary>More settings</summary>
+      <div class="row" style="margin-bottom:6px">
+        <label class="fld grow">Column 1<input id="exCol0" type="text" value="Weight (kg)"></label>
+        <label class="fld grow">Column 2<input id="exCol1" type="text" value="Reps"></label>
+        <label class="fld grow">Column 3 (optional)<input id="exCol2" type="text" placeholder="-"></label>
+      </div>
+      <div class="row" style="margin-bottom:12px;gap:6px">
+        <span class="hint" style="margin:0">Presets:</span>
+        <button type="button" class="mini" id="exPresetLift">Lifting</button>
+        <button type="button" class="mini" id="exPresetRun">Running</button>
+        <button type="button" class="mini" id="exPresetTimed">Timed</button>
+      </div>
+      <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
+        <input id="exTimed" type="checkbox" style="width:auto"> Recorded by time
+      </label>
+      <div id="exTimedBox" hidden style="margin-bottom:12px">
+        <div class="ex-grid" style="margin-bottom:8px">
+          <label class="fld">Hold target<input id="exHold" type="text" inputmode="numeric" placeholder="0:45"></label>
+          <label class="fld">Grace<input id="exGrace" type="text" inputmode="numeric" placeholder="0"></label>
+        </div>
+        <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exCountDown" type="checkbox" style="width:auto"> Count down from the hold target</label>
+        <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink)"><input id="exAutoFill" type="checkbox" style="width:auto"> Stopping fills in the time and ticks the set</label>
+        <div class="hint" style="margin:0">The grace is a lead-in before the hold starts. It shows as a negative count and isn't part of the time. Timed holds add nothing to volume. A PR is the longest hold at the same weight (no weight counts as 0).</div>
+      </div>
+      <label class="fld" style="margin-bottom:7px">What are you lifting?<select id="exLoad">
+        <option value="">The weight you type (normal)</option>
+        <option value="bw">Your bodyweight, plus any added weight</option>
+        <option value="assist">Your bodyweight, minus the machine's help</option>
+      </select></label>
+      <div class="row" id="exBwPctRow" hidden style="margin-bottom:6px;align-items:center;gap:9px">
+        <label class="fld" style="width:112px">% of bodyweight<input id="exBwPct" type="number" min="1" max="100" step="1" value="100"></label>
+        <span class="hint" style="margin:0;flex:1">How much of you the movement actually lifts - pull-up or dip 100, press-up about 65.</span>
+      </div>
+      <div class="hint" id="exLoadHint" style="margin:0 0 14px">Only affects the maths - your volume, PRs, estimated 1RM and PR badges. You still type the same number as always.</div>
+      <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
+        <input id="exGarmin" type="checkbox" style="width:auto"> Garmin records this
+      </label>
+      <div class="hint" style="margin:0 0 14px">For cardio your watch tracks that isn't a plain distance+time run (e.g. intervals logged as paces). The session then picks up HR, zones and calories from Garmin, without overwriting anything you typed. Real runs are detected automatically.</div>
+      <div id="exProgRow">
+        <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
+          <input id="exProgOn" type="checkbox" style="width:auto"> <span id="exProgLab">Progression targets</span>
+        </label>
+        <div class="hint" style="margin:0 0 14px">Shows the weight and reps to aim for on this exercise in the Session tab. Each person has their own switch.</div>
+      </div>
+      <label class="fld" style="margin-bottom:6px">Works (optional - guessed from the name; tap to override)
+        <div class="tagpick" id="exMuscles"></div>
+      </label>
+    </details>
   </div>
-  <label class="fld" style="margin-bottom:7px">What are you lifting?<select id="exLoad">
-    <option value="">The weight you type (normal)</option>
-    <option value="bw">Your bodyweight, plus any added weight</option>
-    <option value="assist">Your bodyweight, minus the machine's help</option>
-  </select></label>
-  <div class="row" id="exBwPctRow" hidden style="margin-bottom:6px;align-items:center;gap:9px">
-    <label class="fld" style="width:112px">% of bodyweight<input id="exBwPct" type="number" min="1" max="100" step="1" value="100"></label>
-    <span class="hint" style="margin:0;flex:1">How much of you the movement actually lifts - pull-up or dip 100, press-up about 65.</span>
+  <div class="pgsheet-f">
+    <button type="button" class="pgb dng" id="exRemove" hidden>Remove</button>
+    <button type="button" class="pgb" id="exCancel">Cancel</button>
+    <button type="button" class="pgb pri" id="exSave">Save</button>
   </div>
-  <div class="hint" id="exLoadHint" style="margin:0 0 14px">Only affects the maths - your volume, PRs, estimated 1RM and PR badges. You still type the same number as always.</div>
-  <label class="row" style="gap:7px;margin-bottom:6px;font-size:13px;color:var(--ink);font-weight:600">
-    <input id="exGarmin" type="checkbox" style="width:auto"> Garmin records this
-  </label>
-  <div class="hint" style="margin:0 0 14px">For cardio your watch tracks that isn't a plain distance+time run (e.g. intervals logged as paces). The session then picks up HR, zones and calories from Garmin, without overwriting anything you typed. Real runs are detected automatically.</div>
-  <label class="fld" style="margin-bottom:14px">Works (optional - guessed from the name; tap to override)
-    <div class="tagpick" id="exMuscles"></div>
-  </label>
-  <div class="row" style="justify-content:flex-end">
-    <button class="btn btn-ghost" id="exCancel">Cancel</button>
-    <button class="btn btn-primary" id="exSave">Save exercise</button>
-  </div>
-  <div style="text-align:center;margin-top:12px"><button class="mini log-del" id="exRemove" hidden>Remove from program</button></div>
-</div></dialog>
+</dialog>
 
 <script src="js/family.js" defer></script>
 <script src="js/app.js" defer></script>
