@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const CACHE_NAME = "tt-" + VERSION;
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js";
 const SUPABASE_JS_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js";

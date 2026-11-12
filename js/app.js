@@ -1547,7 +1547,8 @@ const ICONS={
   trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
   note:'<path d="M6 3.5h9l4 4V20.5H6z"/><path d="M9 11h7M9 15h7"/>',
-  lock:'<rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+  lock:'<rect x="5" y="11" width="14" height="9.5" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>'
 };
 // The gold PR badge (design v3), in place of the old medal emoji.
 const PR_BADGE='<span class="pr-badge">PR</span>';
@@ -4450,7 +4451,8 @@ function pgSessionHtml(t, u){
     + (waiting ? '<button class="pgwait" data-pga="chg">'+ico("chat")+'<span><b>'+pgPlural(waiting,"change")+' waiting</b><small>Review and apply</small></span></button>' : '')
     + '<div class="card pgdcard"><button class="pgdrow'+(u.daysOpen?' open':'')+'" data-pga="daystoggle" aria-expanded="'+!!u.daysOpen+'">'+ico("calendar")
     + '<span class="pgdt">Days<small>'+esc(dayText(s))+(autoOn.length?', auto-picked on '+autoOn.map(pgShort).join(", "):'')+'</small></span><span class="chv">'+ico("chevron")+'</span></button>'
-    + (u.daysOpen ? '<div class="pgdbody">'+pgDaysBoxHtml(t, k)+'</div>' : '')+'</div>'
+    + (u.daysOpen ? '<div class="pgdbody">'+pgDaysBoxHtml(t, k)+'</div>' : '')
+    + '<button class="pgdrow sep" data-pga="who">'+ico("user")+'<span class="pgdt">For<small>'+esc(pgWhoText(t, s.person))+'</small></span><span class="chv">'+ico("chevron")+'</span></button></div>'
     + '<div class="card pgx" id="pgxl">'+pgNoteRow("Warm-up", s.warmupNote||"")+list+(n?"":'<div class="pgempty">No exercises yet.</div>')+pgNoteRow("Cool-down", s.cooldownNote||"")+'</div>'+adds.map(c=>pgChipHtml(c).replace('class="pginl"','class="pginl add"')).join("")
     + '<div class="pgsticky">'+pgStagedHtml(t)+'<div class="pgbar"><button class="pgb" data-pga="exnew" aria-label="Add exercise">'+ico("plus")+'Exercise</button>'
     + '<button class="pgb" data-pga="notes">'+ico("note")+'Notes</button>'+(copyTargets(t.live).length ? '<button class="pgb" data-pga="copy">'+ico("copy")+'Copy</button>' : '')+'</div></div>';
@@ -4512,6 +4514,22 @@ PGS.notes=sh=>{
     + '<div class="pgsw"><span class="t">Cardio session<small>The watch records it, so Garmin fills in heart rate, zones and splits after it syncs.</small></span><button class="pgknob'+(cardio?' on':'')+'" data-pga="cardio" aria-pressed="'+cardio+'" aria-label="Cardio session"></button></div>'
     + PG_NOTE_FIELDS.slice(2).map(f=>area(f,3,"10px 0")).join("")
     + '</div><div class="pgsheet-f"><button class="pgb pri" data-pga="notesdone">Done</button></div>';
+};
+// Who a session is for: everyone on the program, or one person, who is then the only one offered it to log.
+const pgWhoText=(t, p)=>p ? p+" only" : t.live.members.length>2 ? "Everyone" : "Both";
+PGA.who=()=>{ const k=pgKey(); pgOpen("who", {key:k, val:editProg().sessions[k].person||""}); };
+PGH.whor=b=>{ pgSh.val=b.value; };
+PGA.whogo=()=>{
+  const s=editProg().sessions[pgSh.key];
+  if(pgSh.val!==(s.person||"")){ if(pgSh.val) s.person=pgSh.val; else delete s.person; saveEdit(); }
+  pgClose(); renderEdit();
+};
+PGS.who=sh=>{
+  const t=editTarget(), cur=t.prog.sessions[sh.key].person, opts=[""].concat(t.live.members, cur && t.live.members.indexOf(cur)<0 ? [cur] : []);
+  return pgHead(t.prog.sessions[sh.key].name+" is for")+'<div class="pgsheet-b">'+opts.map(n=>
+    '<label class="pgradio"><input type="radio" name="pgwho" value="'+esc(n)+'"'+(n===sh.val?' checked':'')+' data-pgc="whor"><span class="t">'+esc(n ? n+" only" : pgWhoText(t, ""))
+    + '<small>'+(n ? 'Only '+esc(n)+' is offered it on the Log tab' : 'Anyone on this program can log it')+'</small></span></label>').join("")
+    + '</div><div class="pgsheet-f"><button class="pgb pri" data-pga="whogo">Done</button></div>';
 };
 // The session menu: rename, share, delete.
 PGA.more=()=>{ const k=pgKey(); pgOpen("more", {key:k, name:editProg().sessions[k].name, arm:false}); };
@@ -7076,7 +7094,7 @@ function renderHelp(){
      +p('<b>It also finds you.</b> Open a session that has a change waiting and it asks you there, rather than sitting in this tab unnoticed - decide it on the spot, or tap <b>Later</b> and it stays here, and asks again the next time you open that session. It won\'t ask at all once you\'ve started entering numbers: adding or removing an exercise shuffles the list under a half-filled form, so mid-session it just tells you what\'s waiting and leaves it until you\'ve saved.')
      +p('<b>You don\'t have to go looking.</b> While anything is waiting, the <b>Program</b> tab is outlined, and each session with a change waiting shows a badge in the week table and a <b>ring</b> on its day.')
      +p('<b>Edit Program</b> lets you add / edit / reorder / remove exercises In a session, <b>drag the handle</b> at the left of an exercise to reorder it. Tap an exercise to open its <b>sheet</b>: the name, <b>-</b> and <b>+</b> for sets, rest and reps, the <b>progression step</b>, a warm-up note, your machine settings, a <b>Superset with the next exercise</b> switch and <b>Remove</b> (tap twice). The up and down arrows in the sheet move it too. <b>More settings</b> holds the columns, <b>Recorded by time</b>, what you are lifting, <b>Garmin records this</b>, your own progression switch and the muscles. Pick a name from the <b>suggestions list</b> to avoid duplicate spellings (start typing to search - it\'s pre-loaded with common exercises even on a brand-new account, plus anything you\'ve already used - or just type a new one). <b>Progression step</b> is the kg added at the top of the rep range for this exercise. Leave it blank and the app uses a <b>Step:</b> line in the session notes, or works it out. For a lift, set the <b>Sets</b>, the <b>Reps</b> range (two boxes - put the same number in both for a fixed count like 5), an optional <b>extra</b> such as "each leg", and a suggested <b>Rest</b> (e.g. 2:30) - the target ("3x8-12 each leg") is built from them, so it always matches the number of rows. Anything that isn\'t weight + reps keeps a free-text target. Then a <b>warm-up</b> (a <b>%</b> is best - it scales to each person\'s own last top set; a fixed weight is the same for both of you), and <b>setup notes</b> (seat height, pins - editable straight from the log form too). Use the <b>Lifting</b> / <b>Running</b> / <b>Timed</b> presets for the column labels, or add a 3rd column. Tick <b>Recorded by time</b> for a hold: it sets the columns to kg + seconds and lets you set the <b>hold target</b>, a <b>grace</b> lead-in (0 by default), whether the stopwatch <b>counts down</b>, and whether <b>stopping fills in the time and ticks the set</b>.')
-     +p('<b>Add session</b> (under the week table) creates a brand-new workout day. It opens straight away so you can name it and tick its <b>Days</b>. A blank account starts with no sessions at all, so this is the first thing to do there. <b>Days</b> takes any number of weekdays, so Mobility can be on Wednesday and Sunday. Where several sessions share a day, <b>Auto-pick on &lt;day&gt;</b> says which one the calendar opens. Without it the app opens the lift before its cardio, then alternates. The <b>&#8943;</b> menu renames, shares or deletes the session, <b>Notes</b> holds the warm-up, cool-down, watch workout, treadmill program, recording and cardio switch, and <b>Copy</b> sends it to another person.')
+     +p('<b>Add session</b> (under the week table) creates a brand-new workout day. It opens straight away so you can name it and tick its <b>Days</b>. A blank account starts with no sessions at all, so this is the first thing to do there. <b>Days</b> takes any number of weekdays, so Mobility can be on Wednesday and Sunday. Where several sessions share a day, <b>Auto-pick on &lt;day&gt;</b> says which one the calendar opens. Without it the app opens the lift before its cardio, then alternates. <b>For</b> sets who the session is for: <b>Both</b>, or one of you only, and then only that person is offered it on the Session tab. The <b>&#8943;</b> menu renames, shares or deletes the session, <b>Notes</b> holds the warm-up, cool-down, watch workout, treadmill program, recording and cardio switch, and <b>Copy</b> sends it to another person.')
      +p('A session can belong to <b>one person</b>, shown here as <i>&lt;name&gt; only</i> under its name. The run sessions work that way, because the two of you are limited by opposite things and get different prescriptions. An owned session is hidden from the other person\'s <b>Session picker</b> and calendar, so nobody has to pick past a session that isn\'t theirs - but <b>both of you still see and can edit every session here</b>, on this tab. Sessions with no owner, which is all the rest, behave exactly as they always have.')
      +p('Leave a session with <b>no days</b> and it is <b>Optional</b>: it stops being part of the week. The calendar never opens it for you, Home never calls it today\'s session, and it sits under Optional in the week table waiting to be picked. That\'s for the extra you do <i>if you fancy it</i> - a weekend run, a spare mobility session - without it turning into something you\'ve skipped. Because an optional session can be weeks apart, its log opens with a <b>&#128197; Last time</b> card - when you last did it, what you did, and the note you left - so you\'re not trying to remember.')
      +p('<b>Watch workout</b> is the session built once on Garmin Connect and sent to the watch, so it counts the reps and holds the heart-rate band for you outdoors - the same job the belt program does inside, and it laps itself at every step change. <b>&#127899;&#65039; Treadmill program</b> is the indoor fallback: the session written out as numbered time-and-speed blocks to key into the machine before you start, so the belt runs the session and there is nothing to adjust mid-run. Like the recording note it sits above the warm-up, folded up, and is its own field - so a single speed can be corrected without re-sending everything else.')

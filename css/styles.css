@@ -844,6 +844,7 @@
   .pgdrow .chv{transition:transform .15s;color:var(--muted);display:flex}
   .pgdrow.open .chv{transform:rotate(90deg)}
   .pgdbody{padding:2px 14px 12px;border-top:1px solid var(--line)}
+  .pgdrow.sep{border-top:1px solid var(--line)}
   #pgxl{position:relative}
   .pggrip{flex:none;width:36px;align-self:stretch;display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;cursor:grab;border:0;background:transparent;padding:0;margin-left:-8px}
   .pggrip svg.ico{width:20px;height:20px}
