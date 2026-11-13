@@ -112,7 +112,9 @@ with optional free cloud sync so both phones and a Claude coach stay in step.
   estimated macros, a 14-day protein or calories chart with the target line,
   and the last two days, which fold open to their meals. Older meals stay in the store, not on screen.
 - Per-person **calorie and protein targets** in the gear menu under the Food and calories switch (`nutritionTargets`, synced; the newer
-  edit wins). Home shows today's totals with a link to the pane.
+  edit wins). The Home Hub sets them every Monday from the weight trend and the food days marked
+  done. An edit here lasts until the hub's next Monday update. Home shows today's totals with a
+  link to the pane.
 
 ### Coaching (two-way, via Claude)
 - A local **MCP server** (`mcp-coach/`) exposes the shared data to Claude on your existing

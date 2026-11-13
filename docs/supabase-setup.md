@@ -107,7 +107,7 @@ live), `server_at` (set by the server, the pull cursor) and `by` (who wrote it).
 | `coach_log` | the entry id | entry.person | the coaching history entry | the entry id (it is a ms time) |
 
 `<field>` is one of `coaching`, `hrZones`, `machineSettings`, `progression`, `features`,
-`nutritionTargets`, `limiters`, `wellness`, `racePredictions`. A value that is not an object is
+`nutritionTargets`, `limiters`, `wellness`, `racePredictions`, `bodyProfile`, `dayMarks`. A value that is not an object is
 stored as `{"_v": value}`.
 
 **Deleting.** A delete sets `deleted_at` and keeps the body. A row is deleted when `deleted_at` is

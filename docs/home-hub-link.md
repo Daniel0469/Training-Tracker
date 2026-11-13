@@ -176,6 +176,53 @@ input via phone screenshot*) writes its weight *through* to this array by the sa
 rule; its other metrics go in a separate open-schema record, to be specified here
 before the hub writes it.
 
+## Data contract - calorie targets (hub writes)
+
+The hub works out a weekly calorie target per person from the food days marked done and the
+weight trend, and writes it into `nutritionTargets` every Monday. Three per-person maps carry it.
+Each is keyed by the exact name in `people`, every write stamps `updatedAt` (ms epoch), unknown
+fields are preserved, and dates are local calendar days (`localDateStr`). Units are kg, g, kcal
+and cm only.
+
+**`bodyProfile[person]`** - written by the hub, edited rarely, newest `updatedAt` wins per person:
+
+    { "heightCm": 170, "birthDate": "1990-01-31", "sex": "female",
+      "bodyFatPct": 30, "bodyFatSource": "scale", "bodyFatDate": "2026-11-13",
+      "goal": { "mode": "lose", "ratePct": -0.4, "goalKg": 70, "goalDate": "2027-01-31",
+                "pausedUntil": "2026-11-23" },
+      "updatedAt": 1791875529000 }
+
+- `sex` is `"female"` or `"male"`. `bodyFatSource` is `"scale"`, `"dxa"` or `"guess"`. The three
+  body-fat fields are optional.
+- `goal.mode` is `"lose"`, `"maingain"`, `"maintain"` or `"off"`. `ratePct` is the % of bodyweight
+  a week, negative for a loss. `goalKg` and `goalDate` are for display. Until `pausedUntil` the hub
+  treats the person as `"maintain"`.
+
+**`dayMarks[person][date]`** - written by the hub, newest `updatedAt` wins per date:
+
+    { "done": true, "period": false, "updatedAt": 1791875529000 }
+
+- Only a day with `done: true` counts toward the target. A day not marked done is left out.
+- `period` is an optional flag. A week with one is treated with more caution.
+- Undo writes `false`. A date key is never deleted.
+
+**`nutritionTargets[person]`** - `kcal`, `protein` and `updatedAt` mean what they always did.
+The hub adds:
+
+- `source` - `"hub"` or `"manual"`.
+- `weekOf` - the Monday the target starts.
+- `mode`, `ratePct` - the rate actually used, after the guardrails.
+- `status` - `"learning"`, `"adaptive"`, `"held"`, `"paused"` or `"floor"`.
+- `expenditure`, `trendKg`, `reason` - the estimate, the smoothed weight and one or two plain
+  sentences saying why.
+- `history` - the past entries, oldest first, each
+  `{weekOf, kcal, protein, source, mode, ratePct, status, expenditure, trendKg, reason, at}`.
+
+**Any writer of `nutritionTargets[person]` keeps the fields it does not set.** A gear-menu edit
+spreads the old object, sets `source: "manual"` and this Monday's `weekOf`, and appends to
+`history`. The hub skips a person whose `weekOf` is already this Monday, whatever the source, so a
+manual edit lasts until the next Monday's update.
+
 ## Work needed in this app
 
 Ordered; each is independently useful and stops for review, per the usual convention.
@@ -213,7 +260,8 @@ preserved, so the hub can add fields without a change here. `CACHE_NAME` → `tt
   card on Home links to it.
 - Per-person daily targets in the gear menu, stored as `nutritionTargets`:
   `{ "<person name>": { "kcal": 2600, "protein": 160, "updatedAt": <ms> } }`. The newer
-  `updatedAt` wins per person on merge.
+  `updatedAt` wins per person on merge. The hub sets them weekly - see *Data contract - calorie
+  targets*.
 - **View only** (Daniel, 24 Oct): meals are added and fixed in the hub. Manual add and edit here is a
   later job, and a delete would need a tombstone, as weigh-ins have.
 
