@@ -101,7 +101,7 @@ function fillStateDefaults(s){
   // of them today and the card that reads it renders nothing until it isn't.
   if(!s.wellness || typeof s.wellness!=="object") s.wellness={};
   if(!Array.isArray(s.meals)) s.meals=[];
-  // Daily food targets: person -> {kcal, protein, updatedAt}, set in the gear menu.
+  // Daily food targets: person -> {kcal, protein, updatedAt, ...}, set weekly by the Home Hub or in the gear menu.
   if(!s.nutritionTargets || typeof s.nutritionTargets!=="object") s.nutritionTargets={};
   ["bodyProfile","dayMarks"].forEach(function(k){ if(!s[k] || typeof s[k]!=="object") s[k]={}; });
   if(!Array.isArray(s.measurements)) s.measurements=[];
@@ -373,6 +373,12 @@ function localDateStr(now){
   var d = now ? new Date(now) : new Date();
   var m=d.getMonth()+1, day=d.getDate();
   return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+}
+// The local date of this week's Monday, the day a food target's week starts.
+function localMondayStr(now){
+  var d = now ? new Date(now) : new Date();
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return localDateStr(d);
 }
 // Splits a session's exercises into render blocks: contiguous runs sharing a
 // groupId become {type:"group", groupId, eis:[...]}, everything else is
@@ -5163,6 +5169,10 @@ document.getElementById("settingsBtn").onclick=()=>{
   const nt=foodTarget(state.people[i]);
   document.getElementById("pKcal").value=nt.kcal||"";
   document.getElementById("pProtein").value=nt.protein||"";
+  const tNote=document.getElementById("pTargetNote");
+  tNote.textContent=nt.source ? (nt.source==="hub" ? "Set by the Home Hub on "+nt.weekOf+". "+(nt.reason||"")+" " : "")
+    +"An edit here lasts until the hub's next Monday update." : "";
+  tNote.hidden=!nt.source;
   FEATURE_ROWS.forEach(r=>{ featBox(r[0]).checked=featOn(state.people[i], r[0]); });
   document.querySelectorAll("#featRows .sw-info").forEach(el=>el.hidden=true);
   document.querySelectorAll("#featRows [data-info]").forEach(b=>b.setAttribute("aria-expanded","false"));
@@ -5304,8 +5314,12 @@ function saveSettingsPerson(){
   state.goals[i]=(document.getElementById("pGoals").value||"").trim();
   const num=id=>{ const v=Math.round(parseFloat(document.getElementById(id).value)); return v>0 ? v : null; };
   const kcalT=num("pKcal"), proteinT=num("pProtein"), oldT=foodTarget(state.people[i]);
-  if(state.people[i] && (kcalT!==(oldT.kcal||null) || proteinT!==(oldT.protein||null)))
-    state.nutritionTargets[state.people[i]]={kcal:kcalT, protein:proteinT, updatedAt:Date.now()};
+  if(state.people[i] && (kcalT!==(oldT.kcal||null) || proteinT!==(oldT.protein||null))){
+    // Keeps the Home Hub's fields. A manual edit stands until the hub's next Monday update.
+    const at=Date.now(), weekOf=localMondayStr(at);
+    const history=(Array.isArray(oldT.history) ? oldT.history : []).concat([{weekOf:weekOf, kcal:kcalT, protein:proteinT, source:"manual", at:at}]);
+    state.nutritionTargets[state.people[i]]=Object.assign({}, oldT, {kcal:kcalT, protein:proteinT, source:"manual", weekOf:weekOf, history:history, updatedAt:at});
+  }
   if(state.people[i]) FEATURE_ROWS.forEach(r=>{ if(featBox(r[0]).checked!==featOn(state.people[i], r[0])) featSet(state.people[i], r[0], featBox(r[0]).checked); });
   // Only record a bodyweight when the number was actually edited. This used to run on
   // every settings close, so merely opening Settings on a new day stamped that day with
@@ -7122,7 +7136,7 @@ function renderHelp(){
 
   h+=card('9 &middot; Settings, switches &amp; the family PIN',
       p('<b>Profile</b> is yours. Under <b>What you use</b> are four switches, set for each person on their own, so the two of you can differ. Tap the <b>i</b> beside a switch to read what it does. A switch only hides things: nothing is deleted, and turning it back on brings it all back.')
-     +p('<b>Progression targets</b> shows the weight and reps to aim for in each set. <b>Food and calories</b> shows the Food pane and today\'s food on Home, and the calorie and protein targets you set under it. <b>Tape and body measures</b> shows bodyweight, weigh-ins, the scale import, the four-weekly tape measurements and the Measurements due card. Your goals stay either way, and your bodyweight is still used for bodyweight exercises. <b>Garmin and coach</b> shows watch data (heart rate on runs, sleep, heart rate zones, the 5k estimate, <b>Import run</b>) and everything your coach writes: notes, targets, questions, the week review note and a one-week session swap. The <b>Coach brief</b> button sits under it. Turn it off if you don\'t use a watch or a coach: the coach then writes nothing for you.')
+     +p('<b>Progression targets</b> shows the weight and reps to aim for in each set. <b>Food and calories</b> shows the Food pane and today\'s food on Home, and the calorie and protein targets under it. The Home Hub sets those targets every Monday from your weight trend and the food days you marked done. An edit here lasts until its next Monday update. <b>Tape and body measures</b> shows bodyweight, weigh-ins, the scale import, the four-weekly tape measurements and the Measurements due card. Your goals stay either way, and your bodyweight is still used for bodyweight exercises. <b>Garmin and coach</b> shows watch data (heart rate on runs, sleep, heart rate zones, the 5k estimate, <b>Import run</b>) and everything your coach writes: notes, targets, questions, the week review note and a one-week session swap. The <b>Coach brief</b> button sits under it. Turn it off if you don\'t use a watch or a coach: the coach then writes nothing for you.')
      +p('<b>Admin</b> holds export and import, cloud sync, the accounts on this device with what each has switched off, the sessions that belong to one person only (read only), <b>Clear program</b>, <b>Delete this account</b> and the PIN. Settings always opens on Profile.')
      +p('<b>The family PIN</b> keeps Admin away from slips and small hands. The first time anyone opens Admin it asks you to <b>set a PIN</b>: 4 to 6 digits, typed twice. After that Admin asks for it each time you open Settings, and stays open until you close Settings. <b>Change the PIN</b> is at the bottom of Admin and asks for the old one first. The PIN is shared by everyone and syncs to every phone: the newest change wins, and a phone that syncs for the first time takes the PIN already in the store. It is a light lock, not strong security.')
      +p('<b>Forgotten PIN.</b> Open <b>data.json</b> in the data repo on GitHub and set <b>"adminPin": {"updatedAt": 1793700000000}</b> with no hash. Use the current time in milliseconds (13 digits) instead of that number, so it is newer than the PIN it replaces. The next sync on each phone clears the old PIN and Admin asks for a new one.'));
