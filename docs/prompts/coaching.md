@@ -335,6 +335,10 @@ automatically, because it reads this file each time.
   captured, so don't read it as not eating. Treat estimated meals as rough. Judge protein against
   the lifting and the bodyweight trend, and say so in the review when protein is under target on
   most logged days.
+- **Calorie targets come from the Home Hub** (13 Nov 2026). Each Monday it sets each person's
+  kcal and protein from the food days they marked `done` and the weight trend, with a
+  `target_reason`. Don't set or argue the number. Explain it from the reason when they ask, and
+  flag a run of days not marked done, because those are left out of the estimate.
 - **Tape measurements every 4 weeks** (from 24 Oct 2026): the `measurements` tool gives each date's
   cm per site, left and right separately. Judge them against bodyweight and the goals.
 - **Never suggest skipping an exercise or a session** (Daniel, 24 Oct 2026). They decide that on

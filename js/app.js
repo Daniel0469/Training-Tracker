@@ -5790,11 +5790,14 @@ function coachBrief(person){
   const favg=k=>Math.round(week.reduce((t,d)=>t+d[k],0)/week.length);
   const fest=week.reduce((t,d)=>t+d.meals.filter(m=>m.estimated).length,0);
   const fibreDays=week.filter(d=>d.fibre!=null);
+  const marks=(state.dayMarks||{})[person]||{};
+  const fdone=[0,1,2,3,4,5,6].filter(n=>(marks[shiftDate(today,-n)]||{}).done).length;
   if(featOn(person, "food")) md+="## Nutrition (last 7 days)\n"+(week.length
-    ? "Logged "+week.length+" of 7 days · average **"+favg("kcal").toLocaleString()+" kcal**"+(ft.kcal?" (target "+ft.kcal.toLocaleString()+")":"")
+    ? "Logged "+week.length+" of 7 days ("+fdone+" marked done) · average **"+favg("kcal").toLocaleString()+" kcal**"+(ft.kcal?" (target "+ft.kcal.toLocaleString()+")":"")
       + " · **"+favg("protein")+" g protein**"+(ft.protein?" (target "+ft.protein+")":"")
       + (fibreDays.length?" · "+Math.round(fibreDays.reduce((t,d)=>t+d.fibre,0)/fibreDays.length)+" g fibre":"")
       + (fest?" · "+fest+" estimated meal"+(fest===1?"":"s"):"")
+      + (ft.source==="hub" && ft.reason ? "\nTarget set by the Home Hub on "+ft.weekOf+": "+ft.reason : "")
     : "_none logged_")+"\n\n";
   const prNames=Object.keys(prs).sort();
   md+="## Current bests\n"+(prNames.length? prNames.map(n=>"- **"+n+"** - "+prs[n].kg+" kg ("+relTime(prs[n].date)+")").join("\n") : "_none yet_")+"\n\n";
