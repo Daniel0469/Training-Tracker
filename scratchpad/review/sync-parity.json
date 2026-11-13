@@ -1120,6 +1120,8 @@
       3
      ]
     },
+    "bodyProfile": {},
+    "dayMarks": {},
     "adminPin": {
      "salt": "s",
      "hash": "h",
@@ -2280,6 +2282,8 @@
       3
      ]
     },
+    "bodyProfile": {},
+    "dayMarks": {},
     "adminPin": {
      "salt": "s",
      "hash": "h",
@@ -2524,7 +2528,9 @@
     "nutritionTargets": {},
     "limiters": {},
     "wellness": {},
-    "racePredictions": {}
+    "racePredictions": {},
+    "bodyProfile": {},
+    "dayMarks": {}
    }
   },
   {
@@ -2813,7 +2819,9 @@
     "nutritionTargets": {},
     "limiters": {},
     "wellness": {},
-    "racePredictions": {}
+    "racePredictions": {},
+    "bodyProfile": {},
+    "dayMarks": {}
    }
   },
   {
@@ -2868,7 +2876,9 @@
     "nutritionTargets": {},
     "limiters": {},
     "wellness": {},
-    "racePredictions": {}
+    "racePredictions": {},
+    "bodyProfile": {},
+    "dayMarks": {}
    }
   }
  ],

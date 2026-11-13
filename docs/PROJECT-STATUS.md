@@ -60,7 +60,7 @@ of `programs` or the new change kinds yet.
 tab (name, colour, bodyweight, goals, **Improve the app** and four switches per person: Progression
 targets, Food and calories, Tape and body measures, Garmin and coach) and has an **Admin** tab (export,
 import, sync, accounts on this device, clear program, delete account, change PIN). The switches are
-`state.features[person]`, merged newest-wins (`mergeFeatures`), and hide without deleting. Admin sits
+`state.features[person]`, merged newest-wins (`mergeNewestPerKey`), and hide without deleting. Admin sits
 behind a family PIN (`state.adminPin`, salted SHA-256, synced, a light lock). The coach server refuses
 notes, targets and questions for a person with Garmin and coach off, checked by
 `scratchpad/run_coach_switch.py`. Needs a Claude Code restart for the new coach behaviour. The app is

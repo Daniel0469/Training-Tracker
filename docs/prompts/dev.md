@@ -136,7 +136,7 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   bodyweight, goals, four switches, Improve the app) and Admin (export, import, sync, accounts list,
   clear program, delete account, change PIN). `state.features[person] = {food|body|garmin: {on,
   updatedAt}}`, read with `featOn(person, key)` (absent means on, `progression` delegates to its own
-  switch) and written with `featSet`, merged per switch by newest `updatedAt` (`mergeFeatures`). Every
+  switch) and written with `featSet`, merged per switch by newest `updatedAt` (`mergeNewestPerKey`). Every
   surface a switch hides checks `featOn` for the person being shown, and `coachOf(person)` returns no
   coach notes while Garmin and coach is off. A switch hides and never deletes. New work that adds a
   coach, watch, food or body surface must check the matching switch. The coach server refuses notes,

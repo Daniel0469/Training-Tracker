@@ -58,7 +58,7 @@ function load(){
     }
   }catch(e){}
   // Genuinely blank install: no accounts, no program - see renderCreateAccount().
-  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, programs:{}, programIds:{}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
+  return { people:["",""], weights:["",""], goals:["",""], colors:["",""], coaching:{}, suggestions:[], programChanges:[], limiters:{}, meals:[], nutritionTargets:{}, bodyProfile:{}, dayMarks:{}, measurements:[], bodyweights:[], hrZones:{}, racePredictions:{}, machineSettings:{}, progression:{}, features:{}, coachQuestions:{}, activePerson:0, programs:{}, programIds:{}, logs:[], deletedLogs:[], deletedBodyweights:[], deletedMeals:[] };
 }
 function fillStateDefaults(s){
   if(!Array.isArray(s.weights)) s.weights=["",""];
@@ -103,6 +103,7 @@ function fillStateDefaults(s){
   if(!Array.isArray(s.meals)) s.meals=[];
   // Daily food targets: person -> {kcal, protein, updatedAt}, set in the gear menu.
   if(!s.nutritionTargets || typeof s.nutritionTargets!=="object") s.nutritionTargets={};
+  ["bodyProfile","dayMarks"].forEach(function(k){ if(!s[k] || typeof s[k]!=="object") s[k]={}; });
   if(!Array.isArray(s.measurements)) s.measurements=[];
   // Machine settings (the wrench), each person's own: person ->
   // exercise NAME -> {text, updatedAt}. By name, so one machine in two sessions
@@ -5373,7 +5374,7 @@ function exportPayload(){
   return {version:1, exportedAt:new Date().toISOString(),
     people:state.people, weights:state.weights, goals:state.goals, coaching:state.coaching,
     suggestions:state.suggestions,
-    programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, measurements:state.measurements,
+    programChanges:state.programChanges, meals:state.meals, nutritionTargets:state.nutritionTargets, bodyProfile:state.bodyProfile, dayMarks:state.dayMarks, measurements:state.measurements,
     bodyweights:state.bodyweights, hrZones:state.hrZones, racePredictions:state.racePredictions,
     limiters:state.limiters, machineSettings:state.machineSettings, progression:state.progression, features:state.features, adminPin:state.adminPin, coachQuestions:state.coachQuestions, programs:state.programs, programIds:state.programIds, program:progOf(state.people.find(Boolean)||""), logs:state.logs,
     deletedLogs:state.deletedLogs, deletedBodyweights:state.deletedBodyweights, deletedMeals:state.deletedMeals};
@@ -5513,12 +5514,12 @@ function mergeProgression(data, tally){
     });
   }
 }
-function mergeFeatures(data, tally){
-  // Feature switches: set on the phones, per person, so the newer edit of each switch wins.
-  if(data.features && typeof data.features==="object"){
-    if(!state.features) state.features={};
-    Object.keys(data.features).forEach(function(pn){
-      var theirs=data.features[pn]||{}, mine=state.features[pn]||(state.features[pn]={});
+function mergeNewestPerKey(field, data, tally){
+  // Per person, then per key (a feature switch, a date), the newer edit wins.
+  if(data[field] && typeof data[field]==="object"){
+    if(!state[field]) state[field]={};
+    Object.keys(data[field]).forEach(function(pn){
+      var theirs=data[field][pn]||{}, mine=state[field][pn]||(state[field][pn]={});
       Object.keys(theirs).forEach(function(k){
         var tv=theirs[k], mv=mine[k];
         if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ mine[k]=tv; tally.updated++; }
@@ -5563,13 +5564,13 @@ function mergeMeasurements(data, tally){
     });
   }
 }
-function mergeNutritionTargets(data, tally){
-  // Food targets: set on the phones, so the newer edit per person wins.
-  if(data.nutritionTargets && typeof data.nutritionTargets==="object"){
-    if(!state.nutritionTargets) state.nutritionTargets={};
-    Object.keys(data.nutritionTargets).forEach(function(pn){
-      var tv=data.nutritionTargets[pn], mv=state.nutritionTargets[pn];
-      if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ state.nutritionTargets[pn]=tv; tally.updated++; }
+function mergeNewestPerPerson(field, data, tally){
+  // One object per person (food targets, body profile), so the newer edit per person wins.
+  if(data[field] && typeof data[field]==="object"){
+    if(!state[field]) state[field]={};
+    Object.keys(data[field]).forEach(function(pn){
+      var tv=data[field][pn], mv=state[field][pn];
+      if(tv && typeof tv==="object" && (!mv || (+tv.updatedAt||0)>(+mv.updatedAt||0))){ state[field][pn]=tv; tally.updated++; }
     });
   }
 }
@@ -5705,11 +5706,14 @@ function mergeInData(data, adoptConfig, fromSync){
   overwritePerPerson("racePredictions", data.racePredictions);
   mergeMachineSettings(data, tally);
   mergeProgression(data, tally);
-  mergeFeatures(data, tally);
+  mergeNewestPerKey("features", data, tally);
   mergeAdminPin(data, tally, fromSync && isFirstSync());
   mergeCoachQuestions(data, tally);
   mergeMeasurements(data, tally);
-  mergeNutritionTargets(data, tally);
+  mergeNewestPerPerson("nutritionTargets", data, tally);
+  // Written by the Home Hub (docs/home-hub-link.md, calorie targets).
+  mergeNewestPerPerson("bodyProfile", data, tally);
+  mergeNewestPerKey("dayMarks", data, tally);
   // Limiters: authored centrally like coaching, so incoming wins per person.
   overwritePerPerson("limiters", data.limiters);
   // Coaching history is deliberately not merged in. An older build still pushing
@@ -5849,7 +5853,7 @@ function peopleInPayload(d){
   (d.bodyweights||[]).forEach(b=>{ if(b) add(b.person); });
   (d.meals||[]).forEach(m=>{ if(m) add(m.person); });
   (d.measurements||[]).forEach(m=>{ if(m) add(m.person); });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","programIds"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","bodyProfile","dayMarks","programIds"].forEach(k=>{
     if(d[k] && typeof d[k]==="object") Object.keys(d[k]).forEach(add);
   });
   (d.people||[]).forEach(add);
@@ -5874,7 +5878,7 @@ function remapPeople(d, map){
     const pr=out.programs[id];
     pr.members=(pr.members||[]).filter(n=>!gone(n)).map(to);
   });
-  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","programIds"].forEach(k=>{
+  ["coaching","limiters","hrZones","racePredictions","machineSettings","progression","features","coachQuestions","nutritionTargets","bodyProfile","dayMarks","programIds"].forEach(k=>{
     if(!out[k] || typeof out[k]!=="object") return;
     const o={};
     Object.keys(out[k]).forEach(n=>{ if(!gone(n)) o[to(n)]=out[k][n]; });
@@ -6078,7 +6082,7 @@ function autoSync(){
 // Every synced thing is one row of the `records` table: {kind, key, person, body, updated_at,
 // deleted_at}. toRecords / fromRecords are the same mapping as mcp-coach/tt_records.py
 // (docs/supabase-setup.md, Part 3), and scratchpad/review/sync-cases.js fails when they differ.
-const REC_PERSON_FIELDS=["coaching","hrZones","machineSettings","progression","features","nutritionTargets","limiters","wellness","racePredictions"];
+const REC_PERSON_FIELDS=["coaching","hrZones","machineSettings","progression","features","nutritionTargets","limiters","wellness","racePredictions","bodyProfile","dayMarks"];
 const REC_STUB_KINDS=["log","bodyweight","meal"];
 const REC_STAMPS={suggestion:["updatedAt","doneAt","approvedAt","declinedAt"], program_change:["updatedAt","at","appliedAt","declinedAt","withdrawnAt"]};
 const recIsObj=v=>!!v && typeof v==="object" && !Array.isArray(v);

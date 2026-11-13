@@ -14,8 +14,8 @@ const { FakeServer } = require("./sync-fake");
 
 const FUNCTIONS = ["slugify", "programSlug", "wrapProgram", "paintStatus", "autoSync", "clearCaches", "overwritePerPerson", "loadSync",
   "mergeInData", "mergeLogs", "tombstoneLogs", "tombstoneLog", "deletedLogIds", "upsertById", "mergeRecord", "mergeWeighIns",
-  "mergeBodyweight", "bwTombstone", "bwIsDeleted", "tombstoneBodyweight", "mergeMachineSettings", "mergeProgression", "mergeFeatures",
-  "mergeAdminPin", "mergeCoachQuestions", "mergeMeasurements", "mergeNutritionTargets", "mergeSuggestions", "sugRank", "mergeDecisions",
+  "mergeBodyweight", "bwTombstone", "bwIsDeleted", "tombstoneBodyweight", "mergeMachineSettings", "mergeProgression", "mergeNewestPerKey",
+  "mergeAdminPin", "mergeCoachQuestions", "mergeMeasurements", "mergeNewestPerPerson", "mergeSuggestions", "sugRank", "mergeDecisions",
   "saveDrafts", "mergeProgramChanges", "mergeMeals", "mealIsDeleted", "mealTombstone", "tombstoneMeal", "mergeConfig", "mergePrograms",
   "incomingPrograms", "draftOnProgram", "syncWeightFromBw", "latestBw", "b64encode", "b64decode", "openFamilyStorage", "setupOpen", "setupReceive", "setupResume"];
 const CONSTS = ["KEY", "SYNC_KEY", "DRAFT_KEY", "DRAFT_TTL_MS", "clone", "esc", "SETUP_PREFIX"];

@@ -11,7 +11,8 @@ callers) - keep in step with it. scratchpad/test_records.py fails when they diff
 import copy, datetime, json, re, time, urllib.error, urllib.parse, urllib.request
 
 PERSON_FIELDS = ("coaching", "hrZones", "machineSettings", "progression", "features",
-                 "nutritionTargets", "limiters", "wellness", "racePredictions")
+                 "nutritionTargets", "limiters", "wellness", "racePredictions",
+                 "bodyProfile", "dayMarks")
 PROGRAM_META = ("members", "version")      # a program edit that changes only these is not a change
 COLUMNS = ("kind", "key", "person", "body", "updated_at", "deleted_at", "by")
 STUB_KINDS = {"log", "bodyweight", "meal"}                 # kinds with a tombstone list in data.json
