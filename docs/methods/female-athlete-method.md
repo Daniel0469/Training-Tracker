@@ -204,11 +204,14 @@ statement and it is not a licence to suggest anyone lose weight.** Given the bon
 availability material in Part 3, and given that we have exactly one weigh-in, the responsible
 position is:
 
-- **Bodyweight is not a lever anyone should be reaching for here.** The numerator is moving fine.
-- The reason to record bodyweight more often is **so the pull-up scores correctly and so a trend
-  exists if it is ever needed**, not so it can be reduced.
-- If she raises it herself, that is different, and it belongs with a professional rather than with a
-  coaching note.
+- **The coach does not reach for bodyweight as a lever.** The numerator is moving fine.
+- **A weight goal is the athlete's own call.** If one is set, the Home Hub sets the weekly calorie
+  target inside guardrails built for exactly the risks in Part 3: loss capped at 0.7% of bodyweight
+  a week, an energy-availability floor worked out from fat-free mass, protein at 1.6 g/kg or more,
+  no cut in a week with a period flag, and a hold when loss runs fast.
+- **The coach's job here is watching, not setting the number.** Returning shin pain, a change in the
+  cycle, or fatigue at an adequate intake are reasons to suggest a maintenance week and a GP, not to
+  push on.
 
 ---
 

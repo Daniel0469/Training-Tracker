@@ -73,9 +73,10 @@ Facts, without inference beyond them:
 - Repeated notes of tiredness, low energy, and ending a session early because of hunger.
 - Strength goals (100 kg bench, 200 kg squat, 200 kg deadlift) that require building tissue, which
   requires an energy surplus or at minimum not a deficit.
-- **He has an 85 kg bodyweight figure on file as a background item, not a live goal.** It is
-  mentioned here only because it is the opposite direction of travel, not to reopen it. Whether
-  bodyweight is something he wants to move is his call and nobody has asked.
+- **A weight goal is the athlete's own call.** If one is set, the Home Hub sets the weekly target
+  from it. A maingain sits at or just above maintenance and drops to maintenance when the waist
+  grows with the weight. A loss nobody chose shows up in the hub's reason as unintended, which is
+  the check on the under-fuelling question below.
 
 **The honest read:** losing 3.8 kg while training five days a week and reporting hunger and fatigue
 is consistent with under-fuelling, and it is *also* consistent with several benign explanations
