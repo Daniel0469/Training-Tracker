@@ -323,8 +323,8 @@ automatically, because it reads this file each time.
   **Settled 22 Oct 2026 (Daniel): runs are the lowest priority for now.** He's getting fully into
   the routine first, and the mornings themselves are the problem (see the vault note *Getting Up in
   the Morning*). So the two well weeks of 3-16 Oct with no run are **not** the trigger to re-ask.
-  **One run a week since 2 Nov 2026** (Daniel): Tuesday evening, for both, and you pick it each
-  week. The Monday and Thursday runs and the optional weekend run were removed.
+  **Since 9 Nov 2026 the cardio is fixed:** two 30-min Zone 2 sessions each, after the Tuesday and
+  Friday lifts (see "Cardio is fixed" above). The 2 Nov "one run a week, you pick it" is gone.
 - **Cerys runs at about 160 steps a minute** (25 Oct 2026, up from ~145, for her shins). Both her
   treadmill programs say so. Keep it in any run you write for her, and read her cadence from the
   watch data each review.
@@ -345,14 +345,22 @@ automatically, because it reads this file each time.
   the day. Raise it only when one of them asks. See `docs/methods/coaching-method.md` Part 3.
 - **Shorter sessions for strength and size (Daniel, 2 Nov 2026).** Proposed to the program that
   day, applied once ticked: sled push + pull and dead bug out of Lower A, ski erg / row out of
-  Upper B, walking/sandbag lunges out of Lower B, lateral raise up to 3x10-15. Daniel chose to keep
+  Upper B, walking/sandbag lunges out of Lower B. Lateral raise was proposed at 3x10-15 but the
+  program has it at 2x10-15 (checked 23 Nov 2026). Daniel chose to keep
   face pull, Pallof press, Russian twists, back squat technique, hip abduction, hip adduction and
   back extension in both lower days. Don't propose re-adding the conditioning work.
 - **Muscle balance checked 14 Oct 2026: no change** (Daniel's call). Planned sets per week, a
   helping muscle counting half: upper/lower 84.5/79.5, pull/push 46.5/38, hamstrings/quads
   16/15.5. **Watch chest (9 sets)** if the 100kg bench becomes a priority, and **calves (5)**,
   though running and the sled load calves more than the count shows. Judge it on ticked sets
-  after two or three weeks on the new program, not on the plan.
+  after two or three weeks on the new program, not on the plan. **Those numbers used the old
+  counting.** Since 23 Nov 2026 (app 2.3.2) the card splits delts into front, side and rear,
+  squats and lunges no longer credit hamstrings, lower back comes only from barbell squats, leg
+  curl no longer credits calves, dead hang counts as grip, and Works tags count only when the
+  name isn't recognised. On the 23 Nov program that reads glutes 18, lats 12, traps 11, lower
+  back 10, hamstrings 10, triceps 9.5, quads 8.5, chest 8, biceps 8, forearms 7, front delts 7,
+  adductors 4.5, rear delts 4.5, abs 4, side delts 3.5, calves 2. Calves and side delts are the
+  gaps; Daniel asked for suggestions, not a program change.
 - **Single-leg seated leg curl: lighter, not swapped.** Both reported it feels wrong (Daniel
   "feels weird" at 25.5kg, stopped after 8, 29 Sep; Cerys "didn't feel right", logged no reps,
   29 Sep). Daniel's call on 6 Oct was *"maybe try stick to a lighter weight and see how it goes"* -

@@ -336,6 +336,14 @@ be the most valuable thing in the batch. `tt-v129` -> `tt-v131`.
   exercise** - triceps still read 6. Rules decide weighting; tags only add what the rules miss. Caught
   by checking against a hand calculation, not by seeing the card change. Daniel's week now reads
   glutes 32.5 ... **chest 6, the lowest** - a real observation for the coaching chat.
+- **Muscle counting corrected again (version 2.3.2, 23 Nov 2026, Daniel's choices).** Delts are three
+  bars (front, side, rear), because pressing made the shoulders look well trained while side delts
+  had 3.5 sets. Squats and lunges stop crediting hamstrings (Kubo 2019), lower back comes only from
+  barbell squats, leg curl stops crediting calves, dead hang counts as grip. **Works tags now count
+  only when the rules don't recognise the name** - adding untagged muscles at a full set was why a
+  dead hang scored 2 lat sets. Old `delts` tags read as front delts; cardio counts nothing even if
+  tagged. Rules added for dips, clean (and press), Lu raise, Arnold press; "reverse fly" no longer
+  matches the chest fly rule. The heatmap's front shoulder shows front + side, the back shows rear.
 - **A one-week session swap** (`1790205859371`). The Mobility assessment sat on Wednesday beside each
   person's own mobility session, so alternation kept bringing a *re-test* round weekly. It is now
   **Optional - no day at all** - and `write_coaching(session_swap={session, day, why})` puts it on a

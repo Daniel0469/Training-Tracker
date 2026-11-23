@@ -7041,7 +7041,7 @@ function renderHelp(){
      +p('<b>Questions from your coach</b> show on Home, under the coach note, when your coach needs an answer. Each one says why it is asked. Type your answer and tap <b>Save</b>: the question folds to a one-line <b>Answered</b> row and the answer syncs to your coach, who reads it at the next review and then closes the question. Tap <b>Edit</b> on an answered row to change what you wrote. Each person sees only their own questions, and a half-typed answer is kept if you switch person.')
      +p('<b>What the week trains</b> adds up the <b>planned</b> sets per muscle across every session in your week, so a gap in the program is visible before it costs you months. It counts what is <i>programmed</i> rather than what you logged - that makes it a check on the plan, not on your attendance - and it skips <b>Optional</b> sessions, since those are not part of the week, and leaves out <b>mobility drills and flexibility tests</b>, which aren\'t training sets. Anything with no work at all is named underneath. Sessions marked for the other person are left out, so you each see your own week.')
      +p('<b>Each bar shows two things:</b> the grey track is what the week <i>plans</i>, and the fill in your colour over it is what you have actually <b>ticked</b> so far, with the count reading ticked/planned. It resets each Monday. Ticks only started being saved on 6 Oct, so the done side begins from then rather than filling in your history, and a muscle only moves when you tick the set - logging the numbers alone won\'t do it.')
-     +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and shoulders, which is why counts can land on a half. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
+     +p('<b>A muscle doing the lift counts a full set; one helping counts a half.</b> Bench press is a set of chest plus half a set each of triceps and front delts, which is why counts can land on a half. <b>Shoulders are three bars</b>: front delts (pressing), side delts (lateral raises) and rear delts (face pulls, rows), because pressing alone used to make the shoulders look well trained while the side delts got almost nothing. Squats and lunges count quads, glutes and adductors but not hamstrings, which barely work in a squat, and a dead hang counts as grip. Counting helpers the same as prime movers would make every chest day look like a triceps day; counting them not at all - which is what this used to do - hid most of the work your arms actually get, since they only ever got credit for their own isolation sets. Half is the usual convention rather than a measured fact, so read this as a <b>balance check, not a dose</b>. Running isn\'t sets, so it isn\'t counted here - it has its own pane in Progress.')
      +p('<b>The five tabs</b> are <b>Home</b>, <b>Session</b> (today\'s workout, to log), <b>History</b>, <b>Progress</b> (with <b>Lifts</b>, <b>Run</b> once you\'ve logged a run, <b>Flex</b> once you\'ve logged a mobility test, and <b>Body</b> side by side at the top, plus <b>Food</b> once a meal or a food target exists) and <b>Program</b>.')
      +p('<b>Heart rate zones</b> shows your max, resting and threshold HR plus the bpm range of each training zone (Z1 warm up through Z5 maximum), straight from your Garmin settings. Runs that Garmin has linked also get a <b>zone bar</b> under them on Home and in History - which zones you actually spent the run in, and how long in each.')
      +p('<b>Sleep &amp; recovery</b> appears on Home only if you <b>wear your watch overnight</b> - your last night\'s sleep, its stages as one coloured bar (deep, REM, light, awake), sleep score, overnight HRV, resting and overnight heart rate, breathing rate and, once Garmin has enough to go on, a readiness score. Nights you didn\'t wear it are simply not there, and with no nights at all the card doesn\'t appear. Worth knowing: <b>HRV needs about three weeks</b> of consistent overnight wear before Garmin will call a reading high or low - you\'ll see the number well before the verdict.')
@@ -7123,7 +7123,7 @@ function renderHelp(){
      +p('<b>Warm-up / cool-down</b> on a session holds free-text notes for what you do either side of the exercises - "3 min cross-trainer, then shoulder mobility", or which stretches you finish on. They show as their own cards at the top and bottom of that session\'s log, in the order you actually do them, and travel with a shared session. Leave either blank and nothing appears.')
      +p('<b>What are you lifting?</b> tells the app what the number in the first column actually means, for pull-ups, dips, press-ups and assisted machines. <b>Your bodyweight, plus any added weight</b> scores you as your own weight plus whatever you type (0 or blank = just you); <b>minus the machine\'s help</b> subtracts the assistance instead, so <b>less help counts as a better set</b> - which is the way round it should always have been. It only changes the <b>maths</b> (volume, PRs, estimated 1RM, PR badges) - you type the same number as always, and the column gets renamed <i>Added</i> or <i>Assist</i> so it\'s unambiguous. The <b>% of bodyweight</b> box is how much of you the movement really lifts (pull-up or dip 100, press-up about 65), so a set of press-ups doesn\'t swamp your volume.')
      +p('Your <b>bodyweight on the day of that session</b> is used, so old sessions keep the numbers you earned at the time. Weigh in on the Body tab to keep it honest - with no weigh-ins at all it falls back to the figure in Settings. Turning the setting on re-scores that exercise\'s <b>records and PRs</b> straight away (they\'re worked out live); volume is worked out from your sets each time, so past sessions are re-scored too. Went from assisted to unassisted to weighted on the same movement? Use <b>bodyweight + added</b> and type the assistance as a negative number, or keep them as two exercises.')
-     +p('<b>Works</b> tags which muscles an exercise counts toward on the heatmap - guessed from the name automatically, but tap to add/remove any that got missed (handy for oddly-named exercises).')
+     +p('<b>Works</b> shows which muscles an exercise counts toward on the heatmap and in What the week trains. When the app recognises the name, the name decides and the tags are not used. Tags only count for a name it can\'t read, each tagged muscle a full set - handy for oddly-named exercises.')
      +p('<b>Share</b> on a session sends its exercise list (no personal numbers) through your phone\'s share sheet - useful if someone else you know is using their own copy of the app. They paste the code back in via <b>Import shared session</b> at the bottom of this tab to add it as a new session on their program.')
      +p('A <b>superset</b> is set with the <b>Superset with the next exercise</b> switch in an exercise\'s sheet. The two are moved next to each other and shown with a coloured bar down the side, on both this tab and the Session tab. Switching it off splits them back into standalone exercises. Moving a grouped exercise up or down moves the whole block together. Each exercise inside still logs completely separately.')
      +p('<b>One program each.</b> Daniel and Cerys train one shared plan, so an edit by either of you applies at once. Anyone else on the device has a program of their own. The <b>program box</b> at the top of Program lists every program. Pick one that is yours and your edits apply straight away. Pick someone else\'s and nothing changes for them yet: your edits stay in a copy, and <b>Send to</b> at the foot of the page offers them to the people on that program. They see it in <b>Changes waiting</b> on Program (and as an <b>Accept</b> and <b>Decline</b> card on Home), which says, session by session, what would change. <b>Accept</b> applies it. If the program changed since you opened it, only the sessions nobody has touched since are applied and the rest are left as they were. While you edit a copy and the program changes under you, Program says so and asks whether to <b>Reload</b> it or <b>Keep mine</b>. <b>Withdraw</b> takes back a change that is still waiting. <b>Copy</b> on a session sends a copy of it to another person\'s program the same way. Edits in a copy are lost if you close the app before you tap Send.')
@@ -7199,8 +7199,11 @@ function muscleColor(c,max){
   var t=c/max, lo=[255,206,110], hi=[222,60,45];
   return "rgb("+lerp(lo[0],hi[0],t)+","+lerp(lo[1],hi[1],t)+","+lerp(lo[2],hi[2],t)+")";
 }
+// Delts are three heads, not one: pressing is front delt, a raise is side delt and a face pull
+// is rear delt. As one "Delts" bar the pressing hid how little side delt work the week had.
 const MUSCLE_LABELS = {quads:"Quads",glutes:"Glutes",hamstrings:"Hamstrings",adductors:"Adductors",
-  calves:"Calves",chest:"Chest",delts:"Delts",triceps:"Triceps",lats:"Lats",traps:"Traps",
+  calves:"Calves",chest:"Chest",frontdelts:"Front delts",sidedelts:"Side delts",reardelts:"Rear delts",
+  triceps:"Triceps",lats:"Lats",traps:"Traps",
   biceps:"Biceps",forearms:"Forearms",abs:"Abs",lowerback:"Lower back"};
 // What the PROGRAMMED week trains, muscle by muscle - the gap check for anything
 // that is getting missed.
@@ -7283,6 +7286,7 @@ function coverageCardHtml(person){
 }
 // Renders the exercise-dialog muscle-tag pills with `selected` pre-toggled.
 function renderMuscleTags(container, selected){
+  selected=(selected||[]).map(muscleKey);
   container.innerHTML = Object.keys(MUSCLE_LABELS).map(function(k){
     return '<button type="button" data-m="'+k+'" class="'+(selected.indexOf(k)>=0?"sel":"")+'">'+MUSCLE_LABELS[k]+'</button>';
   }).join("");
@@ -7314,7 +7318,9 @@ function muscleRoles(name){
   // Cardio first and it returns empty. This map counts SETS of resistance work;
   // a run is not sets. It also fixes a real misread: "Incline walk" was matching
   // the /incline/ in the bench-press rule, so a Zone 2 session counted as chest.
-  if(/\b(walk|run|jog|cycle|bike|treadmill)\b/.test(n)) return {p:[], s:[]};
+  // `cardio` tells muscleWeights to ignore any Works tags too, so a tagged treadmill
+  // session still counts nothing.
+  if(/\b(walk|run|jog|cycle|bike|treadmill)\b/.test(n)) return {p:[], s:[], cardio:true};
 
   // Before the squat rule, or "Leg press calf raise" picks up quads and glutes
   // from the /leg press/ in its own name - it was adding 3-4 phantom quad sets a
@@ -7322,35 +7328,47 @@ function muscleRoles(name){
   if(/calf|calves/.test(n)) { P("calves"); return {p:p, s:s}; }
   // Likewise before the generic /row/ rule, which would call an erg a barbell row.
   if(/ski ?erg|row erg|rower|\berg\b|\bski\b/.test(n)) { P("lats","abs"); S("traps","triceps","biceps"); return {p:p, s:s}; }
+  // A dead hang is a grip hold. The lats are stretched, not working.
+  if(/dead ?hang/.test(n)) { P("forearms"); return {p:p, s:s}; }
 
   if(/deadlift/.test(n) && !/romanian|rdl|stiff/.test(n)) { P("hamstrings","glutes","lowerback"); S("traps","forearms","quads"); }
   else if(/romanian|rdl|stiff.?leg|good ?morning/.test(n)) { P("hamstrings","glutes"); S("lowerback","forearms"); }
-  else if(/squat|leg press|hack/.test(n)) { P("quads","glutes"); S("hamstrings","adductors","lowerback"); }
-  else if(/lunge|split squat|step.?up/.test(n)) { P("quads","glutes"); S("hamstrings","adductors"); }
+  // No hamstrings from squats or lunges: they barely change length through a squat, and
+  // squat training grows the quads and adductors but not the hamstrings (Kubo 2019). Lower
+  // back only from a loaded bilateral squat; split squats, hack squats and the leg press
+  // barely load the spine.
+  else if(/squat|leg press|hack/.test(n)) { P("quads","glutes"); S("adductors");
+    if(/squat/.test(n) && !/split|bulgarian|hack|goblet/.test(n)) S("lowerback"); }
+  else if(/lunge|step.?up/.test(n)) { P("quads","glutes"); S("adductors"); }
   if(/leg extension/.test(n)) P("quads");
-  if(/(lying|seated|leg)\s*curl/.test(n) || /hamstring/.test(n)) { P("hamstrings"); S("calves"); }
+  if(/(lying|seated|leg)\s*curl/.test(n) || /hamstring/.test(n)) P("hamstrings");
   if(/abduction|glute|hip thrust/.test(n)) P("glutes");
   if(/adduction|adductor/.test(n)) P("adductors");
 
   // Hyrox stations. None of these were recognised originally, so a session built
   // around them read as a hole in the heatmap - see the weekly coverage card.
   if(/sled/.test(n)) { P("quads","glutes"); S("hamstrings","calves","traps","lats"); }
-  if(/farmer|carry|suitcase/.test(n)) { P("forearms","traps"); S("abs","delts"); }
-  if(/wall ball/.test(n)) { P("quads","glutes","delts"); S("abs"); }
+  if(/farmer|carry|suitcase/.test(n)) { P("forearms","traps"); S("abs","sidedelts"); }
+  if(/wall ball/.test(n)) { P("quads","glutes","frontdelts"); S("abs"); }
 
   if(/pallof/.test(n)) P("abs");
   else if(/crunch|plank|sit.?up|leg raise|hanging|dead ?bug|russian twist|ab wheel|woodchop/.test(n)) P("abs");
 
-  if(/bench|chest press|incline (db |dumbbell )?press|crossover|fly|pec deck|push.?up/.test(n)
-     || (/chest/.test(n) && !/row/.test(n))) { P("chest"); S("triceps","delts"); }
-  else if(/overhead press|shoulder press|ohp|military/.test(n)) { P("delts"); S("triceps"); }
-  else if(/press/.test(n) && !/leg|pallof/.test(n)) { P("chest"); S("triceps","delts"); }
+  // A clean is a hip extension and a shrug; "& press" puts it overhead, not on the chest.
+  if(/\bclean\b/.test(n)) { P("quads","glutes","hamstrings","traps");
+    if(/press|jerk/.test(n)) { P("frontdelts"); S("triceps","sidedelts"); } }
+  else if(/reverse fly/.test(n)) {}
+  else if(/bench|chest press|incline (db |dumbbell )?press|crossover|fly|pec deck|push.?up/.test(n)
+     || (/chest/.test(n) && !/row/.test(n))) { P("chest"); S("triceps","frontdelts"); }
+  else if(/overhead press|shoulder press|ohp|military|arnold/.test(n)) { P("frontdelts"); S("triceps","sidedelts"); }
+  else if(/press/.test(n) && !/leg|pallof/.test(n)) { P("chest"); S("triceps","frontdelts"); }
 
-  if(/lateral raise|side raise/.test(n)) P("delts");
-  if(/rear delt|face pull|reverse fly/.test(n)) { P("delts"); S("traps"); }
-  if(/tricep|pushdown|skull|overhead ext|dip\b/.test(n)) P("triceps");
+  if(/lateral raise|side raise|\blu raise/.test(n)) P("sidedelts");
+  if(/rear delt|face pull|reverse fly/.test(n)) { P("reardelts"); S("traps"); }
+  if(/\bdips?\b/.test(n)) { P("triceps","chest"); S("frontdelts"); }
+  else if(/tricep|pushdown|skull|overhead ext/.test(n)) P("triceps");
   if(/pulldown|pull.?up|chin.?up/.test(n)) { P("lats"); S("biceps","traps"); }
-  if(/row/.test(n)) { P("lats","traps"); S("biceps","delts"); }
+  if(/row/.test(n)) { P("lats","traps"); S("biceps","reardelts"); }
   if(/hammer/.test(n)) P("biceps","forearms");
   else if(/curl/.test(n) && !/leg|lying|seated/.test(n)) { P("biceps"); S("forearms"); }
   if(/forearm|wrist/.test(n)) P("forearms");
@@ -7369,22 +7387,25 @@ function classifyMuscles(name){
 // Muscle -> how much of a set it earns, from the exercise NAME plus any "Works"
 // tags on it.
 //
-// The rules decide the weighting, and the tags only add muscles the rules missed.
-// That order matters and was got wrong once: nearly every exercise in the program
-// already carries a tag written when the session was built ("Bench press" is tagged
-// chest, "Seated cable row" lats/traps/biceps), so letting a tag win meant the new
-// primary/secondary weighting never ran on a single real exercise - triceps still
-// read 6 sets a week off their isolation work alone. The tags are also prime-mover
-// lists, which is exactly what they should be; they are not claims about dose.
-// Adding an untagged muscle at full weight keeps the picker doing its stated job -
-// rescuing an exercise whose name the rules can't read.
+// When the rules recognise the name they decide everything, and the tags are not read.
+// Letting a tag win was got wrong once: nearly every exercise already carries a tag
+// written when the session was built, so the primary/secondary weighting never ran.
+// Letting a tag ADD a muscle the rules left out was the next mistake (Daniel, 23 Nov
+// 2026): "Dead hang" is tagged lats, so a grip hold scored two full lat sets. The tags
+// now do only their stated job - rescuing an exercise whose name the rules can't read,
+// each tagged muscle a full set. Cardio counts nothing, tagged or not.
 function muscleWeights(name, tagged){
   var w={}, r=muscleRoles(name||"");
-  r.p.forEach(function(k){ w[k]=1; });
-  r.s.forEach(function(k){ if(!(k in w)) w[k]=0.5; });
-  (tagged||[]).forEach(function(k){ if(!(k in w)) w[k]=1; });
+  if(r.cardio) return w;
+  if(r.p.length || r.s.length){
+    r.p.forEach(function(k){ w[k]=1; });
+    r.s.forEach(function(k){ if(!(k in w)) w[k]=0.5; });
+  } else (tagged||[]).forEach(function(k){ w[muscleKey(k)]=1; });
   return w;
 }
+// Tags saved before the delts were split say "delts". Read them as front delts, the
+// head most unrecognised shoulder exercises (presses) train.
+function muscleKey(k){ return k==="delts" ? "frontdelts" : k; }
 // Set counts can now be fractional. Show them as "10.5" but "10", never "10.0".
 function fmtSets(v){ return (Math.round(v*10)/10).toString(); }
 // Muscle set-counts (warm-ups excluded) from a list of entries, and from logs.
@@ -7398,10 +7419,13 @@ function muscleSetsFromEntries(entries){
   return m;
 }
 // Shade an SVG muscle map (by data-muscle) from a set-count map; returns the max.
+// A path can name several muscles ("frontdelts sidedelts"): it shows their sum.
 function paintMuscleMap(svgEl, museSets){
-  var maxc=0; for(var k in museSets){ if(museSets[k]>maxc) maxc=museSets[k]; }
-  svgEl.querySelectorAll(".musc").forEach(function(el){
-    var mk=el.getAttribute("data-muscle"); var cval=museSets[mk]||0;
+  var els=svgEl.querySelectorAll(".musc"), sum=function(el){
+    return el.getAttribute("data-muscle").split(" ").reduce(function(a,mk){ return a+(museSets[mk]||0); }, 0); };
+  var maxc=0; els.forEach(function(el){ maxc=Math.max(maxc, sum(el)); });
+  els.forEach(function(el){
+    var cval=sum(el);
     el.style.fill = muscleColor(cval,maxc);
     var ti=el.querySelector("title");
     if(ti){ var base=ti.textContent.replace(/:.*$/,""); ti.textContent=base+": "+cval+" set"+(cval===1?"":"s"); }

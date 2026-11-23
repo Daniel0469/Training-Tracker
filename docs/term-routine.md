@@ -9,14 +9,16 @@ timetable starts. This is the decision record; `methods/split-method.md` is the 
 > | Day | Session |
 > |---|---|
 > | Mon | Lower A, 09:00 (90 min) |
-> | Tue | Upper A, 12:10 (90 min) · the week's run, 19:15, a separate trip |
+> | Tue | Upper A, 12:10 (90 min), then 30 min Zone 2 |
 > | Wed | Mobility, evening at home |
 > | Thu | Lower B, 18:35 (75 min, lecture day) |
-> | Fri | Upper B, 18:35 (75 min, lecture day) |
+> | Fri | Upper B, 18:35 (75 min, lecture day), then 30 min Zone 2 |
 >
-> - **One run a week each**, Tuesday evening, and the coach picks all of it each week. The Monday,
->   Thursday and optional weekend runs were removed.
-> - **Shorter lifts:** sled, dead bug, ski erg / row and sandbag lunges cut. Lateral raise 3x10-15.
+> - **Cardio since 9 Nov 2026 (Version 1 routine):** two fixed 30-min Zone 2 sessions each,
+>   `Zone 2: <name>`, straight after the Tuesday and Friday lifts (Daniel runs, Cerys walks or runs).
+>   The coach no longer writes a run. This replaced the 2 Nov "one run a week, picked by the coach".
+> - **Shorter lifts:** sled, dead bug, ski erg / row and sandbag lunges cut. Lateral raise is
+>   2x10-15 in the program (23 Nov 2026), not the 3 sets proposed on 2 Nov.
 > - Legs (Mon, Thu) and upper (Tue, Fri) are each 3-4 days apart, and the run is never on a leg day.
 > - The sections below are the earlier record. Read them for the reasoning, not the current week.
 
