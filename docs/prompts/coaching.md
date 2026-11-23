@@ -361,6 +361,16 @@ automatically, because it reads this file each time.
   back 10, hamstrings 10, triceps 9.5, quads 8.5, chest 8, biceps 8, forearms 7, front delts 7,
   adductors 4.5, rear delts 4.5, abs 4, side delts 3.5, calves 2. Calves and side delts are the
   gaps; Daniel asked for suggestions, not a program change.
+- **Weekly set targets (23 Nov 2026, a report, not a program change).** Fractional sets, read
+  against the Pelland tiers in `methods/split-method.md`: calves 6-8 and side delts 6-10 (both
+  under the 4-set minimum now), chest and quads 10-14 for the bench and squat goals, rear delts
+  and adductors 6-8, abs 4-8, hamstrings, triceps, lats and biceps 8-12, front delts and forearms
+  4-8, traps and lower back 6-10. Glutes at 18 are over the 10-14 target. Per set (about 3.2 min
+  for the pair), hip thrust adds the least: squats grow the glutes as much and add quads and
+  adductors (Plotkin 2023). Its 3 sets would pay for 2 lateral raise sets and 1 calf raise set
+  at no extra time. Calf raises done as stretched half reps grow about twice as much per set
+  (Kassiano 2023). An overhead triceps extension grows about 40% more than a pushdown in the
+  same time (Maeo 2023). Raise these when the balance next comes up. Don't apply them unasked.
 - **Single-leg seated leg curl: lighter, not swapped.** Both reported it feels wrong (Daniel
   "feels weird" at 25.5kg, stopped after 8, 29 Sep; Cerys "didn't feel right", logged no reps,
   29 Sep). Daniel's call on 6 Oct was *"maybe try stick to a lighter weight and see how it goes"* -
