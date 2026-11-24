@@ -194,15 +194,17 @@ and cm only.
 
 - `sex` is `"female"` or `"male"`. `bodyFatSource` is `"scale"`, `"dxa"` or `"guess"`. The three
   body-fat fields are optional.
-- `goal.mode` is `"lose"`, `"maingain"`, `"maintain"` or `"off"`. `ratePct` is the % of bodyweight
-  a week, negative for a loss. `goalKg` and `goalDate` are for display. Until `pausedUntil` the hub
-  treats the person as `"maintain"`.
+- `goal.mode` is `"lose"`, `"gain"`, `"maingain"`, `"maintain"` or `"off"`. `ratePct` is the % of
+  bodyweight a week, negative for a loss. With `goalKg` and `goalDate` both set, the hub works out a
+  lose or gain rate from them instead, inside the caps. Until `pausedUntil` the hub treats the person
+  as `"maintain"`.
 
 **`dayMarks[person][date]`** - written by the hub, newest `updatedAt` wins per date:
 
     { "done": true, "period": false, "updatedAt": 1791875529000 }
 
-- Only a day with `done: true` counts toward the target. A day not marked done is left out.
+- A day with `done: true` counts toward the target. A day not marked done counts only when it has
+  food and most days of its week (4) are marked done.
 - `period` is an optional flag. A week with one is treated with more caution.
 - Undo writes `false`. A date key is never deleted.
 
@@ -216,7 +218,8 @@ The hub adds:
 - `expenditure`, `trendKg`, `reason` - the estimate, the smoothed weight and one or two plain
   sentences saying why.
 - `history` - the past entries, oldest first, each
-  `{weekOf, kcal, protein, source, mode, ratePct, status, expenditure, trendKg, reason, at}`.
+  `{weekOf, kcal, protein, source, mode, ratePct, status, expenditure, trendKg, trendRatePct,
+  learned, reason, at}`. `learned` is true when that week had a weight trend to read.
 
 **Any writer of `nutritionTargets[person]` keeps the fields it does not set.** A gear-menu edit
 spreads the old object, sets `source: "manual"` and this Monday's `weekOf`, and appends to
