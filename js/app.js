@@ -7070,6 +7070,7 @@ function renderHelp(){
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed. While it runs, the small line above <b>Logging</b> shows the workout time, so you can see it however far down you\'ve scrolled.')
      +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. If the exercise has a suggested rest (shown next to its target, e.g. "rest 2:30"), the bar reads <b>1:12 / 2:30</b> and turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is a glance between sets, not a record, so it never reaches your history, the other phone or your coach. It stays on this phone though: if the phone closes the app while you are away, the rest is still counting from when you ticked the set when you come back.')
      +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number.')
+     +p('The <b>screen stays on</b> while the Session tab is showing, so the phone does not lock between sets. On iPhone this needs iOS 18.4 or later.')
      +p('An exercise <b>recorded by time</b> (a plank, a dead hang) has a <b>Kg</b> box and a <b>Time (s)</b> box, with a <b>stopwatch</b> beside the time. Tap it to start and again to stop. The <b>grace</b> set on the exercise is a lead-in: it shows as a minus count first and is not part of the hold. It counts up, or down from the hold target and on past 0, whichever the exercise is set to. If the exercise says so, stopping fills in the time and ticks the set. Stopping never starts the rest timer. Each person has their own stopwatch, which and keeps running while the other logs. Timed holds add nothing to volume. A hold <b>PR</b> is your longest hold at the same weight, and no weight counts as 0 kg.')
      +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
      +p('Tap a <b>difficulty</b> 1-10 and add any <b>notes</b>. Hit <b>Save session</b>: you get total volume (weight x reps sets only, so runs, ergs and timed holds add nothing, with a fun comparison), any <b>PRs</b>, and a <b>muscle map</b> of what you worked. Guidance for next time comes from your <b>🧠 Coach</b> notes rather than an auto-generated plan.'));
@@ -7919,6 +7920,7 @@ function renderView(){
   // rest bar belongs to whoever is selected now, not whoever was a moment ago.
   updateRestUI();
   updateSetsBar();
+  keepAwake();
 }
 // Work sets ticked against work sets on the form, for whoever is selected.
 // Warm-up rows count in neither.
@@ -7931,6 +7933,22 @@ function updateSetsBar(){
   document.getElementById("setsText").textContent=done+" / "+rows.length+" sets";
   document.getElementById("setsFill").style.width=(100*done/rows.length)+"%";
 }
+// The screen stays on while the Session tab is showing (Daniel, 2 Nov), where
+// the phone allows it. An iPhone home-screen app needs iOS 18.4 or later. The
+// phone drops the lock whenever the app is hidden, so it is asked for again on
+// the way back.
+let wakeLock=null, wakeAsk=null;
+function keepAwake(){
+  const want=()=>activeTab==="log" && document.visibilityState==="visible";
+  if(!want()){ if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; } return; }
+  if(wakeLock || wakeAsk || !("wakeLock" in navigator)) return;
+  wakeAsk=navigator.wakeLock.request("screen").then(l=>{
+    wakeLock=l;
+    l.addEventListener("release", ()=>{ if(wakeLock===l) wakeLock=null; });
+    if(!want()) keepAwake();
+  }).catch(()=>{}).finally(()=>{ wakeAsk=null; });
+}
+document.addEventListener("visibilitychange", keepAwake);
 // Ticks, warm-up taps, the stopwatch and +/- set all bubble up through #view.
 ["change","click"].forEach(t=>document.getElementById("view").addEventListener(t, updateSetsBar));
 
