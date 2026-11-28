@@ -522,7 +522,7 @@
 
   /* ---- Edit sets dialog ---- */
   #editLogDlg{max-width:560px}
-  #editLogDlg .dlg-body{max-height:88vh;overflow:auto}
+  #editLogDlg .dlg-body{max-height:88vh;max-height:88dvh;overflow:auto}
   .ed-ex{background:var(--card-2);border-radius:14px;padding:10px 12px;margin-bottom:10px}
   .ed-name{font-weight:700;margin-bottom:4px}
   .ed-discard{background:var(--card-2);border:1px solid var(--bad);border-radius:14px;padding:10px 12px;margin-top:12px}
@@ -797,7 +797,7 @@
   .pgsticky{position:sticky;bottom:calc(73px + env(safe-area-inset-bottom));margin:12px -20px 0;padding:10px 20px 12px;background:var(--bg);border-top:1px solid var(--line);z-index:25}
   .pgstaged .pgsub{display:block;margin-bottom:8px}
   /* The sheet: one dialog pinned to the foot of the screen. */
-  dialog.pgsheet{margin:auto auto 0;width:100%;max-width:780px;max-height:92vh;border-radius:22px 22px 0 0;border-width:1px 0 0;box-shadow:none;overflow:hidden}
+  dialog.pgsheet{margin:auto auto 0;width:100%;max-width:780px;max-height:92vh;max-height:92dvh;border-radius:22px 22px 0 0;border-width:1px 0 0;box-shadow:none;overflow:hidden}
   dialog.pgsheet[open]{display:flex;flex-direction:column}
   dialog.pgsheet::backdrop{background:rgba(20,30,55,.45)}
   :root[data-theme="dark"] dialog.pgsheet::backdrop{background:rgba(0,0,0,.6)}
@@ -856,7 +856,7 @@
   .pglrow{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:0 4px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--ink);font:700 15px var(--font);text-align:left;cursor:pointer}
   .pglrow svg.ico{color:var(--muted)}
   .pglrow.dng,.pglrow.dng svg.ico{color:var(--bad)}
-  dialog.pgsheet.pgtall{height:92vh}
+  dialog.pgsheet.pgtall{height:92vh;height:92dvh}
   .pgwait{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:56px;padding:10px 14px;margin-bottom:12px;border:1.5px solid var(--brand);background:var(--brand-soft);color:var(--ink);border-radius:16px;font:inherit;cursor:pointer}
   .pgwait b{display:block;font-size:14px}
   .pgwait small{display:block;font-size:12px;color:var(--muted);font-weight:600}
