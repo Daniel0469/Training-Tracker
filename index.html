@@ -39,7 +39,7 @@
 <div class="toast" id="toast"></div>
 <!-- Rest stopwatch. Lives outside #view so it survives a re-render, and above
      the nav bar so it stays readable wherever the log form is scrolled to. -->
-<div class="sets-bar" id="setsBar" hidden><span class="track"><i id="setsFill"></i></span><span id="setsText"></span></div>
+<div class="sets-bar" id="setsBar" hidden><div class="sb-row"><span class="track"><i id="setsFill"></i></span><span id="setsText"></span></div><div class="sb-row" id="timeRow" hidden><span class="track"><i id="timeFill"></i></span><span id="timeText"></span></div></div>
 <div class="rest-bar" id="restBar" hidden><svg class="rest-ring" aria-hidden="true"><rect class="track"/><rect class="fill" pathLength="100"/></svg><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M10 2.5h4"/></svg>Rest <b id="restTime">0:00</b><i id="restTarget"></i><span>tap to dismiss</span></div>
 
 <dialog id="settingsDlg"><div class="dlg-body">

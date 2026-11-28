@@ -82,7 +82,7 @@ function makePhone(server, state, opts) {
   const fns = FUNCTIONS.map(grab).join("\n");
   const block = familyBlock().replace("const SB_PAGE=1000", "const SB_PAGE=" + (opts.page || 1000));
   const body = "let progExIndex={}, bwIndex={}, personIndex={}, progIndex={};\n"
-    + "let formDrafts={}, sessionTimers={}, formExtras={}, activeTab='home', curSession='a', restStarts={}, holdStarts={};\n"
+    + "let formDrafts={}, sessionTimers={}, formExtras={}, activeTab='home', curSession='a', restStarts={}, exTicks={}, holdStarts={};\n"
     + "const draftKey=()=>state.people[state.activePerson]+'|'+curSession;\n"
     + "function captureDraft(){} function save(){ env.counts.saves++; } function renderPeople(){} function renderEdit(){ env.counts.edits = (env.counts.edits || 0) + 1; } function renderView(){ env.counts.renders++; }\n"
     + "function toast(m){ env.counts.toasts.push(m); } function autoSync(){} const ico=()=>'';\n"

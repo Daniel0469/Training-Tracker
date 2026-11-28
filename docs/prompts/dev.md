@@ -69,6 +69,9 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 - **Session screen extras** (27 Nov):
   - The screen wake lock is held while the Session tab shows (`keepAwake`).
   - An exercise card with every work set ticked gets `.ex-done`.
+  - The sets bar has a second row, workout time against the average `durationSec` of the
+    person's last three logs of that session (`updateTimeBar`). Each log entry saves `secs`,
+    first tick to last, from the device-only `exTicks` kept with the drafts.
 - **Machine settings are per person** (13 Oct): `state.machineSettings[person][exercise name] =
   {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
   exercise has no `notes` any more, and the coach MCP cannot write settings. An install without

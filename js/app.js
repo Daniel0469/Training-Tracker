@@ -43,6 +43,8 @@ let sessionTimers = {};
 // Cleared when the session is saved; the save summary offers to promote one.
 let formExtras = {};
 let restStarts = {};
+// When each exercise's first and last set were ticked, per person+session: {name: [first, last]} in ms.
+let exTicks = {};
 let timerInterval = null;
 
 function load(){
@@ -338,17 +340,17 @@ function loadDrafts(){
   try{
     const d=JSON.parse(localStorage.getItem(DRAFT_KEY));
     if(d && d.savedAt && (Date.now()-d.savedAt) < DRAFT_TTL_MS)
-      return {drafts:d.drafts||{}, timers:d.timers||{}, extras:d.extras||{}, rests:d.rests||{}};
+      return {drafts:d.drafts||{}, timers:d.timers||{}, extras:d.extras||{}, rests:d.rests||{}, ticks:d.ticks||{}};
   }catch(e){}
-  return {drafts:{}, timers:{}, extras:{}, rests:{}};
+  return {drafts:{}, timers:{}, extras:{}, rests:{}, ticks:{}};
 }
 function saveDrafts(){
   sbDraftsSaved();
   try{
-    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length && !Object.keys(restStarts).length){
+    if(!Object.keys(formDrafts).length && !Object.keys(sessionTimers).length && !Object.keys(formExtras).length && !Object.keys(restStarts).length && !Object.keys(exTicks).length){
       localStorage.removeItem(DRAFT_KEY); return;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers, extras:formExtras, rests:restStarts}));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({savedAt:Date.now(), drafts:formDrafts, timers:sessionTimers, extras:formExtras, rests:restStarts, ticks:exTicks}));
   }catch(e){}
 }
 // Restored here rather than where they're declared: DRAFT_KEY isn't initialised
@@ -358,6 +360,7 @@ formDrafts = restoredDrafts.drafts;
 sessionTimers = restoredDrafts.timers;
 formExtras = restoredDrafts.extras;
 restStarts = restoredDrafts.rests;
+exTicks = restoredDrafts.ticks;
 
 function toast(msg, ms){
   const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
@@ -1412,6 +1415,10 @@ const BIG_LIFT=/squat|deadlift|bench|press|row|pull-?up|chin-?up/i, NOT_BIG_LIFT
 function restFor(ex){
   return +ex.restSec || (BIG_LIFT.test(ex.name) && !NOT_BIG_LIFT.test(ex.name) ? BIG_LIFT_REST_SEC : OTHER_REST_SEC);
 }
+function noteTick(name){
+  const m=exTicks[draftKey()]||(exTicks[draftKey()]={}), t=Date.now();
+  m[name]=m[name] ? [m[name][0], t] : [t, t];
+}
 function startRest(targetSec){ restStarts[draftKey()] = {t:Date.now(), target:+targetSec||0, buzzed:false}; saveDrafts(); updateRestUI(); }
 function stopRest(){ delete restStarts[draftKey()]; saveDrafts(); updateRestUI(); }
 // Called from renderView, so every tab switch and every person switch lands the
@@ -1508,6 +1515,7 @@ function updateTimerUI(){
   const t=getTimer();
   el.textContent=fmtDuration(timerElapsed(t));
   el.classList.toggle("running", t.running);
+  updateTimeBar();
   const btn=document.getElementById("timerToggle");
   if(btn) btn.textContent = t.running ? "Pause" : (t.elapsedSec>0 ? "Resume" : "Start");
 }
@@ -2082,6 +2090,7 @@ function wireSetRow(tr, ex, best){
       updateSetMedal(tr, ex, best);
       // Any tick restarts it, on any exercise, so it always reads "since the
       // last set you finished" rather than since the first one.
+      noteTick(ex.name);
       startRest(restFor(ex));
     } else {
       updateSetMedal(tr, ex, best);
@@ -2236,6 +2245,10 @@ function readEntryFromCard(card, ex){
   // actually been done against what was planned. Older entries carry none,
   // so the bar only counts sessions saved with them.
   if(done.length) en.done=done;
+  // Seconds from the first set ticked to the last (Daniel, 2 Nov).
+  const tk=(exTicks[draftKey()]||{})[name];
+  const secs=tk ? Math.round((tk[1]-tk[0])/1000) : 0;
+  if(secs>0) en.secs=secs;
   if(rpeSel) en.rpe=rpeSel.dataset.d;
   // Just a tick, for the coach to read - it does not split the trend or the
   // PR, because the load is the same either way.
@@ -2326,6 +2339,7 @@ function clearDraftState(){
   delete sessionTimers[key];
   delete formExtras[key];
   delete restStarts[key];
+  delete exTicks[key];
   Object.keys(holdStarts).forEach(k=>{ if(k.indexOf(key+"|")===0) delete holdStarts[k]; });
   saveDrafts();
 }
@@ -6953,7 +6967,7 @@ function sbFormOpen(key){ return activeTab==="log" && draftKey()===key; }
 function sbTakeDraft(row){
   const key=row.person+"|"+row.session_key, body=row.body||{};
   if(row.deleted_at!=null || !body.draft){
-    delete formDrafts[key]; delete formExtras[key]; delete restStarts[key]; delete sbDraftHash[key];
+    delete formDrafts[key]; delete formExtras[key]; delete restStarts[key]; delete exTicks[key]; delete sbDraftHash[key];
   } else {
     formDrafts[key]=body.draft;
     if((body.extras||[]).length) formExtras[key]=body.extras; else delete formExtras[key];
@@ -7083,7 +7097,7 @@ function renderHelp(){
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed. While it runs, the small line above <b>Logging</b> shows the workout time, so you can see it however far down you\'ve scrolled.')
      +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts towards the exercise\'s rest: the one set on it in Program (shown next to its target, e.g. "rest 2:30"), or else <b>3:00</b> for a big lift (squat, deadlift, bench, presses, rows, pull-ups) and <b>1:30</b> for anything else. The bar reads <b>1:12 / 2:30</b>, a <b>border fills round it</b> as the rest goes on, and it turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is a glance between sets, not a record, so it never reaches your history, the other phone or your coach. It stays on this phone though: if the phone closes the app while you are away, the rest is still counting from when you ticked the set when you come back.')
-     +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number. An exercise with every work set ticked gets a <b>border in your colour</b>.')
+     +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number. An exercise with every work set ticked gets a <b>border in your colour</b>. Once you have timed this session before, a second bar under it shows the <b>workout time</b> against how long the session usually takes you (the average of your last three), and turns gold if you go over. Each exercise also saves how long it took, from its first tick to its last.')
      +p('The <b>screen stays on</b> while the Session tab is showing, so the phone does not lock between sets. On iPhone this needs iOS 18.4 or later.')
      +p('An exercise <b>recorded by time</b> (a plank, a dead hang) has a <b>Kg</b> box and a <b>Time (s)</b> box, with a <b>stopwatch</b> beside the time. Tap it to start and again to stop. The <b>grace</b> set on the exercise is a lead-in: it shows as a minus count first and is not part of the hold. It counts up, or down from the hold target and on past 0, whichever the exercise is set to. If the exercise says so, stopping fills in the time and ticks the set. Stopping never starts the rest timer. Each person has their own stopwatch, which and keeps running while the other logs. Timed holds add nothing to volume. A hold <b>PR</b> is your longest hold at the same weight, and no weight counts as 0 kg.')
      +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
@@ -7952,6 +7966,23 @@ function updateSetsBar(){
     const own=Array.from(card.querySelectorAll("tbody tr")).filter(work);
     card.classList.toggle("ex-done", own.length>0 && own.every(tr=>tr.classList.contains("done")));
   });
+  updateTimeBar();
+}
+// Time so far against how long this session usually takes this person: the
+// average of their last three timed logs of it (Daniel, 2 Nov). Hidden until
+// there is a past one to compare with.
+const TIME_BAR_LOGS=3;
+function updateTimeBar(){
+  const row=document.getElementById("timeRow"); if(!row) return;
+  const past=activeTab==="log" ? timedLogsFor(state.people[state.activePerson], curSession).slice(-TIME_BAR_LOGS) : [];
+  row.hidden=!past.length;
+  document.getElementById("setsBar").classList.toggle("two", !!past.length);
+  if(!past.length) return;
+  const usual=past.reduce((a,l)=>a+l.durationSec,0)/past.length, spent=timerElapsed(getTimer());
+  document.getElementById("timeText").textContent=fmtDuration(spent)+" / ~"+Math.round(usual/60)+" min";
+  const fill=document.getElementById("timeFill");
+  fill.style.width=Math.min(100, 100*spent/usual)+"%";
+  fill.classList.toggle("over", spent>usual);
 }
 // The screen stays on while the Session tab is showing (Daniel, 2 Nov), where
 // the phone allows it. An iPhone home-screen app needs iOS 18.4 or later. The
