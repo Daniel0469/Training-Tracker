@@ -66,6 +66,7 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
   header kicker shows the workout time on Session. The Smith tick covers any barbell lift.
 - **Session screen extras** (27 Nov):
   - The screen wake lock is held while the Session tab shows (`keepAwake`).
+  - An exercise card with every work set ticked gets `.ex-done`.
 - **Machine settings are per person** (13 Oct): `state.machineSettings[person][exercise name] =
   {text, updatedAt}`, read/written via `msGet`/`msSet`, merged per entry (newer wins). The program
   exercise has no `notes` any more, and the coach MCP cannot write settings. An install without

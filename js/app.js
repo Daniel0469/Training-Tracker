@@ -7069,7 +7069,7 @@ function renderHelp(){
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed. While it runs, the small line above <b>Logging</b> shows the workout time, so you can see it however far down you\'ve scrolled.')
      +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. If the exercise has a suggested rest (shown next to its target, e.g. "rest 2:30"), the bar reads <b>1:12 / 2:30</b> and turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is a glance between sets, not a record, so it never reaches your history, the other phone or your coach. It stays on this phone though: if the phone closes the app while you are away, the rest is still counting from when you ticked the set when you come back.')
-     +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number.')
+     +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number. An exercise with every work set ticked gets a <b>border in your colour</b>.')
      +p('The <b>screen stays on</b> while the Session tab is showing, so the phone does not lock between sets. On iPhone this needs iOS 18.4 or later.')
      +p('An exercise <b>recorded by time</b> (a plank, a dead hang) has a <b>Kg</b> box and a <b>Time (s)</b> box, with a <b>stopwatch</b> beside the time. Tap it to start and again to stop. The <b>grace</b> set on the exercise is a lead-in: it shows as a minus count first and is not part of the hold. It counts up, or down from the hold target and on past 0, whichever the exercise is set to. If the exercise says so, stopping fills in the time and ticks the set. Stopping never starts the rest timer. Each person has their own stopwatch, which and keeps running while the other logs. Timed holds add nothing to volume. A hold <b>PR</b> is your longest hold at the same weight, and no weight counts as 0 kg.')
      +p('<b>You each get your own.</b> If you\'re both training off one phone, both rests run at the same time and the bar shows whichever of you is selected at the top - swapping to your partner between sets never disturbs yours, and it\'s still counting correctly when you swap back. Same for the workout timer, your entries and anything you added for today: everything on this screen belongs to the person whose name is lit.')
@@ -7923,15 +7923,21 @@ function renderView(){
   keepAwake();
 }
 // Work sets ticked against work sets on the form, for whoever is selected.
-// Warm-up rows count in neither.
+// Warm-up rows count in neither. A card whose work sets are all ticked gets a
+// border in the person's colour (Daniel, 19 Oct).
 function updateSetsBar(){
   const bar=document.getElementById("setsBar"); if(!bar) return;
-  const rows=activeTab==="log" ? Array.from(document.querySelectorAll("#exForm tbody tr")).filter(tr=>!tr.classList.contains("wset")) : [];
+  const work=tr=>!tr.classList.contains("wset");
+  const rows=activeTab==="log" ? Array.from(document.querySelectorAll("#exForm tbody tr")).filter(work) : [];
   bar.hidden=!rows.length;
   if(!rows.length) return;
   const done=rows.filter(tr=>tr.classList.contains("done")).length;
   document.getElementById("setsText").textContent=done+" / "+rows.length+" sets";
   document.getElementById("setsFill").style.width=(100*done/rows.length)+"%";
+  document.querySelectorAll("#exForm .ex").forEach(card=>{
+    const own=Array.from(card.querySelectorAll("tbody tr")).filter(work);
+    card.classList.toggle("ex-done", own.length>0 && own.every(tr=>tr.classList.contains("done")));
+  });
 }
 // The screen stays on while the Session tab is showing (Daniel, 2 Nov), where
 // the phone allows it. An iPhone home-screen app needs iOS 18.4 or later. The
