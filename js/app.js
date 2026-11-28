@@ -1405,6 +1405,13 @@ function toggleTimer(){ const t=sessionTimers[draftKey()]; if(t&&t.running) paus
 // rest in seconds, or 0}. The bar keeps counting past the target - it changes
 // colour rather than stopping.
 let restInterval = null;
+// The rest an exercise asks for: its own, else 3:00 for a big lift and 1:30 for
+// anything else (Daniel, 27 Nov). Without one the bar had nothing to fill to.
+const BIG_LIFT_REST_SEC=180, OTHER_REST_SEC=90, REST_RING_INSET=5;
+const BIG_LIFT=/squat|deadlift|bench|press|row|pull-?up|chin-?up/i, NOT_BIG_LIFT=/calf|raise/i;
+function restFor(ex){
+  return +ex.restSec || (BIG_LIFT.test(ex.name) && !NOT_BIG_LIFT.test(ex.name) ? BIG_LIFT_REST_SEC : OTHER_REST_SEC);
+}
 function startRest(targetSec){ restStarts[draftKey()] = {t:Date.now(), target:+targetSec||0, buzzed:false}; saveDrafts(); updateRestUI(); }
 function stopRest(){ delete restStarts[draftKey()]; saveDrafts(); updateRestUI(); }
 // Called from renderView, so every tab switch and every person switch lands the
@@ -1423,6 +1430,13 @@ function updateRestUI(){
   document.getElementById("restTarget").textContent = r.target ? " / "+fmtMmSs(r.target) : "";
   const done = !!r.target && sec >= r.target;
   bar.classList.toggle("over", done);
+  // The border fills round the pill as the rest goes on, full at the target (Daniel, 16 Nov).
+  // Drawn a little inside the edge, so it reads against the pill on both sides.
+  const w=Math.max(0, bar.offsetWidth-2*REST_RING_INSET), h=Math.max(0, bar.offsetHeight-2*REST_RING_INSET);
+  bar.querySelectorAll(".rest-ring rect").forEach(rc=>{
+    [["x",REST_RING_INSET],["y",REST_RING_INSET],["width",w],["height",h],["rx",h/2],["ry",h/2]].forEach(([k,v])=>rc.setAttribute(k, v));
+  });
+  bar.querySelector(".rest-ring .fill").style.strokeDasharray=(r.target ? Math.min(100, 100*sec/r.target) : 0)+" 100";
   // One short buzz as the time comes up, where the phone allows it (Android does;
   // iPhone web apps can't vibrate).
   if(done && !r.buzzed){ r.buzzed = true; try{ if(navigator.vibrate) navigator.vibrate(180); }catch(e){} }
@@ -2068,7 +2082,7 @@ function wireSetRow(tr, ex, best){
       updateSetMedal(tr, ex, best);
       // Any tick restarts it, on any exercise, so it always reads "since the
       // last set you finished" rather than since the first one.
-      startRest(ex.restSec);
+      startRest(restFor(ex));
     } else {
       updateSetMedal(tr, ex, best);
       stopRest();  // unticking is an undo, so the rest it started goes too
@@ -7068,7 +7082,7 @@ function renderHelp(){
 
   h+=card('3 &middot; Time it, rate it, save',
       p('The <b>timer</b> at the top starts when you begin entering (or tap Start), and is saved with the session; Pause/Reset as needed. While it runs, the small line above <b>Logging</b> shows the workout time, so you can see it however far down you\'ve scrolled.')
-     +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. If the exercise has a suggested rest (shown next to its target, e.g. "rest 2:30"), the bar reads <b>1:12 / 2:30</b> and turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is a glance between sets, not a record, so it never reaches your history, the other phone or your coach. It stays on this phone though: if the phone closes the app while you are away, the rest is still counting from when you ticked the set when you come back.')
+     +p('<b>Rest</b> is a second, separate stopwatch: tick a set\'s <b>&#10003;</b> and a bar in your colour appears at the foot of the screen, counting how long you\'ve been resting. Any tick restarts it, so it always reads <i>since the last set you finished</i>, wherever you\'ve scrolled to. Unticking a set or tapping it dismisses it. It counts towards the exercise\'s rest: the one set on it in Program (shown next to its target, e.g. "rest 2:30"), or else <b>3:00</b> for a big lift (squat, deadlift, bench, presses, rows, pull-ups) and <b>1:30</b> for anything else. The bar reads <b>1:12 / 2:30</b>, a <b>border fills round it</b> as the rest goes on, and it turns <b>gold</b> when the time is up - with a short buzz on Android - but it keeps counting rather than stopping. It is a glance between sets, not a record, so it never reaches your history, the other phone or your coach. It stays on this phone though: if the phone closes the app while you are away, the rest is still counting from when you ticked the set when you come back.')
      +p('A thin bar just above the tabs counts the <b>sets done</b> by whoever is selected against the sets on the form (<b>9 / 18 sets</b>), filling in as you tick. Warm-up sets count in neither number. An exercise with every work set ticked gets a <b>border in your colour</b>.')
      +p('The <b>screen stays on</b> while the Session tab is showing, so the phone does not lock between sets. On iPhone this needs iOS 18.4 or later.')
      +p('An exercise <b>recorded by time</b> (a plank, a dead hang) has a <b>Kg</b> box and a <b>Time (s)</b> box, with a <b>stopwatch</b> beside the time. Tap it to start and again to stop. The <b>grace</b> set on the exercise is a lead-in: it shows as a minus count first and is not part of the hold. It counts up, or down from the hold target and on past 0, whichever the exercise is set to. If the exercise says so, stopping fills in the time and ticks the set. Stopping never starts the rest timer. Each person has their own stopwatch, which and keeps running while the other logs. Timed holds add nothing to volume. A hold <b>PR</b> is your longest hold at the same weight, and no weight counts as 0 kg.')

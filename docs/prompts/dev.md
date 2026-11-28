@@ -62,8 +62,10 @@ These are in `CLAUDE.md` too, and they are the ones that cost real time when mis
 - **Lift targets are built, not typed** (14 Oct): the setup dialog has Sets, Reps min-max and an
   extra; `joinTarget` makes "3x8-12 each leg" and `splitTarget`/`parseRange` read it back (a
   single count like "2x5" is 5-5). Non-lifts keep a free-text target. `restSec` on an exercise is
-  its suggested rest; the rest bar shows it and turns gold when reached, still counting. The
-  header kicker shows the workout time on Session. The Smith tick covers any barbell lift.
+  its suggested rest; without one `restFor` uses 3:00 for a big lift and 1:30 otherwise (27 Nov).
+  The rest bar shows it, a border fills round the pill towards it, and it turns gold when
+  reached, still counting. The header kicker shows the workout time on Session. The Smith tick
+  covers any barbell lift.
 - **Session screen extras** (27 Nov):
   - The screen wake lock is held while the Session tab shows (`keepAwake`).
   - An exercise card with every work set ticked gets `.ex-done`.
